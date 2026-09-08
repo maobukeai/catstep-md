@@ -139,6 +139,26 @@ detours before a screenshot showed what it actually was. And a hidden
 not the session is fine. Neither is evidence of anything. There is **no**
 confirmation dialog on Submit.
 
+**★ Removing an old package is manual, and the Remove links are ambiguous.**
+Partner Center auto-marks a package only when a *higher version of the same
+architecture* supersedes it. Anything else — a stale 4.6.2 sitting under a
+4.12.0 — just carries a "we recommend deleting this package" note and has to be
+removed by hand. Each package block has its own identical `Remove` link, so
+pair them by y-coordinate against the version labels rather than guessing at
+the order, and remember a coordinate click is viewport-relative: scroll the
+target into view and re-measure first. Clicking Remove only *marks* it; Save
+performs it.
+
+**★ `Cancel certification` has a confirmation (a `Yes` button). `Submit` does
+not.**
+
+**★ Certification is usually too fast to cancel.** Twice on 2026-09-08 an
+attempt to cancel found the submission had already passed — once fully
+published ("Congrats!" and the Start update button back), once already at
+`In Publising` (Microsoft's typo, not ours). **A vanished Submit button is more
+likely to mean it was approved than that you cancelled it.** To change a
+submission's contents, wait for it to publish and open a new one.
+
 **★ Certification can finish in under half an hour.** 4.12.0 x64 went from
 submitted to live in the Store in about 25 minutes, despite the "few hours to
 3 business days" text. If the Submit and Cancel-certification buttons have both
