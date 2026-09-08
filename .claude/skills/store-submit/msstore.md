@@ -64,6 +64,21 @@ Manifest traps:
 
 Each release: bump the third segment of `Version`, keep the fourth at `0`.
 
+**Both architectures.** x64 and arm64 ship as two packages at the same version
+in one submission; nothing else differs.
+
+```bash
+for arch in x64 arm64; do
+  python3 scripts/pack_msix.py --msi /tmp/msix/SoloMD_X.Y.Z_${arch}_en-US.msi \
+          --version X.Y.Z --arch $arch --out /tmp/msix/SoloMD_X.Y.Z_${arch}.msix
+done
+```
+
+`pack_msix.py` reads the COFF machine type out of every `.exe` and refuses to
+build if it disagrees with `--arch` — nothing downstream checks this, and an
+x64 build labelled arm64 would install and then fail to run, on hardware we do
+not have.
+
 ## Submitting
 
 1. Overview → **Start update**. The button is an `he-button` with a *closed*
@@ -108,14 +123,27 @@ Each release: bump the third segment of `Version`, keep the fourth at `0`.
    **Submit for certification**.
 
 **★ Do not believe the page immediately after clicking Submit.** It renders
-optimistically and it lies in both directions — on 2026-09-08 it showed
-"Update in certification" seconds after the click, then a screenshot taken
-right after showed "Update in draft", and a "Sign in required — your session
-has expired" dialog was sitting in the DOM the whole time. **Navigate away and
-back**, then read. The submitted state is: the status reads "In certification",
-the Submit button is gone, a **Cancel certification** button has appeared, and
-the page shows the Submission → Pre-processing → Certification → Publishing
-pipeline.
+optimistically and lies in both directions — on 2026-09-08 one submission
+showed "In certification" seconds after the click and "In draft" in a
+screenshot moments later, and the next one showed "In draft" for a full minute
+after a submit that had in fact succeeded. **Navigate away and back**, then
+read. The submitted state is structural, not textual: the Submit button is
+**gone**, a **Cancel certification** button has **appeared**, and the
+Submission → Pre-processing → Certification → Publishing pipeline is shown.
+
+**★ Two red herrings live in that page's DOM permanently.** A
+`Submit`/`Cancel` pair that is a *feedback survey* ("How satisfied are you with
+your app update experience?"), not a submission confirmation — it cost two
+detours before a screenshot showed what it actually was. And a hidden
+`Sign in required — your session has expired` div, which is present whether or
+not the session is fine. Neither is evidence of anything. There is **no**
+confirmation dialog on Submit.
+
+**★ Certification can finish in under half an hour.** 4.12.0 x64 went from
+submitted to live in the Store in about 25 minutes, despite the "few hours to
+3 business days" text. If the Submit and Cancel-certification buttons have both
+vanished and the page says "Congrats! Your product is now updated", it
+published — that is not a cancelled submission.
 
 **★ The Store listings section sits behind a separate AAD sign-in.** Its link
 renders as `/aad?action=signin&returnPath=...` and navigating to the listing

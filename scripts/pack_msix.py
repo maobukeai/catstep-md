@@ -21,6 +21,7 @@ import base64
 import hashlib
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -69,6 +70,38 @@ def family_hash(publisher: str) -> str:
     bits = "".join(f"{b:08b}" for b in digest) + "0"
     alphabet = "0123456789abcdefghjkmnpqrstvwxyz"
     return "".join(alphabet[int(bits[i:i + 5], 2)] for i in range(0, 65, 5))
+
+
+#: COFF machine types, keyed by the MSIX ProcessorArchitecture they belong to.
+PE_MACHINE = {"x64": 0x8664, "arm64": 0xAA64, "x86": 0x014C}
+
+
+def pe_machine(path: str) -> int:
+    """Read a PE file's COFF machine type: e_lfanew at 0x3C points at the
+    signature, and the machine word follows it."""
+    with open(path, "rb") as fh:
+        fh.seek(0x3C)
+        offset = struct.unpack("<I", fh.read(4))[0]
+        fh.seek(offset)
+        if fh.read(4) != b"PE\0\0":
+            raise ValueError("not a PE image")
+        return struct.unpack("<H", fh.read(2))[0]
+
+
+def check_architecture(payload, arch: str):
+    """The manifest declares an architecture and nothing downstream checks it
+    against the binaries. Shipping an x64 build labelled arm64 would install
+    and then fail to run, on machines we do not have — so it is checked here."""
+    want = PE_MACHINE[arch]
+    for rel, full in payload:
+        if not rel.lower().endswith(".exe"):
+            continue
+        got = pe_machine(full)
+        if got != want:
+            names = {v: k for k, v in PE_MACHINE.items()}
+            sys.exit(f"ERROR: {rel} is {names.get(got, hex(got))} but the package "
+                     f"declares {arch}. Wrong MSI for --arch {arch}.")
+        print(f"    {rel}: {arch} confirmed")
 
 
 def manifest(version: str, arch: str) -> str:
@@ -187,6 +220,7 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         payload = extract_msi(args.msi, tmp)
         print(f"==> {len(payload)} payload file(s) from {os.path.basename(args.msi)}")
+        check_architecture(payload, args.arch)
 
         parts = []
         for rel, full in payload:
