@@ -172,7 +172,11 @@ print("true" if d.get("data",{}).get("result") is True else "false")' ;;
 
   nav)  need_tab || exit 1; post navigate "$(jbody url="${1:?usage: nav <url>}")" >/dev/null; echo "-> $1" ;;
 
-  url)  need_tab || exit 1; post evaluate "$(jbody expression='location.href')" | py 'import json,sys;print(json.load(sys.stdin)["data"]["result"])' ;;
+  url)  need_tab || exit 1; post evaluate "$(jbody expression='location.href')" | py '
+import json,sys
+d=json.load(sys.stdin)
+if "data" not in d: sys.exit("unzoo: " + json.dumps(d)[:200])
+print(d["data"]["result"])' ;;
 
   text) need_tab || exit 1; post get-text "$(jbody)" | py '
 import json,sys
@@ -226,6 +230,41 @@ print(r if isinstance(r,str) else json.dumps(r))' ;;
     post click "$(jbody x="${1:?usage: click <x> <y>}" y="${2:?}")" >/dev/null
     echo "clicked $1,$2" ;;
 
+  # Find a clickable by its visible text and click its centre. Partner Center
+  # and Play both build their controls out of custom elements with closed
+  # shadow roots — `he-button`, `mdc-button` — which cannot be clicked through
+  # a selector. But the host element is in the light DOM with its text and its
+  # geometry, so text is the reliable handle. Beats reading coordinates off a
+  # screenshot, which is what the runbooks used to say.
+  find-text) need_tab || exit 1
+    post evaluate "$(eval_body "${1-}" <<'JS'
+const hits = [...document.querySelectorAll("he-button,button,a,[role=button],mdc-button")]
+  .map(e => {
+    const r = e.getBoundingClientRect();
+    return {text: (e.textContent || "").trim(), tag: e.tagName,
+            x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2),
+            w: Math.round(r.width), h: Math.round(r.height)};
+  })
+  .filter(o => o.w > 0 && o.h > 0 && o.x > 0 && o.text.includes(SEL));
+return JSON.stringify(hits.slice(0, 10));
+JS
+)" | SEL="${1-}" py '
+import json,os,sys
+d = json.load(sys.stdin)
+if "data" not in d: sys.exit("unzoo: " + json.dumps(d)[:200])
+hits = json.loads(d["data"]["result"])
+if not hits:
+    sys.exit("nothing clickable contains " + repr(os.environ["SEL"]))
+for h in hits:
+    print(json.dumps(h, ensure_ascii=False))' ;;
+
+  click-text) need_tab || exit 1
+    hit=$("$0" -t "$TAB" find-text "${1:?usage: click-text <text>}" | head -1) || exit 1
+    xy=$(py 'import json,sys;h=json.loads(sys.argv[1]);print(h["x"],h["y"])' "$hit")
+    post tabs/activate "$(jbody)" >/dev/null
+    post click "$(jbody x="${xy% *}" y="${xy#* }")" >/dev/null
+    echo "clicked $(py 'import json,sys;print(json.loads(sys.argv[1])["text"][:40])' "$hit") at $xy" ;;
+
   click-el) need_tab || exit 1
     sel="${1:?usage: click-el <css-selector>}"
     b=$("$0" -t "$TAB" box "$sel") || exit 1
@@ -258,17 +297,26 @@ print("files set")'
 const e = document.querySelector(SEL);
 if (!e) return "no input";
 e.dispatchEvent(new Event("change", {bubbles: true}));
-return e.files.length + " file(s), change dispatched";
+return "change dispatched";
 JS
 )" | py '
 import json,sys
-print(json.load(sys.stdin).get("data",{}).get("result"))' ;;
+print(json.load(sys.stdin).get("data",{}).get("result"))'
+    # Do NOT read back e.files.length to decide whether this worked. Angular
+    # and React uploaders take the FileList and clear the input in the same
+    # tick, so a successful attach reads back as zero files. Confirm on the
+    # page instead — an upload row, a progress bar, a version number. Retrying
+    # because the count looked wrong uploads the file twice, which is a
+    # duplicate you then have to delete.
+    echo "    (verify on the page, not by reading the input back — see above)" ;;
 
   shot) need_tab || exit 1
     out="${1:-/tmp/unzoo-shot.png}"
     post screenshot "$(jbody)" | OUT="$out" py '
 import base64,json,os,sys
-d=json.load(sys.stdin)["data"]
+r=json.load(sys.stdin)
+if "data" not in r: sys.exit("unzoo: " + json.dumps(r)[:200])
+d=r["data"]
 open(os.environ["OUT"],"wb").write(base64.b64decode(d["image_base64"]))
 print(os.environ["OUT"], d.get("width"), "x", d.get("height"))' ;;
 

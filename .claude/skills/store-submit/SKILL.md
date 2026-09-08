@@ -60,7 +60,7 @@ If the daemon is down, start it from a Bash call with `run_in_background: true`
 `browser_connected: false` while the daemon is up means every navigate and
 evaluate will return HTTP 500; `unzoo.sh up` opens the browser and waits.
 
-## The five rules
+## The six rules
 
 These are not style preferences. Each one has already cost a session.
 
@@ -89,9 +89,18 @@ Google and Microsoft sessions live in the default profile. Prefer `find-tab`
 over `new`. Do not touch cookies: setting one without `SameSite=None` has
 signed the main profile out.
 
-**5. Never claim a submission you have not read back.** Both consoles will
-happily show a green button and change nothing. After submitting, reload and
-read the status text.
+**5. Never claim a submission you have not read back.** Both consoles render
+optimistically and will lie in both directions. Partner Center showed "Update
+in certification" seconds after the click, then "Update in draft" in a
+screenshot taken moments later, with a session-expired dialog in the DOM
+throughout — and the submission had in fact gone through. **Navigate away and
+back before reading a status**, and look for a structural change (the Submit
+button gone, a Cancel button appeared), not just a word.
+
+**6. A file input that reads back empty was probably filled.** Angular and
+React uploaders take the FileList and clear the input in the same tick, so a
+successful `set_input_files` leaves `files.length === 0`. Confirm on the page.
+Retrying on the count uploads twice.
 
 ## Which store
 
