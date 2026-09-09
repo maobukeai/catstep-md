@@ -6,6 +6,9 @@ const tr = getT(lang);
 
 const VERSION = '4.12.0';
 const REPO = 'zhitongblog/solomd';
+// The Store ships both x64 and arm64 and picks for the machine, and it keeps
+// the app updated — worth offering next to the MSI rather than only below it.
+const MS_STORE = 'https://apps.microsoft.com/detail/9nxghk2ll1q4';
 const releaseUrl = (version: string) => `https://github.com/${REPO}/releases/download/v${version}`;
 
 const platforms = [
@@ -27,12 +30,14 @@ const platforms = [
     // this pin was waiting on. Pin it again if the verdict comes back.
     version: VERSION,
     primaryFile: `SoloMD_${VERSION}_x64_en-US.msi`,
+    storeUrl: MS_STORE,
   },
   {
     icon: '🪟',
     key: 'windowsArm' as const,
     version: VERSION,
     primaryFile: `SoloMD_${VERSION}_arm64_en-US.msi`,
+    storeUrl: MS_STORE,
   },
   {
     icon: '🐧',
@@ -93,6 +98,11 @@ const platforms = [
                 — {meta.tertiary}
               </a>
             )}
+            {'storeUrl' in p && p.storeUrl && 'store' in meta && (
+              <a href={p.storeUrl} class="dl-card__store" target="_blank" rel="noopener">
+                {meta.store} →
+              </a>
+            )}
           </article>
         );
       })}
@@ -133,6 +143,19 @@ const platforms = [
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 20px;
     margin-bottom: 40px;
+  }
+  .dl-card__store {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .dl-card__store:hover {
+    color: var(--text);
+    text-decoration: underline;
   }
   .dl-card {
     background: var(--bg-elev);
