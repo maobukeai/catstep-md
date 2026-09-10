@@ -160,7 +160,7 @@ export const KEY_ACTIONS: KeyActionDef[] = [
 
   // ---- Tools ----
   { id: 'settings.open', label: 'Settings', category: 'tools', defaults: ['Mod+Comma'] },
-  { id: 'help.markdown', label: 'Markdown Help', category: 'tools', defaults: ['F1', 'Mod+Shift+Question'] },
+  { id: 'help.markdown', label: 'Markdown Help', category: 'tools', defaults: ['F1', 'Mod+Shift+Slash'] },
   { id: 'proofread.cjk', label: 'CJK Proofread', category: 'tools', defaults: ['Mod+Shift+J'] },
   { id: 'daily.openToday', label: "Open Today's Daily Note", category: 'tools', defaults: ['Mod+Alt+D'] },
   { id: 'inbox.toggle', label: 'Toggle Inbox Flag / Organize', category: 'tools', defaults: ['Mod+E'] },

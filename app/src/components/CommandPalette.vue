@@ -34,7 +34,8 @@ function chordFor(c: { id: string; shortcut?: string }): string {
 // #177 — localized command titles. `t()` falls back to English for any id
 // missing in a locale, so this is always displayable.
 function localizedTitle(c: Command): string {
-  return t(`cmd.${c.id}`);
+  const tr = t(`cmd.${c.id}`);
+  return tr && tr !== `cmd.${c.id}` ? tr : c.title;
 }
 
 const filtered = computed<Command[]>(() => {

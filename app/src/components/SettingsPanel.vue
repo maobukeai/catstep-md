@@ -1224,7 +1224,7 @@ function onSelectPdfFont(v: string) {
             :value="settings.quickCaptureShortcut"
             :disabled="!settings.quickCaptureEnabled"
             spellcheck="false"
-            placeholder="CmdOrCtrl+Alt+M"
+            placeholder="CmdOrCtrl+Alt+C"
             @change="settings.setQuickCaptureShortcut(($event.target as HTMLInputElement).value)"
             style="margin-top: 6px; padding: 6px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 4px; font: inherit; width: 100%;"
           />

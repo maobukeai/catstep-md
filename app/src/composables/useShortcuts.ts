@@ -234,8 +234,17 @@ export function useShortcuts(hooks: Hooks = {}) {
     const isInsideEditor = !!target?.closest(
       '.plain-host, .pane--editor, .cm-editor, .plain-block__textarea, .plain-editor'
     );
-    const isFormInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
-    if (isFormInput && !isInsideEditor && (actionId.startsWith('format.') || actionId.startsWith('editor.'))) {
+    const isFormInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable);
+    const isInsideModal = !!target?.closest(
+      '.palette, .quick-switcher, .settings-modal, .modal, .ds-modal, .recipes__modal, .fx, .wiz, [role="dialog"], [aria-modal="true"]'
+    );
+
+    // Prevent shortcuts from leaking through while the user is actively typing inside open modals/dialogs
+    // (SettingsPanel, CommandPalette, QuickSwitcher, etc.) or form inputs, e.g. Ctrl+W closing background tabs.
+    if (isInsideModal && (isFormInput || actionId === 'file.closeTab')) {
+      return;
+    }
+    if (isFormInput && !isInsideEditor && (actionId.startsWith('format.') || actionId.startsWith('editor.') || actionId === 'file.closeTab')) {
       return;
     }
 

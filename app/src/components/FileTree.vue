@@ -414,23 +414,19 @@ async function commitEdit() {
       // file with it. Commit it now so the two never race.
       await pendingDeletes.flushUnder(target);
       await invoke('fs_create_file', { path: target, content: '' });
-      editing.value = null;
       scheduleRefresh();
       await files.openPath(target, { bypassNewWindow: true });
     } else if (e.kind === 'new-dir') {
       await pendingDeletes.flushUnder(joinPath(e.parent, name));
       await invoke('fs_create_dir', { path: joinPath(e.parent, name) });
-      editing.value = null;
       scheduleRefresh();
     } else if (e.kind === 'rename' && e.original) {
       const target = joinPath(e.parent, name);
       if (target === e.original) {
-        editing.value = null;
         return;
       }
       await pendingDeletes.flushUnder(target);
       await invoke('fs_rename', { from: e.original, to: target });
-      editing.value = null;
       scheduleRefresh();
       // v4.3.5 — if the renamed file is open in a tab, point the tab at the
       // new path and (when content might have changed on disk via the
@@ -466,6 +462,8 @@ async function commitEdit() {
     }
   } catch (err) {
     toasts.error(String(err));
+  } finally {
+    editing.value = null;
   }
 }
 

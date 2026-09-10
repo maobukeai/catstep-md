@@ -29,4 +29,52 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
+  build: {
+    chunkSizeWarningLimit: 6000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalized = id.replace(/\\/g, '/');
+          if (
+            normalized.includes('/node_modules/tldraw/') ||
+            normalized.includes('/node_modules/@tldraw/') ||
+            normalized.includes('/node_modules/react/') ||
+            normalized.includes('/node_modules/react-dom/')
+          ) {
+            return 'tldraw';
+          }
+          if (
+            normalized.includes('/node_modules/mermaid/') ||
+            normalized.includes('/node_modules/d3') ||
+            normalized.includes('/node_modules/dagre') ||
+            normalized.includes('/node_modules/cytoscape') ||
+            normalized.includes('/node_modules/cose-bilkent') ||
+            normalized.includes('/node_modules/khroma')
+          ) {
+            return 'mermaid';
+          }
+          if (normalized.includes('/node_modules/katex/')) {
+            return 'katex';
+          }
+          if (
+            normalized.includes('/node_modules/@codemirror/') ||
+            normalized.includes('/node_modules/codemirror/') ||
+            normalized.includes('/node_modules/@replit/codemirror-vim/') ||
+            normalized.includes('/node_modules/@lezer/')
+          ) {
+            return 'codemirror';
+          }
+          if (normalized.includes('/node_modules/docx/')) {
+            return 'docx';
+          }
+          if (normalized.includes('/node_modules/highlight.js/')) {
+            return 'highlight';
+          }
+          if (normalized.includes('/node_modules/prettier/')) {
+            return 'prettier';
+          }
+        },
+      },
+    },
+  },
 }));

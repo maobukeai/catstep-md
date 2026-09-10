@@ -452,7 +452,7 @@ fn build_app_menu<R: tauri::Runtime>(
         .build(app)?;
     let ui_zoom_out = accel!(MenuItemBuilder::with_id("view.zoomUiOut", s.ui_zoom_out), "view.zoomUiOut", "CmdOrCtrl+-")
         .build(app)?;
-    let ui_zoom_reset = accel!(MenuItemBuilder::with_id("view.zoomUiReset", s.ui_zoom_reset), "view.zoomUiReset", "CmdOrCtrl+0")
+    let ui_zoom_reset = accel!(MenuItemBuilder::with_id("view.zoomUiReset", s.ui_zoom_reset), "view.zoomUiReset", "CmdOrCtrl+Alt+0")
         .build(app)?;
     let editor_zoom_in = accel!(MenuItemBuilder::with_id("view.zoomEditorIn", s.editor_zoom_in), "view.zoomEditorIn", "CmdOrCtrl+Shift+=")
         .build(app)?;

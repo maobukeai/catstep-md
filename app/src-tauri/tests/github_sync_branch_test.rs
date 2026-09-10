@@ -149,7 +149,7 @@ fn pull_normalizes_local_master_when_remote_has_main() {
     let r = github_pull_inner(dev.to_string_lossy().into_owned(), "ignored".into())
         .expect("pull from a master-stuck device must succeed against a main remote");
     assert_eq!(r.kind, "fast_forward");
-    assert_eq!(fs::read_to_string(dev.join("note.md")).unwrap(), "version Y\n");
+    assert_eq!(fs::read_to_string(dev.join("note.md")).unwrap().replace("\r\n", "\n"), "version Y\n");
 
     // The local branch converged on `main`, same as push would have done.
     let repo = Repository::open(&dev).unwrap();
@@ -168,7 +168,7 @@ fn pull_falls_back_to_remote_master_for_legacy_repos() {
     let r = github_pull_inner(dev.to_string_lossy().into_owned(), "ignored".into())
         .expect("pull must fall back to origin/master when the remote has no main");
     assert_eq!(r.kind, "fast_forward");
-    assert_eq!(fs::read_to_string(dev.join("note.md")).unwrap(), "version Y\n");
+    assert_eq!(fs::read_to_string(dev.join("note.md")).unwrap().replace("\r\n", "\n"), "version Y\n");
 
     let repo = Repository::open(&dev).unwrap();
     assert_eq!(repo.head().unwrap().shorthand(), Some("main"));

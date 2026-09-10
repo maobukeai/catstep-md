@@ -262,7 +262,7 @@ interface Settings {
   // Quick capture: a system-wide hotkey that opens a small box, takes a line
   // of text and files it in the Inbox without bringing the app forward. The
   // chord is an OS-level accelerator (Tauri's spelling, e.g.
-  // `CmdOrCtrl+Alt+M`), not one of the rebindable in-app shortcuts, because
+  // `CmdOrCtrl+Alt+C`), not one of the rebindable in-app shortcuts, because
   // it has to work while another application is focused.
   quickCaptureEnabled: boolean;
   quickCaptureShortcut: string;
@@ -411,6 +411,7 @@ interface Settings {
   rightDrawerTab: 'agent' | 'history' | 'backlinks' | 'properties' | 'tools';
   rightDrawerOpen: boolean;
   typoraShortcutsMigrated: boolean;
+  quickCaptureConflictMigrated: boolean;
 }
 
 /** v2.5 PDF / print export defaults. */
@@ -578,7 +579,7 @@ function defaults(): Settings {
     globalZoom: 1,
     wheelZoomEnabled: true,
     quickCaptureEnabled: true,
-    quickCaptureShortcut: 'CmdOrCtrl+Alt+M',
+    quickCaptureShortcut: 'CmdOrCtrl+Alt+C',
     docxPreset: 'plain',
     printTheme: 'light',
     foldingEnabled: true,
@@ -622,6 +623,7 @@ function defaults(): Settings {
     rightDrawerTab: 'agent',
     rightDrawerOpen: false,
     typoraShortcutsMigrated: true,
+    quickCaptureConflictMigrated: true,
   };
 }
 
@@ -735,6 +737,14 @@ function load(): Settings {
           merged.outlineMarker = 'none';
         }
         merged.outlineMarkerCleanMigrated = true;
+      }
+      // Quick capture conflict migration: migrate default CmdOrCtrl+Alt+M to CmdOrCtrl+Alt+C
+      // so in-app formula editor (Mod+Alt+M) is never shadowed.
+      if (!parsed.quickCaptureConflictMigrated) {
+        if (merged.quickCaptureShortcut === 'CmdOrCtrl+Alt+M') {
+          merged.quickCaptureShortcut = 'CmdOrCtrl+Alt+C';
+        }
+        merged.quickCaptureConflictMigrated = true;
       }
       return merged;
     }

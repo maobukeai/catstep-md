@@ -386,7 +386,11 @@ export const useTabsStore = defineStore('tabs', {
           bucketKey(currentWorkspaceFolder()),
           JSON.stringify({ tabs: this.tabs, activeId: this.activeId }),
         );
-      } catch {}
+      } catch (err: any) {
+        if (err?.name === 'QuotaExceededError' || err?.code === 22) {
+          throw err;
+        }
+      }
     },
     /** #103 — when this is an auxiliary window, record it in the shared
      *  windows registry so the main window re-spawns it on the next launch.

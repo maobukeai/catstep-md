@@ -65,6 +65,7 @@ import { useSettingsStore, buildEditorFontStack } from './stores/settings';
 import { useWindowsStore, isAuxLabel } from './stores/windows';
 import { useTilesStore } from './stores/tiles';
 import { usePomodoroStore } from './stores/pomodoro';
+import { useToastsStore } from './stores/toasts';
 import { useFiles } from './composables/useFiles';
 import { useExport } from './composables/useExport';
 import { useShortcuts } from './composables/useShortcuts';
@@ -99,6 +100,7 @@ const tiles = useTilesStore();
 const files = useFiles();
 const exporter = useExport();
 const workspace = useWorkspaceStore();
+const toasts = useToastsStore();
 
 // #148 / #151 — Android real-folder vault picking. useFiles.openFolder()
 // dispatches these events; the picker modal + permission request live here so
@@ -381,7 +383,7 @@ function onWheelZoom(e: WheelEvent): void {
 // Esc closes the topmost modal
 function onZoomShortcut(e: KeyboardEvent): boolean {
   // Three independent zoom axes (v4.3.0 issue #72 + PR #74 yzcj105):
-  //   ⌘= / ⌘- / ⌘0           → globalZoom (whole app, CSS zoom)
+  //   ⌘= / ⌘- / ⌘⌥0          → globalZoom (whole app, CSS zoom)
   //   ⌘⇧= / ⌘⇧- / ⌘⇧0        → editor font size only
   //   ⌃⌘= / ⌃⌘- / ⌃⌘0        → preview font size only
   // On macOS the same shortcuts are also exposed via native View menu
@@ -390,17 +392,30 @@ function onZoomShortcut(e: KeyboardEvent): boolean {
   const cmd = e.metaKey;          // macOS Cmd
   const ctrlOnly = e.ctrlKey && !e.metaKey; // Linux/Win Ctrl (no Cmd present)
   if (!cmd && !ctrlOnly) return false;
-  if (e.altKey) return false;
+
+  const isIn = e.key === '=' || e.key === '+';
+  const isOut = e.key === '-' || e.key === '_';
+  const isReset = e.key === '0';
+  if (!isIn && !isOut && !isReset) return false;
 
   // Identify axis: Shift = editor; Cmd+Ctrl (both) = preview; otherwise UI.
   let axis: 'ui' | 'editor' | 'preview' = 'ui';
   if (e.shiftKey && !(e.metaKey && e.ctrlKey)) axis = 'editor';
   else if (e.metaKey && e.ctrlKey) axis = 'preview';
 
-  const isIn = e.key === '=' || e.key === '+';
-  const isOut = e.key === '-' || e.key === '_';
-  const isReset = e.key === '0';
-  if (!isIn && !isOut && !isReset) return false;
+  // Typora standard: Ctrl+0 is format.paragraph (Normal Text).
+  // UI zoom reset requires Ctrl+Alt+0 / Cmd+Alt+0 (matches Toolbar.vue display).
+  // Ctrl+0 without Alt must pass through cleanly to format.paragraph.
+  if (axis === 'ui') {
+    if (isReset) {
+      if (!e.altKey) return false;
+    } else {
+      if (e.altKey) return false;
+    }
+  } else {
+    if (e.altKey) return false;
+  }
+
   e.preventDefault();
   if (axis === 'editor') {
     if (isIn) settings.editorFontIn();
@@ -454,14 +469,35 @@ function onOutlineGoto(line: number) {
 
 import { dataThemeFor } from './lib/themes';
 
-// Auto-persist tabs and tiles on every change.
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let lastQuotaWarn = 0;
+
+function debouncedPersistTabs() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try {
+      tabs.persist();
+      tiles.persist();
+    } catch (e: any) {
+      const now = Date.now();
+      if (now - lastQuotaWarn > 10000) {
+        lastQuotaWarn = now;
+        toasts.warning(
+          settings.language?.startsWith('zh')
+            ? '本地存储配额已超限，标签页会话状态无法完整保存。'
+            : 'Local storage quota exceeded. Tab session state could not be fully saved.',
+        );
+      }
+    }
+  }, 400);
+}
+
+// Auto-persist tabs and tiles on every change (debounced 400ms without expensive string concatenation on every keystroke).
 watch(
-  () => [tabs.tabs.map((t) => [t.id, t.fileName, t.filePath, t.content, t.savedContent, t.language].join('|')).join(';'), tabs.activeId],
-  () => {
-    tabs.persist();
-    tiles.persist();
-  },
-  { deep: false },
+  () => [tabs.tabs, tabs.activeId],
+  () => debouncedPersistTabs(),
+  { deep: true },
 );
 
 // Persist tiles when root structure changes
@@ -1540,6 +1576,13 @@ window.addEventListener(VIEW_CLOSE_EVENT, onCloseView as EventListener);
 window.addEventListener('solomd:open-settings', onOpenSettingsEvent as EventListener);
 
 onBeforeUnmount(() => {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    try {
+      tabs.persist();
+      tiles.persist();
+    } catch {}
+  }
   window.removeEventListener('keydown', onEsc);
   window.removeEventListener('wheel', onWheelZoom, { capture: true } as EventListenerOptions);
   window.removeEventListener('blur', onWindowBlur);
@@ -2351,16 +2394,18 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   min-height: 0;
   flex: 0 0 auto;
 }
-.left-stack > :deep(.ftree) {
+.typora-sidebar__body :deep(.ftree) {
   flex: 1 1 auto;
   min-height: 0;
-  height: auto;
+  height: 100%;
+  width: 100%;
+  border-right: none;
 }
 /* #148 (mobile) — the file tree used to go full-width on a phone so the tree
    and the editor didn't squeeze each other into slivers. #168 replaces that
    with the drawer above: same goal, but the editor stays visible underneath
    and one tap outside returns to it, instead of the tree taking the screen. */
-.app--mobile .left-stack > :deep(.ftree) {
+.app--mobile .typora-sidebar__body :deep(.ftree) {
   width: 100%;
 }
 .side-sidebar {
