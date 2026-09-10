@@ -1029,11 +1029,14 @@ export const de: I18n = {
     chooseSub:
       'SoloMD funktioniert ohne KI, aber das Agent-Panel und Recipes brauchen ein Modell. Einen Pfad wählen — Sie können dies jederzeit in Einstellungen → KI ändern.',
     cloudTitle: 'Cloud (BYOK)',
+    cloudBadge: '14+ Anbieter',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek und 10+ weitere. Eigenen API-Schlüssel mitbringen.',
     cloudMeta: 'Beste Qualität. Pay-per-use.',
     cloudSub: 'Einen Provider wählen und API-Schlüssel einfügen. Der Schlüssel wird im OS-Schlüsselbund gespeichert.',
     localTitle: 'Lokal (Ollama)',
+    localBadge: '100% Lokale Privatsphäre',
+    localReadyPill: 'Bereit',
     localBody: 'Ein kleines Modell auf Ihrer Maschine ausführen. Notizen verlassen Ihr Gerät nie.',
     localMeta: 'Beste Privatsphäre. Kostenlos.',
     localDetected: 'Ollama auf dieser Maschine erkannt',

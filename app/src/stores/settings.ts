@@ -1014,8 +1014,14 @@ export const useSettingsStore = defineStore('settings', {
     toggleLivePreview() {
       if (this.viewMode === 'reading') {
         this.viewMode = 'edit';
+        this.livePreview = true;
+      } else if (this.viewMode === 'liveEdit') {
+        this.viewMode = 'edit';
+        this.livePreview = false;
+      } else {
+        this.viewMode = 'edit';
+        this.livePreview = !this.livePreview;
       }
-      this.livePreview = !this.livePreview;
       this.persist();
     },
     toggleSpellCheck() {

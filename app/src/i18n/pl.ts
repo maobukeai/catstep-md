@@ -1032,11 +1032,14 @@ export const pl: I18n = {
     chooseSub:
       'SoloMD działa bez AI, ale panel agenta i przepisy potrzebują modelu. Wybierz jedną drogę — możesz ją zmienić w każdej chwili w Ustawienia → AI.',
     cloudTitle: 'Chmura (BYOK)',
+    cloudBadge: '14+ Dostawców',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek i 10+ innych. Przynieś własny klucz API.',
     cloudMeta: 'Najlepsza jakość. Płać za użycie.',
     cloudSub: 'Wybierz dostawcę i wklej swój klucz API. Klucz jest przechowywany w pęku kluczy systemu.',
     localTitle: 'Lokalnie (Ollama)',
+    localBadge: '100% Lokalna prywatność',
+    localReadyPill: 'Gotowy',
     localBody: 'Uruchom mały model na swoim komputerze. Notatki nigdy nie opuszczają urządzenia.',
     localMeta: 'Najlepsza prywatność. Za darmo.',
     localDetected: 'Wykryto Ollama na tym komputerze',

@@ -1029,11 +1029,14 @@ export const ko: I18n = {
     chooseSub:
       'SoloMD는 AI 없이도 동작하지만, Agent 패널과 Recipes는 모델이 필요합니다. 둘 중 하나를 고르세요 — 언제든지 설정 → AI에서 변경 가능.',
     cloudTitle: '클라우드(BYOK)',
+    cloudBadge: '14+ 프로바이더',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek 등 14개 Provider. 자신의 API 키 사용.',
     cloudMeta: '품질 최고, 사용량 과금.',
     cloudSub: 'Provider를 선택하고 API 키를 붙여넣으세요. 키는 OS 키체인에 저장됩니다.',
     localTitle: '로컬(Ollama)',
+    localBadge: '100% 로컬 프라이버시',
+    localReadyPill: '준비 완료',
     localBody: '본인 컴퓨터에서 작은 모델 실행. 노트는 기기 밖으로 나가지 않습니다.',
     localMeta: '최고의 프라이버시, 무료.',
     localDetected: '이 기기에서 Ollama 감지됨',

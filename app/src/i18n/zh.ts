@@ -1024,20 +1024,23 @@ export const zh: I18n = {
     close: '关闭',
     chooseTitle: '配置你的 AI 助手',
     chooseSub:
-      'SoloMD 不依赖 AI 也可工作；但 Agent 面板与 Agent 任务需要选一个模型。两条路任选其一——任何时候都可以在 设置 → AI 中切换。',
+      '猫步 MD 不依赖 AI 也可工作；但 Agent 面板与 Agent 任务需要选一个模型。两条路任选其一——任何时候都可以在 设置 → AI 中切换。',
     cloudTitle: '云端（BYOK）',
+    cloudBadge: '14+ 顶级模型',
     cloudBody:
       'Anthropic Claude、OpenAI ChatGPT、Google Gemini、DeepSeek 等 14 个 Provider，自带 API Key。',
     cloudMeta: '质量最好，按用量付费。',
     cloudSub: '选择 Provider 并粘贴你的 API Key。Key 保存在系统钥匙串中。',
     localTitle: '本地（Ollama）',
+    localBadge: '100% 离线隐私',
+    localReadyPill: '已就绪',
     localBody: '在本机运行小模型，笔记完全不出设备。',
     localMeta: '最强隐私，完全免费。',
     localDetected: '已检测到本机 Ollama',
     localDetecting: '正在查找本机 Ollama 服务…',
     localNotRunning: '未在 localhost:11434 找到 Ollama 服务。',
     localNotRunningHint:
-      '请先安装 Ollama（约 80 MB）并启动，再点击「重试」。SoloMD 不内嵌 Ollama。',
+      '请先安装 Ollama（约 80 MB）并启动，再点击「重试」。猫步 MD 不内嵌 Ollama。',
     localInstallBtn: '安装 Ollama',
     localRetryBtn: '重试检测',
     localRunningNoModel:

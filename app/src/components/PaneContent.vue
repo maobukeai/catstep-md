@@ -417,8 +417,14 @@ function onFoldEvent(e: Event) {
 
 function onFormatActionEvent(e: Event) {
   const { paneId, action, options } = (e as CustomEvent).detail || {};
-  if (paneId && paneId !== props.paneId) return;
-  if (!paneId && !isFocused.value) return;
+  const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+  const containsActive = !!activeEl && (
+    !!activeEl.closest('.pane--editor') ||
+    !!activeEl.closest('.plain-host') ||
+    !!activeEl.closest('.cm-editor')
+  );
+  if (paneId && paneId !== props.paneId && !containsActive) return;
+  if (!paneId && !isFocused.value && !containsActive) return;
   const ed = editorRef.value as unknown as {
     applyFormat?: (act: string, opts?: any) => void;
   } | null;

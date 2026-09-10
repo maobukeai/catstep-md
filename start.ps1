@@ -1,4 +1,4 @@
-# 猫步 MD (Catstep MD) PowerShell 一键启动器
+﻿# 猫步 MD (Catstep MD) PowerShell 一键启动器
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $host.UI.RawUI.WindowTitle = '猫步 MD 启动器'
@@ -38,10 +38,31 @@ if (-not (Test-Path "node_modules")) {
     }
 }
 
-# 4. 检测 Rust / Cargo 环境
+# 4. 检测并释放 1420 端口 (避免后台遗留的孤儿进程导致 Vite 端口冲突报错)
+function Clear-Port1420 {
+    try {
+        $conns = Get-NetTCPConnection -LocalPort 1420 -ErrorAction SilentlyContinue
+        if ($conns) {
+            $pids = $conns | Select-Object -ExpandProperty OwningProcess -Unique
+            foreach ($procId in $pids) {
+                if ($procId -gt 0) {
+                    $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
+                    Write-Host "[提示] 检测到 1420 端口被残留进程占用 (PID: $procId, $($p.ProcessName))，正在自动释放..." -ForegroundColor Yellow
+                    Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+                }
+            }
+            Start-Sleep -Milliseconds 500
+            Write-Host "[就绪] 1420 端口已释放就绪。" -ForegroundColor Green
+        }
+    } catch {
+        # 忽略网络查询异常
+    }
+}
+
+# 5. 检测 Rust / Cargo 环境
 $hasCargo = [bool](Get-Command cargo -ErrorAction SilentlyContinue)
 
-# 5. 检测并准备 solomd-mcp 侧边二进制
+# 6. 检测并准备 solomd-mcp 侧边二进制
 $mcpBinDir = Join-Path $appDir "src-tauri\binaries"
 $mcpTarget = Join-Path $mcpBinDir "solomd-mcp-x86_64-pc-windows-msvc.exe"
 
@@ -73,15 +94,29 @@ Write-Host "  [1] 启动桌面客户端 (Tauri 完整桌面版 - 推荐，需 Ru
 Write-Host "  [2] 启动网页极速预览 (Vite Web 模式 - 免 Rust 编译，浏览器即开即看)" -ForegroundColor Cyan
 Write-Host "  [3] 打包桌面正式版安装包 (Tauri Build)" -ForegroundColor Magenta
 Write-Host "  [4] 重新构建 MCP 侧边服务 (solomd-mcp)" -ForegroundColor Gray
+Write-Host "  [0] 退出 (Exit)" -ForegroundColor DarkGray
 Write-Host ""
 
-$choice = Read-Host "请输入选项 [1/2/3/4] (直接回车默认启动 [1] 桌面版)"
+$choice = Read-Host "请输入选项 [1/2/3/4/0] (直接回车默认启动 [1] 桌面版)"
 if ([string]::IsNullOrWhiteSpace($choice)) {
     $choice = "1"
 }
 
-switch ($choice.Trim()) {
+switch ($choice.Trim().ToLower()) {
+    "0" {
+        Write-Host "已退出启动器。" -ForegroundColor Gray
+        exit 0
+    }
+    "q" {
+        Write-Host "已退出启动器。" -ForegroundColor Gray
+        exit 0
+    }
+    "exit" {
+        Write-Host "已退出启动器。" -ForegroundColor Gray
+        exit 0
+    }
     "2" {
+        Clear-Port1420
         Write-Host "`n正在启动 Web 开发模式 (http://localhost:1420)..." -ForegroundColor Green
         & $pm run dev -- --open
     }
@@ -108,10 +143,12 @@ switch ($choice.Trim()) {
         if (-not $hasCargo) {
             Write-Host "[提示] 未检测到 Rust/Cargo 环境，无法编译 Tauri 桌面客户端。" -ForegroundColor Yellow
             Write-Host "[提示] 正在自动为您切换为网页极速预览模式 (Web Dev)..." -ForegroundColor Cyan
+            Clear-Port1420
             & $pm run dev -- --open
         } else {
+            Clear-Port1420
             Ensure-McpBinary
-            Write-Host "`n正在启动 SoloMD 桌面客户端 (Tauri Dev)..." -ForegroundColor Green
+            Write-Host "`n正在启动 猫步 MD 桌面客户端 (Tauri Dev)..." -ForegroundColor Green
             & $pm run tauri dev
         }
     }
@@ -121,4 +158,3 @@ if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
     Write-Host "`n[提示] 运行退出，退出码: $LASTEXITCODE" -ForegroundColor Yellow
     Read-Host "按回车键退出..."
 }
-

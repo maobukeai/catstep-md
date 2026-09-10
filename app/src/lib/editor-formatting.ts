@@ -701,3 +701,50 @@ export function applyPlainDeleteWord(el: HTMLTextAreaElement): void {
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
+
+export function applyCmDeleteLine(view: EditorView): boolean {
+  const sel = view.state.selection.main;
+  const startLine = view.state.doc.lineAt(sel.from);
+  const endLine = view.state.doc.lineAt(sel.to);
+  const from = startLine.from;
+  let to = endLine.to;
+  if (endLine.number < view.state.doc.lines) {
+    to = view.state.doc.line(endLine.number + 1).from;
+  } else if (startLine.number > 1) {
+    const prevLine = view.state.doc.line(startLine.number - 1);
+    view.dispatch({
+      changes: { from: prevLine.to, to },
+      selection: { anchor: prevLine.to },
+    });
+    view.focus();
+    return true;
+  }
+  view.dispatch({
+    changes: { from, to },
+    selection: { anchor: from },
+  });
+  view.focus();
+  return true;
+}
+
+export function applyPlainDeleteLine(el: HTMLTextAreaElement): void {
+  const start = el.selectionStart ?? 0;
+  const end = el.selectionEnd ?? start;
+  const val = el.value;
+  const lineStart = val.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+  const nextNewline = val.indexOf('\n', end);
+  let deleteEnd: number;
+  let deleteStart = lineStart;
+  if (nextNewline !== -1) {
+    deleteEnd = nextNewline + 1;
+  } else if (lineStart > 0) {
+    deleteStart = lineStart - 1;
+    deleteEnd = val.length;
+  } else {
+    deleteEnd = val.length;
+  }
+  el.value = val.slice(0, deleteStart) + val.slice(deleteEnd);
+  el.setSelectionRange(deleteStart, deleteStart);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+

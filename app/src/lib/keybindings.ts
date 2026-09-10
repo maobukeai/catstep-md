@@ -89,7 +89,7 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'format.italic', label: 'Italic', category: 'edit', defaults: ['Mod+I'] },
   { id: 'format.underline', label: 'Underline', category: 'edit', defaults: ['Mod+U'] },
   { id: 'format.strikethrough', label: 'Strikethrough', category: 'edit', defaults: ['Alt+Shift+5', 'Mod+Shift+X'] },
-  { id: 'format.inlineCode', label: 'Inline Code', category: 'edit', defaults: ['Mod+Shift+Backquote', 'Mod+Alt+C'] },
+  { id: 'format.inlineCode', label: 'Inline Code', category: 'edit', defaults: ['Mod+Shift+Backquote'] },
   { id: 'format.link', label: 'Insert Link', category: 'edit', defaults: ['Mod+K'] },
   { id: 'format.image', label: 'Insert Image', category: 'edit', defaults: ['Mod+Shift+I'] },
   { id: 'format.h1', label: 'Heading 1', category: 'edit', defaults: ['Mod+1'] },
@@ -101,16 +101,17 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'format.paragraph', label: 'Paragraph (Normal Text)', category: 'edit', defaults: ['Mod+0'] },
   { id: 'format.headingUp', label: 'Increase Heading Level', category: 'edit', defaults: ['Mod+Equal'] },
   { id: 'format.headingDown', label: 'Decrease Heading Level', category: 'edit', defaults: ['Mod+Minus'] },
-  { id: 'format.table', label: 'Insert Table', category: 'edit', defaults: ['Mod+T', 'Mod+Alt+T'] },
-  { id: 'format.codeBlock', label: 'Insert Code Block', category: 'edit', defaults: ['Mod+Shift+K', 'Mod+Alt+C'] },
-  { id: 'format.mathBlock', label: 'Insert Math Block', category: 'edit', defaults: ['Mod+Shift+M', 'Mod+Alt+B'] },
+  { id: 'format.table', label: 'Insert Table', category: 'edit', defaults: ['Mod+T'] },
+  { id: 'format.codeBlock', label: 'Insert Code Block', category: 'edit', defaults: ['Mod+Shift+K'] },
+  { id: 'format.mathBlock', label: 'Insert Math Block', category: 'edit', defaults: ['Mod+Shift+M'] },
   { id: 'format.quote', label: 'Quote', category: 'edit', defaults: ['Mod+Shift+Q', 'Mod+Alt+Q'] },
-  { id: 'format.orderedList', label: 'Ordered List', category: 'edit', defaults: ['Mod+Shift+BracketLeft', 'Mod+Alt+O'] },
+  { id: 'format.orderedList', label: 'Ordered List', category: 'edit', defaults: ['Mod+Shift+BracketLeft'] },
   { id: 'format.bulletList', label: 'Bullet List', category: 'edit', defaults: ['Mod+Shift+BracketRight', 'Mod+Alt+U'] },
   { id: 'format.taskList', label: 'Task List', category: 'edit', defaults: ['Mod+Alt+X'] },
   { id: 'format.clear', label: 'Clear Formatting', category: 'edit', defaults: ['Mod+Backslash'] },
   { id: 'format.highlight', label: 'Highlight', category: 'edit', defaults: ['Mod+Shift+H'] },
   { id: 'editor.selectLine', label: 'Select Line', category: 'edit', defaults: ['Mod+L'] },
+  { id: 'editor.deleteLine', label: 'Delete Line / Table Row', category: 'edit', defaults: ['Mod+Shift+Backspace'] },
   { id: 'editor.selectWord', label: 'Select Word', category: 'edit', defaults: ['Mod+D'] },
   { id: 'editor.deleteWord', label: 'Delete Word', category: 'edit', defaults: ['Mod+Shift+D'] },
   { id: 'editor.replace', label: 'Replace', category: 'edit', defaults: ['Mod+H'] },
@@ -119,7 +120,7 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'editor.tableEditor', label: 'Edit Table as Grid', category: 'edit', defaults: ['Mod+Alt+T'] },
   { id: 'editor.formulaEditor', label: 'Edit Formula', category: 'edit', defaults: ['Mod+Alt+M'] },
   { id: 'editor.aiRewrite', label: 'AI Rewrite Selection', category: 'edit', defaults: ['Mod+Alt+J'] },
-  { id: 'export.copyMd', label: 'Copy as Markdown', category: 'edit', defaults: ['Mod+Shift+C', 'Mod+Alt+C'] },
+  { id: 'export.copyMd', label: 'Copy as Markdown', category: 'edit', defaults: ['Mod+Shift+C'] },
   { id: 'export.copyHtml', label: 'Copy as HTML', category: 'edit', defaults: ['Mod+Alt+Shift+C'] },
   { id: 'export.pdfPrint', label: 'Print / PDF', category: 'edit', defaults: ['Mod+Alt+Shift+P'] },
 
@@ -135,21 +136,18 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'view.toggleAgentPanel', label: 'Toggle AI Agent Panel', category: 'view', defaults: ['Mod+J', 'Mod+Shift+A'] },
   { id: 'view.cycleView', label: 'Cycle Edit / Split / Preview', category: 'view', defaults: ['Mod+Alt+V'] },
   { id: 'view.toggleReading', label: 'Toggle Reading Mode', category: 'view', defaults: ['Mod+Shift+R'] },
-  { id: 'view.toggleFileTree', label: 'Toggle File Tree', category: 'view', defaults: ['Mod+Shift+2'] },
+  { id: 'view.toggleFileTree', label: 'Toggle File Tree', category: 'view', defaults: [] },
   { id: 'view.toggleRightSidebar', label: 'Toggle Right Sidebar', category: 'view', defaults: ['Mod+Alt+B'] },
-  { id: 'view.toggleOutline', label: 'Toggle Outline', category: 'view', defaults: ['Mod+Shift+1'] },
+  { id: 'view.toggleOutline', label: 'Toggle Outline', category: 'view', defaults: [] },
   { id: 'view.toggleInspector', label: 'Toggle Properties Inspector', category: 'view', defaults: ['Mod+Alt+I'] },
   { id: 'view.slideshow', label: 'Slideshow', category: 'view', defaults: ['Mod+Alt+P'] },
-  // Folding. The chords mirror CodeMirror's own fold keymap so the muscle
-  // memory carries over — but they are handled at app level, which is what
-  // makes them work in the Windows plain-textarea editor too (it has no
-  // CodeMirror keymap to reach).
-  { id: 'fold.toggle', label: 'Fold / Unfold Section at Cursor', category: 'view', defaults: ['Mod+Shift+BracketLeft'] },
-  { id: 'fold.all', label: 'Fold All Sections', category: 'view', defaults: ['Mod+Alt+BracketLeft'] },
-  { id: 'fold.none', label: 'Unfold All', category: 'view', defaults: ['Mod+Alt+BracketRight'] },
+  // Folding.
+  { id: 'fold.toggle', label: 'Fold / Unfold Section at Cursor', category: 'view', defaults: ['Mod+Alt+BracketLeft'] },
+  { id: 'fold.all', label: 'Fold All Sections', category: 'view', defaults: ['Mod+Alt+Shift+BracketLeft'] },
+  { id: 'fold.none', label: 'Unfold All', category: 'view', defaults: ['Mod+Alt+Shift+BracketRight'] },
 
   // ---- Navigate ----
-  { id: 'palette.open', label: 'Command Palette', category: 'navigate', defaults: ['Mod+Shift+P', 'F1'] },
+  { id: 'palette.open', label: 'Command Palette', category: 'navigate', defaults: ['Mod+Shift+P'] },
   { id: 'quickSwitcher.open', label: 'Quick File Switcher', category: 'navigate', defaults: ['Mod+P', 'Mod+Shift+O'] },
   { id: 'search.global', label: 'Search in Folder', category: 'navigate', defaults: ['Mod+Shift+F'] },
   { id: 'editor.find', label: 'Find in Preview', category: 'navigate', defaults: ['Mod+F'] },
@@ -162,7 +160,7 @@ export const KEY_ACTIONS: KeyActionDef[] = [
 
   // ---- Tools ----
   { id: 'settings.open', label: 'Settings', category: 'tools', defaults: ['Mod+Comma'] },
-  { id: 'help.markdown', label: 'Markdown Help', category: 'tools', defaults: [] },
+  { id: 'help.markdown', label: 'Markdown Help', category: 'tools', defaults: ['F1', 'Mod+Shift+Question'] },
   { id: 'proofread.cjk', label: 'CJK Proofread', category: 'tools', defaults: ['Mod+Shift+J'] },
   { id: 'daily.openToday', label: "Open Today's Daily Note", category: 'tools', defaults: ['Mod+Alt+D'] },
   { id: 'inbox.toggle', label: 'Toggle Inbox Flag / Organize', category: 'tools', defaults: ['Mod+E'] },

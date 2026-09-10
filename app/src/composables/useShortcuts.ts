@@ -140,6 +140,7 @@ export function useShortcuts(hooks: Hooks = {}) {
     'format.clear': () => dispatchFormat('clearFormat'),
     'format.highlight': () => dispatchFormat('highlight'),
     'editor.selectLine': () => dispatchFormat('selectLine'),
+    'editor.deleteLine': () => dispatchFormat('deleteLine'),
     'editor.selectWord': () => dispatchFormat('selectWord'),
     'editor.deleteWord': () => dispatchFormat('deleteWord'),
     'editor.replace': () => {
@@ -230,11 +231,11 @@ export function useShortcuts(hooks: Hooks = {}) {
     if (!actionId) return;
 
     const target = e.target as HTMLElement | null;
-    if (
-      target &&
-      (target.tagName === 'INPUT' || (target.tagName === 'TEXTAREA' && !target.classList.contains('plain-editor') && !target.closest('.cm-editor'))) &&
-      actionId.startsWith('format.')
-    ) {
+    const isInsideEditor = !!target?.closest(
+      '.plain-host, .pane--editor, .cm-editor, .plain-block__textarea, .plain-editor'
+    );
+    const isFormInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA');
+    if (isFormInput && !isInsideEditor && (actionId.startsWith('format.') || actionId.startsWith('editor.'))) {
       return;
     }
 

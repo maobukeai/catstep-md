@@ -1,4 +1,5 @@
 @echo off
+@chcp 65001 >nul
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 title Catstep MD Launcher
@@ -18,4 +19,3 @@ echo [WARN] PowerShell not found. Starting Web dev mode directly...
 cd /d "%~dp0app"
 call npm run dev
 pause
-

@@ -1035,11 +1035,14 @@ export const en = {
     chooseSub:
       'SoloMD works without AI, but the agent panel and recipes need a model. Pick one path — you can change it any time in Settings → AI.',
     cloudTitle: 'Cloud (BYOK)',
+    cloudBadge: '14+ Top Models',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek, and 10+ more. Bring your own API key.',
     cloudMeta: 'Best quality. Pay per use.',
     cloudSub: 'Pick a provider and paste your API key. The key is stored in your OS keychain.',
     localTitle: 'Local (Ollama)',
+    localBadge: '100% Offline Privacy',
+    localReadyPill: 'Ready',
     localBody: 'Run a small model on your machine. Notes never leave your device.',
     localMeta: 'Best privacy. Free.',
     localDetected: 'Ollama detected on this machine',

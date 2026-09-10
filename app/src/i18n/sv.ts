@@ -1032,11 +1032,14 @@ export const sv: I18n = {
     chooseSub:
       'SoloMD fungerar utan AI, men agentpanelen och recepten behöver en modell. Välj en väg — du kan ändra den när som helst i Inställningar → AI.',
     cloudTitle: 'Moln (BYOK)',
+    cloudBadge: '14+ Leverantörer',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek och 10+ till. Ta med din egen API-nyckel.',
     cloudMeta: 'Bästa kvalitet. Betala per användning.',
     cloudSub: 'Välj en leverantör och klistra in din API-nyckel. Nyckeln lagras i ditt OS:s nyckelring.',
     localTitle: 'Lokalt (Ollama)',
+    localBadge: '100% Lokal integritet',
+    localReadyPill: 'Redo',
     localBody: 'Kör en liten modell på din maskin. Anteckningarna lämnar aldrig din enhet.',
     localMeta: 'Bästa integritet. Gratis.',
     localDetected: 'Ollama upptäckt på den här maskinen',

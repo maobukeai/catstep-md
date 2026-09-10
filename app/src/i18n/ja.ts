@@ -1029,11 +1029,14 @@ export const ja: I18n = {
     chooseSub:
       'SoloMD は AI なしでも動作しますが、Agent パネルと Recipes はモデルが必要です。どちらか一方を選択してください — 後で 設定 → AI でいつでも変更できます。',
     cloudTitle: 'クラウド (BYOK)',
+    cloudBadge: '14+ プロバイダー',
     cloudBody:
       'Anthropic Claude、OpenAI ChatGPT、Google Gemini、DeepSeek など 14 の Provider。自分の API キーを使用。',
     cloudMeta: '品質最高、従量課金。',
     cloudSub: 'Provider を選んで API キーを貼り付けてください。キーは OS のキーチェーンに保存されます。',
     localTitle: 'ローカル (Ollama)',
+    localBadge: '100% ローカルプライバシー',
+    localReadyPill: '準備完了',
     localBody: '小さめのモデルをマシン上で実行。ノートは端末から一切出ません。',
     localMeta: '最高のプライバシー、完全無料。',
     localDetected: 'このマシン上で Ollama を検出しました',

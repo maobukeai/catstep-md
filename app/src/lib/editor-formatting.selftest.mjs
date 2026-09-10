@@ -18,10 +18,12 @@ import {
   applyCmSelectLine,
   applyCmSelectWord,
   applyCmDeleteWord,
+  applyCmDeleteLine,
   applyPlainInlineFormat,
   applyPlainHeading,
   applyPlainList,
   applyPlainQuote,
+  applyPlainDeleteLine,
 } from './editor-formatting.ts';
 
 function createMockView(doc = '', from = 0, to = from) {
@@ -201,7 +203,6 @@ test('keybindings: Typora shortcuts and SoloMD Agent shortcuts parity', async ()
   assert.equal(bindings.get('Mod+K'), 'format.link');
   assert.equal(bindings.get('Mod+Shift+I'), 'format.image');
   assert.equal(bindings.get('Mod+Shift+Backquote'), 'format.inlineCode');
-  assert.equal(bindings.get('Mod+Alt+C'), 'format.inlineCode');
 
   // Blocks, quotes & lists
   assert.equal(bindings.get('Mod+T'), 'format.table');
@@ -218,6 +219,7 @@ test('keybindings: Typora shortcuts and SoloMD Agent shortcuts parity', async ()
 
   // Edit & Selection
   assert.equal(bindings.get('Mod+L'), 'editor.selectLine');
+  assert.equal(bindings.get('Mod+Shift+Backspace'), 'editor.deleteLine');
   assert.equal(bindings.get('Mod+D'), 'editor.selectWord');
   assert.equal(bindings.get('Mod+Shift+D'), 'editor.deleteWord');
   assert.equal(bindings.get('Mod+H'), 'editor.replace');
@@ -236,7 +238,8 @@ test('keybindings: Typora shortcuts and SoloMD Agent shortcuts parity', async ()
   assert.equal(bindings.get('F9'), 'view.toggleTypewriter');
   assert.equal(bindings.get('F11'), 'view.toggleFullscreen');
 
-  // Agent shortcuts: Ctrl+J and Ctrl+Shift+A
+  // Help & Agent shortcuts
+  assert.equal(bindings.get('F1'), 'help.markdown');
   assert.equal(bindings.get('Mod+J'), 'view.toggleAgentPanel');
   assert.equal(bindings.get('Mod+Shift+A'), 'view.toggleAgentPanel');
 
@@ -335,4 +338,42 @@ test('applyCmDeleteWord: deletes word at cursor', () => {
   applyCmDeleteWord(view);
   assert.equal(view.state.doc.toString(), 'Delete this  now');
 });
+
+test('applyCmDeleteLine and applyPlainDeleteLine: deletes current line', () => {
+  const view = createMockView('Line 1\nLine 2\nLine 3', 8, 8); // caret in Line 2
+  applyCmDeleteLine(view);
+  assert.equal(view.state.doc.toString(), 'Line 1\nLine 3');
+
+  const textarea = {
+    value: 'First line\nSecond line to delete\nThird line',
+    selectionStart: 15,
+    selectionEnd: 15,
+    focus() {},
+    dispatchEvent() { return true; },
+    setSelectionRange(s, e) {
+      this.selectionStart = s;
+      this.selectionEnd = e;
+    },
+  };
+  applyPlainDeleteLine(textarea);
+  assert.equal(textarea.value, 'First line\nThird line');
+});
+
+test('activeKeyActions: verify 0 default chord conflicts', async () => {
+  const { activeKeyActions, normalizeCombo } = await import('./keybindings.ts');
+  const seen = new Map();
+  const conflicts = [];
+  for (const action of activeKeyActions()) {
+    for (const d of action.defaults) {
+      const combo = normalizeCombo(d);
+      if (seen.has(combo)) {
+        conflicts.push({ combo, action1: seen.get(combo), action2: action.id });
+      } else {
+        seen.set(combo, action.id);
+      }
+    }
+  }
+  assert.deepEqual(conflicts, [], `Found conflicting default keybindings: ${JSON.stringify(conflicts)}`);
+});
+
 

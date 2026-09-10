@@ -1032,11 +1032,14 @@ export const nl: I18n = {
     chooseSub:
       'SoloMD werkt zonder AI, maar het agentpaneel en recepten hebben een model nodig. Kies een pad — je kunt het altijd wijzigen via Instellingen → AI.',
     cloudTitle: 'Cloud (BYOK)',
+    cloudBadge: '14+ Providers',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek en 10+ andere. Breng je eigen API-sleutel mee.',
     cloudMeta: 'Beste kwaliteit. Betaal per gebruik.',
     cloudSub: 'Kies een aanbieder en plak je API-sleutel. De sleutel wordt opgeslagen in je OS-keychain.',
     localTitle: 'Lokaal (Ollama)',
+    localBadge: '100% Lokale privacy',
+    localReadyPill: 'Gereed',
     localBody: 'Draai een klein model op je eigen machine. Notities verlaten je apparaat nooit.',
     localMeta: 'Beste privacy. Gratis.',
     localDetected: 'Ollama gedetecteerd op deze machine',

@@ -32,6 +32,7 @@ import {
   applyCmSelectLine,
   applyCmSelectWord,
   applyCmDeleteWord,
+  applyCmDeleteLine,
   applyCmLink,
   applyCmImage,
   applyCmTable,
@@ -47,6 +48,7 @@ import {
   applyPlainSelectLine,
   applyPlainSelectWord,
   applyPlainDeleteWord,
+  applyPlainDeleteLine,
   applyPlainList,
   applyPlainQuote,
 } from '../lib/editor-formatting';
@@ -368,7 +370,10 @@ mermaid.initialize({
 });
 
 const plainLiveEnabled = computed(
-  () => usePlainWindowsEditor && settings.viewMode === 'liveEdit' && props.tab.language === 'markdown',
+  () =>
+    usePlainWindowsEditor &&
+    (settings.viewMode === 'liveEdit' || (settings.viewMode === 'edit' && settings.livePreview)) &&
+    props.tab.language === 'markdown',
 );
 
 const plainEditorStyle = computed(() => ({
@@ -2440,7 +2445,7 @@ function buildExtensions() {
         (b) => b.key !== 'Mod-/' && b.key !== 'Mod-i' && b.key !== 'Shift-Mod-k' && b.key !== 'Mod-Shift-k'
       ),
       ...historyKeymap.filter((b) => b.key !== 'Mod-u'),
-      ...searchKeymap.filter((b) => b.key !== 'Mod-Shift-l' && b.key !== 'Shift-Mod-l'),
+      ...searchKeymap.filter((b) => b.key !== 'Mod-Shift-l' && b.key !== 'Shift-Mod-l' && b.key !== 'Mod-d'),
       indentWithTab,
     ]),
     lineNumCompartment.of(settings.showLineNumbers ? lineNumbers() : []),
@@ -3882,9 +3887,18 @@ function insertMarkdown(snippet: string): void {
 
 function applyFormat(action: string, _options?: any): boolean {
   if (usePlainWindowsEditor) {
-    const el = plainLiveEnabled.value
+    let el = plainLiveEnabled.value
       ? plainBlockEditors.value[plainActiveBlock.value]
       : plainEditor.value;
+    if (!el && plainLiveEnabled.value) {
+      if (document.activeElement instanceof HTMLTextAreaElement && document.activeElement.closest('.plain-host')) {
+        el = document.activeElement;
+      } else if (plainBlocks.value.length > 0) {
+        const idx = Math.max(0, Math.min(plainActiveBlock.value >= 0 ? plainActiveBlock.value : 0, plainBlocks.value.length - 1));
+        activatePlainBlock(idx, 0);
+        el = plainBlockEditors.value[idx];
+      }
+    }
     if (!el) return false;
     switch (action) {
       case 'bold': applyPlainInlineFormat(el, '**'); break;
@@ -3936,11 +3950,17 @@ function applyFormat(action: string, _options?: any): boolean {
         applyPlainClearFormat(el); break;
       case 'selectLine':
         applyPlainSelectLine(el); break;
+      case 'deleteLine':
+        applyPlainDeleteLine(el); break;
       case 'selectWord':
         applyPlainSelectWord(el); break;
       case 'deleteWord':
         applyPlainDeleteWord(el); break;
     }
+    try {
+      el.focus();
+      emitPlainCursorAndSelection();
+    } catch {}
     return true;
   }
   if (!view) return false;
@@ -3994,6 +4014,8 @@ function applyFormat(action: string, _options?: any): boolean {
       return applyCmClearFormat(view);
     case 'selectLine':
       return applyCmSelectLine(view);
+    case 'deleteLine':
+      return applyCmDeleteLine(view);
     case 'selectWord':
       return applyCmSelectWord(view);
     case 'deleteWord':

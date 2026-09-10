@@ -1032,11 +1032,14 @@ export const tr: I18n = {
     chooseSub:
       'SoloMD YZ olmadan da çalışır, ancak aracı paneli ve tarifler bir model gerektirir. Bir yol seçin — istediğiniz zaman Ayarlar → YZ\'den değiştirebilirsiniz.',
     cloudTitle: 'Bulut (BYOK)',
+    cloudBadge: '14+ Sağlayıcı',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek ve 10\'dan fazlası. Kendi API anahtarınızı kullanın.',
     cloudMeta: 'En iyi kalite. Kullandıkça öde.',
     cloudSub: 'Bir sağlayıcı seçin ve API anahtarınızı yapıştırın. Anahtar işletim sisteminizin anahtarlığında saklanır.',
     localTitle: 'Yerel (Ollama)',
+    localBadge: '100% Yerel Gizlilik',
+    localReadyPill: 'Hazır',
     localBody: 'Makinenizde küçük bir model çalıştırın. Notlar cihazınızdan asla çıkmaz.',
     localMeta: 'En iyi gizlilik. Ücretsiz.',
     localDetected: 'Bu makinede Ollama algılandı',

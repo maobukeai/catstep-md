@@ -1029,11 +1029,14 @@ export const it: I18n = {
     chooseSub:
       'SoloMD funziona senza IA, ma il pannello agent e i recipes necessitano di un modello. Scegli un percorso — puoi cambiarlo in qualsiasi momento in Impostazioni → IA.',
     cloudTitle: 'Cloud (BYOK)',
+    cloudBadge: '14+ Fornitori',
     cloudBody:
       'Anthropic Claude, OpenAI ChatGPT, Google Gemini, DeepSeek e altri 10+. Porta la tua chiave API.',
     cloudMeta: 'Migliore qualità. Pay-per-use.',
     cloudSub: 'Scegli un provider e incolla la tua chiave API. La chiave è memorizzata nel portachiavi del SO.',
     localTitle: 'Locale (Ollama)',
+    localBadge: '100% Privacy locale',
+    localReadyPill: 'Pronto',
     localBody: 'Esegui un modello piccolo sulla tua macchina. Le note non lasciano mai il tuo dispositivo.',
     localMeta: 'Massima privacy. Gratis.',
     localDetected: 'Ollama rilevato su questa macchina',

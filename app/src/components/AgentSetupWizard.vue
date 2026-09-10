@@ -302,94 +302,168 @@ function onCloudKeyKey(e: KeyboardEvent) {
   <Teleport to="body">
   <div v-if="props.open" class="wiz-backdrop" @click.self="finish">
     <div class="wiz" role="dialog" aria-modal="true">
-      <button class="wiz__close" @click="finish" :title="t('wizard.close')">×</button>
+      <button class="wiz__close" @click="finish" :title="t('wizard.close')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
 
       <!-- Step: Choose ---------------------------------------------------- -->
       <div v-if="step === 'choose'" class="wiz__step">
-        <h2 class="wiz__title">{{ t('wizard.chooseTitle') }}</h2>
-        <p class="wiz__sub">{{ t('wizard.chooseSub') }}</p>
+        <div class="wiz__header">
+          <div class="wiz__sparkle-wrap">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+              <path d="M5 3v4" />
+              <path d="M19 17v4" />
+              <path d="M3 5h4" />
+              <path d="M17 19h4" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="wiz__title">{{ t('wizard.chooseTitle') }}</h2>
+            <p class="wiz__sub">{{ t('wizard.chooseSub') }}</p>
+          </div>
+        </div>
 
         <div class="wiz__cards">
-          <button class="wiz-card" @click="pickCloud">
-            <div class="wiz-card__head">
-              <span class="wiz-card__emoji">☁️</span>
-              <span class="wiz-card__title">{{ t('wizard.cloudTitle') }}</span>
+          <!-- Cloud Card -->
+          <button class="wiz-card wiz-card--cloud" type="button" @click="pickCloud">
+            <div class="wiz-card__top">
+              <div class="wiz-card__icon-wrap wiz-card__icon--cloud">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                </svg>
+              </div>
+              <span class="wiz-card__pill wiz-card__pill--cloud">{{ t('wizard.cloudBadge') }}</span>
             </div>
-            <p class="wiz-card__body">{{ t('wizard.cloudBody') }}</p>
-            <p class="wiz-card__meta">{{ t('wizard.cloudMeta') }}</p>
+            <div class="wiz-card__main">
+              <div class="wiz-card__title-row">
+                <span class="wiz-card__title">{{ t('wizard.cloudTitle') }}</span>
+                <svg class="wiz-card__arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+              <p class="wiz-card__body">{{ t('wizard.cloudBody') }}</p>
+            </div>
+            <div class="wiz-card__footer">
+              <span class="wiz-card__meta">{{ t('wizard.cloudMeta') }}</span>
+            </div>
           </button>
 
-          <button class="wiz-card" @click="pickOllama">
-            <div class="wiz-card__head">
-              <span class="wiz-card__emoji">🖥️</span>
-              <span class="wiz-card__title">{{ t('wizard.localTitle') }}</span>
-              <span
-                v-if="ollama.ok"
-                class="wiz-card__badge wiz-card__badge--ok"
-                :title="t('wizard.localDetected')"
-              >●</span>
+          <!-- Local Card -->
+          <button class="wiz-card wiz-card--local" type="button" @click="pickOllama">
+            <div class="wiz-card__top">
+              <div class="wiz-card__icon-wrap wiz-card__icon--local">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="16" height="16" x="4" y="4" rx="2" />
+                  <rect width="6" height="6" x="9" y="9" rx="1" />
+                  <path d="M15 2v2" /><path d="M15 20v2" />
+                  <path d="M2 15h2" /><path d="M2 9h2" />
+                  <path d="M20 15h2" /><path d="M20 9h2" />
+                  <path d="M9 2v2" /><path d="M9 20v2" />
+                </svg>
+              </div>
+              <span v-if="ollama.ok" class="wiz-card__pill wiz-card__pill--ready" :title="t('wizard.localDetected')">
+                <span class="wiz-card__pulse-dot"></span>
+                {{ t('wizard.localReadyPill') }}
+              </span>
+              <span v-else class="wiz-card__pill wiz-card__pill--local">{{ t('wizard.localBadge') }}</span>
             </div>
-            <p class="wiz-card__body">{{ t('wizard.localBody') }}</p>
-            <p class="wiz-card__meta">{{ t('wizard.localMeta') }}</p>
+            <div class="wiz-card__main">
+              <div class="wiz-card__title-row">
+                <span class="wiz-card__title">{{ t('wizard.localTitle') }}</span>
+                <svg class="wiz-card__arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
+              <p class="wiz-card__body">{{ t('wizard.localBody') }}</p>
+            </div>
+            <div class="wiz-card__footer">
+              <span class="wiz-card__meta">{{ t('wizard.localMeta') }}</span>
+            </div>
           </button>
         </div>
 
-        <button class="wiz__skip" @click="skip">{{ t('wizard.skip') }}</button>
+        <div class="wiz__footer">
+          <button class="wiz__skip" type="button" @click="skip">{{ t('wizard.skip') }}</button>
+        </div>
       </div>
 
       <!-- Step: Cloud ----------------------------------------------------- -->
       <div v-else-if="step === 'cloud'" class="wiz__step">
-        <h2 class="wiz__title">{{ t('wizard.cloudTitle') }}</h2>
-        <p class="wiz__sub">{{ t('wizard.cloudSub') }}</p>
-
-        <div class="wiz__row">
-          <label>{{ t('wizard.providerLabel') }}</label>
-          <select v-model="cloudProvider" class="wiz__sel" @change="onCloudProviderChange">
-            <option v-for="p in cloudProviders" :key="p.id" :value="p.id">
-              {{ p.label }}
-            </option>
-          </select>
+        <div class="wiz__header">
+          <div class="wiz__icon-banner wiz-card__icon--cloud">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="wiz__title">{{ t('wizard.cloudTitle') }}</h2>
+            <p class="wiz__sub">{{ t('wizard.cloudSub') }}</p>
+          </div>
         </div>
 
-        <div class="wiz__row">
-          <label>{{ t('wizard.baseUrlLabel') }}</label>
-          <input
-            v-model="cloudBaseUrl"
-            type="text"
-            class="wiz__inp"
-            :placeholder="cloudConfig?.defaultBaseUrl || 'https://…/v1'"
-            spellcheck="false"
-          />
+        <div class="wiz__form">
+          <div class="wiz__row">
+            <label>{{ t('wizard.providerLabel') }}</label>
+            <select v-model="cloudProvider" class="wiz__sel" @change="onCloudProviderChange">
+              <option v-for="p in cloudProviders" :key="p.id" :value="p.id">
+                {{ p.label }}
+              </option>
+            </select>
+          </div>
+
+          <div class="wiz__row">
+            <label>{{ t('wizard.baseUrlLabel') }}</label>
+            <input
+              v-model="cloudBaseUrl"
+              type="text"
+              class="wiz__inp"
+              :placeholder="cloudConfig?.defaultBaseUrl || 'https://…/v1'"
+              spellcheck="false"
+            />
+          </div>
+
+          <div class="wiz__row">
+            <label>{{ cloudNeedsKey ? t('wizard.keyLabel') : t('wizard.keyOptionalLabel') }}</label>
+            <input
+              v-model="cloudKey"
+              type="password"
+              class="wiz__inp"
+              :placeholder="t('wizard.keyPlaceholder')"
+              spellcheck="false"
+              @keydown="onCloudKeyKey"
+            />
+          </div>
         </div>
 
-        <div class="wiz__row">
-          <label>{{ cloudNeedsKey ? t('wizard.keyLabel') : t('wizard.keyOptionalLabel') }}</label>
-          <input
-            v-model="cloudKey"
-            type="password"
-            class="wiz__inp"
-            :placeholder="t('wizard.keyPlaceholder')"
-            spellcheck="false"
-            @keydown="onCloudKeyKey"
-          />
+        <div v-if="verifyResult === 'fail'" class="wiz__banner wiz__banner--err">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span>{{ verifyMessage }}</span>
         </div>
-
-        <p
-          v-if="verifyResult === 'fail'"
-          class="wiz__err"
-        >{{ verifyMessage }}</p>
-        <p
-          v-else-if="verifyResult === 'ok'"
-          class="wiz__ok"
-        >{{ verifyMessage }}</p>
+        <div v-else-if="verifyResult === 'ok'" class="wiz__banner wiz__banner--ok">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          <span>{{ verifyMessage }}</span>
+        </div>
         <p v-else class="wiz__hint">{{ t('wizard.cloudHint') }}</p>
 
         <div class="wiz__buttons">
-          <button class="wiz__btn wiz__btn--ghost" @click="step = 'choose'">
+          <button class="wiz__btn wiz__btn--ghost" type="button" @click="step = 'choose'">
             {{ t('wizard.back') }}
           </button>
           <button
             class="wiz__btn wiz__btn--primary"
+            type="button"
             :disabled="verifying"
             @click="saveCloudKey"
           >
@@ -400,34 +474,63 @@ function onCloudKeyKey(e: KeyboardEvent) {
 
       <!-- Step: Ollama ---------------------------------------------------- -->
       <div v-else-if="step === 'ollama'" class="wiz__step">
-        <h2 class="wiz__title">{{ t('wizard.localTitle') }}</h2>
+        <div class="wiz__header">
+          <div class="wiz__icon-banner wiz-card__icon--local">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="16" height="16" x="4" y="4" rx="2" />
+              <rect width="6" height="6" x="9" y="9" rx="1" />
+              <path d="M15 2v2" /><path d="M15 20v2" />
+              <path d="M2 15h2" /><path d="M2 9h2" />
+              <path d="M20 15h2" /><path d="M20 9h2" />
+              <path d="M9 2v2" /><path d="M9 20v2" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="wiz__title">{{ t('wizard.localTitle') }}</h2>
+            <p class="wiz__sub">localhost:11434</p>
+          </div>
+        </div>
 
-        <div v-if="detecting" class="wiz__hint">{{ t('wizard.localDetecting') }}</div>
+        <div v-if="detecting" class="wiz__banner wiz__banner--hint">
+          <span class="wiz-card__pulse-dot"></span>
+          <span>{{ t('wizard.localDetecting') }}</span>
+        </div>
 
         <div v-else-if="!ollama.ok" class="wiz__block">
-          <p class="wiz__err">{{ t('wizard.localNotRunning') }}</p>
+          <div class="wiz__banner wiz__banner--err">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ t('wizard.localNotRunning') }}</span>
+          </div>
           <p class="wiz__hint">{{ t('wizard.localNotRunningHint') }}</p>
           <div class="wiz__buttons">
-            <button class="wiz__btn wiz__btn--ghost" @click="step = 'choose'">
+            <button class="wiz__btn wiz__btn--ghost" type="button" @click="step = 'choose'">
               {{ t('wizard.back') }}
             </button>
-            <button class="wiz__btn" @click="openOllamaInstall">
+            <button class="wiz__btn wiz__btn--secondary" type="button" @click="openOllamaInstall">
               {{ t('wizard.localInstallBtn') }}
             </button>
-            <button class="wiz__btn wiz__btn--primary" @click="detectOllama">
+            <button class="wiz__btn wiz__btn--primary" type="button" @click="detectOllama">
               {{ t('wizard.localRetryBtn') }}
             </button>
           </div>
         </div>
 
         <div v-else-if="ollama.models.length === 0" class="wiz__block">
-          <p class="wiz__ok">
-            {{ t('wizard.localRunningNoModel', { url: ollamaUrl }) }}
-          </p>
+          <div class="wiz__banner wiz__banner--ok">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>{{ t('wizard.localRunningNoModel', { url: ollamaUrl }) }}</span>
+          </div>
           <p class="wiz__hint">{{ t('wizard.localPullHint') }}</p>
-          <div class="wiz__pull">
+          <div class="wiz__pull-box">
             <button
-              class="wiz__btn wiz__btn--primary"
+              class="wiz__btn wiz__btn--primary wiz__btn--lg"
+              type="button"
               :disabled="pulling"
               @click="pullRecommended"
             >
@@ -435,30 +538,38 @@ function onCloudKeyKey(e: KeyboardEvent) {
                 ? t('wizard.localPullingPct', { pct: String(Math.round(pullPct)) })
                 : t('wizard.localPullBtn') }}
             </button>
+            <div v-if="pulling" class="wiz__progress-bar">
+              <div class="wiz__progress-fill" :style="{ width: `${pullPct}%` }"></div>
+            </div>
+            <p v-if="pullStatus" class="wiz__pull-status">{{ pullStatus }}</p>
           </div>
           <div class="wiz__buttons">
-            <button class="wiz__btn wiz__btn--ghost" @click="step = 'choose'">
+            <button class="wiz__btn wiz__btn--ghost" type="button" @click="step = 'choose'">
               {{ t('wizard.back') }}
             </button>
           </div>
         </div>
 
         <div v-else class="wiz__block">
-          <p class="wiz__ok">
-            {{ t('wizard.localReady', {
+          <div class="wiz__banner wiz__banner--ok">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>{{ t('wizard.localReady', {
               n: String(ollama.models.length),
               url: ollamaUrl,
-            }) }}
-          </p>
+            }) }}</span>
+          </div>
           <ul class="wiz__models">
             <li v-for="m in ollama.models" :key="m"><code>{{ m }}</code></li>
           </ul>
           <div class="wiz__buttons">
-            <button class="wiz__btn wiz__btn--ghost" @click="step = 'choose'">
+            <button class="wiz__btn wiz__btn--ghost" type="button" @click="step = 'choose'">
               {{ t('wizard.back') }}
             </button>
             <button
               class="wiz__btn wiz__btn--primary"
+              type="button"
               :disabled="!ollamaCanAdopt"
               @click="adoptOllama"
             >
@@ -470,15 +581,24 @@ function onCloudKeyKey(e: KeyboardEvent) {
 
       <!-- Step: Done ------------------------------------------------------ -->
       <div v-else-if="step === 'done'" class="wiz__step">
-        <h2 class="wiz__title">{{ t('wizard.doneTitle') }}</h2>
-        <p class="wiz__sub">{{ t('wizard.doneSub') }}</p>
+        <div class="wiz__header">
+          <div class="wiz__icon-banner wiz__icon--done">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="wiz__title">{{ t('wizard.doneTitle') }}</h2>
+            <p class="wiz__sub">{{ t('wizard.doneSub') }}</p>
+          </div>
+        </div>
         <ul class="wiz__next">
           <li>{{ t('wizard.doneNext1') }}</li>
           <li>{{ t('wizard.doneNext2') }}</li>
           <li>{{ t('wizard.doneNext3') }}</li>
         </ul>
         <div class="wiz__buttons">
-          <button class="wiz__btn wiz__btn--primary" @click="finish">
+          <button class="wiz__btn wiz__btn--primary" type="button" @click="finish">
             {{ t('wizard.doneClose') }}
           </button>
         </div>
@@ -496,206 +616,512 @@ function onCloudKeyKey(e: KeyboardEvent) {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: var(--z-modal);
-  backdrop-filter: blur(2px);
+  z-index: var(--z-modal, 2000);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: wiz-fade 150ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+
 .wiz {
   position: relative;
-  width: min(560px, 92vw);
+  width: min(580px, 92vw);
   max-height: 90vh;
   overflow-y: auto;
-  background: var(--bg);
+  background: var(--bg-elev, var(--bg, #ffffff));
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  padding: 24px 28px;
+  border-radius: var(--r-lg, 16px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.08);
+  padding: 26px 30px 24px;
+  box-sizing: border-box;
+  animation: wiz-pop 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
+
 .wiz__close {
   position: absolute;
-  top: 8px;
-  right: 12px;
-  background: none;
-  border: none;
-  font-size: 22px;
-  line-height: 1;
+  top: 14px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-full, 999px);
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--dur-fast, 120ms) var(--ease, ease);
+  z-index: 10;
 }
 .wiz__close:hover {
+  background: var(--bg-hover, rgba(125, 125, 125, 0.08));
+  border-color: var(--border);
   color: var(--text);
+  transform: scale(1.05);
 }
+.wiz__close:active {
+  transform: scale(0.95);
+}
+
 .wiz__step {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
+
+/* Header */
+.wiz__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-right: 28px;
+}
+.wiz__sparkle-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-soft, rgba(255, 159, 64, 0.12));
+  color: var(--accent, #ff9f40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px -2px var(--accent-ring, rgba(255, 159, 64, 0.2));
+}
+.wiz__icon-banner {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wiz__icon--done {
+  background: rgba(46, 160, 67, 0.14);
+  color: #2ea043;
+}
+
 .wiz__title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 .wiz__sub {
   margin: 0;
   font-size: 13px;
+  line-height: 1.5;
   color: var(--text-muted);
 }
 .wiz__hint {
   margin: 0;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--text-muted);
 }
-.wiz__err {
-  margin: 0;
-  font-size: 12px;
-  color: var(--danger, #c0413a);
-}
-.wiz__ok {
-  margin: 0;
-  font-size: 12px;
-  color: var(--accent, #2da44e);
-}
 
+/* Choice Cards Grid */
 .wiz__cards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 14px;
+  margin-top: 4px;
 }
+
 .wiz-card {
   text-align: left;
-  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 16px 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-secondary, transparent);
+  border-radius: var(--r-lg, 14px);
+  background: var(--bg);
   cursor: pointer;
-  transition: border-color 0.1s, transform 0.1s;
+  position: relative;
+  transition: all var(--dur, 180ms) var(--ease, ease);
+  outline: none;
+  min-height: 170px;
+  box-sizing: border-box;
 }
+
 .wiz-card:hover {
-  border-color: var(--accent, #4078c0);
-  transform: translateY(-1px);
+  border-color: var(--accent, #ff9f40);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--accent-ring, rgba(255, 159, 64, 0.35));
 }
-.wiz-card__head {
+.wiz-card:active {
+  transform: translateY(0);
+}
+.wiz-card:focus-visible {
+  box-shadow: var(--ring);
+}
+
+.wiz-card__top {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
-.wiz-card__emoji {
-  font-size: 18px;
+
+.wiz-card__icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.wiz-card__icon--cloud {
+  background: rgba(56, 139, 253, 0.12);
+  color: #2b7fff;
+}
+.wiz-card__icon--local {
+  background: rgba(46, 160, 67, 0.12);
+  color: #28a745;
+}
+
+.wiz-card__pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--r-full, 999px);
+  letter-spacing: 0.02em;
+}
+.wiz-card__pill--cloud {
+  background: rgba(56, 139, 253, 0.1);
+  color: #2170d9;
+}
+.wiz-card__pill--local {
+  background: rgba(46, 160, 67, 0.1);
+  color: #1e7e34;
+}
+.wiz-card__pill--ready {
+  background: rgba(46, 160, 67, 0.14);
+  color: #1e7e34;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wiz-card__pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #28a745;
+  box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+  animation: wiz-pulse 2s infinite;
+}
+
+.wiz-card__main {
+  flex-grow: 1;
+}
+
+.wiz-card__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 .wiz-card__title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-}
-.wiz-card__body {
-  margin: 4px 0 0;
-  font-size: 12px;
   color: var(--text);
+}
+.wiz-card__arrow {
+  color: var(--text-muted);
+  opacity: 0.6;
+  transition: all var(--dur-fast, 120ms) var(--ease, ease);
+  flex-shrink: 0;
+}
+.wiz-card:hover .wiz-card__arrow {
+  opacity: 1;
+  color: var(--accent, #ff9f40);
+  transform: translateX(3px);
+}
+
+.wiz-card__body {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.wiz-card__footer {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  margin-top: auto;
 }
 .wiz-card__meta {
-  margin: 4px 0 0;
   font-size: 11px;
+  font-weight: 500;
   color: var(--text-muted);
-}
-.wiz-card__badge {
-  margin-left: auto;
-  font-size: 10px;
-}
-.wiz-card__badge--ok {
-  color: var(--accent, #2da44e);
+  opacity: 0.85;
 }
 
+/* Skip Button */
+.wiz__footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+}
 .wiz__skip {
-  align-self: center;
-  margin-top: 8px;
-  background: none;
-  border: none;
+  padding: 7px 22px;
+  border-radius: var(--r-full, 999px);
+  border: 1px solid var(--border);
+  background: transparent;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  text-decoration: underline;
+  transition: all var(--dur, 180ms) var(--ease, ease);
+  outline: none;
 }
 .wiz__skip:hover {
+  background: var(--bg-hover, rgba(125, 125, 125, 0.08));
+  border-color: var(--text-muted);
   color: var(--text);
+  transform: translateY(-1px);
+}
+.wiz__skip:active {
+  transform: translateY(0);
+}
+.wiz__skip:focus-visible {
+  box-shadow: var(--ring);
 }
 
+/* Form Styles */
+.wiz__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .wiz__row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
+  gap: 5px;
 }
 .wiz__row label {
-  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
 }
 .wiz__sel,
 .wiz__inp {
   font: inherit;
-  padding: 6px 8px;
+  font-size: 13px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-md, 8px);
   background: var(--bg);
   color: var(--text);
+  transition: border-color var(--dur-fast, 120ms) var(--ease, ease), box-shadow var(--dur-fast, 120ms) var(--ease, ease);
+  outline: none;
+}
+.wiz__sel:focus,
+.wiz__inp:focus {
+  border-color: var(--accent, #ff9f40);
+  box-shadow: var(--ring);
 }
 
+/* Banners */
+.wiz__banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-md, 8px);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.wiz__banner--err {
+  background: rgba(229, 62, 62, 0.1);
+  color: var(--danger, #e53e3e);
+  border: 1px solid rgba(229, 62, 62, 0.2);
+}
+.wiz__banner--ok {
+  background: rgba(46, 160, 67, 0.1);
+  color: var(--success, #28a745);
+  border: 1px solid rgba(46, 160, 67, 0.2);
+}
+.wiz__banner--hint {
+  background: var(--bg-secondary, rgba(125, 125, 125, 0.08));
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* Actions & Buttons */
 .wiz__buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
   margin-top: 8px;
 }
 .wiz__btn {
   font: inherit;
-  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-md, 8px);
   background: var(--bg);
+  color: var(--text);
   cursor: pointer;
+  transition: all var(--dur-fast, 120ms) var(--ease, ease);
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .wiz__btn:hover:not(:disabled) {
-  background: var(--bg-secondary);
+  background: var(--bg-hover, rgba(125, 125, 125, 0.08));
+  border-color: var(--text-muted);
+}
+.wiz__btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .wiz__btn:disabled {
   opacity: 0.5;
-  cursor: default;
-}
-.wiz__btn--primary {
-  background: var(--accent, #4078c0);
-  color: white;
-  border-color: var(--accent, #4078c0);
-}
-.wiz__btn--primary:hover:not(:disabled) {
-  background: var(--accent-strong, #305d99);
+  cursor: not-allowed;
 }
 .wiz__btn--ghost {
   background: transparent;
+  border-color: transparent;
+}
+.wiz__btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover, rgba(125, 125, 125, 0.08));
+  border-color: var(--border);
+}
+.wiz__btn--secondary {
+  background: var(--bg-secondary, rgba(125, 125, 125, 0.08));
+}
+.wiz__btn--primary {
+  background: var(--accent, #ff9f40);
+  color: var(--accent-fg, #1a1a1a);
+  font-weight: 600;
+  border-color: var(--accent, #ff9f40);
+  box-shadow: 0 2px 8px -2px var(--accent-ring, rgba(255, 159, 64, 0.3));
+}
+.wiz__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  border-color: var(--accent, #ff9f40);
+  transform: translateY(-1px);
+}
+.wiz__btn--primary:focus-visible {
+  box-shadow: var(--ring);
+}
+.wiz__btn--lg {
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+/* Pull Box & Progress */
+.wiz__pull-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 16px;
+  border-radius: var(--r-md, 8px);
+  background: var(--bg-secondary, rgba(125, 125, 125, 0.04));
+  border: 1px solid var(--border);
+}
+.wiz__progress-bar {
+  width: 100%;
+  max-width: 280px;
+  height: 6px;
+  background: var(--border);
+  border-radius: var(--r-full, 999px);
+  overflow: hidden;
+}
+.wiz__progress-fill {
+  height: 100%;
+  background: var(--accent, #ff9f40);
+  transition: width 200ms ease;
+}
+.wiz__pull-status {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .wiz__models {
-  margin: 4px 0;
-  padding-left: 18px;
-  font-size: 12px;
-}
-.wiz__models li {
-  margin: 2px 0;
-}
-.wiz__pull {
-  display: flex;
-  justify-content: center;
   margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wiz__models li code {
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: var(--r-sm, 4px);
+  background: var(--bg-secondary, rgba(125, 125, 125, 0.08));
+  border: 1px solid var(--border);
 }
 
 .wiz__next {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--text);
 }
 .wiz__block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+}
+
+/* Keyframe animations */
+@keyframes wiz-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes wiz-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes wiz-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(40, 167, 69, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+/* Dark Mode Fine-tuning */
+:root[data-theme="dark"] .wiz-card__pill--cloud {
+  background: rgba(56, 139, 253, 0.18);
+  color: #79c0ff;
+}
+:root[data-theme="dark"] .wiz-card__pill--local,
+:root[data-theme="dark"] .wiz-card__pill--ready {
+  background: rgba(46, 160, 67, 0.18);
+  color: #56d364;
+}
+:root[data-theme="dark"] .wiz-card__icon--cloud {
+  background: rgba(56, 139, 253, 0.16);
+  color: #58a6ff;
+}
+:root[data-theme="dark"] .wiz-card__icon--local {
+  background: rgba(46, 160, 67, 0.16);
+  color: #3fb950;
+}
+:root[data-theme="dark"] .wiz__icon--done {
+  background: rgba(46, 160, 67, 0.18);
+  color: #3fb950;
 }
 </style>
+
