@@ -51,7 +51,7 @@ mod macos {
 
     pub fn set_default() -> Result<String, String> {
         // Bundle identifier declared in tauri.conf.json
-        let bundle_id = CFString::new("app.solomd");
+        let bundle_id = CFString::new("app.maobumd");
 
         // UTIs that map to Markdown / plain text. Multiple UTIs exist because
         // different apps have historically declared their own: we claim them all.

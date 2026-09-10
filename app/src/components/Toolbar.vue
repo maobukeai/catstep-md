@@ -277,6 +277,11 @@ function onSelectReadingMode() {
   }
 }
 
+const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
+const isDarkTheme = computed(() =>
+  ['dark', 'night', 'nord', 'solarized-dark', 'monokai', 'dracula'].includes(settings.theme)
+);
+
 function toggleDayNight() {
   settings.toggleTheme();
   track('theme_changed', { theme: settings.theme });
@@ -288,7 +293,7 @@ const menubarNames: MenubarName[] = ['file', 'edit', 'paragraph', 'format', 'vie
 const menubarOpen = ref<MenubarName | null>(null);
 
 function menuTitle(name: MenubarName): string {
-  const isZh = settings.language?.startsWith('zh') ?? true;
+  const isChinese = isZh.value;
   const titles: Record<MenubarName, { zh: string; en: string }> = {
     file: { zh: '文件', en: 'File' },
     edit: { zh: '编辑', en: 'Edit' },
@@ -299,7 +304,7 @@ function menuTitle(name: MenubarName): string {
     tools: { zh: '工具', en: 'Tools' },
     help: { zh: '帮助', en: 'Help' },
   };
-  return isZh ? titles[name].zh : titles[name].en;
+  return isChinese ? titles[name].zh : titles[name].en;
 }
 
 function toggleMenubar(name: MenubarName, e: MouseEvent) {
@@ -722,7 +727,7 @@ onBeforeUnmount(() => {
         <span class="killer-capsule__label">时光机</span>
       </button>
 
-      <!-- 3. [快捷键] Keybindings & Shortcuts Panel Button (Replaces Theme) -->
+      <!-- 3. [快捷键] Keybindings & Shortcuts Panel Button -->
       <button
         class="killer-capsule killer-capsule--shortcuts"
         @click="emit('open-help')"
@@ -735,7 +740,25 @@ onBeforeUnmount(() => {
         <span class="killer-capsule__label">快捷键</span>
       </button>
 
-      <!-- 4. [设置] Preferences -->
+      <!-- 4. [主题浅色/深色切换] Theme Light/Dark Toggle Button -->
+      <button
+        class="killer-capsule killer-capsule--theme"
+        @click="toggleDayNight"
+        :title="isDarkTheme ? (isZh ? '当前为深色，点击切换为浅色主题' : 'Current: Dark. Click for Light theme') : (isZh ? '当前为浅色，点击切换为深色主题' : 'Current: Light. Click for Dark theme')"
+      >
+        <!-- Sun icon in light mode -->
+        <svg v-if="!isDarkTheme" class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+        <!-- Moon icon in dark mode -->
+        <svg v-else class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+        <span class="killer-capsule__label">{{ isDarkTheme ? (isZh ? '深色' : 'Dark') : (isZh ? '浅色' : 'Light') }}</span>
+      </button>
+
+      <!-- 5. [设置] Preferences -->
       <button
         class="killer-capsule killer-capsule--settings"
         @click="emit('open-settings')"
@@ -982,6 +1005,9 @@ onBeforeUnmount(() => {
 }
 .killer-capsule--ai:hover .killer-capsule__svg {
   color: #ffaa40;
+}
+.killer-capsule--theme:hover .killer-capsule__svg {
+  color: #f59e0b;
 }
 .killer-capsule__label {
   letter-spacing: 0.02em;

@@ -982,6 +982,11 @@ pub fn run_with(initial_file: Option<String>) {
             // run-loop event match (`RunEvent::Ready` + 400ms timer) acts
             // as a fallback when there's no saved state to restore.
             if let Some(win) = app.get_webview_window("main") {
+                #[cfg(target_os = "windows")]
+                if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png")) {
+                    let _ = win.set_icon(icon);
+                }
+
                 let win_clone = win.clone();
                 win.on_window_event(move |event| {
                     if matches!(
