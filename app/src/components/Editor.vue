@@ -3003,6 +3003,8 @@ const editorContextMenuState = ref<{
 function onEditorContextMenu(e: MouseEvent) {
   e.preventDefault();
   selectionBubbleState.value.visible = false;
+  inPlaceTableState.value.visible = false;
+  inPlaceFormulaState.value.visible = false;
 
   let hasSelection = false;
   let selectedText = '';
@@ -3032,13 +3034,30 @@ function onEditorContextMenu(e: MouseEvent) {
     const docText = view.state.doc.toString();
 
     // 1. Table
-    const tbl = findTableAtCursor(docText, caret);
+    let tbl = findTableAtCursor(docText, caret);
+    if (!tbl && (e.target as HTMLElement)?.closest('.cm-interactive-table, table')) {
+      const tableEl = (e.target as HTMLElement).closest('.cm-interactive-table, table')!;
+      try {
+        const tablePos = view.posAtDOM(tableEl);
+        if (tablePos !== null) {
+          tbl = findTableAtCursor(docText, tablePos);
+        }
+      } catch {}
+    }
     if (tbl) {
       isTable = true;
       tableInfo = {
         canDeleteRow: tbl.rowIndex >= 0,
         canDeleteCol: tbl.model.header.length > 1,
         align: tbl.model.aligns[tbl.caretCol] ?? null,
+      };
+    } else if (activeTableWidgetInfo.value) {
+      const info = activeTableWidgetInfo.value;
+      isTable = true;
+      tableInfo = {
+        canDeleteRow: info.canDeleteRow,
+        canDeleteCol: info.canDeleteCol,
+        align: info.align,
       };
     }
 
@@ -3098,6 +3117,43 @@ function onEditorContextMenu(e: MouseEvent) {
         }
       }
     }
+
+    // DOM-level fallbacks for rendered widgets
+    const targetEl = e.target as HTMLElement | null;
+    if (!linkInfo && targetEl) {
+      const aEl = targetEl.closest('a');
+      if (aEl) {
+        linkInfo = {
+          text: (aEl.textContent || '').trim(),
+          url: aEl.getAttribute('href') || (aEl as HTMLAnchorElement).href,
+        };
+      }
+    }
+    if (!imageInfo && targetEl) {
+      const imgEl = targetEl.closest('img');
+      if (imgEl) {
+        imageInfo = {
+          alt: imgEl.getAttribute('alt') || '',
+          src: imgEl.getAttribute('src') || imgEl.src,
+        };
+      }
+    }
+    if (!mathInfo && targetEl) {
+      const mathEl = targetEl.closest('.katex, .katex-display, .cm-math');
+      if (mathEl) {
+        const tex = mathEl.querySelector('annotation[encoding="application/x-tex"]')?.textContent;
+        if (tex) {
+          mathInfo = { latex: tex, display: mathEl.classList.contains('katex-display') };
+        }
+      }
+    }
+    if (!isCodeBlock && targetEl) {
+      const preEl = targetEl.closest('pre');
+      if (preEl) {
+        isCodeBlock = true;
+        codeText = (preEl.textContent || '').trim();
+      }
+    }
   } else if (usePlainWindowsEditor) {
     const docText = plainText.value || '';
     const sel = plainAbsoluteSelection();
@@ -3153,6 +3209,7 @@ function onEditorContextMenu(e: MouseEvent) {
 }
 
 async function onEditorContextMenuAction(action: string, payload?: any) {
+  editorContextMenuState.value.visible = false;
   const info = editorContextMenuState.value.info;
 
   switch (action) {
