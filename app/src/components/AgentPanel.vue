@@ -1775,6 +1775,86 @@ watch(stateKey, (k) => {
   margin: 0;
 }
 
+/* --- Tool Group Aggregation (Codex/Cursor style) ----------------------- */
+.agent-panel__msg--tool-group {
+  padding: 0;
+  background: transparent;
+}
+.agent-panel__tool-group-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-soft);
+  overflow: hidden;
+  transition: all 0.15s ease;
+  margin: 4px 0;
+}
+.agent-panel__tool-group-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-muted);
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.agent-panel__tool-group-bar:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.agent-panel__tool-group-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+}
+.agent-panel__tool-group-icon {
+  font-size: 13px;
+  color: var(--accent, #ff9f40);
+  flex-shrink: 0;
+}
+.agent-panel__tool-group-title {
+  font-size: 11.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-panel__tool-group-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.agent-panel__tool-group-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.agent-panel__tool-group-caret {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.agent-panel__tool-group-content {
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg);
+}
+.agent-panel__tool-group-item {
+  width: 100%;
+}
+
 /* --- Codex / Cursor File Action Cards --------------------------------- */
 .agent-panel__file-action-card {
   background: var(--bg-elev);

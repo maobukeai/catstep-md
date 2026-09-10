@@ -2082,6 +2082,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       'app--drawer-left': narrowDrawer === 'left',
       'app--drawer-right': narrowDrawer === 'right',
       'has-app-custom-bg': hasActiveBackground,
+      'has-app-texture-bg': hasActiveBackground && settings.bgType === 'texture',
+      'has-app-image-bg': hasActiveBackground && settings.bgType === 'image',
     }"
   >
     <!-- Layer 1: GPU Background Canvas (Covers entire application) -->
