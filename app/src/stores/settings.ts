@@ -406,6 +406,12 @@ interface Settings {
     showHistoryPanel: boolean;
     showAgentPanel: boolean;
   } | null;
+  // Typora-style 3-in-1 Left Sidebar tab: 'files' | 'outline' | 'search'
+  leftSidebarTab: 'files' | 'outline' | 'search';
+  // SoloMD Power Tools Right Drawer tab
+  rightDrawerTab: 'agent' | 'history' | 'backlinks' | 'properties' | 'tools';
+  rightDrawerOpen: boolean;
+  typoraShortcutsMigrated: boolean;
 }
 
 /** v2.5 PDF / print export defaults. */
@@ -451,12 +457,8 @@ export function defaultPdfDefaults(): PdfDefaults {
 }
 
 function defaults(): Settings {
-  const prefersDark =
-    typeof window !== 'undefined' &&
-    window.matchMedia &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
   return {
-    theme: prefersDark ? 'dark' : 'light',
+    theme: 'github-light',
     viewMode: 'edit',
     startupViewMode: null,
     fontSize: 14,
@@ -616,6 +618,10 @@ function defaults(): Settings {
     inboxWorkflowEnabled: true,
     autoAdvanceInboxAfterOrganize: true,
     _rsPanesBeforeHide: null,
+    leftSidebarTab: 'files',
+    rightDrawerTab: 'agent',
+    rightDrawerOpen: false,
+    typoraShortcutsMigrated: true,
   };
 }
 
@@ -714,6 +720,14 @@ function load(): Settings {
         if (isMobile()) merged.rightSidebarHidden = true;
         merged.v491MobileLayoutMigrated = true;
       }
+      // Typora shortcut parity migration: unbind old default Mod+B from view.toggleFileTree
+      // so Mod+B is guaranteed to be Bold for all users.
+      if (!parsed.typoraShortcutsMigrated) {
+        if (merged.keybindings && merged.keybindings['view.toggleFileTree'] === 'Mod+B') {
+          delete merged.keybindings['view.toggleFileTree'];
+        }
+        merged.typoraShortcutsMigrated = true;
+      }
       return merged;
     }
   } catch {}
@@ -737,7 +751,8 @@ export const useSettingsStore = defineStore('settings', {
       this.persist();
     },
     toggleTheme() {
-      this.setTheme(this.theme === 'light' ? 'dark' : 'light');
+      const isCurrentlyDark = ['dark', 'night', 'nord', 'solarized-dark', 'monokai', 'dracula'].includes(this.theme);
+      this.setTheme(isCurrentlyDark ? 'github-light' : 'night');
     },
     setStartupViewMode(mode: ViewMode | null) {
       this.startupViewMode = mode;
@@ -860,6 +875,53 @@ export const useSettingsStore = defineStore('settings', {
       this.showFileTree = !this.showFileTree;
       this.persist();
     },
+    toggleLeftSidebar() {
+      this.showFileTree = !this.showFileTree;
+      this.persist();
+    },
+    setLeftSidebarTab(tab: 'files' | 'outline' | 'search') {
+      this.leftSidebarTab = tab;
+      this.showFileTree = true;
+      this.persist();
+    },
+    toggleRightDrawer() {
+      if (this.rightSidebarHidden) {
+        this.rightSidebarHidden = false;
+        if (this.rightDrawerTab === 'agent') {
+          this.showAgentPanel = true;
+        } else if (this.rightDrawerTab === 'history') {
+          this.showHistoryPanel = true;
+          this.autoGitEnabled = true;
+        } else if (
+          !this.showAgentPanel &&
+          !this.showBacklinks &&
+          !this.showHistoryPanel &&
+          !this.showRelationships &&
+          !this.showTagsPanel &&
+          !this.showTasksPanel
+        ) {
+          this.showAgentPanel = true;
+        }
+      } else {
+        this.rightSidebarHidden = true;
+      }
+      this.persist();
+    },
+    setRightDrawerTab(tab: 'agent' | 'history' | 'backlinks' | 'properties' | 'tools') {
+      this.rightDrawerTab = tab;
+      this.rightSidebarHidden = false;
+      if (tab === 'agent') {
+        this.showAgentPanel = true;
+      } else if (tab === 'history') {
+        this.showHistoryPanel = true;
+        this.autoGitEnabled = true;
+      } else if (tab === 'backlinks') {
+        this.showBacklinks = true;
+      } else if (tab === 'properties') {
+        this.showInspector = true;
+      }
+      this.persist();
+    },
     toggleViewsPanel() {
       this.showViewsPanel = !this.showViewsPanel;
       this.persist();
@@ -924,7 +986,35 @@ export const useSettingsStore = defineStore('settings', {
         this.persist();
       }
     },
+    setTripleMode(mode: 'edit' | 'reading' | 'source') {
+      if (mode === 'reading') {
+        this.setViewMode('reading');
+      } else if (mode === 'source') {
+        this.viewMode = 'edit';
+        this.livePreview = false;
+        this.persist();
+      } else {
+        this.viewMode = 'edit';
+        this.livePreview = true;
+        this.persist();
+      }
+    },
+    cycleTripleMode() {
+      if (this.viewMode === 'reading') {
+        this.viewMode = 'edit';
+        this.livePreview = false;
+      } else if (!this.livePreview) {
+        this.viewMode = 'edit';
+        this.livePreview = true;
+      } else {
+        this.setViewMode('reading');
+      }
+      this.persist();
+    },
     toggleLivePreview() {
+      if (this.viewMode === 'reading') {
+        this.viewMode = 'edit';
+      }
       this.livePreview = !this.livePreview;
       this.persist();
     },
@@ -1031,8 +1121,24 @@ export const useSettingsStore = defineStore('settings', {
       this.persist();
     },
     toggleAgentPanel() {
-      this.showAgentPanel = !this.showAgentPanel;
-      if (this.showAgentPanel) this.ensureRightSidebarVisible();
+      if (this.rightSidebarHidden) {
+        this.showAgentPanel = true;
+        this.ensureRightSidebarVisible();
+      } else {
+        this.showAgentPanel = !this.showAgentPanel;
+        if (!this.showAgentPanel) {
+          const allOtherOff =
+            !this.showBacklinks &&
+            !this.showRelationships &&
+            !this.showTagsPanel &&
+            !this.showNeighborhood &&
+            !this.showTypesPanel &&
+            !this.showHistoryPanel;
+          if (allOtherOff) {
+            this.rightSidebarHidden = true;
+          }
+        }
+      }
       this.persist();
     },
     toggleAgentAllowWrite() {

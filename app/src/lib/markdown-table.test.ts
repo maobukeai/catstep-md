@@ -23,6 +23,10 @@ import {
   setAlign,
   setCell,
   emptyTable,
+  getRowCellBounds,
+  findTableAtCursor,
+  tableNavigate,
+  performTableAction,
 } from './markdown-table';
 
 const SRC = ['| a | b |', '|---|---:|', '| 1 | 2 |', '| 3 | 4 |'].join('\n');
@@ -153,3 +157,177 @@ test('an empty table is a valid table', () => {
   assert.deepEqual(parseTable(out)!.header, ['', '']);
   assert.equal(out.split('\n').length, 3);
 });
+
+test('getRowCellBounds parses cell start and end offsets', () => {
+  const line = '| col1 | col2 | col3 |';
+  const bounds = getRowCellBounds(line);
+  assert.equal(bounds.length, 3);
+  assert.equal(line.slice(bounds[0].contentStart, bounds[0].contentEnd), 'col1');
+  assert.equal(line.slice(bounds[1].contentStart, bounds[1].contentEnd), 'col2');
+  assert.equal(line.slice(bounds[2].contentStart, bounds[2].contentEnd), 'col3');
+});
+
+test('findTableAtCursor locates table, row and column at offset', () => {
+  const doc = 'Intro text\n\n| H1 | H2 |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\nFooter';
+  const h1Offset = doc.indexOf('H1');
+  const infoH1 = findTableAtCursor(doc, h1Offset);
+  assert.ok(infoH1);
+  assert.equal(infoH1.rowIndex, -1);
+  assert.equal(infoH1.caretCol, 0);
+
+  const cell4Offset = doc.indexOf('4');
+  const info4 = findTableAtCursor(doc, cell4Offset);
+  assert.ok(info4);
+  assert.equal(info4.rowIndex, 1);
+  assert.equal(info4.caretCol, 1);
+  assert.equal(info4.model.rows.length, 2);
+});
+
+test('tableNavigate Tab navigates cells and adds new row on last cell', () => {
+  const doc = '| A | B |\n|---|---|\n| 1 | 2 |';
+  const cell1 = doc.indexOf('1');
+  const nav1 = tableNavigate(doc, cell1, 'next');
+  assert.ok(nav1);
+  assert.equal(nav1.text, doc); // document unchanged
+  assert.equal(doc[nav1.newCaret], '2'); // moved to '2'
+
+  // Tab on '2' (last cell of last row) should append a new row!
+  const cell2 = doc.indexOf('2');
+  const nav2 = tableNavigate(doc, cell2, 'next');
+  assert.ok(nav2);
+  assert.notEqual(nav2.text, doc);
+  const newTable = parseTable(nav2.text)!;
+  assert.equal(newTable.rows.length, 2); // was 1, now 2
+});
+
+test('tableNavigate Shift+Tab navigates backwards', () => {
+  const doc = '| A | B |\n|---|---|\n| 1 | 2 |';
+  const cell2 = doc.indexOf('2');
+  const navPrev = tableNavigate(doc, cell2, 'prev');
+  assert.ok(navPrev);
+  assert.equal(doc[navPrev.newCaret], '1');
+});
+
+test('tableNavigate Enter on last row adds a new row', () => {
+  const doc = '| A | B |\n|---|---|\n| 1 | 2 |';
+  const cell1 = doc.indexOf('1');
+  const enterNav = tableNavigate(doc, cell1, 'enter');
+  assert.ok(enterNav);
+  const newTable = parseTable(enterNav.text)!;
+  assert.equal(newTable.rows.length, 2);
+});
+
+test('performTableAction supports row, column, alignment, and deletion', () => {
+  const doc = '| A | B |\n|---|---|\n| 1 | 2 |';
+  const cell1 = doc.indexOf('1');
+
+  // Insert row below
+  const rBelow = performTableAction(doc, cell1, 'insertRowBelow');
+  assert.ok(rBelow);
+  assert.equal(parseTable(rBelow.text)!.rows.length, 2);
+
+  // Insert column right
+  const cRight = performTableAction(doc, cell1, 'insertColRight');
+  assert.ok(cRight);
+  assert.equal(parseTable(cRight.text)!.header.length, 3);
+
+  // Set alignment to center
+  const aligned = performTableAction(doc, cell1, 'alignCenter');
+  assert.ok(aligned);
+  assert.equal(parseTable(aligned.text)!.aligns[0], 'center');
+
+  // Delete row
+  const delRow = performTableAction(doc, cell1, 'deleteRow');
+  assert.ok(delRow);
+  assert.equal(parseTable(delRow.text)!.rows.length, 0);
+
+  // Delete table
+  const delTable = performTableAction(doc, cell1, 'deleteTable');
+  assert.ok(delTable);
+  assert.equal(delTable.text.trim(), '');
+});
+
+test('blockquote tables: recognition, parsing, and serialization with prefix', () => {
+  const doc = '> | A | B |\n> |---|---|\n> | 1 | 2 |';
+  const span = findTableSpan(doc.split('\n'), 0);
+  assert.ok(span);
+  assert.equal(span.startLine, 0);
+  assert.equal(span.endLine, 2);
+
+  const model = parseTable(doc);
+  assert.ok(model);
+  assert.equal(model.prefix, '> ');
+  assert.deepEqual(model.header, ['A', 'B']);
+  assert.deepEqual(model.rows, [['1', '2']]);
+
+  const serialized = serializeTable(model);
+  assert.ok(serialized.startsWith('> |'));
+  assert.match(serialized, /^> \| 1/m);
+});
+
+test('caret placement in empty padded cell is inside the cell, not at closing pipe', () => {
+  const line = '|     |     |';
+  const bounds = getRowCellBounds(line);
+  assert.equal(bounds.length, 2);
+  // Pipe is at 0, 6, 12. Bounds[0] contentStart should be 2 (inside spaces), NOT 6 (pipe)
+  assert.equal(bounds[0].contentStart, 2);
+  assert.notEqual(line[bounds[0].contentStart], '|');
+  assert.equal(bounds[1].contentStart, 8);
+  assert.notEqual(line[bounds[1].contentStart], '|');
+});
+
+test('tableNavigate Enter on empty last row exits the table', () => {
+  const doc = '| A | B |\n|---|---|\n| 1 | 2 |\n|   |   |';
+  const emptyRowCaret = doc.lastIndexOf('   ');
+  const nav = tableNavigate(doc, emptyRowCaret, 'enter');
+  assert.ok(nav);
+  assert.equal(nav.exitTable, true);
+  // Empty row removed from table
+  const parsed = parseTable(nav.text)!;
+  assert.equal(parsed.rows.length, 1);
+  assert.deepEqual(parsed.rows[0], ['1', '2']);
+  // Caret positioned after the table on a newline
+  assert.ok(nav.newCaret >= nav.text.length - 1);
+});
+
+test('getRowCellBounds ignores blockquote and indentation prefixes before opening pipe', () => {
+  // Blockquote table
+  const bqLine = '> | A | B |';
+  const bqBounds = getRowCellBounds(bqLine);
+  assert.equal(bqBounds.length, 2, 'Should only have 2 cells, not a phantom cell for > prefix');
+  assert.equal(bqLine.slice(bqBounds[0].contentStart, bqBounds[0].contentEnd).trim(), 'A');
+  assert.equal(bqLine.slice(bqBounds[1].contentStart, bqBounds[1].contentEnd).trim(), 'B');
+
+  // Indented table
+  const indLine = '   | Col1 | Col2 |';
+  const indBounds = getRowCellBounds(indLine);
+  assert.equal(indBounds.length, 2, 'Should only have 2 cells, not a phantom cell for leading spaces');
+  assert.equal(indLine.slice(indBounds[0].contentStart, indBounds[0].contentEnd).trim(), 'Col1');
+  assert.equal(indLine.slice(indBounds[1].contentStart, indBounds[1].contentEnd).trim(), 'Col2');
+
+  // Table without leading/trailing outer pipes
+  const bareLine = 'One | Two | Three';
+  const bareBounds = getRowCellBounds(bareLine);
+  assert.equal(bareBounds.length, 3);
+  assert.equal(bareLine.slice(bareBounds[0].contentStart, bareBounds[0].contentEnd).trim(), 'One');
+  assert.equal(bareLine.slice(bareBounds[1].contentStart, bareBounds[1].contentEnd).trim(), 'Two');
+  assert.equal(bareLine.slice(bareBounds[2].contentStart, bareBounds[2].contentEnd).trim(), 'Three');
+});
+
+test('tableNavigate Enter exitTable produces consistent text and scoped range with trailing text', () => {
+  const doc = '| A | B |\n|---|---|\n| 1 | 2 |\n|   |   |\n\nNext section here';
+  const emptyRowCaret = doc.indexOf('   ');
+  const nav = tableNavigate(doc, emptyRowCaret, 'enter');
+  assert.ok(nav);
+  assert.equal(nav.exitTable, true);
+  assert.ok(nav.from !== undefined && nav.to !== undefined && nav.tableText !== undefined);
+
+  // Scoped change applied to doc must match whole text identically
+  const scopedReplaced = doc.slice(0, nav.from) + nav.tableText + doc.slice(nav.to);
+  assert.equal(scopedReplaced, nav.text, 'Scoped change and full replacement must match identically');
+  assert.ok(nav.text.includes('Next section here'));
+  assert.ok(!nav.text.includes('   |   '));
+});
+
+
+

@@ -41,7 +41,7 @@ export const zh: I18n = {
     globalSearch: '在文件夹中搜索…',
     settings: '设置…',
     mdHelp: 'Markdown 速查',
-    about: '关于 SoloMD',
+    about: '关于 猫步 MD',
     minimize: '最小化',
     maximize: '最大化',
     restore: '还原',
@@ -444,7 +444,7 @@ export const zh: I18n = {
     desc: '一款轻量、跨平台的 Markdown 与纯文本编辑器。',
   },
   help: {
-    about: '关于 SoloMD',
+    about: '关于 猫步 MD',
     markdownGuide: 'Markdown 指南',
     keyboardShortcuts: '快捷键',
   },
@@ -1516,7 +1516,7 @@ export const zh: I18n = {
   search: {
     heading: '搜索',
     placeholder: '在文件夹内搜索…',
-    openFolder: '请先打开一个文件夹（Ctrl+B → 文件夹）',
+    openFolder: '请先打开一个文件夹（文件 → 打开文件夹）',
     typeToSearch: '输入关键词以搜索所有 .md / .txt 文件',
     noMatches: '没有匹配项',
     hitCount: '{n} 条结果',

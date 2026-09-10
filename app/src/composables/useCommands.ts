@@ -141,7 +141,58 @@ export function useCommands(): Command[] {
     toasts.success(successMsg);
   }
 
+  function dispatchFormat(action: string, options?: any) {
+    window.dispatchEvent(
+      new CustomEvent('solomd:format-action', {
+        detail: { action, options, paneId: tiles.focusedPaneId },
+      }),
+    );
+  }
+
+  async function toggleFullscreen() {
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const win = getCurrentWindow();
+        const isFull = await win.isFullscreen();
+        await win.setFullscreen(!isFull);
+        return;
+      } catch {}
+    }
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  }
+
   const all: Command[] = [
+    // ---- Typora Formatting ----
+    { id: 'format.bold', title: 'Format: Bold', shortcut: kb('format.bold'), run: () => dispatchFormat('bold') },
+    { id: 'format.italic', title: 'Format: Italic', shortcut: kb('format.italic'), run: () => dispatchFormat('italic') },
+    { id: 'format.underline', title: 'Format: Underline', shortcut: kb('format.underline'), run: () => dispatchFormat('underline') },
+    { id: 'format.strikethrough', title: 'Format: Strikethrough', shortcut: kb('format.strikethrough'), run: () => dispatchFormat('strikethrough') },
+    { id: 'format.inlineCode', title: 'Format: Inline Code', shortcut: kb('format.inlineCode'), run: () => dispatchFormat('inlineCode') },
+    { id: 'format.link', title: 'Format: Insert Link', shortcut: kb('format.link'), run: () => dispatchFormat('link') },
+    { id: 'format.image', title: 'Format: Insert Image', shortcut: kb('format.image'), run: () => dispatchFormat('image') },
+    { id: 'format.h1', title: 'Paragraph: Heading 1', shortcut: kb('format.h1'), run: () => dispatchFormat('h1') },
+    { id: 'format.h2', title: 'Paragraph: Heading 2', shortcut: kb('format.h2'), run: () => dispatchFormat('h2') },
+    { id: 'format.h3', title: 'Paragraph: Heading 3', shortcut: kb('format.h3'), run: () => dispatchFormat('h3') },
+    { id: 'format.h4', title: 'Paragraph: Heading 4', shortcut: kb('format.h4'), run: () => dispatchFormat('h4') },
+    { id: 'format.h5', title: 'Paragraph: Heading 5', shortcut: kb('format.h5'), run: () => dispatchFormat('h5') },
+    { id: 'format.h6', title: 'Paragraph: Heading 6', shortcut: kb('format.h6'), run: () => dispatchFormat('h6') },
+    { id: 'format.paragraph', title: 'Paragraph: Normal Text', shortcut: kb('format.paragraph'), run: () => dispatchFormat('paragraph') },
+    { id: 'format.table', title: 'Paragraph: Insert Table', shortcut: kb('format.table'), run: () => dispatchFormat('table') },
+    { id: 'format.codeBlock', title: 'Paragraph: Insert Code Block', shortcut: kb('format.codeBlock'), run: () => dispatchFormat('codeBlock') },
+    { id: 'format.mathBlock', title: 'Paragraph: Insert Math Block', shortcut: kb('format.mathBlock'), run: () => dispatchFormat('mathBlock') },
+
+    // ---- View / Typora Navigation ----
+    { id: 'view.toggleSidebar', title: 'View: Toggle Sidebar', shortcut: kb('view.toggleSidebar'), run: () => settings.toggleLeftSidebar() },
+    { id: 'view.sidebarOutline', title: 'View: Sidebar Outline', shortcut: kb('view.sidebarOutline'), run: () => settings.setLeftSidebarTab('outline') },
+    { id: 'view.sidebarFiles', title: 'View: Sidebar File Tree', shortcut: kb('view.sidebarFiles'), run: () => settings.setLeftSidebarTab('files') },
+    { id: 'view.sidebarSearch', title: 'View: Sidebar Search', shortcut: kb('view.sidebarSearch'), run: () => settings.setLeftSidebarTab('search') },
+    { id: 'view.toggleSourceMode', title: 'View: Toggle Source Code Mode / Live Preview', shortcut: kb('view.toggleSourceMode'), run: () => settings.toggleLivePreview() },
+    { id: 'view.toggleFullscreen', title: 'View: Toggle Fullscreen', shortcut: kb('view.toggleFullscreen'), run: () => void toggleFullscreen() },
     { id: 'file.new', title: 'New Markdown File', shortcut: kb('file.new'), run: () => files.newFile() },
     { id: 'file.newText', title: 'New Plain Text File', shortcut: kb('file.newText'), run: () => files.newTextFile() },
     { id: 'file.open', title: 'Open File…', shortcut: kb('file.open'), run: () => files.openFile() },
@@ -182,7 +233,7 @@ export function useCommands(): Command[] {
     { id: 'view.toggleOutline', title: 'View: Toggle Outline', shortcut: kb('view.toggleOutline'), run: () => { const tabs = useTabsStore(); if (tabs.activeId) tabs.toggleOutline(tabs.activeId); } },
     { id: 'view.toggleFileTree', title: 'View: Toggle File Tree', shortcut: kb('view.toggleFileTree'), run: () => settings.toggleFileTree() },
     { id: 'view.toggleRightSidebar', title: 'View: Toggle Right Sidebar', hint: 'Hide / show the Outline / Backlinks / Tags / History / Agent strip without losing per-pane preferences', shortcut: kb('view.toggleRightSidebar'), run: () => settings.toggleRightSidebar() },
-    { id: 'view.toggleAgentPanel', title: 'View: Toggle Agent Panel', hint: 'Right-side chat-with-vault panel — streamed multi-turn AI with tool-call cards, persisted run history, and trace replay', run: () => settings.toggleAgentPanel() },
+    { id: 'view.toggleAgentPanel', title: 'View: Toggle Agent Panel', shortcut: kb('view.toggleAgentPanel'), hint: 'Right-side chat-with-vault panel — streamed multi-turn AI with tool-call cards, persisted run history, and trace replay', run: () => settings.toggleAgentPanel() },
     { id: 'view.toggleBacklinks', title: 'View: Toggle Backlinks Pane', run: () => settings.toggleBacklinks() },
     { id: 'view.relationships', title: 'View: Toggle Relationships Pane', hint: 'Typed relationships — forward edges authored in YAML front matter plus computed inverses (Referenced by)', run: () => settings.toggleRelationships() },
     { id: 'view.toggleTagsPanel', title: 'View: Toggle Tags Pane', run: () => settings.toggleTagsPanel() },
@@ -201,10 +252,10 @@ export function useCommands(): Command[] {
     { id: 'view.toggleWrap', title: 'View: Toggle Word Wrap', run: () => settings.toggleWordWrap() },
     { id: 'view.toggleLineNumbers', title: 'View: Toggle Line Numbers', run: () => settings.toggleLineNumbers() },
     { id: 'view.toggleTheme', title: 'View: Toggle Theme', run: () => settings.toggleTheme() },
-    { id: 'view.toggleLivePreview', title: 'View: Toggle Live Preview / Raw Source (Markdown)', run: () => settings.toggleLivePreview() },
+    { id: 'view.toggleLivePreview', title: 'View: Toggle Live Preview / Raw Source (Markdown)', shortcut: kb('view.toggleSourceMode'), run: () => settings.toggleLivePreview() },
     { id: 'view.toggleSpellCheck', title: 'View: Toggle Spell Check', run: () => settings.toggleSpellCheck() },
-    { id: 'view.toggleFocusMode', title: 'View: Toggle Focus Mode', run: () => settings.toggleFocusMode() },
-    { id: 'view.toggleTypewriter', title: 'View: Toggle Typewriter Mode', run: () => settings.toggleTypewriterMode() },
+    { id: 'view.toggleFocusMode', title: 'View: Toggle Focus Mode', shortcut: kb('view.toggleFocusMode'), run: () => settings.toggleFocusMode() },
+    { id: 'view.toggleTypewriter', title: 'View: Toggle Typewriter Mode', shortcut: kb('view.toggleTypewriter'), run: () => settings.toggleTypewriterMode() },
 
     // ---- Tile layout ----
     { id: 'tile.splitRight', title: 'Split Editor Right', shortcut: kb('tile.splitRight'), run: () => tiles.splitPane(tiles.focusedPaneId, 'horizontal') },

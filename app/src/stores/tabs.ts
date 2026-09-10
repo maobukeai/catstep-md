@@ -55,6 +55,7 @@ function inferLanguage(name: string): Language {
 interface PersistedState {
   tabs: Tab[];
   activeId: string;
+  recentlyClosedTabs?: Tab[];
 }
 
 /** Read-only check for the "restore previous session" setting, inlined
@@ -305,6 +306,11 @@ export const useTabsStore = defineStore('tabs', {
       const idx = this.tabs.findIndex((t) => t.id === id);
       if (idx === -1) return;
       const closed = this.tabs[idx];
+      if (closed) {
+        if (!this.recentlyClosedTabs) this.recentlyClosedTabs = [];
+        this.recentlyClosedTabs.push({ ...closed });
+        if (this.recentlyClosedTabs.length > 20) this.recentlyClosedTabs.shift();
+      }
       this.tabs.splice(idx, 1);
       if (this.activeId === id) {
         this.activeId = this.tabs[idx]?.id ?? this.tabs[idx - 1]?.id ?? '';
@@ -322,6 +328,19 @@ export const useTabsStore = defineStore('tabs', {
         if (key) ws.closePath(key);
       } catch {}
       if (this.tabs.length === 0) this.newTab();
+    },
+    reopenLastClosedTab(): Tab | null {
+      if (!this.recentlyClosedTabs || this.recentlyClosedTabs.length === 0) return null;
+      const last = this.recentlyClosedTabs.pop();
+      if (!last) return null;
+      const existing = this.tabs.find((t) => (last.filePath && t.filePath === last.filePath) || t.id === last.id);
+      if (existing) {
+        this.activeId = existing.id;
+        return existing;
+      }
+      this.tabs.push(last);
+      this.activeId = last.id;
+      return last;
     },
     activate(id: string) {
       this.activeId = id;

@@ -322,6 +322,7 @@ onMounted(() => {
   window.addEventListener('solomd:fold', onFoldEvent);
   window.addEventListener('solomd:edit-table', onEditTableEvent);
   window.addEventListener('solomd:edit-formula', onEditFormulaEvent);
+  window.addEventListener('solomd:format-action', onFormatActionEvent);
 });
 
 onBeforeUnmount(() => {
@@ -337,6 +338,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('solomd:fold', onFoldEvent);
   window.removeEventListener('solomd:edit-table', onEditTableEvent);
   window.removeEventListener('solomd:edit-formula', onEditFormulaEvent);
+  window.removeEventListener('solomd:format-action', onFormatActionEvent);
 });
 
 defineExpose({ gotoLine, editorRef });
@@ -411,6 +413,16 @@ function onFoldEvent(e: Event) {
     applyFold?: (a: string, l?: number) => void;
   } | null;
   ed?.applyFold?.(action || 'toggle', level);
+}
+
+function onFormatActionEvent(e: Event) {
+  const { paneId, action, options } = (e as CustomEvent).detail || {};
+  if (paneId && paneId !== props.paneId) return;
+  if (!paneId && !isFocused.value) return;
+  const ed = editorRef.value as unknown as {
+    applyFormat?: (act: string, opts?: any) => void;
+  } | null;
+  ed?.applyFormat?.(action, options);
 }
 
 function onPreviewSearchEvent(e: Event) {

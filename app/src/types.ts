@@ -16,7 +16,9 @@ export type Theme =
   | 'solarized-dark'
   | 'monokai'
   | 'github-light'
-  | 'dracula';
+  | 'dracula'
+  | 'newsprint'
+  | 'night';
 
 export interface Tab {
   id: string;

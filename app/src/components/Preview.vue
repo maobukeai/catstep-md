@@ -15,7 +15,18 @@ import { useSettingsStore } from '../stores/settings';
 import { useTabsStore } from '../stores/tabs';
 import { useFiles } from '../composables/useFiles';
 import PreviewSearch from './PreviewSearch.vue';
+import InPlaceTableToolbar from './InPlaceTableToolbar.vue';
 import { attachCodeCopyButtons as attachSharedCodeCopyButtons } from '../lib/code-copy';
+import {
+  findTableSpan,
+  findTableAtCursor,
+  getCellDocOffset,
+  parseTable,
+  performTableAction,
+  type TableActionType,
+  type TableAlign,
+} from '../lib/markdown-table';
+import { openTableEditor } from '../lib/table-editor-bus';
 
 const props = withDefaults(
   defineProps<{
@@ -503,6 +514,103 @@ function resolveRelativePath(basePath: string, href: string): string {
   return isUnc ? sepCh + joined : joined;
 }
 
+// ── In-place table floating toolbar ─────────────────────────────────────────
+const previewTableState = ref<{
+  visible: boolean;
+  top: number;
+  left: number;
+  align: TableAlign;
+  canDeleteRow: boolean;
+  canDeleteCol: boolean;
+  offset: number;
+}>({
+  visible: false,
+  top: 0,
+  left: 0,
+  align: null,
+  canDeleteRow: true,
+  canDeleteCol: true,
+  offset: 0,
+});
+
+function onPreviewTableClick(e: MouseEvent) {
+  if (!props.tabId) return;
+  const target = e.target as HTMLElement;
+  const table = target.closest('table');
+  if (!table) {
+    if (!target.closest('.inplace-tbl-toolbar')) {
+      previewTableState.value.visible = false;
+    }
+    return;
+  }
+  const sourceLineAttr = table.getAttribute('data-source-line');
+  const sourceLine = sourceLineAttr ? Number(sourceLineAttr) : 0;
+  if (!sourceLine) return;
+
+  const lines = (props.source || '').split('\n');
+  const span = findTableSpan(lines, sourceLine - 1) || findTableSpan(lines, sourceLine);
+  if (!span) return;
+
+  const rect = table.getBoundingClientRect();
+  const top = rect.top - 42 > 45 ? rect.top - 42 : rect.bottom + 8;
+  const left = Math.max(12, rect.left + 10);
+
+  const cellEl = target.closest('th, td') as HTMLTableCellElement | null;
+  const caretCol = cellEl ? cellEl.cellIndex : 0;
+  const trEl = target.closest('tr');
+  const isHeader = trEl?.parentElement?.tagName === 'THEAD' || cellEl?.tagName === 'TH';
+
+  const starts: number[] = [];
+  let off = 0;
+  for (const line of lines) {
+    starts.push(off);
+    off += line.length + 1;
+  }
+  const from = starts[span.startLine];
+  const to = starts[span.endLine] + lines[span.endLine].length;
+  const model = parseTable((props.source || '').slice(from, to));
+  if (!model) return;
+
+  const targetRow = isHeader
+    ? -1
+    : Math.min(model.rows.length - 1, Math.max(0, trEl ? (trEl as HTMLTableRowElement).sectionRowIndex : 0));
+
+  const offset = getCellDocOffset(props.source || '', span.startLine, targetRow, caretCol);
+
+  previewTableState.value = {
+    visible: true,
+    top,
+    left,
+    align: model.aligns[caretCol] ?? null,
+    canDeleteRow: !isHeader && model.rows.length > 0,
+    canDeleteCol: model.header.length > 1,
+    offset,
+  };
+}
+
+function onPreviewTableAction(action: TableActionType) {
+  if (!props.tabId) return;
+  const res = performTableAction(props.source || '', previewTableState.value.offset, action);
+  if (res) {
+    tabs.setContent(props.tabId, res.text);
+    previewTableState.value.visible = false;
+  }
+}
+
+function onPreviewOpenFullTable() {
+  if (!props.tabId) return;
+  const info = findTableAtCursor(props.source || '', previewTableState.value.offset);
+  if (!info) return;
+  previewTableState.value.visible = false;
+  openTableEditor({
+    source: info.source,
+    apply: (markdown: string) => {
+      const next = (props.source || '').slice(0, info.from) + markdown + (props.source || '').slice(info.to);
+      tabs.setContent(props.tabId!, next);
+    },
+  });
+}
+
 onMounted(async () => {
   await nextTick();
   processPlantuml();
@@ -511,11 +619,13 @@ onMounted(async () => {
   attachImageOverlayHandlers();
   attachCodeCopyButtons();
   host.value?.addEventListener('click', handleLinkClick);
+  host.value?.addEventListener('click', onPreviewTableClick);
   host.value?.addEventListener('dblclick', onPreviewDblClick);
 });
 
 onBeforeUnmount(() => {
   host.value?.removeEventListener('click', handleLinkClick);
+  host.value?.removeEventListener('click', onPreviewTableClick);
   host.value?.removeEventListener('dblclick', onPreviewDblClick);
 });
 
@@ -641,6 +751,18 @@ defineExpose({ scrollToLine, openSearch });
         </div>
       </div>
     </template>
+
+    <InPlaceTableToolbar
+      v-if="previewTableState.visible"
+      :top="previewTableState.top"
+      :left="previewTableState.left"
+      :align="previewTableState.align"
+      :can-delete-row="previewTableState.canDeleteRow"
+      :can-delete-col="previewTableState.canDeleteCol"
+      @action="onPreviewTableAction"
+      @open-full="onPreviewOpenFullTable"
+      @close="previewTableState.visible = false"
+    />
   </div>
 </template>
 

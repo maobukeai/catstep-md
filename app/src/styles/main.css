@@ -287,6 +287,54 @@
   --syn-type: #8be9fd; --syn-property: #50fa7b; --syn-operator: #ff79c6;
 }
 
+/* ---- Typora Newsprint (Classic newspaper serif aesthetic) ---- */
+:root[data-theme="newsprint"] {
+  color-scheme: light;
+  --bg: #fbfbf9;
+  --bg-elev: #f4f3f0;
+  --bg-hover: #eae8e1;
+  --bg-active: #e2ded5;
+  --border: #dedad0;
+  --text: #333333;
+  --text-muted: #666660;
+  --text-faint: #999990;
+  --accent: #9a4d2c;
+  --accent-fg: #ffffff;
+  --content-font-family: "Source Han Serif SC", "Source Han Serif", "Noto Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", "Lora", serif;
+  --md-h1: #1a1a1a; --md-h2: #242424; --md-h3: #333333;
+  --md-h4: #444444; --md-h5: #555555; --md-h6: #666660;
+  --md-strong: #1a1a1a; --md-em: #444440; --md-link: #9a4d2c;
+  --md-url: #b85d36; --md-code: #9e2a2b; --md-code-bg: #f2efe8;
+  --md-quote: #666660; --md-list: #9a4d2c; --md-hr: #dedad0;
+  --syn-keyword: #9e2a2b; --syn-string: #386641; --syn-number: #bc4749;
+  --syn-comment: #8d8d8d; --syn-function: #6b705c; --syn-variable: #333333;
+  --syn-type: #a25a38; --syn-property: #6b705c; --syn-operator: #9e2a2b;
+}
+
+/* ---- Typora Night (Classic deep charcoal geek theme) ---- */
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --bg: #1e1e1e;
+  --bg-elev: #252526;
+  --bg-hover: #2d2d30;
+  --bg-active: #383838;
+  --border: #383838;
+  --text: #dcdcdc;
+  --text-muted: #9da5b4;
+  --text-faint: #5c6370;
+  --accent: #528bff;
+  --accent-fg: #1e1e1e;
+  --md-h1: #ffffff; --md-h2: #f0f0f0; --md-h3: #e0e0e0;
+  --md-h4: #cccccc; --md-h5: #aaaaaa; --md-h6: #888888;
+  --md-strong: #ffffff; --md-em: #abb2bf; --md-link: #61afef;
+  --md-url: #61afef; --md-code: #e06c75; --md-code-bg: #282c34;
+  --md-quote: #9da5b4; --md-list: #528bff; --md-hr: #383838;
+  --syn-keyword: #c678dd; --syn-string: #98c379; --syn-number: #d19a66;
+  --syn-comment: #5c6370; --syn-function: #61afef; --syn-variable: #dcdcdc;
+  --syn-type: #e5c07b; --syn-property: #e06c75; --syn-operator: #56b6c2;
+}
+
+
 * {
   box-sizing: border-box;
 }
@@ -935,27 +983,45 @@ body.solomd-printing--dark {
  * every surface renders the identical button. */
 .code-block-shell {
   position: relative;
-  margin: 1em 0;
+  margin: 1.3em 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.code-block-shell::before {
+  content: '';
+  display: block;
+  height: 28px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  background-image: radial-gradient(circle at 14px 14px, #ff5f56 0px, #ff5f56 4px, transparent 4px),
+                    radial-gradient(circle at 26px 14px, #ffbd2e 0px, #ffbd2e 4px, transparent 4px),
+                    radial-gradient(circle at 38px 14px, #27c93f 0px, #27c93f 4px, transparent 4px);
+  background-repeat: no-repeat;
 }
 .code-block-shell > pre {
   margin: 0;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 12px 16px;
   padding-right: 80px;
 }
 .code-copy-button {
   position: absolute;
-  z-index: 1;
-  top: 8px;
+  z-index: 2;
+  top: 3px;
   right: 8px;
   min-width: 48px;
-  height: 26px;
-  padding: 0 9px;
+  height: 22px;
+  padding: 0 8px;
   border: 1px solid var(--border);
-  border-radius: 5px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border-radius: 4px;
+  background: var(--bg);
   color: var(--text-muted);
-  font: 12px/1 var(--font-ui);
+  font: 11px/1 var(--font-ui);
   cursor: pointer;
-  opacity: 0.78;
+  opacity: 0.85;
   transition: opacity 0.15s, color 0.15s, border-color 0.15s;
 }
 .code-copy-button:hover,
@@ -965,3 +1031,98 @@ body.solomd-printing--dark {
   border-color: var(--accent);
   outline: none;
 }
+
+/* ============================================================
+ * Typora Classical Themes & Typography Details
+ * ============================================================ */
+
+/* Global Typora typography baseline across themes */
+:where(.preview-content) {
+  line-height: 1.7;
+}
+
+:where(.preview-content) h1,
+:where(.preview-content) h2 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+  margin-top: 1.5em;
+  margin-bottom: 0.6em;
+}
+
+:where(.preview-content) blockquote {
+  border-left: 4px solid var(--border);
+  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+  padding: 0.4em 1em;
+  margin: 1em 0;
+  color: var(--text-muted);
+  border-radius: 0 4px 4px 0;
+}
+
+/* GitHub Light authentic Typora theme */
+:root[data-theme="github-light"] .preview-content h1,
+:root[data-theme="github-light"] .preview-content h2 {
+  border-bottom-color: #eaecef;
+}
+
+:root[data-theme="github-light"] .preview-content blockquote {
+  border-left-color: #dfe2e5;
+  color: #6a737d;
+}
+
+/* Newsprint literary serif & warm margins */
+:root[data-theme="newsprint"] .preview-content,
+:root[data-theme="newsprint"] .cm-content,
+:root[data-theme="newsprint"] .plain-block-editor {
+  font-family: var(--content-font-family, "Source Han Serif SC", "Source Han Serif", "Noto Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", Lora, serif);
+  line-height: 1.8;
+}
+
+:root[data-theme="newsprint"] .preview-content blockquote,
+:root[data-theme="newsprint"] .cm-line-quote {
+  border-left: 4px solid #b5a895 !important;
+  background: rgba(222, 218, 208, 0.25);
+  font-style: italic;
+  padding: 0.4em 1em;
+  color: #555550;
+  border-radius: 0 4px 4px 0;
+}
+
+:root[data-theme="newsprint"] .preview-content h1,
+:root[data-theme="newsprint"] .preview-content h2 {
+  border-bottom-color: #dedad0;
+  font-family: var(--content-font-family, serif);
+}
+
+/* Night theme typography */
+:root[data-theme="night"] .preview-content blockquote {
+  border-left: 4px solid #528bff;
+  background: rgba(82, 139, 255, 0.08);
+  color: #abb2bf;
+  border-radius: 0 4px 4px 0;
+}
+
+:root[data-theme="night"] .preview-content pre {
+  background: #252526;
+  border: 1px solid #383838;
+}
+
+/* Typora table zebra striping and subtle borders across themes */
+:where(.preview-content) table {
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  width: auto;
+}
+:where(.preview-content) th {
+  background: var(--bg-elev);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  padding: 6px 13px;
+}
+:where(.preview-content) td {
+  border: 1px solid var(--border);
+  padding: 6px 13px;
+}
+:where(.preview-content) tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+}
+

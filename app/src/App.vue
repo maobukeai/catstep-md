@@ -9,6 +9,7 @@ import { readText as readClipboardText } from '@tauri-apps/plugin-clipboard-mana
 import { setMarkdownHardBreaks, setMarkdownAutoNumberHeadings, setMarkdownSmartQuotes } from './lib/markdown';
 import { openNewWindow } from './lib/new-window';
 import Toolbar from './components/Toolbar.vue';
+import Icon from './components/Icons.vue';
 import TelemetryBanner from './components/TelemetryBanner.vue';
 import TileRoot from './components/TileRoot.vue';
 import StatusBar from './components/StatusBar.vue';
@@ -947,6 +948,132 @@ function dispatchMenuAction(id: string) {
     case 'edit.selectAll':
       document.execCommand('selectAll');
       break;
+    case 'format.bold':
+    case 'format.italic':
+    case 'format.underline':
+    case 'format.strikethrough':
+    case 'format.inlineCode':
+    case 'format.code':
+    case 'format.link':
+    case 'format.image':
+    case 'format.h1':
+    case 'format.h2':
+    case 'format.h3':
+    case 'format.h4':
+    case 'format.h5':
+    case 'format.h6':
+    case 'format.paragraph':
+    case 'format.table':
+    case 'format.codeBlock':
+    case 'format.codeblock':
+    case 'format.mathBlock':
+    case 'format.mathblock':
+    case 'format.math':
+    case 'format.inlineMath':
+    case 'format.ul':
+    case 'format.ol':
+    case 'format.task':
+      window.dispatchEvent(
+        new CustomEvent('solomd:format-action', {
+          detail: { action: id.replace('format.', ''), paneId: tiles.focusedPaneId },
+        })
+      );
+      break;
+    case 'insert.table':
+      window.dispatchEvent(
+        new CustomEvent('solomd:format-action', {
+          detail: { action: 'table', paneId: tiles.focusedPaneId },
+        })
+      );
+      break;
+    case 'insert.quote':
+      window.dispatchEvent(
+        new CustomEvent('solomd:format-action', {
+          detail: { action: 'quote', paneId: tiles.focusedPaneId },
+        })
+      );
+      break;
+    case 'view.modeEdit':
+      settings.setTripleMode('source');
+      break;
+    case 'view.modeLiveEdit':
+      settings.setTripleMode('edit');
+      break;
+    case 'view.modeReading':
+      settings.setTripleMode('reading');
+      break;
+    case 'view.modeSplit':
+      settings.setViewMode('split');
+      break;
+    case 'view.toggleSidebar':
+      settings.toggleLeftSidebar();
+      break;
+    case 'view.sidebarOutline':
+      settings.setLeftSidebarTab('outline');
+      break;
+    case 'view.sidebarFiles':
+      settings.setLeftSidebarTab('files');
+      break;
+    case 'view.sidebarSearch':
+      settings.setLeftSidebarTab('search');
+      break;
+    case 'view.toggleSourceMode':
+      settings.toggleLivePreview();
+      break;
+    case 'view.toggleFocusMode':
+      settings.toggleFocusMode();
+      break;
+    case 'view.toggleTypewriter':
+      settings.toggleTypewriterMode();
+      break;
+    case 'view.toggleFullscreen':
+      if (document.fullscreenElement) {
+        void document.exitFullscreen();
+      } else {
+        void document.documentElement.requestFullscreen();
+      }
+      break;
+    case 'view.toggleAgentPanel':
+    case 'tools.agent':
+      settings.toggleAgentPanel();
+      break;
+    case 'file.exportHtml':
+      exporter.exportHtml();
+      break;
+    case 'file.exportDocx':
+      exporter.exportDocx();
+      break;
+    case 'file.exportPdfPrint':
+      exporter.exportPdfPrint();
+      break;
+    case 'file.exportPdf':
+      exporter.exportPdf();
+      break;
+    case 'file.exportImage':
+      exporter.exportImage();
+      break;
+    case 'file.copyHtml':
+      exporter.copyAsHtml();
+      break;
+    case 'file.copyMarkdown':
+      exporter.copyAsMarkdown();
+      break;
+    case 'file.copyImage':
+      exporter.copyAsImage();
+      break;
+    case 'format.imageNetwork':
+      onOpenImageUrlDialog();
+      break;
+    case 'tools.cjkProofread':
+      cjkProofreadOpen.value = true;
+      break;
+    case 'tools.cmdPalette':
+      paletteOpen.value = true;
+      break;
+    case 'tools.pomodoro':
+      if (pomodoro.active) pomodoro.reset();
+      else pomodoro.start(settings.pomodoroDefaultMinutes, { notify: true });
+      break;
     default:
       console.warn('unknown menu action', id);
   }
@@ -1489,8 +1616,7 @@ const showHistoryPane = computed(
   () =>
     settings.autoGitEnabled &&
     settings.showHistoryPanel &&
-    tabs.activeTab?.language === 'markdown' &&
-    !!workspace.currentFolder,
+    tabs.activeTab?.language === 'markdown',
 );
 // v4.6 F1: Properties inspector — frontmatter editor for the active markdown
 // note. Toggled via ⌘⇧I / command palette `view.toggleInspector`. Requires an
@@ -1561,8 +1687,8 @@ const visibleRsPanes = computed(() => {
   // drag-reorder. Unknown ids (newly-shipped future panes) get appended at
   // the end so a SoloMD update doesn't blow away an existing user layout.
   const all: Record<'search' | 'outline' | 'backlinks' | 'relationships' | 'tags' | 'tasks' | 'neighborhood' | 'types' | 'history' | 'inspector' | 'agent', boolean> = {
-    search: showSearchPane.value,
-    outline: showOutlinePane.value,
+    search: showSearchPane.value && !(settings.showFileTree && settings.leftSidebarTab === 'search'),
+    outline: showOutlinePane.value && !(settings.showFileTree && settings.leftSidebarTab === 'outline'),
     backlinks: showBacklinksPane.value,
     relationships: showRelationshipsPane.value,
     tags: showTagsPane.value,
@@ -1740,21 +1866,20 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
     }"
   >
     <!--
-      v2.4 reading mode swaps out the entire toolbar / sidebar / status-bar
-      stack for a single ReadingView component. We keep all the modal
-      dialogs (settings, palette, etc.) mounted at the bottom so the user
-      can still summon them from inside reading mode if needed.
+      Toolbar is always pinned at the top across all modes, hosting the
+      dual-mode switcher capsule [ 编辑 | 阅读 ], document info,
+      killer feature capsules, and window caption controls.
     -->
+    <Toolbar
+      @open-palette="paletteOpen = true"
+      @open-settings="openSettingsAt()"
+      @open-help="helpOpen = true"
+      @open-search="toggleGlobalSearch()"
+    />
     <template v-if="settings.viewMode === 'reading'">
       <ReadingView />
     </template>
     <template v-else>
-      <Toolbar
-        @open-palette="paletteOpen = true"
-        @open-settings="openSettingsAt()"
-        @open-help="helpOpen = true"
-        @open-search="toggleGlobalSearch()"
-      />
       <TelemetryBanner />
       <div class="workspace">
         <!-- #168 — on a phone the side panes float over the editor instead of
@@ -1765,9 +1890,53 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           aria-hidden="true"
           @click="closeNarrowDrawer"
         />
-        <div v-if="settings.showFileTree || settings.showViewsPanel" class="left-stack">
-          <FileTree v-if="settings.showFileTree" />
-          <ViewsPanel v-if="settings.showViewsPanel" />
+        <div v-if="settings.showFileTree || settings.showViewsPanel" class="left-stack typora-sidebar">
+          <div class="typora-sidebar__tabs">
+            <button
+              class="typora-sidebar__tab"
+              :class="{ active: settings.leftSidebarTab === 'files' }"
+              @click="settings.setLeftSidebarTab('files')"
+              :title="t('toolbar.fileTreeTooltip') + ' (Ctrl+Shift+2)'"
+            >
+              <Icon name="folder" :size="13" />
+              <span>{{ settings.language?.startsWith('zh') ? '文件' : 'Files' }}</span>
+            </button>
+            <button
+              class="typora-sidebar__tab"
+              :class="{ active: settings.leftSidebarTab === 'outline' }"
+              @click="settings.setLeftSidebarTab('outline')"
+              :title="t('menubar.toggleOutline') + ' (Ctrl+Shift+1)'"
+            >
+              <Icon name="outline" :size="13" />
+              <span>{{ settings.language?.startsWith('zh') ? '大纲' : 'Outline' }}</span>
+            </button>
+            <button
+              class="typora-sidebar__tab"
+              :class="{ active: settings.leftSidebarTab === 'search' }"
+              @click="settings.setLeftSidebarTab('search')"
+              :title="t('toolbar.searchTooltip') + ' (Ctrl+Shift+3)'"
+            >
+              <Icon name="search" :size="13" />
+              <span>{{ settings.language?.startsWith('zh') ? '搜索' : 'Search' }}</span>
+            </button>
+            <button
+              class="typora-sidebar__tab-close"
+              @click="settings.toggleLeftSidebar()"
+              :title="(settings.language?.startsWith('zh') ? '收起侧边栏' : 'Close Sidebar') + ' (Ctrl+Shift+L)'"
+            >✕</button>
+          </div>
+          <div class="typora-sidebar__body">
+            <template v-if="settings.leftSidebarTab === 'files'">
+              <FileTree v-if="settings.showFileTree" />
+              <ViewsPanel v-if="settings.showViewsPanel" />
+            </template>
+            <template v-else-if="settings.leftSidebarTab === 'outline'">
+              <Outline :cursor-line="cursorLine" @goto="onOutlineGoto" />
+            </template>
+            <template v-else-if="settings.leftSidebarTab === 'search'">
+              <GlobalSearch :prefill="searchPrefill" @close="settings.showFileTree = false" />
+            </template>
+          </div>
         </div>
         <aside
           v-if="showRightSidebar && settings.outlineSide === 'left'"
@@ -1837,11 +2006,19 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         </div>
         <aside
           v-if="showRightSidebar && settings.outlineSide !== 'left'"
-          class="side-sidebar side-sidebar--right"
+          class="side-sidebar side-sidebar--right typora-right-drawer"
           :style="sideSidebarStyle"
           @contextmenu.prevent="openSidebarCtx"
         >
           <div class="side-sidebar__resize side-sidebar__resize--left" @mousedown="onSidebarResize('right', $event)" />
+          <div class="right-drawer-bar">
+            <span class="right-drawer-bar__title">✨ {{ settings.language?.startsWith('zh') ? 'SoloMD 工具箱' : 'SoloMD Tools' }}</span>
+            <button
+              class="right-drawer-bar__close"
+              @click="settings.toggleRightDrawer()"
+              :title="(settings.language?.startsWith('zh') ? '收起工具抽屉' : 'Close Drawer') + ' (Ctrl+Shift+A)'"
+            >✕</button>
+          </div>
           <template v-for="(p, idx) in visibleRsPanes" :key="p.id">
             <RsSplitter v-if="idx > 0" :above="visibleRsPanes[idx-1].id" :below="p.id" />
             <div
@@ -2356,5 +2533,90 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   min-width: 0;
   overflow: hidden;
   position: relative;
+}
+
+/* Typora-style 3-in-1 Left Sidebar */
+.typora-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elev);
+  overflow: hidden;
+  min-width: 240px;
+  max-width: 320px;
+}
+.typora-sidebar__tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.typora-sidebar__tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.12s ease;
+}
+.typora-sidebar__tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.typora-sidebar__tab.active {
+  background: var(--bg-active);
+  color: var(--accent);
+  font-weight: 500;
+}
+.typora-sidebar__tab-close {
+  padding: 3px 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+}
+.typora-sidebar__tab-close:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.typora-sidebar__body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typora-style Right Tools Drawer Header */
+.right-drawer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.right-drawer-bar__close {
+  padding: 2px 5px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-radius: 3px;
+  cursor: pointer;
+  background: transparent;
+}
+.right-drawer-bar__close:hover {
+  color: var(--text);
+  background: var(--bg-hover);
 }
 </style>

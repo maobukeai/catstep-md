@@ -47,19 +47,19 @@ async function visit(url: string) {
     <!-- Empty header slot keeps DsModal's × close button without a title bar,
          since the About content is centered branding rather than a labelled
          form. -->
-    <template #header><span class="about__hdr" aria-label="About SoloMD"></span></template>
+    <template #header><span class="about__hdr" aria-label="About 猫步 MD"></span></template>
 
     <div class="about">
       <div class="about__brand">
-        <BrandMark class="brand" :size="64" label="SoloMD" />
+        <BrandMark class="brand" :size="64" label="猫步 MD" />
       </div>
 
-      <h2 class="about__name">SoloMD</h2>
+      <h2 class="about__name">猫步 MD <small style="font-size: 14px; opacity: 0.7; font-weight: normal;">Catstep MD</small></h2>
       <div class="about__version">v{{ VERSION }}</div>
 
       <p class="about__tagline">
-        One file. One window. Just write.<br />
-        <span class="about__tagline-zh">一个文件,一个窗口,专心写作。</span>
+        Silent steps. Fluid thoughts. Just write.<br />
+        <span class="about__tagline-zh">用猫步，写好每一篇 Markdown</span>
       </p>
 
       <p class="about__desc">

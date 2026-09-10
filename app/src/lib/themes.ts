@@ -116,6 +116,26 @@ export const draculaTheme = mkTheme(
   },
 );
 
+export const newsprintTheme = mkTheme(
+  '#fbfbf9', '#333333', '#c0bcb0', 'rgba(180,160,120,0.22)', '#333333',
+  {
+    keyword: '#9e2a2b', string: '#386641', number: '#bc4749', comment: '#8d8d8d',
+    function: '#6b705c', variable: '#333333', type: '#a25a38', property: '#6b705c',
+    heading: '#1a1a1a', operator: '#9e2a2b', punctuation: '#495057',
+    constant: '#bc4749',
+  },
+);
+
+export const nightTheme = mkTheme(
+  '#1e1e1e', '#dcdcdc', '#5c6370', 'rgba(97,175,239,0.2)', '#528bff',
+  {
+    keyword: '#c678dd', string: '#98c379', number: '#d19a66', comment: '#5c6370',
+    function: '#61afef', variable: '#dcdcdc', type: '#e5c07b', property: '#e06c75',
+    heading: '#ffffff', operator: '#56b6c2', punctuation: '#abb2bf',
+    constant: '#d19a66',
+  },
+);
+
 // Map theme name → CodeMirror extension (empty = use CSS vars only)
 import { oneDark } from '@codemirror/theme-one-dark';
 import type { Theme } from '../types';
@@ -129,6 +149,8 @@ export function cmThemeFor(theme: Theme): Extension {
     case 'monokai': return monokaiTheme;
     case 'github-light': return githubLightTheme;
     case 'dracula': return draculaTheme;
+    case 'newsprint': return newsprintTheme;
+    case 'night': return nightTheme;
     default: return [];
   }
 }
@@ -140,12 +162,15 @@ export function dataThemeFor(theme: Theme): string {
 }
 
 export const themeLabels: { value: Theme; label: string }[] = [
-  { value: 'light', label: 'Light (Default)' },
-  { value: 'dark', label: 'Dark (One Dark)' },
-  { value: 'nord', label: 'Nord' },
+  { value: 'github-light', label: 'GitHub (Typora 经典白)' },
+  { value: 'night', label: 'Night (Typora 极客黑)' },
+  { value: 'newsprint', label: 'Newsprint (Typora 报刊宋体)' },
+  { value: 'light', label: 'Light (纯白模式)' },
+  { value: 'dark', label: 'Dark (深色模式)' },
+  { value: 'nord', label: 'Nord (北欧极地)' },
   { value: 'solarized-light', label: 'Solarized Light' },
   { value: 'solarized-dark', label: 'Solarized Dark' },
   { value: 'monokai', label: 'Monokai' },
-  { value: 'github-light', label: 'GitHub Light' },
   { value: 'dracula', label: 'Dracula' },
 ];
+

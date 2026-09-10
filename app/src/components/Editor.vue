@@ -25,13 +25,49 @@ import { vim, Vim } from '@replit/codemirror-vim';
 import { cmThemeFor } from '../lib/themes';
 import { registerPlainSelectionGetter } from '../lib/plain-selection';
 import {
+  applyCmInlineFormat,
+  applyCmHeading,
+  applyCmHeadingStep,
+  applyCmClearFormat,
+  applyCmSelectLine,
+  applyCmSelectWord,
+  applyCmDeleteWord,
+  applyCmLink,
+  applyCmImage,
+  applyCmTable,
+  applyCmCodeBlock,
+  applyCmMathBlock,
+  applyCmList,
+  applyCmQuote,
+  applyCmInlineMath,
+  applyPlainInlineFormat,
+  applyPlainHeading,
+  applyPlainHeadingStep,
+  applyPlainClearFormat,
+  applyPlainSelectLine,
+  applyPlainSelectWord,
+  applyPlainDeleteWord,
+  applyPlainList,
+  applyPlainQuote,
+} from '../lib/editor-formatting';
+import {
   headingFoldExtension,
   toggleHeadingFoldAtCursor,
   foldAllHeadings,
   unfoldAllFolds,
   foldHeadingsToLevel,
 } from '../lib/cm-heading-fold';
-import { findTableSpan } from '../lib/markdown-table';
+import InPlaceTableToolbar from './InPlaceTableToolbar.vue';
+import InPlaceFormulaBar from './InPlaceFormulaBar.vue';
+import SelectionBubbleBar from './SelectionBubbleBar.vue';
+import {
+  findTableSpan,
+  findTableAtCursor,
+  performTableAction,
+  tableNavigate,
+  type TableActionType,
+  type TableAlign,
+} from '../lib/markdown-table';
 import { findMathSpanAt, collectLabels } from '../lib/equations';
 import { openFormulaEditor } from '../lib/formula-editor-bus';
 import { openTableEditor } from '../lib/table-editor-bus';
@@ -391,6 +427,8 @@ function schedulePlainGutter() {
 
 function onPlainScroll(event: Event) {
   plainScrollTop.value = (event.target as HTMLTextAreaElement).scrollTop;
+  updateInPlaceOverlaysPlain();
+  updateSelectionBubblePlain();
 }
 
 watch(
@@ -874,6 +912,8 @@ function emitPlainCursorAndSelection() {
     emit('cursor', line, col + 1);
     emit('selection', plainSelectionText());
     maybeTypewriterScroll();
+    updateInPlaceOverlaysPlain();
+    updateSelectionBubblePlain();
     return;
   }
   const el = plainEditor.value;
@@ -885,6 +925,8 @@ function emitPlainCursorAndSelection() {
   emit('cursor', line, col + 1);
   emit('selection', plainSelectionText());
   maybePlainTypewriterScroll(line);
+  updateInPlaceOverlaysPlain();
+  updateSelectionBubblePlain();
 }
 
 // #199 — typewriter mode for the single-textarea (edit-only / split) plain
@@ -1785,8 +1827,28 @@ function handlePlainEditorKeydown(event: KeyboardEvent) {
   // popup while it is open (Gitee IK6JCC).
   if (handleAutocompleteKeydown(event)) return;
   if (handlePlainKeydownShared(event)) return;
+
+  const caret = plainCaretOffset();
+  const docText = plainText.value || '';
+  const isTable = !!findTableAtCursor(docText, caret);
+
   if (event.key === 'Tab') {
     event.preventDefault();
+    if (isTable) {
+      const res = tableNavigate(docText, caret, event.shiftKey ? 'prev' : 'next');
+      if (res) {
+        if (res.text !== docText) {
+          recordPlainHistory();
+          replaceDocRange(0, docText.length, res.text);
+        }
+        nextTick(() => {
+          plainSetCaret(res.newCaret);
+          emitPlainCursorAndSelection();
+          updateInPlaceOverlaysPlain();
+        });
+        return;
+      }
+    }
     const el = event.target as HTMLTextAreaElement;
     const edit = computePlainTabEdit(el, event.shiftKey);
     recordPlainHistory();
@@ -1795,6 +1857,26 @@ function handlePlainEditorKeydown(event: KeyboardEvent) {
     plainText.value = edit.value;
     tabs.setContent(props.tab.id, edit.value);
     emitPlainCursorAndSelection();
+    return;
+  }
+
+  if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (isTable) {
+      const res = tableNavigate(docText, caret, 'enter');
+      if (res) {
+        event.preventDefault();
+        if (res.text !== docText) {
+          recordPlainHistory();
+          replaceDocRange(0, docText.length, res.text);
+        }
+        nextTick(() => {
+          plainSetCaret(res.newCaret);
+          emitPlainCursorAndSelection();
+          updateInPlaceOverlaysPlain();
+        });
+        return;
+      }
+    }
   }
 }
 
@@ -2289,7 +2371,78 @@ function buildExtensions() {
           incrementalFindScroll,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         ]),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+    keymap.of([
+      {
+        key: 'Tab',
+        run: (cmView: EditorView) => {
+          if (cmView.composing || !cmView.state.selection.main.empty) return false;
+          const docText = cmView.state.doc.toString();
+          const caret = cmView.state.selection.main.head;
+          const res = tableNavigate(docText, caret, 'next');
+          if (!res) return false;
+          if (res.text !== docText) {
+            if (res.from !== undefined && res.to !== undefined && res.tableText !== undefined) {
+              cmView.dispatch({
+                changes: { from: res.from, to: res.to, insert: res.tableText },
+                selection: { anchor: res.newCaret },
+              });
+            } else {
+              cmView.dispatch({
+                changes: { from: 0, to: docText.length, insert: res.text },
+                selection: { anchor: res.newCaret },
+              });
+            }
+          } else {
+            cmView.dispatch({ selection: { anchor: res.newCaret } });
+          }
+          return true;
+        },
+      },
+      {
+        key: 'Shift-Tab',
+        run: (cmView: EditorView) => {
+          if (cmView.composing || !cmView.state.selection.main.empty) return false;
+          const docText = cmView.state.doc.toString();
+          const caret = cmView.state.selection.main.head;
+          const res = tableNavigate(docText, caret, 'prev');
+          if (!res) return false;
+          cmView.dispatch({ selection: { anchor: res.newCaret } });
+          return true;
+        },
+      },
+      {
+        key: 'Enter',
+        run: (cmView: EditorView) => {
+          if (cmView.composing || !cmView.state.selection.main.empty) return false;
+          const docText = cmView.state.doc.toString();
+          const caret = cmView.state.selection.main.head;
+          const res = tableNavigate(docText, caret, 'enter');
+          if (!res) return false;
+          if (res.text !== docText) {
+            if (res.from !== undefined && res.to !== undefined && res.tableText !== undefined) {
+              cmView.dispatch({
+                changes: { from: res.from, to: res.to, insert: res.tableText },
+                selection: { anchor: res.newCaret },
+              });
+            } else {
+              cmView.dispatch({
+                changes: { from: 0, to: docText.length, insert: res.text },
+                selection: { anchor: res.newCaret },
+              });
+            }
+          } else {
+            cmView.dispatch({ selection: { anchor: res.newCaret } });
+          }
+          return true;
+        },
+      },
+      ...defaultKeymap.filter(
+        (b) => b.key !== 'Mod-/' && b.key !== 'Mod-i' && b.key !== 'Shift-Mod-k' && b.key !== 'Mod-Shift-k'
+      ),
+      ...historyKeymap.filter((b) => b.key !== 'Mod-u'),
+      ...searchKeymap.filter((b) => b.key !== 'Mod-Shift-l' && b.key !== 'Shift-Mod-l'),
+      indentWithTab,
+    ]),
     lineNumCompartment.of(settings.showLineNumbers ? lineNumbers() : []),
     wrapCompartment.of(settings.wordWrap ? EditorView.lineWrapping : []),
     langCompartment.of(
@@ -2341,6 +2494,17 @@ function buildExtensions() {
     // #167 — clicks during async widget renders (post tab-switch) must not
     // turn into phantom multi-line selections when the layout shifts.
     stableClickSelection(),
+    EditorView.domEventHandlers({
+      pointerdown: () => {
+        isDraggingSelection = true;
+        return false;
+      },
+      scroll: (_ev, cmView) => {
+        updateInPlaceOverlays(cmView);
+        updateSelectionBubble(cmView);
+        return false;
+      },
+    }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) {
         const text = u.state.doc.toString();
@@ -2354,6 +2518,10 @@ function buildExtensions() {
         // selected word/char count. Empty string when nothing's selected.
         const sel = u.state.selection.main;
         emit('selection', sel.empty ? '' : u.state.sliceDoc(sel.from, sel.to));
+      }
+      if (u.selectionSet || u.docChanged) {
+        updateInPlaceOverlays(u.view);
+        updateSelectionBubble(u.view);
       }
     }),
   ];
@@ -2393,6 +2561,8 @@ onMounted(() => {
   cleanupTransformCase = () => {
     window.removeEventListener('solomd:transform-case', onTransformCase as EventListener);
   };
+  window.addEventListener('pointerup', onGlobalPointerUp);
+  window.addEventListener('keydown', onGlobalKeyDown);
 
   if (usePlainWindowsEditor) {
     syncPlainEditorFromStore(props.tab.content);
@@ -2617,6 +2787,406 @@ function formatMath(
   return alone ? `$$\n${latex}\n$$` : `$$${latex}$$`;
 }
 
+// ── Selection Bubble Floating Bar (Catstep MD) ─────────────────────────────
+let isDraggingSelection = false;
+
+const selectionBubbleState = ref<{
+  visible: boolean;
+  top: number;
+  left: number;
+  selectedText: string;
+}>({
+  visible: false,
+  top: 0,
+  left: 0,
+  selectedText: '',
+});
+
+function updateSelectionBubble(cmView: EditorView) {
+  if (isDraggingSelection || cmView.composing) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const sel = cmView.state.selection.main;
+  if (sel.empty) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const text = cmView.state.sliceDoc(sel.from, sel.to).trim();
+  if (!text) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const startCoords = cmView.coordsAtPos(sel.from);
+  const endCoords = cmView.coordsAtPos(sel.to);
+  if (!startCoords) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const coords = startCoords;
+  if (coords.top < 35 || coords.bottom > window.innerHeight - 20) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  let midX = coords.left;
+  if (endCoords && Math.abs(endCoords.top - coords.top) < 30) {
+    midX = (coords.left + endCoords.left) / 2;
+  }
+  const bubbleWidth = 280;
+  const left = Math.max(16, Math.min(window.innerWidth - bubbleWidth - 16, midX - bubbleWidth / 2));
+  const top = coords.top - 46 > 45 ? coords.top - 46 : (endCoords ? endCoords.bottom + 10 : coords.bottom + 10);
+  selectionBubbleState.value = {
+    visible: true,
+    top: Math.round(top),
+    left: Math.round(left),
+    selectedText: text,
+  };
+}
+
+function updateSelectionBubblePlain() {
+  if (isDraggingSelection || !usePlainWindowsEditor || plainComposing) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const text = plainSelectionText().trim();
+  if (!text) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const el = plainLiveEnabled.value
+    ? plainBlockEditors.value[plainActiveBlock.value]
+    : plainEditor.value;
+  if (!el || el.selectionStart === el.selectionEnd) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+
+  const elRect = el.getBoundingClientRect();
+  const caret = el.selectionStart ?? 0;
+  const lineNum = el.value.slice(0, caret).split('\n').length;
+  const tops = plainLineTops.value;
+  const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
+  const topPx = elRect.top + lineY - el.scrollTop;
+  if (topPx < 35 || topPx > window.innerHeight - 35) {
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  const bubbleWidth = 280;
+  const left = Math.max(16, Math.min(window.innerWidth - bubbleWidth - 16, elRect.left + 40));
+  const top = topPx - 46 > 45 ? topPx - 46 : topPx + 30;
+
+  selectionBubbleState.value = {
+    visible: true,
+    top: Math.round(top),
+    left: Math.round(left),
+    selectedText: text,
+  };
+}
+
+function onBubbleAction(action: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'inlineCode' | 'link') {
+  applyFormat(action);
+  selectionBubbleState.value.visible = false;
+}
+
+function onBubbleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFix' | 'catstepDeAI') {
+  if (!settings.aiEnabled) {
+    toasts.info('请先在设置中启用 AI 助手并配置 API 密钥');
+    window.dispatchEvent(
+      new CustomEvent('solomd:open-settings', { detail: { section: 'integrations' } }),
+    );
+    selectionBubbleState.value.visible = false;
+    return;
+  }
+  let text = '';
+  let from = 0;
+  let to = 0;
+  if (usePlainWindowsEditor) {
+    const sel = plainAbsoluteSelection();
+    text = plainSelectionText();
+    from = sel?.from ?? 0;
+    to = sel?.to ?? 0;
+  } else if (view) {
+    const sel = view.state.selection.main;
+    from = sel.from;
+    to = sel.to;
+    text = view.state.sliceDoc(from, to);
+  }
+  if (text) {
+    window.dispatchEvent(
+      new CustomEvent('solomd:ai-rewrite-open', {
+        detail: { selection: text, from, to, actionId },
+      }),
+    );
+  }
+  selectionBubbleState.value.visible = false;
+}
+
+// ── In-Place Floating Overlays (Table & Formula) ───────────────────────────
+const inPlaceTableState = ref<{
+  visible: boolean;
+  top: number;
+  left: number;
+  align: TableAlign;
+  canDeleteRow: boolean;
+  canDeleteCol: boolean;
+}>({
+  visible: false,
+  top: 0,
+  left: 0,
+  align: null,
+  canDeleteRow: true,
+  canDeleteCol: true,
+});
+
+const inPlaceFormulaState = ref<{
+  visible: boolean;
+  top: number;
+  left: number;
+  latex: string;
+  display: boolean;
+  from: number;
+  to: number;
+}>({
+  visible: false,
+  top: 0,
+  left: 0,
+  latex: '',
+  display: false,
+  from: 0,
+  to: 0,
+});
+
+function updateInPlaceOverlays(cmView: EditorView) {
+  if (cmView.composing) return;
+  const sel = cmView.state.selection.main;
+  // When text is actively selected, suppress in-place table & formula overlays so they don't clash with SelectionBubbleBar
+  if (!sel.empty) {
+    inPlaceTableState.value.visible = false;
+    inPlaceFormulaState.value.visible = false;
+    return;
+  }
+  const docText = cmView.state.doc.toString();
+  const caret = sel.head;
+
+  // 1. In-place table detection
+  const tableInfo = findTableAtCursor(docText, caret);
+  if (tableInfo) {
+    const coords = cmView.coordsAtPos(caret);
+    if (coords && coords.top >= 35 && coords.bottom <= window.innerHeight - 20) {
+      const toolbarTop = coords.top - 42 > 45 ? coords.top - 42 : coords.bottom + 8;
+      inPlaceTableState.value = {
+        visible: true,
+        top: toolbarTop,
+        left: coords.left,
+        align: tableInfo.model.aligns[tableInfo.caretCol] ?? null,
+        canDeleteRow: tableInfo.rowIndex >= 0,
+        canDeleteCol: tableInfo.model.header.length > 1,
+      };
+    } else {
+      inPlaceTableState.value.visible = false;
+    }
+  } else {
+    inPlaceTableState.value.visible = false;
+  }
+
+  // 2. In-place formula detection
+  const mathSpan = findMathSpanAt(docText, caret);
+  if (mathSpan) {
+    const coords = cmView.coordsAtPos(caret);
+    if (coords && coords.top >= 35 && coords.bottom <= window.innerHeight - 20) {
+      inPlaceFormulaState.value = {
+        visible: true,
+        top: coords.bottom + 8,
+        left: Math.max(12, coords.left - 40),
+        latex: mathSpan.body,
+        display: mathSpan.display,
+        from: mathSpan.from,
+        to: mathSpan.to,
+      };
+    } else {
+      inPlaceFormulaState.value.visible = false;
+    }
+  } else {
+    inPlaceFormulaState.value.visible = false;
+  }
+}
+
+function updateInPlaceOverlaysPlain() {
+  if (!usePlainWindowsEditor || plainComposing) return;
+  const docText = plainText.value || '';
+  const caret = plainCaretOffset();
+
+  const el = plainLiveEnabled.value
+    ? plainBlockEditors.value[plainActiveBlock.value]
+    : plainEditor.value;
+  if (!el || el.selectionStart !== el.selectionEnd) {
+    inPlaceTableState.value.visible = false;
+    inPlaceFormulaState.value.visible = false;
+    return;
+  }
+
+  const tableInfo = findTableAtCursor(docText, caret);
+  if (tableInfo) {
+    const elRect = el.getBoundingClientRect();
+    const lineNum = docText.slice(0, caret).split('\n').length;
+    const tops = plainLineTops.value;
+    const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
+    const topPx = elRect.top + lineY - el.scrollTop;
+    if (topPx < 35 || topPx > window.innerHeight - 35) {
+      inPlaceTableState.value.visible = false;
+    } else {
+      const toolbarTop = topPx - 42 > 45 ? topPx - 42 : topPx + 28;
+      inPlaceTableState.value = {
+        visible: true,
+        top: toolbarTop,
+        left: Math.max(12, Math.min(window.innerWidth - 440, elRect.left + 24)),
+        align: tableInfo.model.aligns[tableInfo.caretCol] ?? null,
+        canDeleteRow: tableInfo.rowIndex >= 0,
+        canDeleteCol: tableInfo.model.header.length > 1,
+      };
+    }
+  } else {
+    inPlaceTableState.value.visible = false;
+  }
+
+  const mathSpan = findMathSpanAt(docText, caret);
+  if (mathSpan) {
+    const elRect = el.getBoundingClientRect();
+    const lineNum = docText.slice(0, caret).split('\n').length;
+    const tops = plainLineTops.value;
+    const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
+    const topPx = elRect.top + lineY - el.scrollTop;
+    if (topPx < 35 || topPx > window.innerHeight - 35) {
+      inPlaceFormulaState.value.visible = false;
+    } else {
+      inPlaceFormulaState.value = {
+        visible: true,
+        top: topPx + 28,
+        left: Math.max(12, Math.min(window.innerWidth - 460, elRect.left + 24)),
+        latex: mathSpan.body,
+        display: mathSpan.display,
+        from: mathSpan.from,
+        to: mathSpan.to,
+      };
+    }
+  } else {
+    inPlaceFormulaState.value.visible = false;
+  }
+}
+
+function onInPlaceTableAction(action: TableActionType) {
+  if (usePlainWindowsEditor) {
+    const docText = plainText.value || '';
+    const caret = plainCaretOffset();
+    const res = performTableAction(docText, caret, action);
+    if (res) {
+      replaceDocRange(0, docText.length, res.text);
+      nextTick(() => {
+        plainSetCaret(res.newCaret);
+        emitPlainCursorAndSelection();
+        updateInPlaceOverlaysPlain();
+      });
+    }
+    return;
+  }
+  if (!view) return;
+  const docText = view.state.doc.toString();
+  const caret = view.state.selection.main.head;
+  const res = performTableAction(docText, caret, action);
+  if (res) {
+    if (res.from !== undefined && res.to !== undefined && res.tableText !== undefined) {
+      view.dispatch({
+        changes: { from: res.from, to: res.to, insert: res.tableText },
+        selection: { anchor: res.newCaret },
+      });
+    } else {
+      view.dispatch({
+        changes: { from: 0, to: docText.length, insert: res.text },
+        selection: { anchor: res.newCaret },
+      });
+    }
+    view.focus();
+    nextTick(() => {
+      if (view) updateInPlaceOverlays(view);
+    });
+  }
+}
+
+function onInPlaceTableOpenFull() {
+  openTableAtCursor();
+}
+
+function onInPlaceFormulaInsert(symbol: string, caretOffset?: number) {
+  if (usePlainWindowsEditor) {
+    const docText = plainText.value || '';
+    const el = plainLiveEnabled.value
+      ? plainBlockEditors.value[plainActiveBlock.value]
+      : plainEditor.value;
+    const base = plainLiveEnabled.value
+      ? (plainBlocks.value[plainActiveBlock.value]?.start ?? 0)
+      : 0;
+    const sStart = base + (el?.selectionStart ?? 0);
+    const sEnd = base + (el?.selectionEnd ?? sStart);
+    const newText = docText.slice(0, sStart) + symbol + docText.slice(sEnd);
+    replaceDocRange(0, docText.length, newText);
+    nextTick(() => {
+      plainSetCaret(sStart + (caretOffset ?? symbol.length));
+      emitPlainCursorAndSelection();
+      updateInPlaceOverlaysPlain();
+    });
+    return;
+  }
+  if (!view) return;
+  const sel = view.state.selection.main;
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: symbol },
+    selection: { anchor: sel.from + (caretOffset ?? symbol.length) },
+  });
+  view.focus();
+  nextTick(() => {
+    if (view) updateInPlaceOverlays(view);
+  });
+}
+
+function onInPlaceFormulaToggleDisplay() {
+  if (usePlainWindowsEditor) {
+    const docText = plainText.value || '';
+    const caret = plainCaretOffset();
+    const span = findMathSpanAt(docText, caret);
+    if (!span) return;
+    const newDelim = span.display ? '$' : '$$';
+    const newText = `${newDelim}${span.body}${newDelim}`;
+    const updated = docText.slice(0, span.from) + newText + docText.slice(span.to);
+    replaceDocRange(0, docText.length, updated);
+    nextTick(() => {
+      plainSetCaret(span.from + newDelim.length + span.body.length);
+      emitPlainCursorAndSelection();
+      updateInPlaceOverlaysPlain();
+    });
+    return;
+  }
+  if (!view) return;
+  const docText = view.state.doc.toString();
+  const caret = view.state.selection.main.head;
+  const span = findMathSpanAt(docText, caret);
+  if (!span) return;
+  const newDelim = span.display ? '$' : '$$';
+  const newText = `${newDelim}${span.body}${newDelim}`;
+  view.dispatch({
+    changes: { from: span.from, to: span.to, insert: newText },
+    selection: { anchor: span.from + newDelim.length + span.body.length },
+  });
+  view.focus();
+  nextTick(() => {
+    if (view) updateInPlaceOverlays(view);
+  });
+}
+
+function onInPlaceFormulaOpenFull() {
+  openFormulaAtCursor();
+}
+
+
 /** Caret offset in the plain editor, in whole-document coordinates. */
 function plainCaretOffset(): number {
   if (plainLiveEnabled.value) {
@@ -2694,7 +3264,26 @@ function applyFold(action: 'toggle' | 'all' | 'none' | 'level', level = 2): void
   else foldHeadingsToLevel(view, level);
 }
 
+function onGlobalPointerUp() {
+  if (isDraggingSelection) {
+    isDraggingSelection = false;
+    if (!usePlainWindowsEditor && view) {
+      updateSelectionBubble(view);
+    } else if (usePlainWindowsEditor) {
+      updateSelectionBubblePlain();
+    }
+  }
+}
+
+function onGlobalKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && selectionBubbleState.value.visible) {
+    selectionBubbleState.value.visible = false;
+  }
+}
+
 onBeforeUnmount(() => {
+  window.removeEventListener('pointerup', onGlobalPointerUp);
+  window.removeEventListener('keydown', onGlobalKeyDown);
   cleanupRelayout?.();
   cleanupTransformCase?.();
   cleanupTransformCase = null;
@@ -3291,7 +3880,129 @@ function insertMarkdown(snippet: string): void {
   view.focus();
 }
 
-defineExpose({ gotoLine, insertImageFromPath, insertImageUrl, uploadLocalImages, getViewLine, scrollToLine, lineTopY, insertMarkdown, openFind, applyFold, openTableAtCursor, openFormulaAtCursor });
+function applyFormat(action: string, _options?: any): boolean {
+  if (usePlainWindowsEditor) {
+    const el = plainLiveEnabled.value
+      ? plainBlockEditors.value[plainActiveBlock.value]
+      : plainEditor.value;
+    if (!el) return false;
+    switch (action) {
+      case 'bold': applyPlainInlineFormat(el, '**'); break;
+      case 'italic': applyPlainInlineFormat(el, '*'); break;
+      case 'underline': applyPlainInlineFormat(el, '<u>', '</u>'); break;
+      case 'strikethrough': applyPlainInlineFormat(el, '~~'); break;
+      case 'inlineCode':
+      case 'code':
+        applyPlainInlineFormat(el, '`'); break;
+      case 'link': applyPlainInlineFormat(el, '[', '](url)'); break;
+      case 'image': applyPlainInlineFormat(el, '![', '](url)'); break;
+      case 'h1': applyPlainHeading(el, 1); break;
+      case 'h2': applyPlainHeading(el, 2); break;
+      case 'h3': applyPlainHeading(el, 3); break;
+      case 'h4': applyPlainHeading(el, 4); break;
+      case 'h5': applyPlainHeading(el, 5); break;
+      case 'h6': applyPlainHeading(el, 6); break;
+      case 'paragraph': applyPlainHeading(el, 0); break;
+      case 'table': plainInsertText('\n| Column 1 | Column 2 |\n| --- | --- |\n| Item 1 | Item 2 |\n'); break;
+      case 'codeBlock':
+      case 'codeblock':
+        plainInsertText('\n```\n\n```\n'); break;
+      case 'mathBlock':
+      case 'mathblock':
+        plainInsertText('\n$$\n\n$$\n'); break;
+      case 'math':
+      case 'inlineMath':
+        applyPlainInlineFormat(el, '$'); break;
+      case 'ul':
+      case 'bulletList':
+        applyPlainList(el, 'ul'); break;
+      case 'ol':
+      case 'orderedList':
+        applyPlainList(el, 'ol'); break;
+      case 'task':
+      case 'taskList':
+        applyPlainList(el, 'task'); break;
+      case 'quote':
+      case 'blockquote':
+        applyPlainQuote(el); break;
+      case 'highlight':
+        applyPlainInlineFormat(el, '=='); break;
+      case 'headingUp':
+        applyPlainHeadingStep(el, 1); break;
+      case 'headingDown':
+        applyPlainHeadingStep(el, -1); break;
+      case 'clearFormat':
+      case 'clear':
+        applyPlainClearFormat(el); break;
+      case 'selectLine':
+        applyPlainSelectLine(el); break;
+      case 'selectWord':
+        applyPlainSelectWord(el); break;
+      case 'deleteWord':
+        applyPlainDeleteWord(el); break;
+    }
+    return true;
+  }
+  if (!view) return false;
+  switch (action) {
+    case 'bold': return applyCmInlineFormat(view, '**');
+    case 'italic': return applyCmInlineFormat(view, '*');
+    case 'underline': return applyCmInlineFormat(view, '<u>', '</u>');
+    case 'strikethrough': return applyCmInlineFormat(view, '~~');
+    case 'inlineCode':
+    case 'code':
+      return applyCmInlineFormat(view, '`');
+    case 'link': return applyCmLink(view);
+    case 'image': return applyCmImage(view);
+    case 'h1': return applyCmHeading(view, 1);
+    case 'h2': return applyCmHeading(view, 2);
+    case 'h3': return applyCmHeading(view, 3);
+    case 'h4': return applyCmHeading(view, 4);
+    case 'h5': return applyCmHeading(view, 5);
+    case 'h6': return applyCmHeading(view, 6);
+    case 'paragraph': return applyCmHeading(view, 0);
+    case 'table': return applyCmTable(view);
+    case 'codeBlock':
+    case 'codeblock':
+      return applyCmCodeBlock(view);
+    case 'mathBlock':
+    case 'mathblock':
+      return applyCmMathBlock(view);
+    case 'math':
+    case 'inlineMath':
+      return applyCmInlineMath(view);
+    case 'ul':
+    case 'bulletList':
+      return applyCmList(view, 'ul');
+    case 'ol':
+    case 'orderedList':
+      return applyCmList(view, 'ol');
+    case 'task':
+    case 'taskList':
+      return applyCmList(view, 'task');
+    case 'quote':
+    case 'blockquote':
+      return applyCmQuote(view);
+    case 'highlight':
+      return applyCmInlineFormat(view, '==');
+    case 'headingUp':
+      return applyCmHeadingStep(view, 1);
+    case 'headingDown':
+      return applyCmHeadingStep(view, -1);
+    case 'clearFormat':
+    case 'clear':
+      return applyCmClearFormat(view);
+    case 'selectLine':
+      return applyCmSelectLine(view);
+    case 'selectWord':
+      return applyCmSelectWord(view);
+    case 'deleteWord':
+      return applyCmDeleteWord(view);
+  }
+  return false;
+}
+
+defineExpose({ gotoLine, insertImageFromPath, insertImageUrl, uploadLocalImages, getViewLine, scrollToLine, lineTopY, insertMarkdown, applyFormat, openFind, applyFold, openTableAtCursor, openFormulaAtCursor });
 
 const cls = computed(() => ({
   'cm-host': true,
@@ -3458,6 +4169,42 @@ const cls = computed(() => ({
       </li>
     </ul>
   </div>
+
+  <!-- In-place interactive table & formula floating overlays -->
+  <InPlaceTableToolbar
+    v-if="inPlaceTableState.visible"
+    :top="inPlaceTableState.top"
+    :left="inPlaceTableState.left"
+    :align="inPlaceTableState.align"
+    :can-delete-row="inPlaceTableState.canDeleteRow"
+    :can-delete-col="inPlaceTableState.canDeleteCol"
+    @action="onInPlaceTableAction"
+    @open-full="onInPlaceTableOpenFull"
+    @close="inPlaceTableState.visible = false"
+  />
+
+  <InPlaceFormulaBar
+    v-if="inPlaceFormulaState.visible"
+    :top="inPlaceFormulaState.top"
+    :left="inPlaceFormulaState.left"
+    :latex="inPlaceFormulaState.latex"
+    :display="inPlaceFormulaState.display"
+    @insert="onInPlaceFormulaInsert"
+    @toggle-display="onInPlaceFormulaToggleDisplay"
+    @open-full="onInPlaceFormulaOpenFull"
+    @close="inPlaceFormulaState.visible = false"
+  />
+
+  <!-- Floating Selection Bubble Bar (Catstep MD) -->
+  <SelectionBubbleBar
+    :visible="selectionBubbleState.visible"
+    :top="selectionBubbleState.top"
+    :left="selectionBubbleState.left"
+    :selected-text="selectionBubbleState.selectedText"
+    @action="onBubbleAction"
+    @ai-action="onBubbleAiAction"
+    @close="selectionBubbleState.visible = false"
+  />
 </template>
 
 <style scoped>

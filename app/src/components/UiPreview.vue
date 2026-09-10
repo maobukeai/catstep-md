@@ -28,6 +28,8 @@ const THEMES = [
   'monokai',
   'github-light',
   'dracula',
+  'newsprint',
+  'night',
 ] as const;
 
 const theme = ref<(typeof THEMES)[number]>('light');

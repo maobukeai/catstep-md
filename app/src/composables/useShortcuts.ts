@@ -38,6 +38,31 @@ export function useShortcuts(hooks: Hooks = {}) {
     if (cmd) cmd.run();
   }
 
+  function dispatchFormat(action: string, options?: any) {
+    window.dispatchEvent(
+      new CustomEvent('solomd:format-action', {
+        detail: { action, options, paneId: tiles.focusedPaneId },
+      }),
+    );
+  }
+
+  async function toggleFullscreen() {
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const win = getCurrentWindow();
+        const isFull = await win.isFullscreen();
+        await win.setFullscreen(!isFull);
+        return;
+      } catch {}
+    }
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  }
+
   /** #106 — cycle the focused pane to the previous/next tab in the bar.
    *  Routes through tiles.setActiveTab so the pane's activeTabId stays in
    *  lock-step with tabs.activeId (the same path a click takes). Wraps
@@ -69,6 +94,7 @@ export function useShortcuts(hooks: Hooks = {}) {
     'file.closeTab': () => {
       if (tabs.activeId) files.closeTabSafe(tabs.activeId);
     },
+    'tab.reopenClosed': () => void tabs.reopenLastClosedTab(),
     'file.openExternal': () => runById('file.openExternal'),
     'window.new': () => runById('window.new'),
     'file.exit': () => void getCurrentWindow().close(),
@@ -83,6 +109,58 @@ export function useShortcuts(hooks: Hooks = {}) {
     // and PNG stay palette-only — they're one-off exports.
     'export.copyMd': () => void exporter.copyAsMarkdown(),
     'export.pdfPrint': () => runById('export.pdfPrint'),
+
+    // ---- Typora Formatting ----
+    'format.bold': () => dispatchFormat('bold'),
+    'format.italic': () => dispatchFormat('italic'),
+    'format.underline': () => dispatchFormat('underline'),
+    'format.strikethrough': () => dispatchFormat('strikethrough'),
+    'format.inlineCode': () => dispatchFormat('inlineCode'),
+    'format.code': () => dispatchFormat('inlineCode'),
+    'format.link': () => dispatchFormat('link'),
+    'format.image': () => dispatchFormat('image'),
+    'format.h1': () => dispatchFormat('h1'),
+    'format.h2': () => dispatchFormat('h2'),
+    'format.h3': () => dispatchFormat('h3'),
+    'format.h4': () => dispatchFormat('h4'),
+    'format.h5': () => dispatchFormat('h5'),
+    'format.h6': () => dispatchFormat('h6'),
+    'format.paragraph': () => dispatchFormat('paragraph'),
+    'format.headingUp': () => dispatchFormat('headingUp'),
+    'format.headingDown': () => dispatchFormat('headingDown'),
+    'format.table': () => dispatchFormat('table'),
+    'format.codeBlock': () => dispatchFormat('codeBlock'),
+    'format.mathBlock': () => dispatchFormat('mathBlock'),
+    'format.inlineMath': () => dispatchFormat('inlineMath'),
+    'format.math': () => dispatchFormat('inlineMath'),
+    'format.bulletList': () => dispatchFormat('ul'),
+    'format.orderedList': () => dispatchFormat('ol'),
+    'format.taskList': () => dispatchFormat('task'),
+    'format.quote': () => dispatchFormat('quote'),
+    'format.clear': () => dispatchFormat('clearFormat'),
+    'format.highlight': () => dispatchFormat('highlight'),
+    'editor.selectLine': () => dispatchFormat('selectLine'),
+    'editor.selectWord': () => dispatchFormat('selectWord'),
+    'editor.deleteWord': () => dispatchFormat('deleteWord'),
+    'editor.replace': () => {
+      window.dispatchEvent(
+        new CustomEvent('solomd:editor-find', {
+          detail: { paneId: tiles.focusedPaneId, replace: true },
+        }),
+      );
+    },
+
+    // ---- View / Typora Modes ----
+    'view.toggleSidebar': () => settings.toggleLeftSidebar(),
+    'view.sidebarOutline': () => settings.setLeftSidebarTab('outline'),
+    'view.sidebarFiles': () => settings.setLeftSidebarTab('files'),
+    'view.sidebarSearch': () => settings.setLeftSidebarTab('search'),
+    'view.toggleSourceMode': () => settings.toggleLivePreview(),
+    'view.toggleFocusMode': () => settings.toggleFocusMode(),
+    'view.toggleTypewriter': () => settings.toggleTypewriterMode(),
+    'view.toggleFullscreen': () => void toggleFullscreen(),
+    'view.toggleAgentPanel': () => settings.toggleAgentPanel(),
+    'editor.aiRewrite': () => settings.toggleAgentPanel(),
 
     'view.cycleView': () => settings.cycleViewMode(),
     // Pressing the same combo while already in reading mode restores the
@@ -144,11 +222,22 @@ export function useShortcuts(hooks: Hooks = {}) {
   };
 
   function handler(e: KeyboardEvent) {
+    if (e.defaultPrevented) return;
     const combo = eventToCombo(e);
     if (!combo) return;
     const bindings = resolveBindings(settings.keybindings);
     const actionId = bindings.get(combo);
     if (!actionId) return;
+
+    const target = e.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' || (target.tagName === 'TEXTAREA' && !target.classList.contains('plain-editor') && !target.closest('.cm-editor'))) &&
+      actionId.startsWith('format.')
+    ) {
+      return;
+    }
+
     const run = actions[actionId];
     if (!run) return;
     if (run() === false) return; // action declined — leave the event alone

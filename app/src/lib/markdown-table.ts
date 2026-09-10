@@ -22,6 +22,7 @@ export interface TableModel {
   header: string[];
   aligns: TableAlign[];
   rows: string[][];
+  prefix?: string;
 }
 
 /** Inclusive 0-based line span of a table inside a document. */
@@ -30,15 +31,20 @@ export interface TableSpan {
   endLine: number;
 }
 
+/** Strip optional Markdown blockquote prefix (`> ` or `>> `). */
+export function stripBlockquotePrefix(line: string): string {
+  return line.replace(/^\s*(?:>\s*)+/, '');
+}
+
 /** A line that could be part of a pipe table body. */
 function looksLikeRow(line: string): boolean {
-  const t = line.trim();
+  const t = stripBlockquotePrefix(line).trim();
   return t.includes('|') && t !== '';
 }
 
 /** `|---|:--:|` and friends. */
 export function isDelimiterRow(line: string): boolean {
-  const t = line.trim();
+  const t = stripBlockquotePrefix(line).trim();
   if (!t.includes('-')) return false;
   const cells = splitRow(t);
   if (cells.length === 0) return false;
@@ -52,7 +58,7 @@ export function isDelimiterRow(line: string): boolean {
  * would shift every cell after it by one column.
  */
 export function splitRow(line: string): string[] {
-  let s = line.trim();
+  let s = stripBlockquotePrefix(line).trim();
   if (s.startsWith('|')) s = s.slice(1);
   if (s.endsWith('|') && !s.endsWith('\\|')) s = s.slice(0, -1);
   const cells: string[] = [];
@@ -109,14 +115,26 @@ export function findTableSpan(lines: string[], line0: number): TableSpan | null 
 
 /** Parse a whole table block (header + delimiter + body). */
 export function parseTable(text: string): TableModel | null {
-  const lines = text.split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l.trim() === ''));
+  const rawLines = text.split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l.trim() === ''));
+  if (rawLines.length < 2) return null;
+  // Detect common prefix like '> '
+  const firstPrefixMatch = rawLines[0].match(/^(\s*(?:>\s*)+)/);
+  const commonPrefix = firstPrefixMatch ? firstPrefixMatch[1] : '';
+  const hasCommonPrefix = commonPrefix !== '' && rawLines.every((l) => l.startsWith(commonPrefix));
+  const lines = hasCommonPrefix ? rawLines.map((l) => l.slice(commonPrefix.length)) : rawLines;
+
   if (lines.length < 2 || !isDelimiterRow(lines[1])) return null;
   const header = splitRow(lines[0]);
   const delim = splitRow(lines[1]);
   const width = Math.max(header.length, delim.length);
   const aligns: TableAlign[] = [];
   for (let i = 0; i < width; i++) aligns.push(alignOf(delim[i] ?? ''));
-  const rows = lines.slice(2).map((l) => {
+  const bodyLines: string[] = [];
+  for (let i = 2; i < lines.length; i++) {
+    if (!looksLikeRow(lines[i])) break;
+    bodyLines.push(lines[i]);
+  }
+  const rows = bodyLines.map((l) => {
     const cells = splitRow(l);
     // Ragged rows are common in hand-written tables; pad rather than reject so
     // the editor can be the thing that fixes them.
@@ -125,7 +143,12 @@ export function parseTable(text: string): TableModel | null {
   });
   const paddedHeader = [...header];
   while (paddedHeader.length < width) paddedHeader.push('');
-  return { header: paddedHeader.slice(0, width), aligns, rows };
+  return {
+    header: paddedHeader.slice(0, width),
+    aligns,
+    rows,
+    ...(hasCommonPrefix ? { prefix: commonPrefix } : {}),
+  };
 }
 
 /** Printable width, counting CJK / full-width characters as two columns. */
@@ -173,6 +196,7 @@ function delimiterCell(width: number, align: TableAlign): string {
 /** Render the model back to Markdown, columns padded to a common width. */
 export function serializeTable(t: TableModel): string {
   const cols = t.header.length;
+  const pfx = t.prefix || '';
   const cells = [t.header, ...t.rows].map((row) =>
     Array.from({ length: cols }, (_, i) => escapeCell(row[i] ?? '')),
   );
@@ -180,8 +204,8 @@ export function serializeTable(t: TableModel): string {
     Math.max(3, ...cells.map((row) => displayWidth(row[i] ?? ''))),
   );
   const line = (row: string[]) =>
-    `| ${row.map((c, i) => pad(c, widths[i], t.aligns[i] ?? null)).join(' | ')} |`;
-  const delim = `| ${widths.map((w, i) => delimiterCell(w, t.aligns[i] ?? null)).join(' | ')} |`;
+    `${pfx}| ${row.map((c, i) => pad(c, widths[i], t.aligns[i] ?? null)).join(' | ')} |`;
+  const delim = `${pfx}| ${widths.map((w, i) => delimiterCell(w, t.aligns[i] ?? null)).join(' | ')} |`;
   return [line(cells[0]), delim, ...cells.slice(1).map(line)].join('\n');
 }
 
@@ -287,3 +311,396 @@ export function emptyTable(cols = 3, bodyRows = 2): TableModel {
     rows: Array.from({ length: bodyRows }, () => new Array(cols).fill('')),
   };
 }
+
+export interface CellOffsetInfo {
+  start: number;
+  end: number;
+  contentStart: number;
+  contentEnd: number;
+}
+
+/**
+ * Break a pipe line into cell bounds (offsets relative to the line start).
+ */
+export function getRowCellBounds(line: string): CellOffsetInfo[] {
+  const pipeIndices: number[] = [];
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '\\' && line[i + 1] === '|') {
+      i++;
+      continue;
+    }
+    if (line[i] === '|') {
+      pipeIndices.push(i);
+    }
+  }
+
+  const cells: CellOffsetInfo[] = [];
+  if (pipeIndices.length === 0) {
+    const trimmed = line.trim();
+    const cStart = line.indexOf(trimmed);
+    return [
+      {
+        start: 0,
+        end: line.length,
+        contentStart: cStart >= 0 ? cStart : 0,
+        contentEnd: cStart >= 0 ? cStart + trimmed.length : line.length,
+      },
+    ];
+  }
+
+  const segStarts: number[] = [];
+  const segEnds: number[] = [];
+
+  if (pipeIndices[0] > 0) {
+    const preText = line.slice(0, pipeIndices[0]);
+    if (stripBlockquotePrefix(preText).trim() !== '') {
+      const pfxMatch = preText.match(/^(\s*(?:>\s*)+)/);
+      const preStart = pfxMatch ? pfxMatch[0].length : 0;
+      segStarts.push(preStart);
+      segEnds.push(pipeIndices[0]);
+    }
+  }
+
+  for (let k = 0; k < pipeIndices.length - 1; k++) {
+    segStarts.push(pipeIndices[k] + 1);
+    segEnds.push(pipeIndices[k + 1]);
+  }
+
+  const lastPipe = pipeIndices[pipeIndices.length - 1];
+  if (lastPipe < line.length - 1 && line.slice(lastPipe + 1).trim() !== '') {
+    segStarts.push(lastPipe + 1);
+    segEnds.push(line.length);
+  }
+
+  for (let i = 0; i < segStarts.length; i++) {
+    const raw = line.slice(segStarts[i], segEnds[i]);
+    let contentStart: number;
+    let contentEnd: number;
+    if (raw.trim() === '') {
+      // In an empty cell (e.g. '   '), place caret 1 space after opening pipe
+      const offset = raw.length > 1 ? 1 : 0;
+      contentStart = segStarts[i] + offset;
+      contentEnd = contentStart;
+    } else {
+      const leadWs = raw.match(/^\s*/)?.[0].length ?? 0;
+      const trailWs = raw.match(/\s*$/)?.[0].length ?? 0;
+      contentStart = segStarts[i] + leadWs;
+      contentEnd = Math.max(contentStart, segEnds[i] - trailWs);
+    }
+    cells.push({
+      start: segStarts[i],
+      end: segEnds[i],
+      contentStart,
+      contentEnd,
+    });
+  }
+  return cells;
+}
+
+/**
+ * Given a line and character offset in that line, return the 0-based column index.
+ */
+export function findCellColumnIndex(line: string, colOffset: number): number {
+  const cells = getRowCellBounds(line);
+  if (cells.length === 0) return 0;
+  for (let i = 0; i < cells.length; i++) {
+    if (colOffset <= cells[i].end) {
+      return i;
+    }
+  }
+  return cells.length - 1;
+}
+
+export interface TableCursorInfo {
+  startLine: number;
+  endLine: number;
+  from: number;
+  to: number;
+  source: string;
+  caretLine: number;
+  caretCol: number;
+  rowIndex: number; // -1 for header, 0..N for body rows
+  isDelimiterLine: boolean;
+  model: TableModel;
+}
+
+/**
+ * Find table and cursor position info at a whole-document character offset.
+ */
+export function findTableAtCursor(text: string, caret: number): TableCursorInfo | null {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const starts: number[] = [];
+  let off = 0;
+  for (const line of lines) {
+    starts.push(off);
+    off += line.length + 1; // +1 for '\n'
+  }
+
+  let caretLine = 0;
+  for (let i = 0; i < starts.length; i++) {
+    if (starts[i] <= caret) caretLine = i;
+    else break;
+  }
+
+  const span = findTableSpan(lines, caretLine);
+  if (!span) return null;
+
+  const from = starts[span.startLine];
+  const to = starts[span.endLine] + lines[span.endLine].length;
+  const source = text.slice(from, to);
+  const model = parseTable(source);
+  if (!model) return null;
+
+  const lineText = lines[caretLine];
+  const offsetInLine = Math.max(0, caret - starts[caretLine]);
+  const caretCol = findCellColumnIndex(lineText, offsetInLine);
+
+  const isDelimiterLine = caretLine === span.startLine + 1;
+  let rowIndex = -1;
+  if (caretLine === span.startLine || isDelimiterLine) rowIndex = -1;
+  else rowIndex = caretLine - span.startLine - 2;
+
+  return {
+    startLine: span.startLine,
+    endLine: span.endLine,
+    from,
+    to,
+    source,
+    caretLine,
+    caretCol: Math.min(caretCol, model.header.length - 1),
+    rowIndex,
+    isDelimiterLine,
+    model,
+  };
+}
+
+/**
+ * Calculate caret position in the document corresponding to table (rowIndex, colIndex).
+ */
+export function getCellDocOffset(
+  docText: string,
+  tableStartLine: number,
+  rowIndex: number,
+  colIndex: number,
+): number {
+  const lines = docText.split('\n');
+  const targetLineIdx = rowIndex < 0 ? tableStartLine : tableStartLine + 2 + rowIndex;
+  if (targetLineIdx >= lines.length) return docText.length;
+
+  let lineStart = 0;
+  for (let i = 0; i < targetLineIdx; i++) {
+    lineStart += lines[i].length + 1;
+  }
+
+  const targetLine = lines[targetLineIdx];
+  const cells = getRowCellBounds(targetLine);
+  const cell = cells[Math.min(colIndex, cells.length - 1)];
+  if (!cell) return lineStart;
+  return lineStart + cell.contentStart;
+}
+
+export interface TableNavResult {
+  text: string;
+  newCaret: number;
+  from?: number;
+  to?: number;
+  tableText?: string;
+  exitTable?: boolean;
+}
+
+/**
+ * Tab / Shift+Tab / Enter table navigation.
+ */
+export function tableNavigate(
+  docText: string,
+  caret: number,
+  direction: 'next' | 'prev' | 'enter',
+): TableNavResult | null {
+  const info = findTableAtCursor(docText, caret);
+  if (!info) return null;
+
+  const { model, rowIndex, caretCol, startLine, from, to, isDelimiterLine } = info;
+  const colCount = model.header.length;
+  const rowCount = model.rows.length;
+
+  if (direction === 'next') {
+    // Tab
+    if (isDelimiterLine) {
+      const newCaret = getCellDocOffset(docText, startLine, 0, 0);
+      return { text: docText, newCaret, from, to };
+    }
+    if (caretCol < colCount - 1) {
+      const newCaret = getCellDocOffset(docText, startLine, rowIndex, caretCol + 1);
+      return { text: docText, newCaret, from, to };
+    } else {
+      if (rowIndex < 0) {
+        if (rowCount > 0) {
+          const newCaret = getCellDocOffset(docText, startLine, 0, 0);
+          return { text: docText, newCaret, from, to };
+        } else {
+          const updatedModel = insertRow(model, 0);
+          const serialized = serializeTable(updatedModel);
+          const newText = docText.slice(0, from) + serialized + docText.slice(to);
+          const newCaret = getCellDocOffset(newText, startLine, 0, 0);
+          return { text: newText, newCaret, from, to, tableText: serialized };
+        }
+      } else if (rowIndex < rowCount - 1) {
+        const newCaret = getCellDocOffset(docText, startLine, rowIndex + 1, 0);
+        return { text: docText, newCaret, from, to };
+      } else {
+        // Last cell of last row -> add new row
+        const updatedModel = insertRow(model, rowCount);
+        const serialized = serializeTable(updatedModel);
+        const newText = docText.slice(0, from) + serialized + docText.slice(to);
+        const newCaret = getCellDocOffset(newText, startLine, rowCount, 0);
+        return { text: newText, newCaret, from, to, tableText: serialized };
+      }
+    }
+  } else if (direction === 'prev') {
+    // Shift+Tab
+    if (isDelimiterLine) {
+      const newCaret = getCellDocOffset(docText, startLine, -1, colCount - 1);
+      return { text: docText, newCaret, from, to };
+    }
+    if (caretCol > 0) {
+      const newCaret = getCellDocOffset(docText, startLine, rowIndex, caretCol - 1);
+      return { text: docText, newCaret, from, to };
+    } else {
+      if (rowIndex > 0) {
+        const newCaret = getCellDocOffset(docText, startLine, rowIndex - 1, colCount - 1);
+        return { text: docText, newCaret, from, to };
+      } else if (rowIndex === 0) {
+        const newCaret = getCellDocOffset(docText, startLine, -1, colCount - 1);
+        return { text: docText, newCaret, from, to };
+      } else {
+        return null;
+      }
+    }
+  } else if (direction === 'enter') {
+    // Enter
+    if (isDelimiterLine) {
+      const newCaret = getCellDocOffset(docText, startLine, 0, caretCol);
+      return { text: docText, newCaret, from, to };
+    }
+    if (rowIndex < 0) {
+      if (rowCount > 0) {
+        const newCaret = getCellDocOffset(docText, startLine, 0, caretCol);
+        return { text: docText, newCaret, from, to };
+      } else {
+        const updatedModel = insertRow(model, 0);
+        const serialized = serializeTable(updatedModel);
+        const newText = docText.slice(0, from) + serialized + docText.slice(to);
+        const newCaret = getCellDocOffset(newText, startLine, 0, caretCol);
+        return { text: newText, newCaret, from, to, tableText: serialized };
+      }
+    } else if (rowIndex < rowCount - 1) {
+      const newCaret = getCellDocOffset(docText, startLine, rowIndex + 1, caretCol);
+      return { text: docText, newCaret, from, to };
+    } else {
+      // Last row: check if row is already empty -> exit table
+      const isCurrentRowEmpty = rowIndex >= 0 && model.rows[rowIndex].every((c) => c.trim() === '');
+      if (isCurrentRowEmpty) {
+        const updatedModel = deleteRow(model, rowIndex);
+        const serialized = serializeTable(updatedModel);
+        const tail = docText.slice(to);
+        const leadingNewlines = tail.match(/^\n*/)?.[0]?.length ?? 0;
+        const delEnd = to + leadingNewlines;
+        const postSep = model.prefix ? `\n${model.prefix}\n` : '\n\n';
+        const newText = docText.slice(0, from) + serialized + postSep + docText.slice(delEnd);
+        const newCaret = from + serialized.length + 1 + (model.prefix?.length ?? 0);
+        return { text: newText, newCaret, from, to: delEnd, tableText: serialized + postSep, exitTable: true };
+      }
+      // Last row with content -> insert new row below
+      const updatedModel = insertRow(model, rowCount);
+      const serialized = serializeTable(updatedModel);
+      const newText = docText.slice(0, from) + serialized + docText.slice(to);
+      const newCaret = getCellDocOffset(newText, startLine, rowCount, 0);
+      return { text: newText, newCaret, from, to, tableText: serialized };
+    }
+  }
+  return null;
+}
+
+export type TableActionType =
+  | 'insertRowAbove'
+  | 'insertRowBelow'
+  | 'deleteRow'
+  | 'insertColLeft'
+  | 'insertColRight'
+  | 'deleteCol'
+  | 'alignLeft'
+  | 'alignCenter'
+  | 'alignRight'
+  | 'deleteTable';
+
+export interface TableActionResult {
+  text: string;
+  newCaret: number;
+  from: number;
+  to: number;
+  tableText: string;
+}
+
+/**
+ * Execute a structural table action directly at the cursor offset.
+ */
+export function performTableAction(
+  docText: string,
+  caret: number,
+  action: TableActionType,
+): TableActionResult | null {
+  const info = findTableAtCursor(docText, caret);
+  if (!info) return null;
+
+  const { model, rowIndex, caretCol, startLine, from, to } = info;
+
+  if (action === 'deleteTable') {
+    let delEnd = to;
+    if (docText[delEnd] === '\n') delEnd++;
+    const newText = docText.slice(0, from) + docText.slice(delEnd);
+    return { text: newText, newCaret: Math.min(from, newText.length), from, to: delEnd, tableText: '' };
+  }
+
+  let newModel = model;
+  let targetRow = rowIndex;
+  let targetCol = caretCol;
+
+  if (action === 'insertRowAbove') {
+    const at = rowIndex < 0 ? 0 : rowIndex;
+    newModel = insertRow(model, at);
+    targetRow = at;
+  } else if (action === 'insertRowBelow') {
+    const at = rowIndex < 0 ? 0 : rowIndex + 1;
+    newModel = insertRow(model, at);
+    targetRow = at;
+  } else if (action === 'deleteRow') {
+    if (rowIndex >= 0) {
+      newModel = deleteRow(model, rowIndex);
+      targetRow = Math.min(rowIndex, newModel.rows.length - 1);
+    }
+  } else if (action === 'insertColLeft') {
+    newModel = insertColumn(model, caretCol);
+    targetCol = caretCol;
+  } else if (action === 'insertColRight') {
+    newModel = insertColumn(model, caretCol + 1);
+    targetCol = caretCol + 1;
+  } else if (action === 'deleteCol') {
+    if (model.header.length > 1) {
+      newModel = deleteColumn(model, caretCol);
+      targetCol = Math.min(caretCol, newModel.header.length - 1);
+    }
+  } else if (action === 'alignLeft') {
+    newModel = setAlign(model, caretCol, 'left');
+  } else if (action === 'alignCenter') {
+    newModel = setAlign(model, caretCol, 'center');
+  } else if (action === 'alignRight') {
+    newModel = setAlign(model, caretCol, 'right');
+  }
+
+  const serialized = serializeTable(newModel);
+  const newText = docText.slice(0, from) + serialized + docText.slice(to);
+  const newCaret = getCellDocOffset(newText, startLine, targetRow, targetCol);
+  return { text: newText, newCaret, from, to, tableText: serialized };
+}
+

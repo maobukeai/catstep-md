@@ -1,25 +1,24 @@
 <script setup lang="ts">
 /**
- * v2.4 — Public reading mode.
+ * v2.4 — Public reading mode (Zen Reader Mode).
  *
- * Maximally clean single-doc preview: no editor pane, no toolbar, no
- * file tree, no statusbar — just centered prose. A small floating ✕
- * button (top right) restores the user's previous view mode.
+ * Maximally clean single-doc preview: no editor pane, no file tree,
+ * no statusbar — pure centered prose with elegant reading typography.
+ * Supports double-clicking any paragraph or pressing Enter / Escape to
+ * instantly enter Edit mode at that paragraph.
  *
- * Reuses `Preview.vue`'s renderer via the `skin: 'reading'` prop, so
- * we don't duplicate the markdown / mermaid / image-overlay pipeline.
+ * Reuses `Preview.vue`'s renderer via the `skin: 'reading'` prop.
  */
-import { computed } from 'vue';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import Preview from './Preview.vue';
-import Icon from './Icons.vue';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
+import { useTilesStore } from '../stores/tiles';
 import { useI18n } from '../i18n';
-import { forceWinChromePreview, isWindowsDesktop } from '../lib/platform';
 
 const tabs = useTabsStore();
 const settings = useSettingsStore();
+const tiles = useTilesStore();
 const { t } = useI18n();
 
 const tab = computed(() => tabs.activeTab);
@@ -28,53 +27,87 @@ function exit() {
   settings.exitReadingMode();
 }
 
-// #221(4) — on the frameless Windows build, reading mode hides the toolbar
-// and with it the min/✕ caption buttons, leaving no way to minimize or close
-// the app without leaving reading mode first. Mirror a minimal pair of window
-// controls next to the exit button. macOS keeps its native traffic lights, so
-// nothing is rendered there.
-const hasTauriShell = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const winControls =
-  (isWindowsDesktop() && hasTauriShell) || (import.meta.env.DEV && forceWinChromePreview());
-function winMinimize() {
-  if (hasTauriShell) void getCurrentWindow().minimize();
+function onDocDblClick(e: MouseEvent) {
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  if (target.closest('button, [role="button"], a, input, select, textarea, .reading-view__controls, .reading-view__footer-hint')) {
+    return;
+  }
+  const blockEl = target.closest('[data-source-line]') as HTMLElement | null;
+  const lineAttr = blockEl?.getAttribute('data-source-line');
+  const line = lineAttr ? parseInt(lineAttr, 10) : 1;
+  const targetLine = isNaN(line) || line < 1 ? 1 : line;
+  settings.setTripleMode('edit');
+  const dispatchGoto = () => {
+    window.dispatchEvent(
+      new CustomEvent('solomd:outline-goto', {
+        detail: { line: targetLine, paneId: tiles.focusedPaneId },
+      }),
+    );
+  };
+  nextTick(dispatchGoto);
+  setTimeout(dispatchGoto, 60);
+  setTimeout(dispatchGoto, 180);
 }
-function winClose() {
-  // Same close-requested flow (unsaved-tabs confirm) as the title-bar ✕.
-  if (hasTauriShell) void getCurrentWindow().close();
+
+function onDocKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    const activeEl = document.activeElement as HTMLElement | null;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
+    if (document.querySelector('.command-palette, .quick-switcher, .settings-modal, .dialog-backdrop, .modal, .dropdown__menu, [role="dialog"]')) {
+      return;
+    }
+    e.preventDefault();
+    let targetLine = 1;
+    const nodes = document.querySelectorAll<HTMLElement>('.reading-view [data-source-line]');
+    for (const node of Array.from(nodes)) {
+      const rect = node.getBoundingClientRect();
+      if (rect.bottom >= 60) {
+        const n = parseInt(node.getAttribute('data-source-line') || '1', 10);
+        if (!isNaN(n) && n >= 1) {
+          targetLine = n;
+          break;
+        }
+      }
+    }
+    settings.setTripleMode('edit');
+    const dispatchGoto = () => {
+      window.dispatchEvent(
+        new CustomEvent('solomd:outline-goto', {
+          detail: { line: targetLine, paneId: tiles.focusedPaneId },
+        }),
+      );
+    };
+    nextTick(dispatchGoto);
+    setTimeout(dispatchGoto, 60);
+    setTimeout(dispatchGoto, 180);
+  }
 }
+
+onMounted(() => {
+  window.addEventListener('keydown', onDocKeyDown);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onDocKeyDown);
+});
 </script>
 
 <template>
-  <div class="reading-view" data-reading-view>
+  <div class="reading-view" data-reading-view @dblclick="onDocDblClick">
     <div class="reading-view__controls">
       <button
-        v-if="winControls"
-        class="reading-view__winbtn"
-        :title="t('menubar.minimize')"
-        :aria-label="t('menubar.minimize')"
-        @click="winMinimize"
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1" /></svg>
-      </button>
-      <button
-        v-if="winControls"
-        class="reading-view__winbtn reading-view__winbtn--close"
-        :title="t('menubar.close')"
-        :aria-label="t('menubar.close')"
-        @click="winClose"
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" /></svg>
-      </button>
-      <button
-        class="reading-view__close"
-        :title="t('reading.exitTooltip')"
+        class="reading-view__hint-pill"
+        :title="t('reading.exitTooltip') + ' (Esc / Enter)'"
         :aria-label="t('reading.exit')"
         @click="exit"
       >
-        <Icon name="close" :size="18" />
+        <span class="hint-icon">✍️</span>
+        <span class="hint-text">{{ t('reading.exit') || '返回编辑' }}</span>
+        <kbd class="hint-kbd">Esc</kbd>
       </button>
     </div>
+
     <div v-if="tab" class="reading-view__doc">
       <Preview
         :source="tab.content"
@@ -85,6 +118,11 @@ function winClose() {
     </div>
     <div v-else class="reading-view__empty">
       {{ t('reading.empty') }}
+    </div>
+
+    <!-- Bottom subtle hint -->
+    <div class="reading-view__footer-hint">
+      双击任意段落或按 Enter / Esc 返回实时编辑
     </div>
   </div>
 </template>
@@ -98,72 +136,116 @@ function winClose() {
   min-height: 0;
   min-width: 0;
   background: var(--bg);
+  caret-color: transparent !important;
+  user-select: text;
+  scroll-behavior: smooth;
 }
+
 .reading-view__doc {
   flex: 1;
   display: flex;
   min-height: 0;
+  caret-color: transparent !important;
+  user-select: text;
 }
+
 .reading-view__doc > :deep(.preview-host) {
   flex: 1;
   min-height: 0;
+  border-left: none !important;
+  background: var(--bg);
+  caret-color: transparent !important;
+  user-select: text;
 }
+
+.reading-view__doc :deep(.preview-content),
+.reading-view__doc :deep(.preview-content--reading) {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 36px 44px 100px;
+  line-height: 1.85;
+  font-size: 15.5px;
+  letter-spacing: 0.015em;
+  caret-color: transparent !important;
+  user-select: text;
+}
+
+.reading-view__doc :deep(*) {
+  caret-color: transparent !important;
+}
+
 .reading-view__controls {
   position: absolute;
   z-index: 50;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  /* Stay clear of iOS notch / home-indicator areas */
   top: max(14px, env(safe-area-inset-top, 0px));
   right: max(18px, env(safe-area-inset-right, 0px));
 }
-.reading-view__winbtn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+
+.reading-view__hint-pill {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
   color: var(--text-muted);
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  font-size: 11.5px;
+  transition: all 0.16s ease;
+  user-select: none;
 }
-.reading-view__winbtn:hover {
+
+.reading-view__hint-pill:hover {
   color: var(--text);
   border-color: var(--accent);
   background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
-.reading-view__winbtn--close:hover {
-  background: #e81123;
-  border-color: #e81123;
-  color: #fff;
+
+.hint-icon {
+  font-size: 11px;
 }
-.reading-view__close {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  background: var(--bg-elev);
+
+.hint-text {
+  font-weight: 500;
+}
+
+.hint-kbd {
+  font-size: 9.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--bg-active);
   border: 1px solid var(--border);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s, transform 0.15s;
+  color: var(--text-muted);
 }
-.reading-view__close:hover {
-  color: var(--text);
-  border-color: var(--accent);
-  background: var(--bg-hover);
+
+.reading-view__footer-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--bg-elev) 80%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 3px 12px;
+  pointer-events: none;
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+  backdrop-filter: blur(8px);
 }
-.reading-view__close:active {
-  transform: scale(0.96);
+
+.reading-view:hover .reading-view__footer-hint {
+  opacity: 0.9;
 }
+
 .reading-view__empty {
   flex: 1;
   display: flex;

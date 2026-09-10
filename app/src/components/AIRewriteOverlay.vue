@@ -123,16 +123,27 @@ function close(): void {
 }
 
 function onOpenEvent(ev: Event): void {
-  const ce = ev as CustomEvent<AIRewriteOpenDetail>;
+  const ce = ev as CustomEvent<AIRewriteOpenDetail & { actionId?: string }>;
   if (!ce.detail || !ce.detail.selection) return;
-  if (!props.enabled) return;
+  if (!props.enabled) {
+    emit('open-settings', 'integrations');
+    return;
+  }
   range.value = { ...ce.detail };
   action.value = null;
   customPrompt.value = '';
   reset();
   open.value = true;
   // Authoritative key check now, in case the prop is stale.
-  void refreshLiveHasKey();
+  void refreshLiveHasKey().then(() => {
+    if (needsKey.value) {
+      return;
+    }
+    if (ce.detail.actionId) {
+      const target = ACTIONS.find((a) => a.id === ce.detail.actionId);
+      if (target) void startAction(target);
+    }
+  });
 }
 
 function onKeydown(ev: KeyboardEvent): void {
@@ -374,7 +385,7 @@ onBeforeUnmount(() => {
           :class="{ 'ai-overlay__action--active': action?.id === a.id }"
           @click="startAction(a)"
         >
-          {{ t(a.labelKey) }}
+          {{ a.label || t(a.labelKey) }}
         </button>
         <div v-if="action?.custom" class="ai-overlay__custom">
           <label class="ai-overlay__label">{{ t('ai.customPrompt') }}</label>

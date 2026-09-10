@@ -93,6 +93,17 @@ function onPillClick() {
       <span v-if="selStats.cjk > 0" class="seg--cjk">({{ selStats.cjk }} 字)</span>
     </span>
     <WritingGoals v-if="settings.showWritingStats" />
+    <button
+      v-if="tabs.activeTab?.language === 'markdown'"
+      class="seg seg--mode-pill"
+      :class="{ 'seg--mode-pill-live': settings.livePreview }"
+      :title="settings.livePreview ? '切换到源码模式 (Ctrl+/)' : '切换到实时预览 (Ctrl+/)'"
+      @click="settings.toggleLivePreview()"
+    >
+      {{ settings.livePreview ? 'Live' : '</> Source' }}
+    </button>
+    <span v-if="settings.focusMode" class="seg seg--badge" title="Focus Mode (F8)">🎯 Focus</span>
+    <span v-if="settings.typewriterMode" class="seg seg--badge" title="Typewriter Mode (F9)">⌨️ Typewriter</span>
     <span class="spacer"></span>
     <span
       v-if="showTodayTotal"
@@ -158,5 +169,33 @@ function onPillClick() {
 .seg--today {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+.seg--mode-pill {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: var(--bg-active);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.seg--mode-pill:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+.seg--mode-pill-live {
+  background: var(--accent-soft, rgba(255, 159, 64, 0.12));
+  color: var(--accent, #ff9f40);
+  border-color: var(--accent);
+}
+.seg--badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-active);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 </style>
