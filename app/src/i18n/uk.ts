@@ -191,6 +191,7 @@ export const uk: I18n = {
     catIntegrations: 'Інтеграції',
     catExport: 'Експорт',
     catAdvanced: 'Розширені',
+    catAbout: 'Про програму',
     catKeys: 'Клавіші',
     keysHint: 'Натисніть «Змінити» і введіть потрібну комбінацію. Esc — скасувати. Діє одразу.',
     keysCatFile: 'Файл',

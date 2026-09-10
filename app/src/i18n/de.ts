@@ -191,6 +191,7 @@ export const de: I18n = {
     catIntegrations: 'Integrationen',
     catExport: 'Export',
     catAdvanced: 'Erweitert',
+    catAbout: 'Über',
     catKeys: 'Tastenkürzel',
     keysHint: 'Auf Ändern klicken und die gewünschte Tastenkombination drücken. Esc bricht ab. Änderungen gelten sofort.',
     keysCatFile: 'Datei',

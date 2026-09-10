@@ -191,6 +191,7 @@ export const nl: I18n = {
     catIntegrations: 'Integraties',
     catExport: 'Exporteren',
     catAdvanced: 'Geavanceerd',
+    catAbout: 'Over',
     catKeys: 'Sneltoetsen',
     keysHint: 'Klik op Wijzigen en druk de gewenste toetscombinatie. Esc annuleert. Direct actief.',
     keysCatFile: 'Bestand',

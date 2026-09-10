@@ -191,6 +191,7 @@ export const sv: I18n = {
     catIntegrations: 'Integrationer',
     catExport: 'Export',
     catAdvanced: 'Avancerat',
+    catAbout: 'Om',
     catKeys: 'Kortkommandon',
     keysHint: 'Klicka på Ändra och tryck önskad tangentkombination. Esc avbryter. Gäller direkt.',
     keysCatFile: 'Arkiv',

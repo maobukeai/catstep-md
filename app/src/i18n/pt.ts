@@ -193,6 +193,7 @@ export const pt: I18n = {
     catIntegrations: 'Integrações',
     catExport: 'Exportar',
     catAdvanced: 'Avançado',
+    catAbout: 'Sobre',
     catKeys: 'Atalhos',
     keysHint: 'Clique em Alterar e pressione a combinação desejada. Esc cancela. Aplica-se imediatamente.',
     keysCatFile: 'Arquivo',

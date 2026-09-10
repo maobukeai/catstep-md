@@ -191,6 +191,7 @@ export const ja: I18n = {
     catIntegrations: '統合',
     catExport: 'エクスポート',
     catAdvanced: '詳細',
+    catAbout: '情報',
     catKeys: 'ショートカット',
     keysHint: '「変更」を押してから割り当てたいキーを押します。Esc で取消。変更は即時反映されます。',
     keysCatFile: 'ファイル',

@@ -38,6 +38,7 @@ import CloudFolderBanner from './CloudFolderBanner.vue';
 import ProxySettings from './ProxySettings.vue';
 import ThemeMarketplace from './ThemeMarketplace.vue';
 import BrandMark from './BrandMark.vue';
+import AboutSettings from './AboutSettings.vue';
 import { isIOS, isMobile, hasGitBackend } from '../lib/platform';
 import { loadCustomTheme } from '../lib/custom-theme';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -68,7 +69,7 @@ function withChord(key: string, actionId: string): string {
 
 // v3.0 — left-side category nav. Settings was a 30+ item single scroll;
 // split into 6 groups so the user navigates by category, not by scroll.
-type SettingsCategory = 'basics' | 'writing' | 'sync' | 'integrations' | 'export' | 'keys' | 'advanced';
+type SettingsCategory = 'basics' | 'writing' | 'sync' | 'integrations' | 'export' | 'keys' | 'advanced' | 'about';
 const activeCategory = ref<SettingsCategory>('basics');
 // #144 — all six category pages share the single scrolling `.settings__body`
 // (pages are toggled via CSS display), so one page's scrollTop leaked into
@@ -254,6 +255,7 @@ const categories: { id: SettingsCategory; icon: string; labelKey: string }[] = [
   { id: 'export', icon: '📤', labelKey: 'settings.catExport' },
   { id: 'keys', icon: '⌨️', labelKey: 'settings.catKeys' },
   { id: 'advanced', icon: '🛠️', labelKey: 'settings.catAdvanced' },
+  { id: 'about', icon: 'ℹ️', labelKey: 'settings.catAbout' },
 ];
 
 const currentCategoryMeta = computed(() => {
@@ -287,6 +289,10 @@ const currentCategoryMeta = computed(() => {
     advanced: {
       zh: '自定义 CSS 样式、文件格式关联与高级系统选项',
       en: 'Custom CSS stylesheets, default app associations, and advanced options',
+    },
+    about: {
+      zh: '应用版本、检查更新、开源主页与开发者信息',
+      en: 'App version, updates, open source repository, and developer info',
     },
   };
   return {
@@ -340,7 +346,7 @@ const emit = defineEmits<{ (e: 'close'): void }>();
 // section value alone, because the parent leaves the section ref in place
 // after close — re-opening would otherwise jump back to the same anchor.
 const VALID_CATEGORIES = new Set<SettingsCategory>([
-  'basics', 'writing', 'sync', 'integrations', 'export', 'advanced',
+  'basics', 'writing', 'sync', 'integrations', 'export', 'keys', 'advanced', 'about',
 ]);
 watch(
   () => props.open,
@@ -1956,6 +1962,9 @@ function onSelectPdfFont(v: string) {
 
         <!-- v4.0: Public REST API for non-MCP clients. -->
         <div data-cat="integrations"><RestApiSettings /></div>
+
+        <!-- About (关于) -->
+        <div data-cat="about"><AboutSettings /></div>
       </div>
       </div>
     <!-- v2.5: theme marketplace modal. Lives outside settings__body so it
@@ -2100,7 +2109,8 @@ function onSelectPdfFont(v: string) {
 .settings__body[data-active-cat="integrations"] > [data-cat="integrations"],
 .settings__body[data-active-cat="export"] > [data-cat="export"],
 .settings__body[data-active-cat="keys"] > [data-cat="keys"],
-.settings__body[data-active-cat="advanced"] > [data-cat="advanced"] {
+.settings__body[data-active-cat="advanced"] > [data-cat="advanced"],
+.settings__body[data-active-cat="about"] > [data-cat="about"] {
   display: flex;
   flex-direction: column;
 }

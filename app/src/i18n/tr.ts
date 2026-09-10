@@ -191,6 +191,7 @@ export const tr: I18n = {
     catIntegrations: 'Entegrasyonlar',
     catExport: 'Dışa Aktarma',
     catAdvanced: 'Gelişmiş',
+    catAbout: 'Hakkında',
     catKeys: 'Kısayollar',
     keysHint: 'Değiştir’e tıklayıp istediğiniz tuş birleşimine basın. Esc iptal eder. Hemen geçerli olur.',
     keysCatFile: 'Dosya',

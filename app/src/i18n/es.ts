@@ -191,6 +191,7 @@ export const es: I18n = {
     catIntegrations: 'Integraciones',
     catExport: 'Exportar',
     catAdvanced: 'Avanzado',
+    catAbout: 'Acerca de',
     catKeys: 'Atajos',
     keysHint: 'Pulsa Cambiar y luego la combinación deseada. Esc cancela. Se aplica de inmediato.',
     keysCatFile: 'Archivo',

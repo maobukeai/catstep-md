@@ -191,6 +191,7 @@ export const ko: I18n = {
     catIntegrations: '통합',
     catExport: '내보내기',
     catAdvanced: '고급',
+    catAbout: '정보',
     catKeys: '단축키',
     keysHint: '변경을 누른 뒤 원하는 조합을 누르세요. Esc로 취소. 변경은 즉시 적용됩니다.',
     keysCatFile: '파일',

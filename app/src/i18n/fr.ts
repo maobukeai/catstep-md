@@ -191,6 +191,7 @@ export const fr: I18n = {
     catIntegrations: 'Intégrations',
     catExport: 'Export',
     catAdvanced: 'Avancé',
+    catAbout: 'À propos',
     catKeys: 'Raccourcis',
     keysHint: 'Cliquez sur Modifier, puis appuyez sur la combinaison voulue. Échap annule. Effet immédiat.',
     keysCatFile: 'Fichier',
