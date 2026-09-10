@@ -373,8 +373,8 @@ function onKeydown(e: KeyboardEvent) {
   font-weight: 600;
 }
 .tbl__focus {
-  outline: 2px solid var(--accent, #ff9f40);
-  outline-offset: -2px;
+  outline: 1.5px solid var(--accent-ring, rgba(56, 139, 253, 0.55));
+  outline-offset: -1px;
 }
 .tbl__cell {
   min-width: 80px;

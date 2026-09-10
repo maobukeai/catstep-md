@@ -92,4 +92,5 @@
 
 ::selection {
   background: var(--selection-bg, rgba(56, 139, 253, 0.24));
+  color: inherit;
 }

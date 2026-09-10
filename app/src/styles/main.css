@@ -1134,3 +1134,20 @@ body.solomd-printing--dark {
   background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
 }
 
+/* Typora-grade comfortable text selection across the entire app and inside tables */
+::selection {
+  background: var(--selection-bg, rgba(56, 139, 253, 0.24));
+  color: inherit;
+}
+
+/* Ensure contenteditable table cells never fall back to Windows raw dark blue selection */
+.cm-interactive-table th::selection,
+.cm-interactive-table td::selection,
+.cm-interactive-table *::selection,
+.tbl__grid th::selection,
+.tbl__grid td::selection,
+.tbl__grid *::selection {
+  background: var(--selection-bg, rgba(56, 139, 253, 0.24)) !important;
+  color: inherit !important;
+}
+

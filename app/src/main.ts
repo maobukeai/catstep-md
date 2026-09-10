@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import Slideshow from './components/Slideshow.vue';
 import QuickCapture from './components/QuickCapture.vue';
+import './styles/tokens.css';
 import './styles/cjk-font.css';
 import './styles/main.css';
 import './styles/hljs-theme.css';

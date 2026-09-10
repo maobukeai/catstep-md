@@ -1483,11 +1483,15 @@ export const liveBlocksTheme = EditorView.theme({
     color: 'var(--text)',
   },
   '.cm-live-block--table th[contenteditable="true"]:focus, .cm-live-block--table td[contenteditable="true"]:focus': {
-    outline: '2px solid var(--accent, #3b82f6)',
+    outline: '1.5px solid var(--accent-ring, rgba(56, 139, 253, 0.55))',
     outlineOffset: '-1px',
-    background: 'var(--accent-subtle, rgba(59, 130, 246, 0.08))',
+    background: 'var(--accent-soft, rgba(56, 139, 253, 0.05))',
     zIndex: '2',
     position: 'relative',
+  },
+  '.cm-live-block--table ::selection, .cm-interactive-table ::selection, .cm-interactive-table *::selection': {
+    backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+    color: 'inherit !important',
   },
   // v4.3.0 issue #57a — paddings fold in the 0.6em that used to come from the
   // shared margin (see #155 note above) so the visual rhythm is unchanged.
