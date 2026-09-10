@@ -430,7 +430,11 @@ body,
 html:fullscreen,
 html:fullscreen body,
 html:fullscreen #app,
-html:fullscreen .app {
+html:fullscreen .app,
+html[data-fullscreen="true"],
+html[data-fullscreen="true"] body,
+html[data-fullscreen="true"] #app,
+html[data-fullscreen="true"] .app {
   height: 100% !important;
   min-height: 100vh !important;
   width: 100% !important;
@@ -1812,49 +1816,70 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
 }
 
 /* Translucent panes when custom background is active */
-.content.has-custom-bg .pane--editor,
-.content.has-custom-bg .pane--preview,
-.content.has-custom-bg .pane-content,
-.content.has-custom-bg .reading-view {
+.content.has-custom-bg {
   background: transparent !important;
 }
 
+.content.has-custom-bg .catstep-prose-wrap,
+.content.has-custom-bg .tile-branch,
+.content.has-custom-bg .tile-child,
+.content.has-custom-bg .pane-host,
+.content.has-custom-bg .pane-content,
+.content.has-custom-bg .pane,
+.content.has-custom-bg .pane--editor,
+.content.has-custom-bg .pane--preview,
+.content.has-custom-bg .cm-host,
 .content.has-custom-bg .cm-editor,
+.content.has-custom-bg .cm-scroller,
 .content.has-custom-bg .cm-gutters,
-.content.has-custom-bg .preview-content {
+.content.has-custom-bg .cm-content,
+.content.has-custom-bg .preview-host,
+.content.has-custom-bg .preview-content,
+.content.has-custom-bg .reading-view,
+.content.has-custom-bg .plain-editor,
+.content.has-custom-bg .plain-block-editor,
+.content.has-custom-bg .plain-block,
+.content.has-custom-bg .plain-block__textarea,
+.content.has-custom-bg .tile-pane,
+.content.has-custom-bg .view-pane {
+  background: transparent !important;
   background-color: transparent !important;
+}
+
+.content.has-custom-bg .cm-gutters {
+  border-right: 1px solid color-mix(in srgb, var(--border) 40%, transparent) !important;
 }
 
 /* Built-in Texture Patterns (100% Vector CSS) */
 .catstep-texture--paper {
   background-color: var(--bg);
   background-image:
-    radial-gradient(at 15% 15%, rgba(205, 165, 105, 0.08) 0px, transparent 55%),
-    radial-gradient(at 85% 85%, rgba(185, 145, 85, 0.07) 0px, transparent 55%),
-    repeating-linear-gradient(0deg, rgba(160, 120, 60, 0.018) 0px, rgba(160, 120, 60, 0.018) 1px, transparent 1px, transparent 4px);
-  background-size: 100% 100%, 100% 100%, 8px 8px;
+    radial-gradient(at 15% 15%, rgba(200, 160, 100, 0.12) 0px, transparent 60%),
+    radial-gradient(at 85% 85%, rgba(180, 140, 80, 0.1) 0px, transparent 60%),
+    repeating-linear-gradient(0deg, rgba(160, 120, 60, 0.035) 0px, rgba(160, 120, 60, 0.035) 1px, transparent 1px, transparent 8px);
+  background-size: 100% 100%, 100% 100%, 16px 16px;
 }
 
 .catstep-texture--grid {
   background-color: var(--bg);
   background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px);
+    linear-gradient(to right, color-mix(in srgb, var(--border) 75%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 75%, transparent) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 .catstep-texture--dots {
   background-color: var(--bg);
-  background-image: radial-gradient(color-mix(in srgb, var(--text-faint) 45%, transparent) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background-image: radial-gradient(color-mix(in srgb, var(--text-muted) 42%, transparent) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
 }
 
 .catstep-texture--linen {
   background-color: var(--bg);
   background-image:
-    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.018) 0px, rgba(0, 0, 0, 0.018) 2px, transparent 2px, transparent 6px),
-    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.018) 0px, rgba(0, 0, 0, 0.018) 2px, transparent 2px, transparent 6px);
-  background-size: 8px 8px;
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--border) 45%, transparent) 0px, color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px, transparent 5px),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--border) 45%, transparent) 0px, color-mix(in srgb, var(--border) 45%, transparent) 1px, transparent 1px, transparent 5px);
+  background-size: 10px 10px;
 }
 
 

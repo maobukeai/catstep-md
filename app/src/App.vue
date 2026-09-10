@@ -830,7 +830,7 @@ watch(
 // ── Catstep MD Visual Canvas & Background Engine ─────────────────────────────
 const hasActiveBackground = computed(() => {
   if (settings.bgType === 'image' && !!settings.bgImage) return true;
-  if (settings.bgType === 'texture' && !!settings.bgTexture) return true;
+  if (settings.bgType === 'texture') return true;
   return false;
 });
 
@@ -847,8 +847,8 @@ const bgImageUrl = computed(() => {
 });
 
 const bgTextureClass = computed(() => {
-  if (settings.bgType === 'texture' && settings.bgTexture) {
-    return `catstep-texture--${settings.bgTexture}`;
+  if (settings.bgType === 'texture') {
+    return `catstep-texture--${settings.bgTexture || 'dots'}`;
   }
   return '';
 });
@@ -860,15 +860,16 @@ const bgCanvasStyle = computed(() => {
     style.backgroundSize = 'cover';
     style.backgroundPosition = 'center';
     style.backgroundRepeat = 'no-repeat';
-  }
-  if (settings.bgBlur > 0) {
-    style.filter = `blur(${settings.bgBlur}px)`;
-    style.transform = 'scale(1.05)';
+    if (settings.bgBlur > 0) {
+      style.filter = `blur(${settings.bgBlur}px)`;
+      style.transform = 'scale(1.05)';
+    }
   }
   return style;
 });
 
 const bgOverlayStyle = computed(() => {
+  if (settings.bgType !== 'image') return {};
   const opacity = Math.max(0, Math.min(100, settings.bgOpacity ?? 85)) / 100;
   const isDark = isDarkTheme(settings.theme);
   const baseColor = isDark ? '18, 18, 20' : '255, 255, 255';
@@ -2273,14 +2274,14 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             :class="bgTextureClass"
             :style="bgCanvasStyle"
           />
-          <!-- Layer 2: Adaptive Overlay -->
+          <!-- Layer 2: Adaptive Overlay (Only for custom image wallpaper) -->
           <div
-            v-if="hasActiveBackground"
+            v-if="hasActiveBackground && settings.bgType === 'image'"
             class="catstep-bg-overlay"
             :style="bgOverlayStyle"
           />
-          <!-- Layer 3: Prose Writing Area (with optional frosted card) -->
-          <div class="catstep-prose-wrap" :class="{ 'is-frosted-card': settings.bgFrostedCard && hasActiveBackground }">
+          <!-- Layer 3: Prose Writing Area (Frosted card only for image wallpaper) -->
+          <div class="catstep-prose-wrap" :class="{ 'is-frosted-card': settings.bgFrostedCard && hasActiveBackground && settings.bgType === 'image' }">
             <ReadingView v-if="settings.viewMode === 'reading'" />
             <BasesView v-else-if="basesOpen" />
             <InboxView v-else-if="inboxViewOpen" />

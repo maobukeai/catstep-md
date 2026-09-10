@@ -533,7 +533,7 @@ function defaults(): Settings {
     activeCustomThemeId: '',
     bgType: 'none',
     bgImage: '',
-    bgTexture: '',
+    bgTexture: 'dots',
     bgBlur: 0,
     bgOpacity: 85,
     bgFrostedCard: true,
@@ -1330,6 +1330,9 @@ export const useSettingsStore = defineStore('settings', {
     },
     setBgType(type: 'none' | 'texture' | 'image') {
       this.bgType = type;
+      if (type === 'texture' && !this.bgTexture) {
+        this.bgTexture = 'dots';
+      }
       this.persist();
     },
     setBgImage(path: string) {

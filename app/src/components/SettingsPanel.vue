@@ -787,7 +787,7 @@ function onSelectPdfFont(v: string) {
             </div>
 
             <!-- Row: Overlay Opacity -->
-            <div v-if="settings.bgType !== 'none'" class="setting-row">
+            <div v-if="settings.bgType === 'image'" class="setting-row">
               <div class="setting-row__info">
                 <label class="setting-row__title">{{ isZh ? '暗/亮蒙层浓度' : 'Overlay Opacity' }}</label>
                 <p class="setting-row__hint">{{ isZh ? '自适应环境遮罩，调节正文字体阅读对比度' : 'Adjust overlay depth to keep text crisp' }}</p>
@@ -808,7 +808,7 @@ function onSelectPdfFont(v: string) {
             </div>
 
             <!-- Row: Background Blur -->
-            <div v-if="settings.bgType !== 'none'" class="setting-row">
+            <div v-if="settings.bgType === 'image'" class="setting-row">
               <div class="setting-row__info">
                 <label class="setting-row__title">{{ isZh ? '背景模糊度' : 'Background Blur' }}</label>
                 <p class="setting-row__hint">{{ isZh ? '高斯模糊柔化壁纸细节，降低视觉干扰' : 'Gaussian blur to soften background details' }}</p>
@@ -829,7 +829,7 @@ function onSelectPdfFont(v: string) {
             </div>
 
             <!-- Row: Frosted Glass Card -->
-            <div v-if="settings.bgType !== 'none'" class="setting-row">
+            <div v-if="settings.bgType === 'image'" class="setting-row">
               <div class="setting-row__info">
                 <label class="setting-row__title">{{ isZh ? '毛玻璃悬浮卡片' : 'Frosted Glass Card' }}</label>
                 <p class="setting-row__hint">{{ isZh ? '以半透明磨砂卡片承载正文排版，突出写作主体' : 'Render text in a frosted glass floating card' }}</p>
