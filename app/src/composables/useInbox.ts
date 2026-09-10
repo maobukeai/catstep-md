@@ -10,12 +10,14 @@
  *   3. The "filter to inbox" toggle that the file tree consults.
  */
 import { computed, ref } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 import { useTabsStore } from '../stores/tabs';
 import { useWorkspaceIndexStore, type IndexEntry } from '../stores/workspaceIndex';
 import { useToastsStore } from '../stores/toasts';
 import { useSettingsStore } from '../stores/settings';
 import { useFiles } from './useFiles';
 import { useI18n } from '../i18n';
+import { INBOX_CLOSE_EVENT } from './useInboxView';
 import {
   countInboxByPeriod,
   filterInboxEntries,
@@ -262,12 +264,93 @@ export function useInbox() {
     }
   }
 
+  /**
+   * Create a new inbox note directly with `inbox: true` front matter,
+   * open it in the editor, and close the Inbox view.
+   */
+  async function createNewInboxNote(initialContent?: string) {
+    const defaultBody = initialContent ?? '# 灵感速记\n\n- ';
+    try {
+      // If Tauri shell is available, use quick_capture_write to persist directly in inbox folder
+      const createdPath = await invoke<string>('quick_capture_write', {
+        title: '新速记',
+        content: defaultBody,
+      });
+
+      if (createdPath) {
+        await files.openPath(createdPath, { bypassNewWindow: true });
+        window.dispatchEvent(new CustomEvent(INBOX_CLOSE_EVENT));
+        toasts.success(t('inbox.createdSuccess'));
+        return createdPath;
+      }
+    } catch {
+      // Fallback: create in memory tab with inbox: true front-matter
+      const nowIso = new Date().toISOString();
+      const content = `---\ninbox: true\ncreated: ${nowIso}\n---\n\n${defaultBody}`;
+      const tab = tabs.newTab({ fileName: '待整理速记.md', content });
+      index.entries.push({
+        path: tab.id,
+        name: '待整理速记.md',
+        stem: '待整理速记',
+        title: '待整理速记',
+        frontmatter: { inbox: true, created: nowIso },
+        headings: [],
+        tags: [],
+        wikilinks: [],
+        summary: defaultBody,
+        mtime: Date.now(),
+        size: content.length,
+      });
+      window.dispatchEvent(new CustomEvent(INBOX_CLOSE_EVENT));
+      toasts.success(t('inbox.createdSuccess'));
+      return tab.id;
+    }
+  }
+
+  /**
+   * Mark a specific note path organized (`inbox: false`) directly from the list,
+   * without having to open it first.
+   */
+  async function markPathOrganized(path: string) {
+    try {
+      const openTab = tabs.tabs.find((t) => t.filePath === path || t.id === path);
+      let content = '';
+      if (openTab) {
+        content = openTab.content;
+      } else {
+        const res = await invoke<{ content: string }>('read_file', { path });
+        content = res.content;
+      }
+
+      const next = setInboxFlag(content, false);
+      if (openTab) {
+        tabs.setContent(openTab.id, next);
+      }
+      try {
+        await invoke('write_file', { path, content: next, encoding: 'UTF-8' });
+      } catch {
+        /* browser fallback */
+      }
+
+      // Optimistically update workspace index entry so the row updates instantly in UI
+      const entry = index.entries.find((e) => e.path === path);
+      if (entry && entry.frontmatter) {
+        entry.frontmatter.inbox = false;
+      }
+      toasts.success(t('inbox.organizedToast'));
+    } catch (err) {
+      toasts.error(String(err));
+    }
+  }
+
   return {
     activeIsInbox,
     inboxCount,
     inboxPaths,
     toggleActive,
     organizeAndAdvance,
+    createNewInboxNote,
+    markPathOrganized,
     inboxEntries,
     countByPeriod,
     inboxContextActive,

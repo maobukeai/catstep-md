@@ -217,9 +217,6 @@ function buildDeck(src: string, host: HTMLElement) {
   // getTotalSlides(). Real HUD update happens in `slidechanged` below.
 }
 
-/**
-
-
 async function exitShow() {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
     try {
@@ -298,7 +295,7 @@ onMounted(async () => {
       source = source.slice(fmMatch[0].length);
     }
   }
-  document.title = `${title.value} — SoloMD Slideshow`;
+  document.title = `${title.value} — 猫步 MD Slideshow`;
 
   // Build the DOM once into the .slides container, then init Reveal on
   // the wrapper. Reveal expects the structure to be present at init time.

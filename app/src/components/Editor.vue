@@ -101,7 +101,7 @@ import { liveEditExtension, setLiveEditCopyLabel } from '../lib/cm-live-render';
 import { liveBlocksExtension, liveBlocksTheme, extractImageRoot } from '../lib/cm-live-blocks';
 import { findTldrawFences, replaceBoardSnapshot } from '../lib/tldraw-board';
 import { dragAwareExtension } from '../lib/cm-drag-aware';
-import { imagePasteExtension, insertImageFromPath as cmInsertImageFromPath, handleTextareaImagePaste, type ImagePasteOptions } from '../lib/cm-image-paste';
+import { imagePasteExtension, insertImageFromPath as cmInsertImageFromPath, insertSmartImage, handleTextareaImagePaste, type ImagePasteOptions } from '../lib/cm-image-paste';
 import { resolveUploader, uploadImage, type ImageUploadSettings } from '../lib/image-upload';
 import { focusModeExtension, typewriterModeExtension } from '../lib/cm-focus-mode';
 import { wikilinkExtension, wikilinkComplete } from '../lib/cm-wikilink';
@@ -2363,10 +2363,12 @@ function richExtensionsFor(tab: Tab) {
     // lines + GFM tables into block widgets when the cursor is elsewhere.
     // Cursor enters → widget unmounts → source returns. Image paths
     // resolve via the same extractImageRoot used by Preview/Export.
+    const imageRootFn = () => extractImageRoot(tab.content || '');
+    const filePathFn = () => tab.filePath;
     return liveEditExtension([
       liveBlocksExtension({
-        getImageRoot: () => extractImageRoot(tab.content || ''),
-        getFilePath: () => tab.filePath,
+        getImageRoot: imageRootFn,
+        getFilePath: filePathFn,
         // F7 — live tldraw whiteboard theme + writeback.
         getBoardTheme: () => ({
           colorScheme: isDarkTheme(settings.theme) ? 'dark' : 'light',
@@ -2390,7 +2392,10 @@ function richExtensionsFor(tab: Tab) {
         },
       }),
       liveBlocksTheme,
-    ]);
+    ], {
+      getImageRoot: imageRootFn,
+      getFilePath: filePathFn,
+    });
   }
   return settings.livePreview ? livePreviewExtension() : richHighlightOnly();
 }
@@ -4687,7 +4692,7 @@ function triggerJumpPulse() {
 
 async function insertImageFromPath(srcPath: string): Promise<void> {
   if (usePlainWindowsEditor) {
-    plainInsertText(srcPath);
+    plainInsertText(`![](${srcPath.replace(/\\/g, '/')})`);
     return;
   }
   if (!view) return;
@@ -4704,7 +4709,7 @@ function insertImageUrl(url: string, alt = ''): void {
     return;
   }
   if (!view) return;
-  insertMarkdown(`![${alt}](${clean})`);
+  insertSmartImage(view, `![${alt}](${clean})`);
 }
 
 /**

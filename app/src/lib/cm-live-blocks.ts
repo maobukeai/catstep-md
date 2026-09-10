@@ -83,11 +83,8 @@ async function ensureMermaidRendered(source: string): Promise<void> {
   }
 }
 
-// `^\s*!\[<alt>\](<url>)\s*$` — whole-line image with no surrounding prose.
-// Why whole-line: replacing inline images would split text in the middle and
-// break the natural reading flow of the source. We only collapse images that
-// are visually their own paragraph.
-const IMAGE_LINE_RE = /^\s*!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)\s*$/;
+// Whole-line image with optional title, bracketed path, and spaces in path.
+export const IMAGE_LINE_RE = /^\s*!\[([^\]]*)\]\(\s*<?([^>)]+?)>?(?:\s+["'][^"']*["'])?\s*\)\s*$/;
 
 // Pipe table heuristic: a header line, a separator (`---` / `:---:`), then
 // at least one body row. We don't try to parse the GFM grammar ourselves —
@@ -132,7 +129,7 @@ function scheduleImageRelayout(): void {
   }, 50);
 }
 
-function trackImageHeights(root: HTMLElement): void {
+export function trackImageHeights(root: HTMLElement): void {
   for (const img of Array.from(root.querySelectorAll('img'))) {
     const cached = imageNaturalSizes.get(img.src);
     if (cached && !img.hasAttribute('width') && !img.hasAttribute('height')) {

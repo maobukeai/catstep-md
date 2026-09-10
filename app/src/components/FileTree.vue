@@ -13,7 +13,7 @@ import { useGithubSyncStore } from '../stores/githubSync';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { useTabsStore } from '../stores/tabs';
 import { useI18n } from '../i18n';
-import { isMobile } from '../lib/platform';
+import { isMobile, isMacOS } from '../lib/platform';
 import { usePendingDeletes, isDeletePending, UNDO_WINDOW_MS } from '../composables/usePendingDeletes';
 import { isSafPath, fromSafPath, safList, safCreate } from '../lib/saf-fs';
 
@@ -285,6 +285,9 @@ interface CtxMenu {
   node: Node | null;
 }
 const ctx = ref<CtxMenu | null>(null);
+const ctxMenuRef = ref<HTMLDivElement | null>(null);
+const ctxFocusedIndex = ref(-1);
+const isMac = isMacOS();
 
 interface InlineEdit {
   /** 'new-file' / 'new-dir' / 'rename' */
@@ -302,10 +305,19 @@ const editInput = ref<HTMLInputElement | null>(null);
 function openCtx(e: MouseEvent, node: Node | null) {
   e.preventDefault();
   e.stopPropagation();
-  ctx.value = { x: e.clientX, y: e.clientY, node };
+  ctxFocusedIndex.value = -1;
+  const menuWidth = 205;
+  const menuHeight = 260;
+  const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
+  const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
+  ctx.value = { x: Math.max(10, x), y: Math.max(10, y), node };
+  void nextTick(() => {
+    ctxMenuRef.value?.focus();
+  });
 }
 function closeCtx() {
   ctx.value = null;
+  ctxFocusedIndex.value = -1;
 }
 
 async function startNewFile(parent: string) {
@@ -552,25 +564,73 @@ function closeFolder() {
   workspace.setFolder(null);
 }
 
-// Close the context menu on any outside click / escape.
-function onWindowClick() {
-  if (switcherOpen.value) closeSwitcher();
-  if (!ctx.value) return;
-  closeCtx();
+function getCtxActionButtons(): HTMLButtonElement[] {
+  if (!ctxMenuRef.value) return [];
+  return Array.from(ctxMenuRef.value.querySelectorAll<HTMLButtonElement>('.ftree__ctx-item:not([disabled])'));
 }
+
+// Close the context menu on any outside click / escape.
+function onWindowPointerDown(e: PointerEvent) {
+  if (switcherOpen.value) {
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest('.ftree__switcher-menu') && !target?.closest('.ftree__switcher-btn')) {
+      closeSwitcher();
+    }
+  }
+  if (ctx.value) {
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest('.ftree__ctx')) {
+      closeCtx();
+    }
+  }
+}
+
 function onWindowKey(e: KeyboardEvent) {
+  if (ctx.value) {
+    const items = getCtxActionButtons();
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeCtx();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (items.length > 0) {
+        ctxFocusedIndex.value = (ctxFocusedIndex.value + 1) % items.length;
+        items[ctxFocusedIndex.value]?.focus();
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (items.length > 0) {
+        ctxFocusedIndex.value = (ctxFocusedIndex.value - 1 + items.length) % items.length;
+        items[ctxFocusedIndex.value]?.focus();
+      }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (ctxFocusedIndex.value >= 0 && items[ctxFocusedIndex.value]) {
+        e.preventDefault();
+        items[ctxFocusedIndex.value].click();
+        return;
+      }
+    }
+  }
+
   if (e.key === 'Escape') {
     closeCtx();
     closeSwitcher();
     if (editing.value) editing.value = null;
   }
 }
+
 onMounted(() => {
-  window.addEventListener('click', onWindowClick);
+  window.addEventListener('pointerdown', onWindowPointerDown);
   window.addEventListener('keydown', onWindowKey);
 });
 onBeforeUnmount(() => {
-  window.removeEventListener('click', onWindowClick);
+  window.removeEventListener('pointerdown', onWindowPointerDown);
   window.removeEventListener('keydown', onWindowKey);
 });
 </script>
@@ -696,7 +756,11 @@ onBeforeUnmount(() => {
 
       <!-- Inline new/rename input — appears at the top of the tree. -->
       <div v-if="editing" class="ftree__edit">
-        <span class="ftree__icon">{{ editing.kind === 'new-dir' ? '▸' : editing.kind === 'rename' ? '•' : '•' }}</span>
+        <span class="ftree__chevron-wrap ftree__chevron-wrap--leaf"></span>
+        <svg class="ftree__type-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path v-if="editing.kind === 'new-dir'" d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
+          <path v-else d="M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z M9.5 1.5V5H13" />
+        </svg>
         <input
           ref="editInput"
           v-model="editing.name"
@@ -722,11 +786,12 @@ onBeforeUnmount(() => {
           :title="showInboxOnly ? t('inbox.filterOff') : t('inbox.filterOn')"
           @click="inbox.toggleFilter()"
         >
-          <span class="ftree__icon">
+          <span class="ftree__chevron-wrap">
             <svg
+              class="ftree__chevron"
               viewBox="0 0 16 16"
-              width="6.5"
-              height="6.5"
+              width="10"
+              height="10"
               fill="none"
               stroke="currentColor"
               stroke-width="2"
@@ -735,7 +800,6 @@ onBeforeUnmount(() => {
               :style="{
                 transition: 'transform 0.15s ease',
                 transform: showInboxOnly ? 'rotate(90deg)' : 'none',
-                display: 'inline-block',
               }"
             >
               <path d="M5.5 3.5l4.5 4.5L5.5 12.5" />
@@ -747,7 +811,16 @@ onBeforeUnmount(() => {
           :title="t('inbox.openView')"
           @click="inboxView.openInbox()"
         >
+          <svg class="ftree__type-icon ftree__type-icon--inbox" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="14.5 9 11 9 9.5 11 6.5 11 5 9 1.5 9" />
+            <path d="M2.5 4.5h11l1 4.5v5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-5l1-4.5z" />
+          </svg>
           <span class="ftree__name">{{ t('inbox.heading') }}</span>
+          <svg class="ftree__inbox-popout" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
         </button>
         <span class="ftree__badge" v-if="inbox.inboxCount.value > 0">
           {{ inbox.inboxCount.value }}
@@ -766,6 +839,7 @@ onBeforeUnmount(() => {
           :depth="0"
           :inbox-only="showInboxOnly"
           :inbox-paths="inbox.inboxPaths.value"
+          :ctx-path="ctx?.node?.path || ''"
           @toggle="toggle"
           @contextmenu="openCtx"
         />
@@ -775,48 +849,56 @@ onBeforeUnmount(() => {
       </ul>
     </div>
 
-    <!-- Context menu — absolute-positioned floating div. Items vary by
-         whether the click landed on a file, a folder, or empty area. -->
-    <div
-      v-if="ctx"
-      class="ftree__ctx"
-      :style="{ left: ctx.x + 'px', top: ctx.y + 'px' }"
-      @click.stop
-    >
-      <template v-if="!ctx.node || ctx.node.is_dir">
-        <button class="ftree__ctx-item" @click="startNewFile((ctx.node ?? root!).path)">
-          📄 {{ t('explorer.newFile') }}
-        </button>
-        <button class="ftree__ctx-item" @click="startNewFolder((ctx.node ?? root!).path)">
-          📁 {{ t('explorer.newFolder') }}
-        </button>
-      </template>
-      <div v-if="ctx.node" class="ftree__ctx-sep"></div>
-      <button v-if="ctx.node" class="ftree__ctx-item" @click="startRename(ctx.node)">
-        ✎ {{ t('explorer.rename') }}
-      </button>
-      <button v-if="ctx.node" class="ftree__ctx-item ftree__ctx-item--danger" @click="deleteNode(ctx.node)">
-        🗑 {{ t('explorer.delete') }}
-      </button>
-      <button v-if="ctx.node" class="ftree__ctx-item" @click="copyNodePath(ctx.node)">
-        📋 {{ t('explorer.copyPath') }}
-      </button>
-      <button v-if="ctx.node" class="ftree__ctx-item" @click="copyNodeRelativePath(ctx.node)">
-        📋 {{ t('explorer.copyRelPath') }}
-      </button>
-      <button v-if="ctx.node && !ctx.node.is_dir" class="ftree__ctx-item" @click="copyGitUrl(ctx.node)">
-        🔗 {{ t('explorer.copyGitUrl') }}
-      </button>
-      <!-- #148 follow-up — hidden on mobile: revealItemInDir silently no-ops
-           there (no user-reachable file manager can browse the app sandbox
-           on Android, and iOS has no Finder), so the item just looked broken. -->
-      <template v-if="!isMobile()">
-        <div class="ftree__ctx-sep"></div>
-        <button class="ftree__ctx-item" @click="revealNode(ctx.node ?? root!)">
-          🔍 {{ t('explorer.reveal') }}
-        </button>
-      </template>
-    </div>
+    <!-- Context menu — Teleported to body for global overlay z-index and no clipping -->
+    <Teleport to="body">
+      <Transition name="ftree-ctx">
+        <div
+          v-if="ctx"
+          ref="ctxMenuRef"
+          class="ftree__ctx"
+          :style="{ left: ctx.x + 'px', top: ctx.y + 'px' }"
+          tabindex="-1"
+          @click.stop
+        >
+          <template v-if="!ctx.node || ctx.node.is_dir">
+            <button class="ftree__ctx-item" @click="startNewFile((ctx.node ?? root!).path)">
+              <span class="ftree__ctx-label">{{ t('explorer.newFile') }}</span>
+            </button>
+            <button class="ftree__ctx-item" @click="startNewFolder((ctx.node ?? root!).path)">
+              <span class="ftree__ctx-label">{{ t('explorer.newFolder') }}</span>
+            </button>
+          </template>
+          <div v-if="ctx.node" class="ftree__ctx-sep"></div>
+          <button v-if="ctx.node" class="ftree__ctx-item" @click="startRename(ctx.node)">
+            <span class="ftree__ctx-label">{{ t('explorer.rename') }}</span>
+            <span class="ftree__ctx-kbd">{{ isMac ? 'Enter' : 'F2' }}</span>
+          </button>
+          <button v-if="ctx.node" class="ftree__ctx-item ftree__ctx-item--danger" @click="deleteNode(ctx.node)">
+            <span class="ftree__ctx-label">{{ t('explorer.delete') }}</span>
+            <span class="ftree__ctx-kbd">{{ isMac ? '⌘⌫' : 'Del' }}</span>
+          </button>
+          <button v-if="ctx.node" class="ftree__ctx-item" @click="copyNodePath(ctx.node)">
+            <span class="ftree__ctx-label">{{ t('explorer.copyPath') }}</span>
+            <span class="ftree__ctx-kbd">{{ isMac ? '⌥⇧⌘C' : 'Shift+Alt+C' }}</span>
+          </button>
+          <button v-if="ctx.node" class="ftree__ctx-item" @click="copyNodeRelativePath(ctx.node)">
+            <span class="ftree__ctx-label">{{ t('explorer.copyRelPath') }}</span>
+          </button>
+          <button v-if="ctx.node && !ctx.node.is_dir" class="ftree__ctx-item" @click="copyGitUrl(ctx.node)">
+            <span class="ftree__ctx-label">{{ t('explorer.copyGitUrl') }}</span>
+          </button>
+          <!-- #148 follow-up — hidden on mobile: revealItemInDir silently no-ops
+               there (no user-reachable file manager can browse the app sandbox
+               on Android, and iOS has no Finder), so the item just looked broken. -->
+          <template v-if="!isMobile()">
+            <div class="ftree__ctx-sep"></div>
+            <button class="ftree__ctx-item" @click="revealNode(ctx.node ?? root!)">
+              <span class="ftree__ctx-label">{{ t('explorer.reveal') }}</span>
+            </button>
+          </template>
+        </div>
+      </Transition>
+    </Teleport>
   </aside>
 </template>
 
@@ -830,6 +912,7 @@ export const FileTreeNode = defineComponent({
     depth: { type: Number, default: 0 },
     inboxOnly: { type: Boolean, default: false },
     inboxPaths: { type: Object as () => Set<string>, default: () => new Set() },
+    ctxPath: { type: String, default: '' },
   },
   emits: ['toggle', 'contextmenu'],
   setup(props, { emit }) {
@@ -843,45 +926,202 @@ export const FileTreeNode = defineComponent({
       return node.children.some(subtreeHasInbox);
     };
 
-    // Get file icon based on extension
-    const getFileIcon = (name: string): string => {
-      const ext = name.split('.').pop()?.toLowerCase() || '';
-      const iconMap: Record<string, string> = {
-        // Notes & docs — the markdown family is unified on one glyph so a
-        // vault of .md / .markdown / .mdx reads as one consistent type.
-        'md': '📝', 'markdown': '📝', 'mdx': '📝', 'org': '📝',
-        'txt': '📄', 'text': '📄', 'rtf': '📄', 'tex': '📄',
-        'pdf': '📕', 'epub': '📖',
-        'doc': '📘', 'docx': '📘',
-        'ppt': '📙', 'pptx': '📙', 'key': '📙',
-        'xls': '📊', 'xlsx': '📊', 'csv': '📊', 'tsv': '📊',
-        'canvas': '🗺', 'bib': '📚',
-        // Images
-        'jpg': '🖼', 'jpeg': '🖼', 'png': '🖼', 'gif': '🖼',
-        'webp': '🖼', 'svg': '🖼', 'ico': '🖼', 'bmp': '🖼', 'avif': '🖼',
-        // Audio / video
-        'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'm4a': '🎵', 'aac': '🎵', 'ogg': '🎵',
-        'mp4': '🎬', 'mov': '🎬', 'avi': '🎬', 'mkv': '🎬', 'webm': '🎬',
-        // Archives
-        'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
-        // Data & config
-        'json': '📋', 'xml': '📋', 'yaml': '📋', 'yml': '📋',
-        'toml': '📋', 'ini': '📋', 'cfg': '📋', 'conf': '📋',
-        'log': '📋', 'sql': '🗃', 'db': '🗃', 'sqlite': '🗃',
-        'env': '🔑', 'lock': '🔒',
-        // Web & code
-        'html': '🌐', 'htm': '🌐',
-        'css': '🎨', 'scss': '🎨', 'less': '🎨',
-        'js': '📜', 'mjs': '📜', 'cjs': '📜', 'jsx': '📜',
-        'ts': '📜', 'tsx': '📜', 'vue': '💚',
-        'py': '🐍', 'java': '☕', 'rb': '💎', 'php': '🐘',
-        'c': '⚙', 'h': '⚙', 'cpp': '⚙', 'cc': '⚙', 'hpp': '⚙',
-        'go': '🐹', 'rs': '🦀',
-        'sh': '🐚', 'bash': '🐚', 'zsh': '🐚',
-        // Extension-less well-known names (split('.').pop() returns the name)
-        'makefile': '🔧', 'dockerfile': '🐳', 'license': '📜', 'gitignore': '🚫',
-      };
-      return iconMap[ext] || '📄';
+    // Render clean SVG type icon based on extension or directory
+    const renderTypeIcon = (n: any) => {
+      if (n.is_dir) {
+        return h(
+          'svg',
+          {
+            class: ['ftree__type-icon', 'ftree__type-icon--dir', { 'ftree__type-icon--open': n.expanded }],
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.5',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            n.expanded
+              ? h('path', {
+                  d: 'M1.5 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v1.5M1.5 7.5h13l-1.5 6h-10l-1.5-6z',
+                })
+              : h('path', {
+                  d: 'M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z',
+                }),
+          ]
+        );
+      }
+
+      const ext = n.name.split('.').pop()?.toLowerCase() || '';
+
+      // Markdown & Notes
+      if (['md', 'markdown', 'mdx', 'org'].includes(ext)) {
+        return h(
+          'svg',
+          {
+            class: 'ftree__type-icon ftree__type-icon--doc',
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.4',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            h('path', { d: 'M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z' }),
+            h('path', { d: 'M9.5 1.5V5H13' }),
+            h('path', { d: 'M5.5 8.5h5' }),
+            h('path', { d: 'M5.5 11h3.5' }),
+          ]
+        );
+      }
+
+      // Plain Text
+      if (['txt', 'text', 'rtf', 'tex', 'log'].includes(ext)) {
+        return h(
+          'svg',
+          {
+            class: 'ftree__type-icon ftree__type-icon--txt',
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.4',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            h('path', { d: 'M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z' }),
+            h('path', { d: 'M9.5 1.5V5H13' }),
+            h('path', { d: 'M5.5 8.5h5' }),
+            h('path', { d: 'M5.5 11h5' }),
+          ]
+        );
+      }
+
+      // Images & Visual
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) {
+        return h(
+          'svg',
+          {
+            class: 'ftree__type-icon ftree__type-icon--img',
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.4',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            h('rect', { x: 2, y: 2, width: 12, height: 12, rx: 1.5 }),
+            h('circle', { cx: 5.5, cy: 5.5, r: 1 }),
+            h('path', { d: 'm14 10.5-3.5-3.5L3 14' }),
+          ]
+        );
+      }
+
+      // Code & Structured Data
+      if (['js', 'ts', 'jsx', 'tsx', 'vue', 'py', 'html', 'css', 'scss', 'json', 'yaml', 'yml', 'toml', 'xml', 'sh', 'bash', 'zsh', 'rs', 'go', 'c', 'cpp', 'h', 'hpp', 'sql'].includes(ext)) {
+        return h(
+          'svg',
+          {
+            class: 'ftree__type-icon ftree__type-icon--code',
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.4',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            h('path', { d: 'm5 5-3 3 3 3' }),
+            h('path', { d: 'm11 5 3 3-3 3' }),
+            h('path', { d: 'm9.5 3.5-3 9' }),
+          ]
+        );
+      }
+
+      // PDF & Documents
+      if (['pdf', 'epub', 'doc', 'docx'].includes(ext)) {
+        return h(
+          'svg',
+          {
+            class: 'ftree__type-icon ftree__type-icon--pdf',
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.4',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            h('path', { d: 'M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z' }),
+            h('path', { d: 'M9.5 1.5V5H13' }),
+            h('circle', { cx: 8, cy: 9.5, r: 1.5 }),
+          ]
+        );
+      }
+
+      // Audio & Video
+      if (['mp4', 'mov', 'webm', 'mkv', 'mp3', 'wav', 'm4a', 'ogg', 'flac'].includes(ext)) {
+        return h(
+          'svg',
+          {
+            class: 'ftree__type-icon ftree__type-icon--media',
+            viewBox: '0 0 16 16',
+            width: 14,
+            height: 14,
+            fill: 'none',
+            stroke: 'currentColor',
+            strokeWidth: '1.4',
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            'aria-hidden': 'true',
+          },
+          [
+            h('circle', { cx: 8, cy: 8, r: 6 }),
+            h('path', { d: 'm7 5.5 3.5 2.5-3.5 2.5z', fill: 'currentColor', stroke: 'none' }),
+          ]
+        );
+      }
+
+      // Default Generic File
+      return h(
+        'svg',
+        {
+          class: 'ftree__type-icon ftree__type-icon--file',
+          viewBox: '0 0 16 16',
+          width: 14,
+          height: 14,
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: '1.4',
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          'aria-hidden': 'true',
+        },
+        [
+          h('path', { d: 'M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z' }),
+          h('path', { d: 'M9.5 1.5V5H13' }),
+        ]
+      );
     };
 
     // Truncate filename in the middle: keep start and extension, ellipsis in middle
@@ -918,7 +1158,7 @@ export const FileTreeNode = defineComponent({
         if (!n.is_dir && !props.inboxPaths.has(n.path)) return [];
         if (n.is_dir && n.children && !subtreeHasInbox(n)) return [];
       }
-      const indent = 8 + props.depth * 12;
+      const indent = 6 + props.depth * 14;
 
       // Use truncated name for display, full name in tooltip. #182 — the
       // full-names setting skips JS mid-ellipsis; CSS wraps instead.
@@ -934,8 +1174,9 @@ export const FileTreeNode = defineComponent({
               'ftree__item',
               n.is_dir ? 'ftree__item--dir' : 'ftree__item--file',
               { 'ftree__item--active': isActive },
+              { 'ftree__item--context-target': props.ctxPath && props.ctxPath === n.path },
             ],
-            style: { paddingLeft: (isActive ? Math.max(0, indent - 2) : indent) + 'px' },
+            style: { paddingLeft: `${indent}px` },
             onClick: () => emit('toggle', n),
             onContextmenu: (e: MouseEvent) => {
               e.preventDefault();
@@ -947,30 +1188,32 @@ export const FileTreeNode = defineComponent({
           [
             h(
               'span',
-              { class: ['ftree__icon', { 'ftree__icon--dir': n.is_dir }] },
+              { class: ['ftree__chevron-wrap', { 'ftree__chevron-wrap--leaf': !n.is_dir }] },
               n.is_dir
-                ? h(
-                    'svg',
-                    {
-                      class: 'ftree__chevron',
-                      viewBox: '0 0 16 16',
-                      width: '6.5',
-                      height: '6.5',
-                      fill: 'none',
-                      stroke: 'currentColor',
-                      strokeWidth: '2',
-                      strokeLinecap: 'round',
-                      strokeLinejoin: 'round',
-                      style: {
-                        transition: 'transform 0.15s ease',
-                        transform: n.expanded ? 'rotate(90deg)' : 'none',
-                        display: 'inline-block',
+                ? [
+                    h(
+                      'svg',
+                      {
+                        class: 'ftree__chevron',
+                        viewBox: '0 0 16 16',
+                        width: '10',
+                        height: '10',
+                        fill: 'none',
+                        stroke: 'currentColor',
+                        strokeWidth: '2',
+                        strokeLinecap: 'round',
+                        strokeLinejoin: 'round',
+                        style: {
+                          transition: 'transform 0.15s ease',
+                          transform: n.expanded ? 'rotate(90deg)' : 'none',
+                        },
                       },
-                    },
-                    [h('path', { d: 'M5.5 3.5l4.5 4.5L5.5 12.5' })]
-                  )
-                : getFileIcon(n.name)
+                      [h('path', { d: 'M5.5 3.5l4.5 4.5L5.5 12.5' })]
+                    ),
+                  ]
+                : []
             ),
+            renderTypeIcon(n),
             h('span', { class: 'ftree__name' }, displayName),
             !n.is_dir && props.inboxPaths.has(n.path)
               ? h('span', { class: 'ftree__inbox-dot', title: 'inbox' }, '●')
@@ -986,6 +1229,7 @@ export const FileTreeNode = defineComponent({
               depth: props.depth + 1,
               inboxOnly: props.inboxOnly,
               inboxPaths: props.inboxPaths,
+              ctxPath: props.ctxPath,
               onToggle: (target: any) => emit('toggle', target),
               onContextmenu: (event: MouseEvent, target: any) => emit('contextmenu', event, target),
             })
@@ -1122,9 +1366,9 @@ export const FileTreeNode = defineComponent({
   display: flex;
   align-items: center;
   gap: 7px;
-  width: calc(100% - 20px);
-  margin: 6px 10px 4px;
-  padding: 6px 10px;
+  width: calc(100% - 12px);
+  margin: 6px 6px 4px;
+  padding: 5px 8px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1255,58 +1499,88 @@ export const FileTreeNode = defineComponent({
 .ftree__list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 2px 6px;
 }
 :deep(.ftree__item) {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 14px 3px 8px;
+  gap: 5px;
+  height: 28px;
+  padding-right: 8px;
+  margin: 1px 0;
   font-size: 13px;
   cursor: pointer;
   color: var(--text);
-  border-radius: 0;
-  transition: background 0.1s ease, color 0.1s ease;
+  border-radius: 6px;
+  transition: background 0.12s ease, color 0.12s ease;
+  box-sizing: border-box;
 }
 :deep(.ftree__item:hover) {
-  background: var(--bg-hover, color-mix(in srgb, var(--accent) 10%, transparent));
+  background: var(--bg-hover, rgba(0, 0, 0, 0.045));
+}
+:root[data-theme="dark"] :deep(.ftree__item:hover),
+body.dark :deep(.ftree__item:hover) {
+  background: rgba(255, 255, 255, 0.05);
 }
 :deep(.ftree__item--active) {
-  background: var(--bg-active);
-  color: var(--accent);
-  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-hover, rgba(0, 0, 0, 0.05)));
+  color: var(--text);
+}
+:root[data-theme="dark"] :deep(.ftree__item--active),
+body.dark :deep(.ftree__item--active) {
+  background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.08));
+  color: var(--text);
 }
 :deep(.ftree__item--active .ftree__name) {
-  color: var(--accent);
-  font-weight: 600;
+  font-weight: 550;
+  color: var(--text);
 }
-:deep(.ftree__icon) {
+:deep(.ftree__item--active .ftree__type-icon) {
+  color: var(--accent);
+}
+:deep(.ftree__chevron-wrap) {
   width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  text-align: center;
   color: var(--text-faint);
-  font-size: 10px;
 }
-:deep(.ftree__item--dir .ftree__icon) {
-  color: var(--accent);
-  font-size: 11px;
+:deep(.ftree__chevron-wrap--leaf) {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
-:deep(.ftree__item--file .ftree__icon) {
+:deep(.ftree__chevron) {
+  display: block;
+}
+:deep(.ftree__type-icon) {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1;
+}
+:deep(.ftree__type-icon--dir) {
+  color: var(--accent-subtle, var(--text-muted));
 }
 :deep(.ftree__name) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* For very long filenames, keep the start and end visible with ellipsis in middle */
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.3;
 }
 :deep(.ftree__item--dir .ftree__name) {
   font-weight: 500;
+  color: var(--text);
+}
+:deep(.ftree__item--file .ftree__name) {
+  font-weight: 400;
   color: var(--text);
 }
 /* #182 — full-filename mode: wrap long names across lines instead of the
@@ -1327,28 +1601,53 @@ export const FileTreeNode = defineComponent({
 .ftree__inbox {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 4px 14px 4px 8px;
-  font-size: 12px;
+  gap: 5px;
+  height: 28px;
+  margin: 2px 6px;
+  padding: 0 8px 0 6px;
+  font-size: 13px;
   color: var(--text-muted);
   background: transparent;
   border: none;
   text-align: left;
-  border-radius: 0;
+  border-radius: 6px;
+  transition: background 0.12s ease, color 0.12s ease;
+  box-sizing: border-box;
 }
 .ftree__inbox:hover {
-  background: var(--bg-hover, color-mix(in srgb, var(--accent) 10%, transparent));
+  background: var(--bg-hover, rgba(0, 0, 0, 0.045));
   color: var(--text);
 }
+:root[data-theme="dark"] .ftree__inbox:hover,
+body.dark .ftree__inbox:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
 .ftree__inbox--active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-hover, rgba(0, 0, 0, 0.05)));
+  color: var(--text);
+}
+.ftree__inbox--active .ftree__name {
+  font-weight: 550;
+}
+.ftree__inbox--active .ftree__type-icon {
   color: var(--accent);
 }
-.ftree__inbox-toggle,
+.ftree__inbox-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
 .ftree__inbox-open {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   color: inherit;
@@ -1356,10 +1655,6 @@ export const FileTreeNode = defineComponent({
   cursor: pointer;
   padding: 0;
   text-align: left;
-}
-.ftree__inbox-open {
-  flex: 1;
-  min-width: 0;
 }
 .ftree__badge {
   margin-left: auto;
@@ -1396,57 +1691,169 @@ export const FileTreeNode = defineComponent({
 .ftree__edit {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 14px 3px 8px;
+  gap: 5px;
+  height: 28px;
+  margin: 1px 6px;
+  padding: 0 6px;
+  box-sizing: border-box;
 }
 .ftree__edit-input {
   flex: 1;
   font-size: 13px;
   font-family: inherit;
-  padding: 2px 4px;
+  padding: 2px 6px;
+  height: 22px;
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--bg);
   color: var(--text);
   outline: none;
   min-width: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 .ftree__ctx {
   position: fixed;
-  z-index: 200;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  padding: 4px 0;
-  min-width: 180px;
-  font-size: 13px;
+  z-index: 10000;
+  min-width: 195px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 9px;
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.12),
+    0 3px 8px rgba(0, 0, 0, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
   user-select: none;
+  outline: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
+
+:root[data-theme="dark"] .ftree__ctx,
+body.dark .ftree__ctx {
+  background: rgba(30, 29, 27, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.52),
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
 .ftree__ctx-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   width: 100%;
-  text-align: left;
-  padding: 6px 14px;
-  background: transparent;
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 6px;
   border: none;
-  color: var(--text);
+  background: transparent;
+  color: var(--text, #1e293b);
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 450;
+  line-height: 1.4;
+  text-align: left;
+  transition: background-color 0.06s ease, color 0.06s ease;
+  user-select: none;
+  outline: none;
 }
-.ftree__ctx-item:hover {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+
+.ftree__ctx-item:hover,
+.ftree__ctx-item:focus-visible {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.055));
+  color: var(--text, #0f172a);
 }
+
+:root[data-theme="dark"] .ftree__ctx-item,
+body.dark .ftree__ctx-item {
+  color: var(--text, #e2e8f0);
+}
+
+:root[data-theme="dark"] .ftree__ctx-item:hover,
+:root[data-theme="dark"] .ftree__ctx-item:focus-visible,
+body.dark .ftree__ctx-item:hover,
+body.dark .ftree__ctx-item:focus-visible {
+  background: rgba(255, 255, 255, 0.085);
+  color: #ffffff;
+}
+
+.ftree__ctx-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.ftree__ctx-kbd {
+  font-family: "JetBrains Mono", Consolas, -apple-system, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint, #94a3b8);
+  letter-spacing: 0.3px;
+  margin-left: auto;
+  opacity: 0.75;
+}
+
+.ftree__ctx-item:hover .ftree__ctx-kbd,
+.ftree__ctx-item:focus-visible .ftree__ctx-kbd {
+  color: var(--text-muted, #64748b);
+  opacity: 1;
+}
+
+:root[data-theme="dark"] .ftree__ctx-kbd {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+:root[data-theme="dark"] .ftree__ctx-item:hover .ftree__ctx-kbd,
+:root[data-theme="dark"] .ftree__ctx-item:focus-visible .ftree__ctx-kbd {
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .ftree__ctx-item--danger {
-  color: #d12;
+  color: #ef4444;
 }
-.ftree__ctx-item--danger:hover {
-  background: rgba(221, 17, 34, 0.12);
+
+.ftree__ctx-item--danger:hover,
+.ftree__ctx-item--danger:focus-visible {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #dc2626 !important;
 }
+
+:root[data-theme="dark"] .ftree__ctx-item--danger:hover,
+:root[data-theme="dark"] .ftree__ctx-item--danger:focus-visible {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+}
+
 .ftree__ctx-sep {
   height: 1px;
-  background: var(--border);
-  margin: 4px 0;
+  background: rgba(0, 0, 0, 0.07);
+  margin: 4px 6px;
+}
+
+:root[data-theme="dark"] .ftree__ctx-sep,
+body.dark .ftree__ctx-sep {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Context menu animation */
+.ftree-ctx-enter-active,
+.ftree-ctx-leave-active {
+  transition: opacity 0.1s ease, transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ftree-ctx-enter-from,
+.ftree-ctx-leave-to {
+  opacity: 0;
+  transform: scale(0.96) translateY(-2px);
+}
+
+/* Row context target highlight */
+.ftree__item--context-target {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-hover, transparent)) !important;
 }
 
 /* Better filename display with middle ellipsis for very long names */

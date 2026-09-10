@@ -253,12 +253,54 @@ async function writeBytes(fullPath: string, bytes: Uint8Array): Promise<boolean>
   }
 }
 
-function insertAtCursor(view: EditorView, text: string): void {
-  const pos = view.state.selection.main.head;
+/**
+ * Smart image insertion: guarantees the image reference lands on its own clean
+ * block rather than mangling existing text or headings. Places the cursor on
+ * the new line directly below the image so the widget can render immediately
+ * without waiting for the cursor to move away.
+ */
+export function insertSmartImage(view: EditorView, imageMarkdown: string): void {
+  const sel = view.state.selection.main;
+  const doc = view.state.doc;
+  const pos = sel.head;
+  const line = doc.lineAt(pos);
+  const lineText = line.text;
+  const isLineBlank = lineText.trim().length === 0;
+
+  let insertFrom = pos;
+  let insertTo = sel.empty ? pos : sel.to;
+  let prefix = '';
+  let suffix = '';
+
+  if (isLineBlank) {
+    insertFrom = line.from;
+    insertTo = line.to;
+    suffix = '\n';
+  } else {
+    if (pos === line.from) {
+      suffix = '\n\n';
+    } else if (pos === line.to) {
+      prefix = '\n\n';
+      suffix = '\n';
+    } else {
+      prefix = '\n\n';
+      suffix = '\n\n';
+    }
+  }
+
+  const snippet = `${prefix}${imageMarkdown}${suffix}`;
+  const newCursorPos = insertFrom + snippet.length;
+
   view.dispatch({
-    changes: { from: pos, insert: text },
-    selection: { anchor: pos + text.length },
+    changes: { from: insertFrom, to: insertTo, insert: snippet },
+    selection: { anchor: newCursorPos },
+    scrollIntoView: true,
   });
+  view.focus();
+}
+
+function insertAtCursor(view: EditorView, text: string): void {
+  insertSmartImage(view, text);
 }
 
 /** Replace the `![](token)` upload placeholder with `finalText`, locating it

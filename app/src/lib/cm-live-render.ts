@@ -37,7 +37,14 @@
  */
 
 import { syntaxTree, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import type { Range } from '@codemirror/state';
+import { Facet, type Range } from '@codemirror/state';
+import { IMAGE_LINE_RE, trackImageHeights } from './cm-live-blocks';
+import {
+  installSvgImageFallbacks,
+  isLocalSvgPath,
+  resolveImagePath,
+  resolveImageSrc,
+} from './image-resolve';
 
 // Minimal structural view of a lezer `SyntaxNode`. `@lezer/common` is only a
 // transitive dependency (not in our package.json), so we describe just the
@@ -214,6 +221,60 @@ export function setLiveEditCopyLabel(getter: () => string): void {
   copyLabelGetter = getter;
 }
 
+export interface LiveRenderOptions {
+  getImageRoot?: () => string | null;
+  getFilePath?: () => string | undefined;
+}
+
+export const liveRenderConfig = Facet.define<LiveRenderOptions, LiveRenderOptions>({
+  combine: (values) => values[values.length - 1] || {},
+});
+
+class InlineImageWidget extends WidgetType {
+  readonly src: string;
+  readonly alt: string;
+  readonly localPath: string | null;
+
+  constructor(
+    src: string,
+    alt: string,
+    localPath: string | null = null,
+  ) {
+    super();
+    this.src = src;
+    this.alt = alt;
+    this.localPath = localPath;
+  }
+
+  eq(other: InlineImageWidget): boolean {
+    return other.src === this.src && other.alt === this.alt && other.localPath === this.localPath;
+  }
+
+  toDOM(): HTMLElement {
+    const span = document.createElement('span');
+    span.className = 'cm-md-inline-image';
+    const img = document.createElement('img');
+    img.src = this.src;
+    img.alt = this.alt;
+    img.loading = 'lazy';
+    img.draggable = false;
+    if (this.localPath) img.dataset.solomdLocalSrc = this.localPath;
+    img.onerror = () => {
+      if (this.localPath) return;
+      span.classList.add('cm-md-inline-image--broken');
+      span.textContent = `🖼 ${this.alt || this.src}`;
+    };
+    span.appendChild(img);
+    installSvgImageFallbacks(span);
+    trackImageHeights(span);
+    return span;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
 class CodeCopyWidget extends WidgetType {
   constructor(readonly code: string) {
     super();
@@ -349,7 +410,8 @@ export function getInlineContainer(node: { name: string; node: { parent: any } }
       pName === 'Emphasis' ||
       pName === 'Strikethrough' ||
       pName === 'InlineCode' ||
-      pName === 'Link'
+      pName === 'Link' ||
+      pName === 'Image'
     ) {
       inlineContainer = { from: curr.from, to: curr.to };
       curr = curr.parent;
@@ -366,6 +428,7 @@ function buildDecorations(view: EditorView): DecorationSet {
   const toLine = view.state.doc.lineAt(sel.to).number;
   const isMultiLineSelection = !sel.empty && fromLine !== toLine;
   const tree = syntaxTree(view.state);
+  const opts = view.state.facet(liveRenderConfig);
 
   // We collect into a flat list of `Range<Decoration>` and then call
   // `Decoration.set(ranges, /* sort */ true)` — that's the documented
@@ -395,6 +458,37 @@ function buildDecorations(view: EditorView): DecorationSet {
         ).number;
         const caretTouchesLine = !isMultiLineSelection && (lineEndAtNode >= fromLine && lineAtNode <= toLine);
         const caretTouches = caretTouchesLine;
+
+        // ---- Inline Image rendering ----
+        if (name === 'Image') {
+          // If the line is a standalone block image, let cm-live-blocks handle it as a block widget.
+          if (IMAGE_LINE_RE.test(lineObj.text)) {
+            return false;
+          }
+          const touches = caretTouchesInline(nFrom, nTo, sel.from, sel.to, lineObj.from, lineObj.to);
+          if (!touches) {
+            const raw = view.state.sliceDoc(nFrom, nTo);
+            const m = /!\[([^\]]*)\]\(\s*<?([^>)]+?)>?(?:\s+["'][^"']*["'])?\s*\)/.exec(raw);
+            if (m) {
+              const alt = m[1];
+              const rawSrc = m[2];
+              const root = opts?.getImageRoot?.() ?? null;
+              const filePath = opts?.getFilePath?.();
+              const src = resolveImageSrc(rawSrc, root, filePath);
+              const localPath = resolveImagePath(rawSrc, root, filePath);
+              ranges.push(
+                Decoration.replace({
+                  widget: new InlineImageWidget(
+                    src,
+                    alt,
+                    isLocalSvgPath(localPath) ? localPath : null,
+                  ),
+                }).range(nFrom, nTo),
+              );
+              return false; // Skip children of this image node
+            }
+          }
+        }
 
         // ---- Marker hiding (inline-specific off-caret, block-specific off-line) ----
         if (HIDDEN_MARK_NODES.has(name)) {
@@ -436,7 +530,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         //      the URL the visible text, so we leave it alone there. ----
         if (name === 'URL') {
           const parent = node.node.parent;
-          const inLabeledLink = parent && parent.name === 'Link';
+          const inLabeledLink = parent && (parent.name === 'Link' || parent.name === 'Image');
           if (inLabeledLink && nTo > nFrom) {
             const touches = caretTouchesInline(
               parent.from,
@@ -898,6 +992,28 @@ const liveEditTheme = EditorView.theme({
     backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
     pointerEvents: 'none !important',
   },
+
+  // Inline images
+  '.cm-md-inline-image': {
+    display: 'inline-block',
+    verticalAlign: 'middle',
+    margin: '0 4px',
+  },
+  '.cm-md-inline-image img': {
+    maxWidth: '100%',
+    maxHeight: '400px',
+    height: 'auto',
+    borderRadius: '6px',
+    verticalAlign: 'middle',
+    cursor: 'pointer',
+  },
+  '.cm-md-inline-image--broken': {
+    display: 'inline-block',
+    padding: '2px 6px',
+    fontSize: '12px',
+    color: 'var(--text-faint)',
+    fontStyle: 'italic',
+  },
 });
 
 /**
@@ -911,9 +1027,10 @@ const liveEditTheme = EditorView.theme({
  * we just splice them into the bundle so they live in the same
  * compartment as the rest of the live-edit machinery.
  */
-export function liveEditExtension(blocks: any[] = []) {
+export function liveEditExtension(blocks: any[] = [], opts?: LiveRenderOptions) {
   return [
     syntaxHighlighting(liveEditHighlightStyle),
+    opts ? liveRenderConfig.of(opts) : [],
     liveRenderPlugin,
     liveEditTheme,
     ...blocks,

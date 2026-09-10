@@ -44,8 +44,115 @@ const { t } = useI18n();
 
 const draft = ref('');
 const errorMsg = ref<string | null>(null);
+const lastPrompt = ref('');
+const showHistoryDropdown = ref(false);
+const stepElapsedMs = ref(0);
+let stepTimer: ReturnType<typeof setInterval> | null = null;
 const messagesRef = ref<HTMLUListElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
+
+watch(
+  () => agent.isStreaming,
+  (streaming) => {
+    if (streaming) {
+      stepElapsedMs.value = 0;
+      if (stepTimer) clearInterval(stepTimer);
+      stepTimer = setInterval(() => {
+        stepElapsedMs.value += 100;
+      }, 100);
+    } else {
+      if (stepTimer) {
+        clearInterval(stepTimer);
+        stepTimer = null;
+      }
+    }
+  },
+  { immediate: true },
+);
+
+const phaseDisplay = computed(() => {
+  if (!agent.isStreaming && agent.agentPhase === 'idle') return null;
+  const sec = (stepElapsedMs.value / 1000).toFixed(1);
+  switch (agent.agentPhase) {
+    case 'analyzing':
+      return {
+        icon: '⚡',
+        text: agent.agentPhaseDetail || '分析上下文与意图…',
+        time: `${sec}s`,
+      };
+    case 'thinking':
+      return {
+        icon: '💭',
+        text: agent.agentPhaseDetail || '深度推演中…',
+        time: `${sec}s`,
+      };
+    case 'calling_tool':
+      return {
+        icon: '🔧',
+        text: agent.agentPhaseDetail || '执行工具中…',
+        time: `${sec}s`,
+      };
+    case 'organizing':
+      return {
+        icon: '✍️',
+        text: agent.agentPhaseDetail || '组织回复与整理内容…',
+        time: `${sec}s`,
+      };
+    default:
+      if (agent.isStreaming) {
+        return {
+          icon: '⚡',
+          text: agent.agentPhaseDetail || '处理中…',
+          time: `${sec}s`,
+        };
+      }
+      return null;
+  }
+});
+
+function formatSessionTime(ts: number): string {
+  if (!ts) return '';
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff < 60_000) return '刚刚';
+  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}分钟前`;
+  const d = new Date(ts);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const date = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${month}-${date} ${hours}:${mins}`;
+}
+
+function retryLastPrompt() {
+  let promptToRetry = lastPrompt.value;
+  if (!promptToRetry) {
+    for (let i = agent.messages.length - 1; i >= 0; i--) {
+      if (agent.messages[i].role === 'user' && agent.messages[i].content) {
+        promptToRetry = agent.messages[i].content;
+        break;
+      }
+    }
+  }
+  if (!promptToRetry) return;
+  while (agent.messages.length > 0) {
+    const last = agent.messages[agent.messages.length - 1];
+    if (last.role === 'assistant' && !last.content && !last.thought) {
+      agent.messages.pop();
+    } else {
+      break;
+    }
+  }
+  errorMsg.value = null;
+  draft.value = promptToRetry;
+  void send();
+}
+
+function onWindowClick() {
+  if (showHistoryDropdown.value) {
+    showHistoryDropdown.value = false;
+  }
+}
 
 /** Toggle: include the active note's content as additional context on each
  *  send. Persisted across sessions in localStorage. Off by default — costs
@@ -468,6 +575,9 @@ async function openToolFile(tool?: any) {
 
 onMounted(async () => {
   cleanupListeners();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('click', onWindowClick);
+  }
 
   const unlistens: UnlistenFn[] = [];
   window.__solomd_agent_cleanup = () => {
@@ -641,6 +751,10 @@ onMounted(async () => {
     },
   );
   unlistens.push(uRunStarted);
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('click', onWindowClick);
+  }
 });
 
 async function revertToolCall(toolCallId: string, toolResultStr?: string) {
@@ -677,6 +791,9 @@ async function revertToolCall(toolCallId: string, toolResultStr?: string) {
 
 onBeforeUnmount(() => {
   cleanupListeners();
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('click', onWindowClick);
+  }
 });
 
 // --- Wikilink handling --------------------------------------------------
@@ -732,6 +849,86 @@ function formatArgsInline(args: Record<string, unknown>): string {
 watch(stateKey, (k) => {
   if (k !== 'ready') errorMsg.value = null;
 });
+
+const expandedToolGroups = ref<Record<string, boolean>>({});
+
+function toggleGroupExpand(groupId: string) {
+  expandedToolGroups.value[groupId] = !isGroupExpanded(groupId);
+}
+
+function isGroupExpanded(groupId: string): boolean {
+  if (typeof expandedToolGroups.value[groupId] === 'boolean') {
+    return expandedToolGroups.value[groupId];
+  }
+  return false;
+}
+
+function getGroupSummaryText(tools: any[]): string {
+  const count = tools.length;
+  const names = Array.from(new Set(tools.map((m) => m.tool?.name).filter(Boolean)));
+  const friendlyNames: Record<string, string> = {
+    list_notes: '检索笔记',
+    read_note: '读取笔记',
+    search: '知识库检索',
+    patch_note: '局部修改',
+    write_note: '写入笔记',
+    append_to_note: '追加笔记',
+    delete_note: '移入回收站',
+  };
+  const nameLabels = names.map((n) => friendlyNames[n] || n).join('、');
+  return `执行了 ${count} 项操作${nameLabels ? ` (${nameLabels})` : ''}`;
+}
+
+interface RenderBlockMessage {
+  type: 'message';
+  msg: any;
+  idx: number;
+}
+
+interface RenderBlockToolGroup {
+  type: 'tool_group';
+  id: string;
+  tools: any[];
+}
+
+type RenderBlock = RenderBlockMessage | RenderBlockToolGroup;
+
+const renderBlocks = computed<RenderBlock[]>(() => {
+  const blocks: RenderBlock[] = [];
+  let currentToolGroup: any[] = [];
+  let groupCounter = 0;
+
+  for (let i = 0; i < agent.messages.length; i++) {
+    const m = agent.messages[i];
+    if (m.role === 'tool' && m.tool) {
+      currentToolGroup.push(m);
+    } else {
+      if (currentToolGroup.length > 0) {
+        blocks.push({
+          type: 'tool_group',
+          id: `tg-${groupCounter++}-${currentToolGroup[0].id}`,
+          tools: [...currentToolGroup],
+        });
+        currentToolGroup = [];
+      }
+      blocks.push({
+        type: 'message',
+        msg: m,
+        idx: i,
+      });
+    }
+  }
+
+  if (currentToolGroup.length > 0) {
+    blocks.push({
+      type: 'tool_group',
+      id: `tg-${groupCounter++}-${currentToolGroup[0].id}`,
+      tools: [...currentToolGroup],
+    });
+  }
+
+  return blocks;
+});
 </script>
 
 <template>
@@ -747,28 +944,80 @@ watch(stateKey, (k) => {
         <span class="agent-panel__beta">BETA</span>
       </div>
       <span class="agent-panel__spacer" />
-      <button
-        v-if="!collapsed && stateKey === 'ready'"
-        class="agent-panel__chip"
-        :class="{ 'agent-panel__chip--on': settings.agentAllowWrite }"
-        type="button"
-        :title="settings.agentAllowWrite ? t('agent.modeAgentTitle') : t('agent.modeSuggestTitle')"
-        @click.stop="settings.agentAllowWrite = !settings.agentAllowWrite"
-      >
-        <span class="agent-panel__chip-dot" :class="{ 'agent-panel__chip-dot--on': settings.agentAllowWrite }" />
-        {{ settings.agentAllowWrite ? t('agent.modeAgent') : t('agent.modeSuggest') }}
-      </button>
-      <button
-        v-if="!collapsed && stateKey === 'ready'"
-        class="agent-panel__chip"
-        :class="{ 'agent-panel__chip--on': includeActiveNote }"
-        type="button"
-        :title="t('agent.includeNoteTitle')"
-        @click.stop="includeActiveNote = !includeActiveNote"
-      >
-        <span class="agent-panel__chip-dot" :class="{ 'agent-panel__chip-dot--on': includeActiveNote }" />
-        {{ t('agent.includeNote') }}
-      </button>
+
+      <!-- Header Action Buttons: + 新建 & 🕒 历史 (with dropdown) -->
+      <template v-if="!collapsed && stateKey === 'ready'">
+        <button
+          class="agent-panel__action-btn"
+          type="button"
+          title="新建会话"
+          @click.stop="agent.newSession()"
+        >
+          + 新建
+        </button>
+
+        <div class="agent-panel__history-wrap">
+          <button
+            class="agent-panel__action-btn"
+            type="button"
+            title="会话历史记录"
+            @click.stop="showHistoryDropdown = !showHistoryDropdown"
+          >
+            🕒 历史
+          </button>
+
+          <!-- History Dropdown Menu -->
+          <div v-if="showHistoryDropdown" class="agent-panel__history-dropdown" @click.stop>
+            <div class="agent-panel__history-head">
+              <span>历史对话 ({{ agent.sessions.length }})</span>
+              <button
+                class="agent-panel__history-new-btn"
+                type="button"
+                @click="agent.newSession(); showHistoryDropdown = false"
+              >
+                + 新建
+              </button>
+            </div>
+            <div class="agent-panel__history-list">
+              <div
+                v-for="s in agent.sessions"
+                :key="s.id"
+                class="agent-panel__history-item"
+                :class="{ 'is-active': s.id === agent.currentSessionId }"
+                @click="agent.switchSession(s.id); showHistoryDropdown = false"
+              >
+                <div class="agent-panel__history-item-main">
+                  <div class="agent-panel__history-item-title">{{ s.title || '新会话' }}</div>
+                  <div class="agent-panel__history-item-meta">
+                    <span>{{ formatSessionTime(s.updatedAt) }}</span>
+                    <span>· {{ s.messages.length }} 条消息</span>
+                  </div>
+                </div>
+                <button
+                  class="agent-panel__history-item-del"
+                  type="button"
+                  title="删除此会话"
+                  @click.stop="agent.deleteSession(s.id)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="agent-panel__chip"
+          :class="{ 'agent-panel__chip--on': includeActiveNote }"
+          type="button"
+          :title="t('agent.includeNoteTitle')"
+          @click.stop="includeActiveNote = !includeActiveNote"
+        >
+          <span class="agent-panel__chip-dot" :class="{ 'agent-panel__chip-dot--on': includeActiveNote }" />
+          {{ t('agent.includeNote') }}
+        </button>
+      </template>
+
       <button
         v-if="!collapsed && agent.messages.length"
         class="agent-panel__icon-btn"
@@ -813,219 +1062,243 @@ watch(stateKey, (k) => {
 
     <template v-else>
       <ul ref="messagesRef" v-if="agent.messages.length" class="agent-panel__messages">
-        <li
-          v-for="(m, i) in agent.messages"
-          :key="m.id"
-          v-show="m.role !== 'assistant' || m.content || m.thought || (agent.isStreaming && i === agent.messages.length - 1)"
-          class="agent-panel__msg"
-          :class="`agent-panel__msg--${m.role}`"
-        >
-          <!-- Tool-call card: Action Artifact Card (Codex/Cursor style) or Generic Pill -->
-          <template v-if="m.role === 'tool' && m.tool">
-            <!-- File Action Card -->
-            <div v-if="isFileTool(m.tool.name)" class="agent-panel__file-action-card">
-              <div class="agent-panel__file-action-head">
-                <div class="agent-panel__file-action-info">
-                  <span class="agent-panel__file-action-icon">
-                    <template v-if="m.tool.name === 'delete_note'">🗑️</template>
-                    <template v-else-if="m.tool.name === 'patch_note'">✏️</template>
-                    <template v-else>📄</template>
-                  </span>
-                  <div class="agent-panel__file-action-titles">
-                    <span class="agent-panel__file-action-name">{{ getToolFileName(m.tool) }}</span>
-                    <span class="agent-panel__file-action-path">{{ getToolFileRelativePath(m.tool) }}</span>
-                  </div>
-                  <span
-                    v-if="getToolDiffBadge(m.tool)"
-                    class="agent-panel__diff-badge"
-                    :class="`agent-panel__diff-badge--${getToolDiffBadge(m.tool)!.type}`"
-                  >
-                    {{ getToolDiffBadge(m.tool)!.text }}
-                  </span>
-                </div>
-
-                <div class="agent-panel__file-action-btns">
-                  <button
-                    v-if="!m.tool.error && m.tool.name !== 'delete_note'"
-                    class="agent-panel__action-pill"
-                    type="button"
-                    title="在编辑器中打开此笔记"
-                    @click="openToolFile(m.tool)"
-                  >
-                    👁 打开
-                  </button>
-                  <button
-                    v-if="!m.tool.error && reverts[m.tool.toolCallId]"
-                    class="agent-panel__action-pill agent-panel__action-pill--revert"
-                    type="button"
-                    title="撤销修改并恢复备份"
-                    @click="revertToolCall(m.tool.toolCallId, m.tool.result)"
-                  >
-                    ↩ 撤销
-                  </button>
-                  <button
-                    class="agent-panel__action-pill agent-panel__action-pill--expand"
-                    type="button"
-                    :title="m.tool.expanded ? '折叠详情' : '展开详情'"
-                    @click="agent.toggleToolExpand(m.tool.toolCallId)"
-                  >
-                    {{ m.tool.expanded ? '收起 ▴' : '详情 ▾' }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Expanded Details (Diff / Results) -->
-              <div v-if="m.tool.expanded" class="agent-panel__file-action-body">
-                <div v-if="m.tool.name === 'patch_note'" class="agent-panel__diff-preview">
-                  <div class="agent-panel__diff-section agent-panel__diff-section--del">
-                    <div class="agent-panel__diff-label">- 移除原段落</div>
-                    <pre class="agent-panel__diff-code">{{ m.tool.args.target_content }}</pre>
-                  </div>
-                  <div class="agent-panel__diff-section agent-panel__diff-section--add">
-                    <div class="agent-panel__diff-label">+ 替换新段落</div>
-                    <pre class="agent-panel__diff-code">{{ m.tool.args.replacement_content }}</pre>
-                  </div>
-                </div>
-                <div v-else-if="m.tool.args && m.tool.args.content" class="agent-panel__tool-section">
-                  <div class="agent-panel__tool-label">写入内容预览 (前 200 字)</div>
-                  <pre class="agent-panel__tool-pre">{{ String(m.tool.args.content).slice(0, 200) + (String(m.tool.args.content).length > 200 ? '…' : '') }}</pre>
-                </div>
-                <div v-if="m.tool.error" class="agent-panel__tool-section">
-                  <div class="agent-panel__tool-label agent-panel__tool-label--err">执行错误</div>
-                  <pre class="agent-panel__tool-pre agent-panel__tool-pre--err">{{ m.tool.error }}</pre>
-                </div>
-              </div>
-            </div>
-
-            <!-- Generic Search / Read Tool Pill -->
-            <div v-else class="agent-panel__generic-tool-wrap">
+        <template v-for="block in renderBlocks" :key="block.type === 'message' ? block.msg.id : block.id">
+          <!-- Tool Group Card -->
+          <li v-if="block.type === 'tool_group'" class="agent-panel__msg agent-panel__msg--tool-group">
+            <div class="agent-panel__tool-group-card">
               <button
-                class="agent-panel__tool-head"
-                :class="{ 'agent-panel__tool-head--err': !!m.tool.error, 'agent-panel__tool-head--pending': !m.tool.result && !m.tool.error }"
+                class="agent-panel__tool-group-bar"
                 type="button"
-                @click="agent.toggleToolExpand(m.tool.toolCallId)"
+                @click="toggleGroupExpand(block.id)"
               >
-                <span class="agent-panel__tool-icon" aria-hidden="true">
-                  <span v-if="!m.tool.result && !m.tool.error" class="agent-panel__tool-spinner" />
-                  <template v-else-if="m.tool.error">⚠</template>
-                  <template v-else-if="m.tool.name === 'search' || m.tool.name === 'list_notes'">🔍</template>
-                  <template v-else-if="m.tool.name === 'read_note'">📖</template>
-                  <template v-else>🔧</template>
-                </span>
-                <code class="agent-panel__tool-sig">{{ m.tool.name }}({{ formatArgsInline(m.tool.args) }})</code>
-                <span class="agent-panel__tool-caret">{{ m.tool.expanded ? '▾' : '▸' }}</span>
+                <div class="agent-panel__tool-group-left">
+                  <span class="agent-panel__tool-group-icon">⚡</span>
+                  <span class="agent-panel__tool-group-title">{{ getGroupSummaryText(block.tools) }}</span>
+                </div>
+                <div class="agent-panel__tool-group-right">
+                  <span v-if="block.tools.some((t: any) => !t.tool?.result && !t.tool?.error)" class="agent-panel__tool-spinner" />
+                  <span class="agent-panel__tool-group-count">{{ block.tools.length }} 步</span>
+                  <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id) ? '▲ 收起' : '▼ 展开' }}</span>
+                </div>
               </button>
-              <div v-if="m.tool.expanded" class="agent-panel__tool-body">
-                <div class="agent-panel__tool-section">
-                  <div class="agent-panel__tool-label">args</div>
-                  <pre class="agent-panel__tool-pre">{{ JSON.stringify(m.tool.args, null, 2) }}</pre>
-                </div>
-                <div class="agent-panel__tool-section">
-                  <div class="agent-panel__tool-label">{{ m.tool.error ? 'error' : 'result' }}</div>
-                  <pre
-                    class="agent-panel__tool-pre"
-                    :class="{ 'agent-panel__tool-pre--err': !!m.tool.error }"
-                  >{{ m.tool.error || m.tool.result || '(waiting…)' }}</pre>
-                </div>
-              </div>
-            </div>
-          </template>
 
-          <!-- User message bubble -->
-          <template v-else-if="m.role === 'user'">
-            <div class="agent-panel__user-msg-row">
-              <div class="agent-panel__user-bubble">
-                <div class="agent-panel__user-text">{{ m.content }}</div>
-              </div>
-            </div>
-          </template>
+              <div v-if="isGroupExpanded(block.id)" class="agent-panel__tool-group-content">
+                <div v-for="m in block.tools" :key="m.id" class="agent-panel__tool-group-item">
+                  <!-- File Action Card -->
+                  <div v-if="isFileTool(m.tool?.name)" class="agent-panel__file-action-card">
+                    <div class="agent-panel__file-action-head">
+                      <div class="agent-panel__file-action-info">
+                        <span class="agent-panel__file-action-icon">
+                          <template v-if="m.tool?.name === 'delete_note'">🗑️</template>
+                          <template v-else-if="m.tool?.name === 'patch_note'">✏️</template>
+                          <template v-else>📄</template>
+                        </span>
+                        <div class="agent-panel__file-action-titles">
+                          <span class="agent-panel__file-action-name">{{ getToolFileName(m.tool) }}</span>
+                          <span class="agent-panel__file-action-path">{{ getToolFileRelativePath(m.tool) }}</span>
+                        </div>
+                        <span
+                          v-if="getToolDiffBadge(m.tool)"
+                          class="agent-panel__diff-badge"
+                          :class="`agent-panel__diff-badge--${getToolDiffBadge(m.tool)!.type}`"
+                        >
+                          {{ getToolDiffBadge(m.tool)!.text }}
+                        </span>
+                      </div>
 
-          <!-- Assistant / System message -->
-          <template v-else>
-            <div class="agent-panel__assistant-msg">
-              <!-- Thinking Accordion -->
-              <div v-if="m.thought" class="agent-panel__thought-card">
-                <button
-                  class="agent-panel__thought-header"
-                  type="button"
-                  @click="m.thoughtExpanded = !m.thoughtExpanded"
-                >
-                  <span
-                    class="agent-panel__thought-icon"
-                    :class="{ 'agent-panel__thought-icon--spinning': agent.isStreaming && !m.content }"
-                  >💭</span>
-                  <span class="agent-panel__thought-title">
-                    {{ agent.isStreaming && !m.content ? '深度思考中…' : (m.thoughtDurationMs ? `已深度思考 ${(m.thoughtDurationMs / 1000).toFixed(1)} 秒` : '思考推演过程') }}
-                  </span>
-                  <span class="agent-panel__thought-caret">{{ m.thoughtExpanded ? '收起 ▴' : '展开 ▾' }}</span>
-                </button>
-                <div v-if="m.thoughtExpanded" class="agent-panel__thought-body">
-                  <pre class="agent-panel__thought-text">{{ m.thought }}</pre>
-                </div>
-              </div>
+                      <div class="agent-panel__file-action-btns">
+                        <button
+                          v-if="!m.tool?.error && m.tool?.name !== 'delete_note'"
+                          class="agent-panel__action-pill"
+                          type="button"
+                          title="在编辑器中打开此笔记"
+                          @click="openToolFile(m.tool)"
+                        >
+                          👁 打开
+                        </button>
+                        <button
+                          v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
+                          class="agent-panel__action-pill agent-panel__action-pill--revert"
+                          type="button"
+                          title="撤销修改并恢复备份"
+                          @click="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
+                        >
+                          ↩ 撤销
+                        </button>
+                        <button
+                          class="agent-panel__action-pill agent-panel__action-pill--expand"
+                          type="button"
+                          :title="m.tool?.expanded ? '折叠详情' : '展开详情'"
+                          @click="agent.toggleToolExpand(m.tool!.toolCallId)"
+                        >
+                          {{ m.tool?.expanded ? '收起 ▴' : '详情 ▾' }}
+                        </button>
+                      </div>
+                    </div>
 
-              <!-- Content Card: only show if content exists or actively streaming -->
-              <div v-if="m.content || (agent.isStreaming && i === agent.messages.length - 1 && !m.thought)" class="agent-panel__assistant-content-wrap">
-                <div class="agent-panel__assistant-head">
-                  <div class="agent-panel__assistant-avatar">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
-                    </svg>
+                    <!-- Expanded Details (Diff / Results) -->
+                    <div v-if="m.tool?.expanded" class="agent-panel__file-action-body">
+                      <div v-if="m.tool?.name === 'patch_note'" class="agent-panel__diff-preview">
+                        <div class="agent-panel__diff-section agent-panel__diff-section--del">
+                          <div class="agent-panel__diff-label">- 移除原段落</div>
+                          <pre class="agent-panel__diff-code">{{ m.tool.args.target_content }}</pre>
+                        </div>
+                        <div class="agent-panel__diff-section agent-panel__diff-section--add">
+                          <div class="agent-panel__diff-label">+ 替换新段落</div>
+                          <pre class="agent-panel__diff-code">{{ m.tool.args.replacement_content }}</pre>
+                        </div>
+                      </div>
+                      <div v-else-if="m.tool?.args && m.tool?.args.content" class="agent-panel__tool-section">
+                        <div class="agent-panel__tool-label">写入内容预览 (前 200 字)</div>
+                        <pre class="agent-panel__tool-pre">{{ String(m.tool.args.content).slice(0, 200) + (String(m.tool.args.content).length > 200 ? '…' : '') }}</pre>
+                      </div>
+                      <div v-if="m.tool?.error" class="agent-panel__tool-section">
+                        <div class="agent-panel__tool-label agent-panel__tool-label--err">执行错误</div>
+                        <pre class="agent-panel__tool-pre agent-panel__tool-pre--err">{{ m.tool.error }}</pre>
+                      </div>
+                    </div>
                   </div>
-                  <span class="agent-panel__assistant-name">{{ t('agent.name') }}</span>
-                  <span v-if="settings.aiModel" class="agent-panel__assistant-model">{{ settings.aiModel }}</span>
-                </div>
 
-                <div
-                  v-if="m.content"
-                  class="agent-panel__msg-body agent-panel__markdown-body"
-                  @click="onMessageBodyClick"
-                  v-html="renderAssistantHtml(m.content)"
-                ></div>
-                <span
-                  v-if="agent.isStreaming && i === agent.messages.length - 1"
-                  class="agent-panel__cursor"
-                  aria-hidden="true"
-                >▋</span>
-
-                <!-- Actions on completed assistant replies -->
-                <div
-                  v-if="m.content && !(agent.isStreaming && i === agent.messages.length - 1)"
-                  class="agent-panel__msg-actions"
-                >
-                  <button
-                    class="agent-panel__msg-action-btn"
-                    :class="{ 'agent-panel__msg-action-btn--copied': copiedId === m.id }"
-                    type="button"
-                    :title="t('agent.msgCopyTitle')"
-                    @click="copyAssistantMessage(m.content, m.id)"
-                  >
-                    <svg v-if="copiedId === m.id" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 9 6 12 13 4" />
-                    </svg>
-                    <svg v-else width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                      <rect x="5" y="5" width="8" height="8" rx="1.5" />
-                      <path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H11" />
-                    </svg>
-                    <span>{{ copiedId === m.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
-                  </button>
-                  <button
-                    class="agent-panel__msg-action-btn"
-                    type="button"
-                    :disabled="!canInsertIntoEditor"
-                    :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
-                    @click="insertAssistantMessage(m.content)"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                      <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" />
-                    </svg>
-                    <span>{{ t('agent.msgInsert') }}</span>
-                  </button>
+                  <!-- Generic Search / Read Tool Pill -->
+                  <div v-else class="agent-panel__generic-tool-wrap">
+                    <button
+                      class="agent-panel__tool-head"
+                      :class="{ 'agent-panel__tool-head--err': !!m.tool?.error, 'agent-panel__tool-head--pending': !m.tool?.result && !m.tool?.error }"
+                      type="button"
+                      @click="agent.toggleToolExpand(m.tool!.toolCallId)"
+                    >
+                      <span class="agent-panel__tool-icon" aria-hidden="true">
+                        <span v-if="!m.tool?.result && !m.tool?.error" class="agent-panel__tool-spinner" />
+                        <template v-else-if="m.tool?.error">⚠</template>
+                        <template v-else-if="m.tool?.name === 'search' || m.tool?.name === 'list_notes'">🔍</template>
+                        <template v-else-if="m.tool?.name === 'read_note'">📖</template>
+                        <template v-else>🔧</template>
+                      </span>
+                      <code class="agent-panel__tool-sig">{{ m.tool?.name }}({{ formatArgsInline(m.tool?.args) }})</code>
+                      <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '▾' : '▸' }}</span>
+                    </button>
+                    <div v-if="m.tool?.expanded" class="agent-panel__tool-body">
+                      <div class="agent-panel__tool-section">
+                        <div class="agent-panel__tool-label">args</div>
+                        <pre class="agent-panel__tool-pre">{{ JSON.stringify(m.tool?.args, null, 2) }}</pre>
+                      </div>
+                      <div class="agent-panel__tool-section">
+                        <div class="agent-panel__tool-label">{{ m.tool?.error ? 'error' : 'result' }}</div>
+                        <pre
+                          class="agent-panel__tool-pre"
+                          :class="{ 'agent-panel__tool-pre--err': !!m.tool?.error }"
+                        >{{ m.tool?.error || m.tool?.result || '(waiting…)' }}</pre>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </template>
-        </li>
+          </li>
+
+          <!-- Standard User or Assistant Message -->
+          <li
+            v-else
+            v-show="block.msg.role !== 'assistant' || block.msg.content || block.msg.thought || (agent.isStreaming && block.idx === agent.messages.length - 1)"
+            class="agent-panel__msg"
+            :class="`agent-panel__msg--${block.msg.role}`"
+          >
+            <!-- User message bubble -->
+            <template v-if="block.msg.role === 'user'">
+              <div class="agent-panel__user-msg-row">
+                <div class="agent-panel__user-bubble">
+                  <div class="agent-panel__user-text">{{ block.msg.content }}</div>
+                </div>
+              </div>
+            </template>
+
+            <!-- Assistant / System message -->
+            <template v-else>
+              <div class="agent-panel__assistant-msg">
+                <!-- Thinking Accordion -->
+                <div v-if="block.msg.thought" class="agent-panel__thought-card">
+                  <button
+                    class="agent-panel__thought-header"
+                    type="button"
+                    @click="block.msg.thoughtExpanded = !block.msg.thoughtExpanded"
+                  >
+                    <span
+                      class="agent-panel__thought-icon"
+                      :class="{ 'agent-panel__thought-icon--spinning': agent.isStreaming && !block.msg.content }"
+                    >💭</span>
+                    <span class="agent-panel__thought-title">
+                      {{ agent.isStreaming && !block.msg.content ? '深度思考中…' : (block.msg.thoughtDurationMs ? `已深度思考 ${(block.msg.thoughtDurationMs / 1000).toFixed(1)} 秒` : '思考推演过程') }}
+                    </span>
+                    <span class="agent-panel__thought-caret">{{ block.msg.thoughtExpanded ? '收起 ▴' : '展开 ▾' }}</span>
+                  </button>
+                  <div v-if="block.msg.thoughtExpanded" class="agent-panel__thought-body">
+                    <pre class="agent-panel__thought-text">{{ block.msg.thought }}</pre>
+                  </div>
+                </div>
+
+                <!-- Content Card -->
+                <div v-if="block.msg.content || (agent.isStreaming && block.idx === agent.messages.length - 1 && !block.msg.thought)" class="agent-panel__assistant-content-wrap">
+                  <div class="agent-panel__assistant-head">
+                    <div class="agent-panel__assistant-avatar">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
+                      </svg>
+                    </div>
+                    <span class="agent-panel__assistant-name">{{ t('agent.name') }}</span>
+                    <span v-if="settings.aiModel" class="agent-panel__assistant-model">{{ settings.aiModel }}</span>
+                  </div>
+
+                  <div
+                    v-if="block.msg.content"
+                    class="agent-panel__msg-body agent-panel__markdown-body"
+                    @click="onMessageBodyClick"
+                    v-html="renderAssistantHtml(block.msg.content)"
+                  ></div>
+                  <span
+                    v-if="agent.isStreaming && block.idx === agent.messages.length - 1"
+                    class="agent-panel__cursor"
+                    aria-hidden="true"
+                  >▋</span>
+
+                  <!-- Actions on completed assistant replies -->
+                  <div
+                    v-if="block.msg.content && !(agent.isStreaming && block.idx === agent.messages.length - 1)"
+                    class="agent-panel__msg-actions"
+                  >
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
+                      type="button"
+                      :title="t('agent.msgCopyTitle')"
+                      @click="copyAssistantMessage(block.msg.content, block.msg.id)"
+                    >
+                      <svg v-if="copiedId === block.msg.id" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 9 6 12 13 4" />
+                      </svg>
+                      <svg v-else width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="5" y="5" width="8" height="8" rx="1.5" />
+                        <path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H11" />
+                      </svg>
+                      <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
+                    </button>
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      type="button"
+                      :disabled="!canInsertIntoEditor"
+                      :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
+                      @click="insertAssistantMessage(block.msg.content)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" />
+                      </svg>
+                      <span>{{ t('agent.msgInsert') }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </li>
+        </template>
       </ul>
       <div v-else class="agent-panel__welcome">
         <div class="agent-panel__welcome-icon">
@@ -1072,7 +1345,27 @@ watch(stateKey, (k) => {
         </div>
       </div>
 
-      <div v-if="errorMsg" class="agent-panel__error">{{ errorMsg }}</div>
+      <!-- Live Step Progress Bar -->
+      <div v-if="phaseDisplay" class="agent-panel__progress-bar">
+        <span class="agent-panel__progress-spinner" />
+        <span class="agent-panel__progress-icon">{{ phaseDisplay.icon }}</span>
+        <span class="agent-panel__progress-text">{{ phaseDisplay.text }}</span>
+        <span class="agent-panel__progress-time">{{ phaseDisplay.time }}</span>
+      </div>
+
+      <!-- Rich Error Card with 1-Click Retry -->
+      <div v-if="errorMsg" class="agent-panel__error-card">
+        <div class="agent-panel__error-head">
+          <span class="agent-panel__error-icon">⚠️</span>
+          <span class="agent-panel__error-title">执行异常中断</span>
+        </div>
+        <div class="agent-panel__error-body">{{ errorMsg }}</div>
+        <div class="agent-panel__error-actions">
+          <button class="agent-panel__retry-btn" type="button" @click="retryLastPrompt">
+            🔄 重新发送 / 重试本轮
+          </button>
+        </div>
+      </div>
 
       <footer class="agent-panel__compose">
         <textarea
@@ -1084,10 +1377,31 @@ watch(stateKey, (k) => {
           @keydown="onKeydown"
         ></textarea>
         <div class="agent-panel__compose-foot">
+          <!-- Segmented Mode Switch [ ✏️ 编辑 | 📖 只读 ] -->
+          <div class="agent-panel__mode-switch" :title="settings.agentAllowWrite ? '编辑模式：AI 拥有真实修改/创建笔记的物理权限' : '只读模式：AI 仅提供建议与回答，不可修改本地文件'">
+            <button
+              type="button"
+              class="agent-panel__mode-opt"
+              :class="{ 'is-active': settings.agentAllowWrite }"
+              @click.stop="settings.agentAllowWrite = true"
+            >
+              ✏️ 编辑
+            </button>
+            <button
+              type="button"
+              class="agent-panel__mode-opt"
+              :class="{ 'is-active': !settings.agentAllowWrite }"
+              @click.stop="settings.agentAllowWrite = false"
+            >
+              📖 只读
+            </button>
+          </div>
+
           <span class="agent-panel__compose-hint">
             <template v-if="agent.isStreaming">{{ t('agent.streaming') }}</template>
             <template v-else>{{ t('agent.enterToSend') }}</template>
           </span>
+
           <button
             v-if="agent.isStreaming"
             class="agent-panel__send agent-panel__send--stop"
@@ -1169,6 +1483,128 @@ watch(stateKey, (k) => {
 .agent-panel__icon-btn:hover {
   background: var(--bg-hover);
   color: var(--text);
+}
+.agent-panel__action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+.agent-panel__action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--accent, #ff9f40);
+}
+.agent-panel__history-wrap {
+  position: relative;
+}
+.agent-panel__history-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 250px;
+  max-height: 320px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.agent-panel__history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.agent-panel__history-new-btn {
+  background: color-mix(in srgb, var(--accent, #ff9f40) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #ff9f40) 30%, transparent);
+  color: var(--accent, #ff9f40);
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.agent-panel__history-new-btn:hover {
+  background: var(--accent, #ff9f40);
+  color: #fff;
+}
+.agent-panel__history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-panel__history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.agent-panel__history-item:hover {
+  background: var(--bg-hover);
+}
+.agent-panel__history-item.is-active {
+  background: color-mix(in srgb, var(--accent, #ff9f40) 12%, transparent);
+}
+.agent-panel__history-item-main {
+  flex: 1;
+  min-width: 0;
+}
+.agent-panel__history-item-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-panel__history-item-meta {
+  font-size: 10px;
+  color: var(--text-faint);
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+.agent-panel__history-item-del {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  padding: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.agent-panel__history-item:hover .agent-panel__history-item-del {
+  opacity: 1;
+}
+.agent-panel__history-item-del:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
 }
 .agent-panel__chip {
   display: inline-flex;
@@ -1485,11 +1921,15 @@ watch(stateKey, (k) => {
 
 /* --- Welcome & Suggestions --------------------------------------------- */
 .agent-panel__welcome {
+  flex: 1;
+  min-height: 0;
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
+  overflow-y: auto;
 }
 .agent-panel__welcome-icon {
   width: 44px;
@@ -1550,6 +1990,7 @@ watch(stateKey, (k) => {
 
 /* --- Compose Area ------------------------------------------------------ */
 .agent-panel__compose {
+  margin-top: auto;
   border-top: 1px solid var(--border);
   background: var(--bg-soft);
   padding: 8px 10px;
@@ -1583,6 +2024,40 @@ watch(stateKey, (k) => {
   gap: 8px;
   font-size: 11px;
   color: var(--text-muted);
+}
+.agent-panel__mode-switch {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+.agent-panel__mode-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.3;
+}
+.agent-panel__mode-opt:hover {
+  color: var(--text);
+}
+.agent-panel__mode-opt.is-active {
+  background: var(--bg);
+  color: var(--accent, #ff9f40);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .agent-panel__compose-hint {
   font-style: italic;
@@ -2008,5 +2483,94 @@ watch(stateKey, (k) => {
   border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.agent-panel__progress-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 10px 8px;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--accent, #ff9f40) 8%, var(--bg-soft));
+  border: 1px solid color-mix(in srgb, var(--accent, #ff9f40) 25%, var(--border));
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text);
+  box-sizing: border-box;
+}
+.agent-panel__progress-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--accent, #ff9f40) 30%, transparent);
+  border-top-color: var(--accent, #ff9f40);
+  border-radius: 50%;
+  animation: agent-panel-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+.agent-panel__progress-icon {
+  font-size: 13px;
+}
+.agent-panel__progress-text {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-panel__progress-time {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  background: var(--bg-elev);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+.agent-panel__error-card {
+  margin: 0 10px 8px;
+  padding: 8px 12px;
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.agent-panel__error-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #dc2626;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.agent-panel__error-body {
+  color: var(--text);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.agent-panel__error-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+.agent-panel__retry-btn {
+  background: var(--bg);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.agent-panel__retry-btn:hover {
+  background: #dc2626;
+  color: #fff;
 }
 </style>

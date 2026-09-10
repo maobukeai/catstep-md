@@ -142,6 +142,14 @@ async function openRow(entry: IndexEntry) {
   await files.openPath(entry.path, { bypassNewWindow: true });
 }
 
+async function createNote() {
+  await inbox.createNewInboxNote();
+}
+
+async function quickOrganizeRow(entry: IndexEntry) {
+  await inbox.markPathOrganized(entry.path);
+}
+
 /** Footer button: same organize-and-advance the ⌘E shortcut runs. */
 function organize() {
   if (settings.inboxWorkflowEnabled) void inbox.organizeAndAdvance();
@@ -209,24 +217,39 @@ onBeforeUnmount(() => {
         </DsButton>
         <strong class="inbox-view__title">{{ t('inbox.viewHeading') }}</strong>
       </div>
-      <div
-        class="inbox-view__pills"
-        role="tablist"
-        :aria-label="t('inbox.viewHeading')"
-      >
+      <div class="inbox-view__head-right">
         <button
-          v-for="p in periods"
-          :key="p.id"
-          class="inbox-view__pill"
-          :class="{ 'inbox-view__pill--active': activePeriod === p.id }"
+          class="inbox-view__create-btn"
           type="button"
-          role="tab"
-          :aria-selected="activePeriod === p.id"
-          @click="selectPeriod(p.id)"
+          :title="t('inbox.newCapture')"
+          @click="createNote"
         >
-          <span>{{ t(p.label) }}</span>
-          <span class="inbox-view__pill-count">{{ counts[p.id] }}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>{{ t('inbox.newCapture') }}</span>
         </button>
+
+        <div
+          class="inbox-view__pills"
+          role="tablist"
+          :aria-label="t('inbox.viewHeading')"
+        >
+          <button
+            v-for="p in periods"
+            :key="p.id"
+            class="inbox-view__pill"
+            :class="{ 'inbox-view__pill--active': activePeriod === p.id }"
+            type="button"
+            role="tab"
+            :aria-selected="activePeriod === p.id"
+            @click="selectPeriod(p.id)"
+          >
+            <span>{{ t(p.label) }}</span>
+            <span class="inbox-view__pill-count">{{ counts[p.id] }}</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -235,6 +258,22 @@ onBeforeUnmount(() => {
       <div class="inbox-view__zero-check" aria-hidden="true">✓</div>
       <p class="inbox-view__zero-title">{{ t('inbox.zeroTitle') }}</p>
       <p class="inbox-view__zero-sub">{{ t('inbox.zeroSub') }}</p>
+      <div class="inbox-view__zero-actions">
+        <button
+          class="inbox-view__create-btn inbox-view__create-btn--lg"
+          type="button"
+          @click="createNote"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>{{ t('inbox.newCapture') }}</span>
+        </button>
+        <DsButton size="sm" variant="subtle" @click="close">
+          {{ t('inbox.back') }}
+        </DsButton>
+      </div>
     </div>
 
     <!-- Period-empty: inbox notes exist, just none in this window. -->
@@ -278,15 +317,28 @@ onBeforeUnmount(() => {
             <span>{{ t('inbox.linkCount', { n: String(inboxLinkCount(entry)) }) }}</span>
           </span>
         </span>
-        <template v-if="rowChips(entry).length" #trailing>
-          <span class="inbox-view__row-chips">
-            <DsChip
-              v-for="c in rowChips(entry)"
-              :key="c.key + c.value"
-              size="sm"
-              :title="c.label + ': ' + c.value"
-            >{{ c.value }}</DsChip>
-          </span>
+        <template #trailing>
+          <div class="inbox-view__row-trailing">
+            <span v-if="rowChips(entry).length" class="inbox-view__row-chips">
+              <DsChip
+                v-for="c in rowChips(entry)"
+                :key="c.key + c.value"
+                size="sm"
+                :title="c.label + ': ' + c.value"
+              >{{ c.value }}</DsChip>
+            </span>
+            <button
+              class="inbox-view__row-done-btn"
+              type="button"
+              :title="t('inbox.markRowDoneTip')"
+              @click.stop="quickOrganizeRow(entry)"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>{{ t('inbox.markRowDone') }}</span>
+            </button>
+          </div>
         </template>
       </DsListRow>
     </div>
@@ -329,6 +381,70 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+}
+.inbox-view__head-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.inbox-view__create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 27px;
+  padding: 0 11px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--accent-fg, #ffffff);
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+  white-space: nowrap;
+}
+.inbox-view__create-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.inbox-view__create-btn--lg {
+  height: 32px;
+  padding: 0 16px;
+  font-size: 12.5px;
+}
+.inbox-view__zero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--sp-2);
+}
+.inbox-view__row-trailing {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.inbox-view__row-done-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 4px);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+  white-space: nowrap;
+}
+.inbox-view__row-done-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .inbox-view__title {
   font-size: 11px;

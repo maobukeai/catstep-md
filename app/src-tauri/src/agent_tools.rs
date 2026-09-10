@@ -747,14 +747,24 @@ fn tool_list_notes(workspace: &Path, args: &Value) -> Result<Value, String> {
         }
         .or_else(|| headings.first().map(|h| h.text.clone()));
         let summary = extract_summary(body);
+        let compact_summary = if summary.chars().count() > 80 {
+            summary.chars().take(80).collect::<String>() + "…"
+        } else {
+            summary
+        };
         let size = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        let rel_path = path
+            .strip_prefix(workspace)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
         let mut note = json!({
-            "path": path.to_string_lossy(),
+            "path": rel_path,
             "name": name,
             "title": title,
             "mtime": mtime_secs(&path),
             "size": size,
-            "summary": summary,
+            "summary": compact_summary,
         });
         if let Some(err) = fm_error {
             note["frontmatter_error"] = Value::String(err);

@@ -786,18 +786,18 @@ function onSelectPdfFont(v: string) {
               </div>
             </div>
 
-            <!-- Row: Overlay Opacity -->
+            <!-- Row: Wallpaper Opacity -->
             <div v-if="settings.bgType === 'image'" class="setting-row">
               <div class="setting-row__info">
-                <label class="setting-row__title">{{ isZh ? '暗/亮蒙层浓度' : 'Overlay Opacity' }}</label>
-                <p class="setting-row__hint">{{ isZh ? '自适应环境遮罩，调节正文字体阅读对比度' : 'Adjust overlay depth to keep text crisp' }}</p>
+                <label class="setting-row__title">{{ isZh ? '壁纸透明度 (显示浓度)' : 'Wallpaper Opacity' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '调整壁纸切入背景的透明浓度，与底色自然融合' : 'Adjust wallpaper opacity blending into the background' }}</p>
               </div>
               <div class="setting-row__control">
                 <div class="setting-slider-ctrl">
                   <input
                     type="range"
                     min="0"
-                    max="95"
+                    max="100"
                     step="5"
                     :value="settings.bgOpacity"
                     @input="settings.setBgOpacity(Number(($event.target as HTMLInputElement).value))"
@@ -825,21 +825,6 @@ function onSelectPdfFont(v: string) {
                   />
                   <span class="setting-val-badge">{{ settings.bgBlur }}px</span>
                 </div>
-              </div>
-            </div>
-
-            <!-- Row: Frosted Glass Card -->
-            <div v-if="settings.bgType === 'image'" class="setting-row">
-              <div class="setting-row__info">
-                <label class="setting-row__title">{{ isZh ? '毛玻璃悬浮卡片' : 'Frosted Glass Card' }}</label>
-                <p class="setting-row__hint">{{ isZh ? '以半透明磨砂卡片承载正文排版，突出写作主体' : 'Render text in a frosted glass floating card' }}</p>
-              </div>
-              <div class="setting-row__control">
-                <input
-                  type="checkbox"
-                  :checked="settings.bgFrostedCard"
-                  @change="settings.toggleBgFrostedCard()"
-                />
               </div>
             </div>
 

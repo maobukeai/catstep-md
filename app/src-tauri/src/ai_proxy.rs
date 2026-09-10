@@ -354,6 +354,15 @@ fn make_request_id() -> String {
     format!("req-{ts}-{n}")
 }
 
+fn make_tool_call_id(idx: u64) -> String {
+    let n = REQ_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    format!("call_{idx}_{ts}_{n}")
+}
+
 fn register_cancel_flag(id: &str) -> Arc<AtomicBool> {
     let flag = Arc::new(AtomicBool::new(false));
     if let Ok(mut map) = CANCEL_FLAGS.lock() {
@@ -2065,15 +2074,26 @@ async fn anthropic_one_turn(
     }
 
     let client = http_client()?;
-    let resp = client
-        .post(&url)
-        .header("x-api-key", api_key)
-        .header("anthropic-version", "2023-06-01")
-        .header("content-type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("anthropic request failed: {e}"))?;
+    let mut attempts = 0;
+    let resp = loop {
+        attempts += 1;
+        let res = client
+            .post(&url)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&body)
+            .send()
+            .await;
+        match res {
+            Ok(r) => break r,
+            Err(e) if attempts <= 2 && (e.is_connect() || e.is_timeout() || e.is_request()) => {
+                tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                continue;
+            }
+            Err(e) => return Err(format!("anthropic request failed: {e}")),
+        }
+    };
 
     if !resp.status().is_success() {
         let status = resp.status();
@@ -2327,6 +2347,8 @@ pub async fn run_chat_openai_loop(
     let tools = build_openai_tools(req);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let mut last_text = String::new();
+    let mut last_tool_sig: Option<String> = None;
+    let mut consecutive_duplicate_count: u32 = 0;
 
     for iter in 0..cap {
         if cancel.load(Ordering::SeqCst) {
@@ -2377,11 +2399,29 @@ pub async fn run_chat_openai_loop(
             return Ok((last_text, tokens_in_total, tokens_out_total));
         }
 
-        // Append assistant message with tool_calls. content may be empty.
-        // Provider-specific extras (e.g. Gemini's `extra_content` with the
-        // `thought_signature` token) are merged into each tool_call so the
-        // next turn re-sends them — without this, Gemini's OpenAI-compat
-        // layer 400s with "Function call is missing a thought_signature".
+        // Loop detection: if the model calls the exact same tool with identical arguments repeatedly
+        let current_sig: String = outcome
+            .tool_uses
+            .iter()
+            .map(|(_, name, args)| format!("{}:{}", name, serde_json::to_string(args).unwrap_or_default()))
+            .collect::<Vec<_>>()
+            .join(";");
+
+        if let Some(last_sig) = &last_tool_sig {
+            if *last_sig == current_sig {
+                consecutive_duplicate_count += 1;
+            } else {
+                consecutive_duplicate_count = 0;
+            }
+        }
+        last_tool_sig = Some(current_sig);
+
+        // If duplicate calls happen 2+ times, force break out to prevent spinning in list_notes
+        if consecutive_duplicate_count >= 2 {
+            return Ok((last_text, tokens_in_total, tokens_out_total));
+        }
+
+        // Append assistant message with tool_calls. content may be empty or null.
         let tool_calls_v: Vec<Value> = outcome
             .tool_uses
             .iter()
@@ -2406,13 +2446,11 @@ pub async fn run_chat_openai_loop(
                 tc
             })
             .collect();
-        let mut assistant_msg = serde_json::json!({
+        let assistant_msg = serde_json::json!({
             "role": "assistant",
+            "content": if outcome.text.is_empty() { Value::Null } else { Value::String(outcome.text.clone()) },
             "tool_calls": tool_calls_v,
         });
-        if !outcome.text.is_empty() {
-            assistant_msg["content"] = Value::String(outcome.text.clone());
-        }
         history.push(assistant_msg);
 
         // Dispatch each tool, append one `tool` role message per call.
@@ -2455,7 +2493,10 @@ pub async fn run_chat_openai_loop(
                     (Value::String(err.clone()), Some(err))
                 }
             };
-            let preview = json_preview(&result_value);
+            let mut preview = json_preview(&result_value);
+            if consecutive_duplicate_count >= 1 {
+                preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
+            }
             let _ = app.emit(
                 "solomd://ai-tool-result",
                 ToolResultEvent {
@@ -2534,12 +2575,23 @@ async fn openai_one_turn(
         let api_key = api_key.to_string();
         let client = client.clone();
         async move {
-            with_optional_bearer(client.post(&url), &api_key)
-                .header("content-type", "application/json")
-                .json(&body)
-                .send()
-                .await
-                .map_err(|e| format!("openai request failed: {e}"))
+            let mut attempts = 0;
+            loop {
+                attempts += 1;
+                let res = with_optional_bearer(client.post(&url), &api_key)
+                    .header("content-type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await;
+                match res {
+                    Ok(resp) => return Ok(resp),
+                    Err(e) if attempts <= 2 && (e.is_connect() || e.is_timeout() || e.is_request()) => {
+                        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                        continue;
+                    }
+                    Err(e) => return Err(format!("openai request failed: {e}")),
+                }
+            }
         }
     };
 
@@ -2648,7 +2700,12 @@ async fn openai_one_turn(
                     outcome.finish_reason = finish_reason;
                     outcome.tokens_in = tokens_in;
                     outcome.tokens_out = tokens_out;
-                    for (_, t) in tools_acc {
+                    for (idx, t) in tools_acc {
+                        let call_id = if t.id.is_empty() {
+                            make_tool_call_id(idx)
+                        } else {
+                            t.id
+                        };
                         let args: Value = if t.arguments.trim().is_empty() {
                             Value::Object(Default::default())
                         } else {
@@ -2658,9 +2715,9 @@ async fn openai_one_turn(
                         if !t.extras.is_empty() {
                             outcome
                                 .tool_extras
-                                .insert(t.id.clone(), Value::Object(t.extras));
+                                .insert(call_id.clone(), Value::Object(t.extras));
                         }
-                        outcome.tool_uses.push((t.id, t.name, args));
+                        outcome.tool_uses.push((call_id, t.name, args));
                     }
                     return Ok(outcome);
                 }
@@ -2750,7 +2807,12 @@ async fn openai_one_turn(
     outcome.finish_reason = finish_reason;
     outcome.tokens_in = tokens_in;
     outcome.tokens_out = tokens_out;
-    for (_, t) in tools_acc {
+    for (idx, t) in tools_acc {
+        let call_id = if t.id.is_empty() {
+            make_tool_call_id(idx)
+        } else {
+            t.id
+        };
         let args: Value = if t.arguments.trim().is_empty() {
             Value::Object(Default::default())
         } else {
@@ -2759,9 +2821,9 @@ async fn openai_one_turn(
         if !t.extras.is_empty() {
             outcome
                 .tool_extras
-                .insert(t.id.clone(), Value::Object(t.extras));
+                .insert(call_id.clone(), Value::Object(t.extras));
         }
-        outcome.tool_uses.push((t.id, t.name, args));
+        outcome.tool_uses.push((call_id, t.name, args));
     }
     Ok(outcome)
 }

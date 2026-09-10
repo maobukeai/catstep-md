@@ -73,7 +73,6 @@ import { useExport } from './composables/useExport';
 import { useShortcuts } from './composables/useShortcuts';
 import { useFileWatcher } from './composables/useFileWatcher';
 import { loadUserCss, reloadAllCustomStyles } from './lib/custom-theme';
-import { isDarkTheme } from './lib/themes';
 import { isIOS, isMacOS, isAndroid, isMobile } from './lib/platform';
 import { useViewport } from './composables/useViewport';
 import { nativeMenuAccelerators } from './lib/keybindings';
@@ -552,7 +551,7 @@ watch(
 //   2. Await `setTitle()` so a rejection is actually caught + logged,
 //      instead of floating off as an unhandled promise.
 const applyWindowTitle = async (name?: string) => {
-  const title = name ? `${name} — SoloMD` : 'SoloMD';
+  const title = name ? `${name} — 猫步 MD` : '猫步 MD';
   document.title = title;
   // macOS uses `titleBarStyle: "Overlay"` + `hiddenTitle: true` — the
   // document name is shown in the in-app toolbar (SoloMD mark + filename).
@@ -860,22 +859,14 @@ const bgCanvasStyle = computed(() => {
     style.backgroundSize = 'cover';
     style.backgroundPosition = 'center';
     style.backgroundRepeat = 'no-repeat';
+    const op = typeof settings.bgOpacity === 'number' ? settings.bgOpacity : 25;
+    style.opacity = `${Math.max(0, Math.min(100, op)) / 100}`;
     if (settings.bgBlur > 0) {
       style.filter = `blur(${settings.bgBlur}px)`;
       style.transform = 'scale(1.05)';
     }
   }
   return style;
-});
-
-const bgOverlayStyle = computed(() => {
-  if (settings.bgType !== 'image') return {};
-  const opacity = Math.max(0, Math.min(100, settings.bgOpacity ?? 85)) / 100;
-  const isDark = isDarkTheme(settings.theme);
-  const baseColor = isDark ? '18, 18, 20' : '255, 255, 255';
-  return {
-    backgroundColor: `rgba(${baseColor}, ${opacity})`,
-  };
 });
 
 function onOpenHelpEvent() {
@@ -2093,12 +2084,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       :class="bgTextureClass"
       :style="bgCanvasStyle"
     />
-    <!-- Layer 2: Adaptive Overlay (Only for custom image wallpaper) -->
-    <div
-      v-if="hasActiveBackground && settings.bgType === 'image'"
-      class="catstep-app-bg-overlay"
-      :style="bgOverlayStyle"
-    />
 
     <!--
       Toolbar is always pinned at the top across all modes, hosting the
@@ -2284,8 +2269,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           </template>
         </aside>
         <div class="content" :class="{ 'has-custom-bg': hasActiveBackground }">
-          <!-- Prose Writing Area (Frosted card only for image wallpaper) -->
-          <div class="catstep-prose-wrap" :class="{ 'is-frosted-card': settings.bgFrostedCard && hasActiveBackground && settings.bgType === 'image' }">
+          <!-- Prose Writing Area -->
+          <div class="catstep-prose-wrap">
             <ReadingView v-if="settings.viewMode === 'reading'" />
             <BasesView v-else-if="basesOpen" />
             <InboxView v-else-if="inboxViewOpen" />
@@ -2536,11 +2521,11 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         <div class="arn__title">重启一次即可读取文件夹</div>
         <p class="arn__body">
           文件访问权限已开启 ✅。安卓要求 App 重启后才能真正读取手机存储。<br /><br />
-          点「关闭 SoloMD」→ 从后台任务里划掉 → 重新打开 App,再点「打开文件夹」就能选你的笔记文件夹了。
+          点「关闭 猫步 MD」→ 从后台任务里划掉 → 重新打开 App,再点「打开文件夹」就能选你的笔记文件夹了。
         </p>
         <div class="arn__foot">
           <button class="arn__btn" @click="androidRestartNeeded = false">稍后</button>
-          <button class="arn__btn arn__btn--primary" @click="doAndroidRestart">关闭 SoloMD</button>
+          <button class="arn__btn arn__btn--primary" @click="doAndroidRestart">关闭 猫步 MD</button>
         </div>
       </div>
     </div>

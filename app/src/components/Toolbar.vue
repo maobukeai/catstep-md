@@ -538,7 +538,6 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'format.image', label: isZh ? '插入本地图片...' : 'Insert Local Image...', shortcut: shortcutLabel('format.image', settings.keybindings, macChord) || 'Ctrl+Shift+I' },
       { id: 'format.imageNetwork', label: isZh ? '插入网络图片链接...' : 'Insert Web Image...' },
       { sep: true },
-      { id: 'format.cleanAI', label: isZh ? '一键清理 AI 格式痕迹' : 'Clean AI Artifacts' },
       { id: 'format.aiRewrite', label: isZh ? 'AI 润色与改写' : 'AI Rewrite', shortcut: 'Ctrl+J' },
     ],
     view: [

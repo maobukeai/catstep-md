@@ -178,15 +178,16 @@ export const useTabsStore = defineStore('tabs', {
     },
   },
   actions: {
-    newTab(opts?: { fileName?: string; language?: Language }) {
+    newTab(opts?: { fileName?: string; language?: Language; content?: string }) {
       const fileName = opts?.fileName ?? 'Untitled.md';
       const language = opts?.language ?? inferLanguage(fileName);
+      const content = opts?.content ?? '';
       const settings = useSettingsStore();
       const tab: Tab = {
         id: newId(),
         fileName,
-        content: '',
-        savedContent: '',
+        content,
+        savedContent: content,
         encoding: 'UTF-8',
         language,
         hadBom: false,

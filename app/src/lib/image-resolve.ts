@@ -7,6 +7,11 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 
 /**
+ * Whole-line image detection regex with optional title, bracketed path, and spaces in path.
+ */
+export const IMAGE_LINE_RE = /^\s*!\[([^\]]*)\]\(\s*<?([^>)]+?)>?(?:\s+["'][^"']*["'])?\s*\)\s*$/;
+
+/**
  * Normalize a filesystem path so `convertFileSrc` produces a URL the
  * webview will actually load on every platform.
  *   1. Mixed `\` / `/` separators are unified.

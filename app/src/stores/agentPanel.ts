@@ -42,9 +42,23 @@ export interface AgentMessage {
   createdAt: number;
 }
 
+export interface AgentSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: AgentMessage[];
+}
+
+export type AgentPhase = 'idle' | 'analyzing' | 'thinking' | 'calling_tool' | 'organizing';
+
 interface AgentPanelState {
+  currentSessionId: string;
+  sessions: AgentSession[];
   messages: AgentMessage[];
   isStreaming: boolean;
+  agentPhase: AgentPhase;
+  agentPhaseDetail: string;
   /** request_id mints by the Rust runner; used for cancellation / event
    *  matching. Renamed in spirit but kept the existing property name to
    *  avoid breaking the rest of the app. */
@@ -56,6 +70,8 @@ interface AgentPanelState {
   currentPersistRunId: string | null;
 }
 
+const STORAGE_KEY = 'solomd:agent-sessions-v1';
+
 function newId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -63,14 +79,119 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function loadSavedSessions(): { sessions: AgentSession[]; activeId: string } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return { sessions: parsed, activeId: parsed[0].id };
+      }
+    }
+  } catch {
+    /* fallback to fresh */
+  }
+  const initialId = newId();
+  const initialSession: AgentSession = {
+    id: initialId,
+    title: '新会话',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: [],
+  };
+  return { sessions: [initialSession], activeId: initialId };
+}
+
+const { sessions: initialSessions, activeId: initialActiveId } = loadSavedSessions();
+const activeSession = initialSessions.find((s) => s.id === initialActiveId) || initialSessions[0];
+
 export const useAgentPanelStore = defineStore('agentPanel', {
   state: (): AgentPanelState => ({
-    messages: [],
+    currentSessionId: activeSession.id,
+    sessions: initialSessions,
+    messages: activeSession.messages || [],
     isStreaming: false,
+    agentPhase: 'idle',
+    agentPhaseDetail: '',
     currentRunId: null,
     currentPersistRunId: null,
   }),
   actions: {
+    persistSessions() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.sessions.slice(0, 30)));
+      } catch {
+        /* storage exceeded / unavailable */
+      }
+    },
+    syncCurrentSession() {
+      const s = this.sessions.find((item) => item.id === this.currentSessionId);
+      if (s) {
+        s.messages = [...this.messages];
+        s.updatedAt = Date.now();
+        // Auto-derive title from first user prompt if still default
+        if (s.title === '新会话' || !s.title) {
+          const firstUser = this.messages.find((m) => m.role === 'user');
+          if (firstUser && firstUser.content) {
+            const clean = firstUser.content.trim().replace(/\s+/g, ' ');
+            s.title = clean.length > 20 ? clean.slice(0, 18) + '…' : clean;
+          }
+        }
+        this.persistSessions();
+      }
+    },
+    newSession(): string {
+      this.syncCurrentSession();
+      const id = newId();
+      const session: AgentSession = {
+        id,
+        title: '新会话',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        messages: [],
+      };
+      this.sessions.unshift(session);
+      this.currentSessionId = id;
+      this.messages = [];
+      this.isStreaming = false;
+      this.agentPhase = 'idle';
+      this.agentPhaseDetail = '';
+      this.currentRunId = null;
+      this.persistSessions();
+      return id;
+    },
+    switchSession(id: string) {
+      if (id === this.currentSessionId) return;
+      this.syncCurrentSession();
+      const target = this.sessions.find((s) => s.id === id);
+      if (target) {
+        this.currentSessionId = target.id;
+        this.messages = [...target.messages];
+        this.isStreaming = false;
+        this.agentPhase = 'idle';
+        this.agentPhaseDetail = '';
+        this.currentRunId = null;
+      }
+    },
+    deleteSession(id: string) {
+      const idx = this.sessions.findIndex((s) => s.id === id);
+      if (idx !== -1) {
+        this.sessions.splice(idx, 1);
+        if (this.currentSessionId === id) {
+          if (this.sessions.length > 0) {
+            this.switchSession(this.sessions[0].id);
+          } else {
+            this.newSession();
+          }
+        } else {
+          this.persistSessions();
+        }
+      }
+    },
+    setPhase(phase: AgentPhase, detail = '') {
+      this.agentPhase = phase;
+      this.agentPhaseDetail = detail;
+    },
     addMessage(msg: Omit<AgentMessage, 'id' | 'createdAt'>): AgentMessage {
       const full: AgentMessage = {
         ...msg,
@@ -78,6 +199,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         createdAt: Date.now(),
       };
       this.messages.push(full);
+      this.syncCurrentSession();
       return full;
     },
     appendToLastAssistant(chunk: string) {
@@ -138,6 +260,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
           break;
         }
       }
+      this.syncCurrentSession();
     },
     /** Toggle the expand/collapse state for a tool card by id. */
     toggleToolExpand(toolCallId: string) {
@@ -153,6 +276,9 @@ export const useAgentPanelStore = defineStore('agentPanel', {
       this.currentRunId = null;
       this.currentPersistRunId = null;
       this.isStreaming = false;
+      this.agentPhase = 'idle';
+      this.agentPhaseDetail = '';
+      this.syncCurrentSession();
     },
   },
 });

@@ -218,6 +218,14 @@ export function useShortcuts(hooks: Hooks = {}) {
   };
 
   function handler(e: KeyboardEvent) {
+    // 1. Intercept F11 immediately in capture phase before any editor / input / modal or browser default accelerator
+    if (e.key === 'F11' || e.code === 'F11') {
+      e.preventDefault();
+      e.stopPropagation();
+      void toggleFullscreen();
+      return;
+    }
+
     if (e.defaultPrevented) return;
     const combo = eventToCombo(e);
     if (!combo) return;
@@ -225,9 +233,10 @@ export function useShortcuts(hooks: Hooks = {}) {
     const actionId = bindings.get(combo);
     if (!actionId) return;
 
-    // Intercept fullscreen immediately to prevent WebView2 default accelerator
-    if (actionId === 'view.toggleFullscreen' || combo === 'F11') {
+    // Intercept custom-bound fullscreen shortcut immediately
+    if (actionId === 'view.toggleFullscreen') {
       e.preventDefault();
+      e.stopPropagation();
       void toggleFullscreen();
       return;
     }
@@ -264,6 +273,6 @@ export function useShortcuts(hooks: Hooks = {}) {
     e.preventDefault();
   }
 
-  onMounted(() => window.addEventListener('keydown', handler));
-  onUnmounted(() => window.removeEventListener('keydown', handler));
+  onMounted(() => window.addEventListener('keydown', handler, true));
+  onUnmounted(() => window.removeEventListener('keydown', handler, true));
 }
