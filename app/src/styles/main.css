@@ -1771,7 +1771,8 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
   overflow: hidden;
 }
 
-.catstep-bg-canvas {
+.catstep-bg-canvas,
+.catstep-app-bg-canvas {
   position: absolute;
   inset: -16px;
   z-index: 0;
@@ -1782,7 +1783,8 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
   will-change: transform, filter;
 }
 
-.catstep-bg-overlay {
+.catstep-bg-overlay,
+.catstep-app-bg-overlay {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -1815,12 +1817,101 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
   overflow: hidden;
 }
 
-/* Translucent panes when custom background is active */
-.content.has-custom-bg {
+/* App-wide custom background & frosted glass chrome */
+.app.has-app-custom-bg {
   background: transparent !important;
 }
 
-.content.has-custom-bg .catstep-prose-wrap,
+.app.has-app-custom-bg .workspace {
+  background: transparent !important;
+}
+
+.app.has-app-custom-bg .toolbar {
+  background: color-mix(in srgb, var(--bg-elev) 80%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+  position: relative;
+  z-index: 10;
+}
+
+.app.has-app-custom-bg .left-stack,
+.app.has-app-custom-bg .typora-sidebar {
+  background: color-mix(in srgb, var(--bg-elev) 75%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+}
+
+.app.has-app-custom-bg .typora-sidebar__tabs {
+  background: color-mix(in srgb, var(--bg-elev) 82%, transparent) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+}
+
+.app.has-app-custom-bg .typora-sidebar__body,
+.app.has-app-custom-bg .typora-sidebar__body .ftree,
+.app.has-app-custom-bg .typora-sidebar__body .outline,
+.app.has-app-custom-bg .typora-sidebar__body .sp {
+  background: transparent !important;
+}
+
+.app.has-app-custom-bg .side-sidebar {
+  background: color-mix(in srgb, var(--bg-elev) 75%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: color-mix(in srgb, var(--border) 60%, transparent) !important;
+}
+
+.app.has-app-custom-bg .side-sidebar .rs-pane-host,
+.app.has-app-custom-bg .side-sidebar .outline,
+.app.has-app-custom-bg .side-sidebar .backlinks,
+.app.has-app-custom-bg .side-sidebar .rel,
+.app.has-app-custom-bg .side-sidebar .tags-panel,
+.app.has-app-custom-bg .side-sidebar .history,
+.app.has-app-custom-bg .side-sidebar .agent-panel,
+.app.has-app-custom-bg .side-sidebar .ds-panel,
+.app.has-app-custom-bg .side-sidebar .tasks-panel,
+.app.has-app-custom-bg .side-sidebar .inspector,
+.app.has-app-custom-bg .side-sidebar .sp {
+  background: transparent !important;
+}
+
+.app.has-app-custom-bg .pane-tabbar {
+  background: color-mix(in srgb, var(--bg-elev) 75%, transparent) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+}
+
+.app.has-app-custom-bg .pane-tabbar--scroll-left::before {
+  background: linear-gradient(to right, color-mix(in srgb, var(--bg-elev) 80%, transparent), transparent) !important;
+}
+
+.app.has-app-custom-bg .pane-tabbar--scroll-right::after {
+  background: linear-gradient(to left, color-mix(in srgb, var(--bg-elev) 80%, transparent), transparent) !important;
+}
+
+.app.has-app-custom-bg .tab--active {
+  background: color-mix(in srgb, var(--bg) 85%, transparent) !important;
+  backdrop-filter: blur(8px);
+}
+
+.app.has-app-custom-bg .statusbar {
+  background: color-mix(in srgb, var(--bg-elev) 82%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+  position: relative;
+  z-index: 10;
+}
+
+/* Translucent panes when custom background is active */
+.content.has-custom-bg,
+.app.has-app-custom-bg .content {
+  background: transparent !important;
+}
+
+.content.has-custom-bg .catstep-prose-wrap:not(.is-frosted-card),
 .content.has-custom-bg .tile-branch,
 .content.has-custom-bg .tile-child,
 .content.has-custom-bg .pane-host,
@@ -1841,12 +1932,35 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
 .content.has-custom-bg .plain-block,
 .content.has-custom-bg .plain-block__textarea,
 .content.has-custom-bg .tile-pane,
-.content.has-custom-bg .view-pane {
+.content.has-custom-bg .view-pane,
+.app.has-app-custom-bg .catstep-prose-wrap:not(.is-frosted-card),
+.app.has-app-custom-bg .tile-branch,
+.app.has-app-custom-bg .tile-child,
+.app.has-app-custom-bg .pane-host,
+.app.has-app-custom-bg .pane-content,
+.app.has-app-custom-bg .pane,
+.app.has-app-custom-bg .pane--editor,
+.app.has-app-custom-bg .pane--preview,
+.app.has-app-custom-bg .cm-host,
+.app.has-app-custom-bg .cm-editor,
+.app.has-app-custom-bg .cm-scroller,
+.app.has-app-custom-bg .cm-gutters,
+.app.has-app-custom-bg .cm-content,
+.app.has-app-custom-bg .preview-host,
+.app.has-app-custom-bg .preview-content,
+.app.has-app-custom-bg .reading-view,
+.app.has-app-custom-bg .plain-editor,
+.app.has-app-custom-bg .plain-block-editor,
+.app.has-app-custom-bg .plain-block,
+.app.has-app-custom-bg .plain-block__textarea,
+.app.has-app-custom-bg .tile-pane,
+.app.has-app-custom-bg .view-pane {
   background: transparent !important;
   background-color: transparent !important;
 }
 
-.content.has-custom-bg .cm-gutters {
+.content.has-custom-bg .cm-gutters,
+.app.has-app-custom-bg .cm-gutters {
   border-right: 1px solid color-mix(in srgb, var(--border) 40%, transparent) !important;
 }
 

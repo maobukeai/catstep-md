@@ -2081,8 +2081,23 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       'app--narrow': isNarrow,
       'app--drawer-left': narrowDrawer === 'left',
       'app--drawer-right': narrowDrawer === 'right',
+      'has-app-custom-bg': hasActiveBackground,
     }"
   >
+    <!-- Layer 1: GPU Background Canvas (Covers entire application) -->
+    <div
+      v-if="hasActiveBackground"
+      class="catstep-app-bg-canvas"
+      :class="bgTextureClass"
+      :style="bgCanvasStyle"
+    />
+    <!-- Layer 2: Adaptive Overlay (Only for custom image wallpaper) -->
+    <div
+      v-if="hasActiveBackground && settings.bgType === 'image'"
+      class="catstep-app-bg-overlay"
+      :style="bgOverlayStyle"
+    />
+
     <!--
       Toolbar is always pinned at the top across all modes, hosting the
       dual-mode switcher capsule [ 编辑 | 阅读 ], document info,
@@ -2267,20 +2282,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           </template>
         </aside>
         <div class="content" :class="{ 'has-custom-bg': hasActiveBackground }">
-          <!-- Layer 1: GPU Background Canvas -->
-          <div
-            v-if="hasActiveBackground"
-            class="catstep-bg-canvas"
-            :class="bgTextureClass"
-            :style="bgCanvasStyle"
-          />
-          <!-- Layer 2: Adaptive Overlay (Only for custom image wallpaper) -->
-          <div
-            v-if="hasActiveBackground && settings.bgType === 'image'"
-            class="catstep-bg-overlay"
-            :style="bgOverlayStyle"
-          />
-          <!-- Layer 3: Prose Writing Area (Frosted card only for image wallpaper) -->
+          <!-- Prose Writing Area (Frosted card only for image wallpaper) -->
           <div class="catstep-prose-wrap" :class="{ 'is-frosted-card': settings.bgFrostedCard && hasActiveBackground && settings.bgType === 'image' }">
             <ReadingView v-if="settings.viewMode === 'reading'" />
             <BasesView v-else-if="basesOpen" />
@@ -2581,6 +2583,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .app {
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
   /* #125 — 100% (not 100vw/100vh) so the app-wide CSS `zoom` doesn't render
      the root wider/taller than the window (vw/vh ignore zoom). See the matching
      note in main.css on `html, body, #app`. */

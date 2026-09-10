@@ -731,8 +731,8 @@ function onSelectPdfFont(v: string) {
             <!-- Row: Canvas Background -->
             <div class="setting-row">
               <div class="setting-row__info">
-                <label class="setting-row__title">{{ isZh ? '写作背景画布' : 'Canvas Background' }}</label>
-                <p class="setting-row__hint">{{ isZh ? '为编辑与预览画卷衬托质感微纹理或自定义壁纸' : 'Decorate writing canvas with texture or custom wallpaper' }}</p>
+                <label class="setting-row__title">{{ isZh ? '软件背景与画布' : 'App & Canvas Background' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '为整个软件窗口衬托质感微纹理或自定义沉浸壁纸' : 'Decorate the entire app window with subtle texture or custom wallpaper' }}</p>
               </div>
               <div class="setting-row__control">
                 <select
