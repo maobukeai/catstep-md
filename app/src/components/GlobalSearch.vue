@@ -170,7 +170,10 @@ function onKey(e: KeyboardEvent) {
       <span v-if="loading" class="sp__loading">…</span>
     </div>
     <div v-if="!workspace.currentFolder" class="sp__empty">
-      {{ t('search.openFolder') }}
+      <p class="sp__msg">{{ t('search.openFolder') }}</p>
+      <button class="sp__open-btn" type="button" @click="files.openFolder">
+        📁 {{ t('menubar.openFolder') }}
+      </button>
     </div>
     <div v-else-if="!query.trim()" class="sp__empty">
       {{ t('search.typeToSearch') }}
@@ -252,6 +255,23 @@ function onKey(e: KeyboardEvent) {
   text-align: center;
   font-size: 12px;
   line-height: 1.6;
+}
+.sp__msg {
+  margin: 0 0 12px;
+}
+.sp__open-btn {
+  background: var(--accent, #ff9f40);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.sp__open-btn:hover {
+  opacity: 0.9;
 }
 .sp__results {
   flex: 1;

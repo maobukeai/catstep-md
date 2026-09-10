@@ -25,6 +25,7 @@ import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
 import GithubConflictPanel from './GithubConflictPanel.vue';
 import { hasGitBackend } from '../lib/platform';
+import { useFiles } from '../composables/useFiles';
 
 /** #230 — no libgit2 in the Android binary; the init button would only ever
  *  answer `Command git_init_workspace not found`. */
@@ -35,6 +36,7 @@ const workspace = useWorkspaceStore();
 const gh = useGitHistoryStore();
 const toasts = useToastsStore();
 const { t } = useI18n();
+const files = useFiles();
 
 const emit = defineEmits<{ close: [] }>();
 
@@ -168,7 +170,10 @@ function timeAgo(unix: number): string {
 
     <!-- 1. No folder open -->
     <div v-if="!folder" class="history__empty">
-      {{ t('history.openFolder') }}
+      <p class="history__msg">{{ t('history.openFolder') }}</p>
+      <button class="history__init-btn" type="button" @click="files.openFolder">
+        📁 {{ t('menubar.openFolder') }}
+      </button>
     </div>
 
     <!-- 2a. #230 — platform has no git backend at all (Android) -->

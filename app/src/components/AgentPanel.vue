@@ -496,7 +496,10 @@ watch(stateKey, (k) => {
     </header>
 
     <div v-if="stateKey === 'no-folder'" class="agent-panel__empty">
-      {{ t('agent.empty.noFolder') }}
+      <p>{{ t('agent.empty.noFolder') }}</p>
+      <button class="agent-panel__cta agent-panel__cta--primary" type="button" @click="files.openFolder">
+        📁 {{ t('menubar.openFolder') }}
+      </button>
     </div>
 
     <div v-else-if="stateKey === 'no-ai'" class="agent-panel__empty">
@@ -747,6 +750,16 @@ watch(stateKey, (k) => {
 }
 .agent-panel__cta:hover {
   background: var(--bg-soft);
+}
+.agent-panel__cta--primary {
+  background: var(--accent, #ff9f40);
+  color: #fff;
+  border: none;
+  font-weight: 500;
+}
+.agent-panel__cta--primary:hover {
+  opacity: 0.9;
+  background: var(--accent, #ff9f40);
 }
 .agent-panel__messages {
   flex: 1;
