@@ -51,6 +51,7 @@ import {
   applyPlainDeleteLine,
   applyPlainList,
   applyPlainQuote,
+  stripMarkdownFormatting,
 } from '../lib/editor-formatting';
 import {
   headingFoldExtension,
@@ -62,6 +63,7 @@ import {
 import InPlaceTableToolbar from './InPlaceTableToolbar.vue';
 import InPlaceFormulaBar from './InPlaceFormulaBar.vue';
 import SelectionBubbleBar from './SelectionBubbleBar.vue';
+import EditorContextMenu, { type EditorContextInfo } from './EditorContextMenu.vue';
 import {
   findTableSpan,
   findTableAtCursor,
@@ -2557,6 +2559,10 @@ function buildExtensions() {
         updateSelectionBubble(cmView);
         return false;
       },
+      contextmenu: (ev) => {
+        onEditorContextMenu(ev);
+        return true;
+      },
     }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) {
@@ -2974,6 +2980,337 @@ function onBubbleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstep
     );
   }
   selectionBubbleState.value.visible = false;
+}
+
+// ── Typora Parity Editor Context Menu ─────────────────────────────────────
+const editorContextMenuState = ref<{
+  visible: boolean;
+  x: number;
+  y: number;
+  info: EditorContextInfo;
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  info: {
+    hasSelection: false,
+    selectedText: '',
+    isTable: false,
+    isCodeBlock: false,
+  },
+});
+
+function onEditorContextMenu(e: MouseEvent) {
+  e.preventDefault();
+  selectionBubbleState.value.visible = false;
+
+  let hasSelection = false;
+  let selectedText = '';
+  let isTable = false;
+  let tableInfo: EditorContextInfo['tableInfo'] = undefined;
+  let linkInfo: EditorContextInfo['linkInfo'] = undefined;
+  let imageInfo: EditorContextInfo['imageInfo'] = undefined;
+  let mathInfo: EditorContextInfo['mathInfo'] = undefined;
+  let isCodeBlock = false;
+  let codeText: string | undefined = undefined;
+
+  if (!usePlainWindowsEditor && view) {
+    const sel = view.state.selection.main;
+    const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+
+    // If pos is clicked and outside current selection, move caret there
+    if (pos !== null) {
+      if (sel.empty || pos < sel.from || pos > sel.to) {
+        view.dispatch({ selection: { anchor: pos } });
+      }
+    }
+
+    const curSel = view.state.selection.main;
+    hasSelection = !curSel.empty;
+    selectedText = hasSelection ? view.state.sliceDoc(curSel.from, curSel.to) : '';
+    const caret = curSel.head;
+    const docText = view.state.doc.toString();
+
+    // 1. Table
+    const tbl = findTableAtCursor(docText, caret);
+    if (tbl) {
+      isTable = true;
+      tableInfo = {
+        canDeleteRow: tbl.rowIndex >= 0,
+        canDeleteCol: tbl.model.header.length > 1,
+        align: tbl.model.aligns[tbl.caretCol] ?? null,
+      };
+    }
+
+    // 2. Math
+    const math = findMathSpanAt(docText, caret);
+    if (math) {
+      mathInfo = { latex: math.body, display: math.display };
+    }
+
+    // 3. Code block
+    const line = view.state.doc.lineAt(caret);
+    let fenceCount = 0;
+    let fenceStartLine = 1;
+    for (let l = 1; l <= line.number; l++) {
+      const lt = view.state.doc.line(l).text.trim();
+      if (lt.startsWith('```') || lt.startsWith('~~~')) {
+        fenceCount++;
+        if (fenceCount % 2 === 1) fenceStartLine = l;
+      }
+    }
+    if (fenceCount % 2 === 1) {
+      isCodeBlock = true;
+      let fenceEndLine = view.state.doc.lines;
+      for (let l = line.number + 1; l <= view.state.doc.lines; l++) {
+        const lt = view.state.doc.line(l).text.trim();
+        if (lt.startsWith('```') || lt.startsWith('~~~')) {
+          fenceEndLine = l;
+          break;
+        }
+      }
+      if (fenceEndLine > fenceStartLine) {
+        const blockFrom = view.state.doc.line(fenceStartLine).to + 1;
+        const blockTo = view.state.doc.line(fenceEndLine).from;
+        if (blockTo >= blockFrom) {
+          codeText = view.state.sliceDoc(blockFrom, blockTo).trim();
+        }
+      }
+    }
+
+    // 4. Link & Image detection around caret
+    const lineText = line.text;
+    const col = caret - line.from;
+    const imgRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = imgRe.exec(lineText)) !== null) {
+      if (col >= m.index && col <= m.index + m[0].length) {
+        imageInfo = { alt: m[1], src: m[2] };
+        break;
+      }
+    }
+    if (!imageInfo) {
+      const linkRe = /(?<!!)\[([^\]]+)\]\(([^)]+)\)/g;
+      while ((m = linkRe.exec(lineText)) !== null) {
+        if (col >= m.index && col <= m.index + m[0].length) {
+          linkInfo = { text: m[1], url: m[2] };
+          break;
+        }
+      }
+    }
+  } else if (usePlainWindowsEditor) {
+    const docText = plainText.value || '';
+    const sel = plainAbsoluteSelection();
+    hasSelection = sel ? sel.from !== sel.to : false;
+    selectedText = hasSelection ? (plainSelectionText() || '') : '';
+    const caret = plainCaretOffset();
+
+    // Table
+    const tbl = findTableAtCursor(docText, caret);
+    if (tbl) {
+      isTable = true;
+      tableInfo = {
+        canDeleteRow: tbl.rowIndex >= 0,
+        canDeleteCol: tbl.model.header.length > 1,
+        align: tbl.model.aligns[tbl.caretCol] ?? null,
+      };
+    }
+
+    // Math
+    const math = findMathSpanAt(docText, caret);
+    if (math) {
+      mathInfo = { latex: math.body, display: math.display };
+    }
+
+    // Code block
+    const lines = docText.slice(0, caret).split('\n');
+    let fenceCount = 0;
+    for (const l of lines) {
+      const trimmed = l.trim();
+      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) fenceCount++;
+    }
+    if (fenceCount % 2 === 1) {
+      isCodeBlock = true;
+    }
+  }
+
+  editorContextMenuState.value = {
+    visible: true,
+    x: e.clientX,
+    y: e.clientY,
+    info: {
+      hasSelection,
+      selectedText,
+      isTable,
+      tableInfo,
+      linkInfo,
+      imageInfo,
+      mathInfo,
+      isCodeBlock,
+      codeText,
+    },
+  };
+}
+
+async function onEditorContextMenuAction(action: string, payload?: any) {
+  const info = editorContextMenuState.value.info;
+
+  switch (action) {
+    case 'cut': {
+      if (info.selectedText) {
+        try {
+          await navigator.clipboard.writeText(info.selectedText);
+        } catch {}
+        if (!usePlainWindowsEditor && view) {
+          const sel = view.state.selection.main;
+          view.dispatch({ changes: { from: sel.from, to: sel.to, insert: '' } });
+          view.focus();
+        } else {
+          plainInsertText('');
+        }
+      }
+      break;
+    }
+    case 'copy': {
+      if (info.selectedText) {
+        try {
+          await navigator.clipboard.writeText(info.selectedText);
+        } catch {}
+      }
+      break;
+    }
+    case 'copyAsMarkdown': {
+      if (info.selectedText) {
+        try {
+          await navigator.clipboard.writeText(info.selectedText);
+        } catch {}
+      }
+      break;
+    }
+    case 'copyAsPlainText': {
+      if (info.selectedText) {
+        try {
+          await navigator.clipboard.writeText(stripMarkdownFormatting(info.selectedText));
+        } catch {}
+      }
+      break;
+    }
+    case 'copyAsHtml': {
+      if (info.selectedText) {
+        try {
+          const plain = stripMarkdownFormatting(info.selectedText);
+          const blobHtml = new Blob([`<p>${info.selectedText.replace(/\n/g, '<br/>')}</p>`], { type: 'text/html' });
+          const blobText = new Blob([plain], { type: 'text/plain' });
+          await navigator.clipboard.write([new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })]);
+        } catch {
+          await navigator.clipboard.writeText(info.selectedText);
+        }
+      }
+      break;
+    }
+    case 'paste':
+    case 'pasteAsPlainText': {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          insertMarkdown(text);
+        }
+      } catch (err) {
+        console.warn('[Editor] clipboard paste error:', err);
+      }
+      break;
+    }
+    case 'selectAll': {
+      if (!usePlainWindowsEditor && view) {
+        view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+        view.focus();
+      } else if (plainEditor.value) {
+        plainEditor.value.select();
+      }
+      break;
+    }
+    case 'tableAction': {
+      if (payload === 'openTableEditor') {
+        openTableAtCursor();
+      } else {
+        onInPlaceTableAction(payload);
+      }
+      break;
+    }
+    case 'linkAction': {
+      if (payload === 'openLink' && info.linkInfo?.url) {
+        try {
+          window.open(info.linkInfo.url, '_blank');
+        } catch {}
+      } else if (payload === 'copyLinkAddress' && info.linkInfo?.url) {
+        await navigator.clipboard.writeText(info.linkInfo.url);
+        toasts.success(t('editorCtx.copyLinkAddress') || '已复制链接地址');
+      } else if (payload === 'editLink') {
+        applyFormat('link');
+      }
+      break;
+    }
+    case 'imageAction': {
+      if (payload === 'copyImagePath' && info.imageInfo?.src) {
+        await navigator.clipboard.writeText(info.imageInfo.src);
+        toasts.success(t('editorCtx.copyImagePath') || '已复制图片路径');
+      }
+      break;
+    }
+    case 'mathAction': {
+      if (payload === 'copyLatex' && info.mathInfo?.latex) {
+        await navigator.clipboard.writeText(info.mathInfo.latex);
+        toasts.success(t('editorCtx.copyLatex') || '已复制 LaTeX 源码');
+      } else if (payload === 'editFormula') {
+        openFormulaAtCursor();
+      }
+      break;
+    }
+    case 'codeAction': {
+      if (payload === 'copyCode' && info.codeText) {
+        await navigator.clipboard.writeText(info.codeText);
+        toasts.success(t('editorCtx.copyCodeContent') || '已复制代码块内容');
+      }
+      break;
+    }
+    case 'aiAction': {
+      onBubbleAiAction(payload);
+      break;
+    }
+    case 'caseAction': {
+      if (info.selectedText) {
+        const mode = payload === 'uppercase' ? 'upper' : payload === 'lowercase' ? 'lower' : 'title';
+        const transformed = transformCase(info.selectedText, mode);
+        if (!usePlainWindowsEditor && view) {
+          const sel = view.state.selection.main;
+          view.dispatch({
+            changes: { from: sel.from, to: sel.to, insert: transformed },
+            selection: { anchor: sel.from, head: sel.from + transformed.length },
+          });
+          view.focus();
+        } else {
+          plainInsertText(transformed);
+        }
+      }
+      break;
+    }
+    case 'insertAction': {
+      if (payload === 'hr') {
+        insertMarkdown('\n---\n');
+      } else {
+        applyFormat(payload);
+      }
+      break;
+    }
+    case 'formatAction': {
+      applyFormat(payload);
+      break;
+    }
+    case 'paragraphAction': {
+      applyFormat(payload);
+      break;
+    }
+  }
 }
 
 // ── In-Place Floating Overlays (Table & Formula) ───────────────────────────
@@ -3476,8 +3813,13 @@ function onGlobalPointerUp() {
 }
 
 function onGlobalKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && selectionBubbleState.value.visible) {
-    selectionBubbleState.value.visible = false;
+  if (e.key === 'Escape') {
+    if (editorContextMenuState.value.visible) {
+      editorContextMenuState.value.visible = false;
+    }
+    if (selectionBubbleState.value.visible) {
+      selectionBubbleState.value.visible = false;
+    }
   }
 }
 
@@ -3799,7 +4141,7 @@ watch(
 // bundle (live-edit decorations are MUCH more aggressive than the
 // livePreview fallback, so we need a real reconfigure).
 watch(
-  () => settings.viewMode,
+  () => [settings.viewMode, settings.livePreview],
   () => {
     view?.dispatch({ effects: richCompartment.reconfigure(richExtensionsFor(props.tab)) });
     syncPlainEditorAfterModeSwitch();
@@ -4240,8 +4582,8 @@ const cls = computed(() => ({
 </script>
 
 <template>
-  <div v-if="!usePlainWindowsEditor" :class="cls" ref="host"></div>
-  <div v-else class="plain-host">
+  <div v-if="!usePlainWindowsEditor" :class="cls" ref="host" @contextmenu="onEditorContextMenu"></div>
+  <div v-else class="plain-host" @contextmenu="onEditorContextMenu">
     <div
       v-if="plainLiveEnabled"
       ref="plainLiveHost"
@@ -4426,6 +4768,16 @@ const cls = computed(() => ({
     @action="onBubbleAction"
     @ai-action="onBubbleAiAction"
     @close="selectionBubbleState.visible = false"
+  />
+
+  <!-- Typora Parity Right-Click Context Menu -->
+  <EditorContextMenu
+    :visible="editorContextMenuState.visible"
+    :x="editorContextMenuState.x"
+    :y="editorContextMenuState.y"
+    :context-info="editorContextMenuState.info"
+    @action="onEditorContextMenuAction"
+    @close="editorContextMenuState.visible = false"
   />
 </template>
 

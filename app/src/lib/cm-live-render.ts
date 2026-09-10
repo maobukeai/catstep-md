@@ -316,8 +316,10 @@ export function caretTouchesInline(
   lineTo?: number,
 ): boolean {
   if (selFrom !== selTo) {
-    // Non-empty selection: touches if it overlaps with the inline container
-    return selFrom < cTo && selTo > cFrom;
+    // Non-empty selection: only expand if the selection is strictly localized inside this container.
+    // If the selection spans beyond this container (multi-word, multi-line, or Ctrl+A), keep it formatted!
+    if (selFrom < cFrom || selTo > cTo) return false;
+    return true;
   }
   // Collapsed cursor: strictly inside the container
   if (selFrom > cFrom && selFrom < cTo) return true;
@@ -359,6 +361,7 @@ function buildDecorations(view: EditorView): DecorationSet {
   const sel = view.state.selection.main;
   const fromLine = view.state.doc.lineAt(sel.from).number;
   const toLine = view.state.doc.lineAt(sel.to).number;
+  const isMultiLineSelection = !sel.empty && fromLine !== toLine;
   const tree = syntaxTree(view.state);
 
   // We collect into a flat list of `Range<Decoration>` and then call
@@ -387,7 +390,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         const lineEndAtNode = view.state.doc.lineAt(
           Math.min(nTo, view.state.doc.length),
         ).number;
-        const caretTouchesLine = lineEndAtNode >= fromLine && lineAtNode <= toLine;
+        const caretTouchesLine = !isMultiLineSelection && (lineEndAtNode >= fromLine && lineAtNode <= toLine);
         const caretTouches = caretTouchesLine;
 
         // ---- Marker hiding (inline-specific off-caret, block-specific off-line) ----

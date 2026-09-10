@@ -973,6 +973,7 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
         const sel = state.selection.main;
         const cursorLine = state.doc.lineAt(sel.from).number;
         const cursorLineEnd = state.doc.lineAt(sel.to).number;
+        const isMultiLineSelection = !sel.empty && cursorLine !== cursorLineEnd;
 
         // Single pass over the whole doc — for each line, decide:
         //   * is it a standalone image line we should replace? (1 line)
@@ -999,8 +1000,9 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
           if (htmlEndIndex !== null) {
             const endI = htmlEndIndex + 1;
             const cursorInside =
-              (cursorLine >= i && cursorLine <= endI) ||
-              (cursorLineEnd >= i && cursorLineEnd <= endI);
+              !isMultiLineSelection &&
+              ((cursorLine >= i && cursorLine <= endI) ||
+              (cursorLineEnd >= i && cursorLineEnd <= endI));
             if (!cursorInside) {
               const blockFrom = line.from;
               const blockTo = doc.line(endI).to;
@@ -1025,7 +1027,7 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
           // Image line.
           const imgMatch = IMAGE_LINE_RE.exec(line.text);
           if (imgMatch) {
-            const cursorInside = i >= cursorLine && i <= cursorLineEnd;
+            const cursorInside = !isMultiLineSelection && (i >= cursorLine && i <= cursorLineEnd);
             if (!cursorInside) {
               const alt = imgMatch[1];
               const rawSrc = imgMatch[2];
@@ -1054,7 +1056,7 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
           if (trimmedLine.startsWith('$$')) {
             // Single-line `$$ ... $$`?
             if (trimmedLine.endsWith('$$') && trimmedLine.length > 4) {
-              const cursorInside = cursorLine === i || cursorLineEnd === i;
+              const cursorInside = !isMultiLineSelection && (cursorLine === i || cursorLineEnd === i);
               if (!cursorInside) {
                 builder.add(
                   line.from,
@@ -1076,8 +1078,8 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
               endI += 1;
             }
             if (endI <= lastLine) {
-              const cursorInside = cursorLine >= i && cursorLine <= endI;
-              const cursorInsideEnd = cursorLineEnd >= i && cursorLineEnd <= endI;
+              const cursorInside = !isMultiLineSelection && (cursorLine >= i && cursorLine <= endI);
+              const cursorInsideEnd = !isMultiLineSelection && (cursorLineEnd >= i && cursorLineEnd <= endI);
               if (!cursorInside && !cursorInsideEnd) {
                 const blockFrom = doc.line(i).from;
                 const blockTo = doc.line(endI).to;
@@ -1154,8 +1156,8 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
               endI += 1;
             }
             if (endI <= lastLine) {
-              const cursorInside = cursorLine >= i && cursorLine <= endI;
-              const cursorInsideEnd = cursorLineEnd >= i && cursorLineEnd <= endI;
+              const cursorInside = !isMultiLineSelection && (cursorLine >= i && cursorLine <= endI);
+              const cursorInsideEnd = !isMultiLineSelection && (cursorLineEnd >= i && cursorLineEnd <= endI);
               if (!cursorInside && !cursorInsideEnd) {
                 // Body is between the opening and closing fence.
                 let body = '';
@@ -1194,8 +1196,8 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
               endI += 1;
             }
             if (endI <= lastLine) {
-              const cursorInside = cursorLine >= i && cursorLine <= endI;
-              const cursorInsideEnd = cursorLineEnd >= i && cursorLineEnd <= endI;
+              const cursorInside = !isMultiLineSelection && (cursorLine >= i && cursorLine <= endI);
+              const cursorInsideEnd = !isMultiLineSelection && (cursorLineEnd >= i && cursorLineEnd <= endI);
               if (!cursorInside && !cursorInsideEnd) {
                 let body = '';
                 for (let k = i + 1; k < endI; k++) {
