@@ -998,19 +998,23 @@ function maybeTypewriterScroll() {
   });
 }
 
-function plainSetCaret(pos: number) {
+function plainSetCaret(pos: number, endPos?: number) {
   if (plainLiveEnabled.value) {
     const blocks = plainBlocks.value;
     const found = blocks.findIndex((block) => pos >= block.start && pos <= block.end);
     const index = found < 0 ? 0 : found;
-    activatePlainBlock(index, Math.max(0, pos - (blocks[index]?.start ?? 0)));
+    const blockStart = blocks[index]?.start ?? 0;
+    const relStart = Math.max(0, pos - blockStart);
+    const relEnd = endPos != null ? Math.max(relStart, endPos - blockStart) : relStart;
+    activatePlainBlock(index, relStart, relEnd);
     return;
   }
   const el = plainEditor.value;
   if (!el) return;
   const safe = Math.max(0, Math.min(pos, el.value.length));
+  const safeEnd = endPos != null ? Math.max(safe, Math.min(endPos, el.value.length)) : safe;
   el.focus();
-  el.setSelectionRange(safe, safe);
+  el.setSelectionRange(safe, safeEnd);
   emitPlainCursorAndSelection();
 }
 
@@ -2054,7 +2058,7 @@ function togglePlainTask(index: number, ordinal: number) {
   tabs.setContent(props.tab.id, next);
 }
 
-function activatePlainBlock(index: number, caret?: number) {
+function activatePlainBlock(index: number, caret?: number, selectionEnd?: number) {
   plainActiveBlock.value = Math.max(0, Math.min(index, plainBlocks.value.length - 1));
   nextTick(() => {
     const el = plainBlockEditors.value[plainActiveBlock.value];
@@ -2062,7 +2066,8 @@ function activatePlainBlock(index: number, caret?: number) {
     el.focus();
     if (caret != null) {
       const pos = Math.max(0, Math.min(caret, el.value.length));
-      el.setSelectionRange(pos, pos);
+      const end = selectionEnd != null ? Math.max(pos, Math.min(selectionEnd, el.value.length)) : pos;
+      el.setSelectionRange(pos, end);
     }
     autoSizePlainBlock(el);
     emitPlainCursorAndSelection();
@@ -4393,20 +4398,39 @@ watch(
   },
 );
 
-function gotoLine(line: number) {
+function gotoLine(line: number, from?: number, to?: number) {
   if (usePlainWindowsEditor) {
     if (plainLiveEnabled.value) {
-      plainSetCaret(plainLineStartOffset(line));
-      plainScrollToLine(line);
+      if (from != null) {
+        plainSetCaret(from, to);
+      } else {
+        plainSetCaret(plainLineStartOffset(line));
+        plainScrollToLine(line);
+      }
       return;
     }
     const el = plainEditor.value;
     if (!el) return;
-    plainSetCaret(plainLineStartOffset(line));
-    plainScrollToLine(line);
+    if (from != null) {
+      plainSetCaret(from, to);
+    } else {
+      plainSetCaret(plainLineStartOffset(line));
+      plainScrollToLine(line);
+    }
     return;
   }
   if (!view) return;
+  if (from != null) {
+    const docLen = view.state.doc.length;
+    const safeFrom = Math.max(0, Math.min(from, docLen));
+    const safeTo = to != null ? Math.max(safeFrom, Math.min(to, docLen)) : safeFrom;
+    view.dispatch({
+      selection: { anchor: safeFrom, head: safeTo },
+      effects: EditorView.scrollIntoView(safeFrom, { y: 'center', yMargin: 60 }),
+    });
+    view.focus();
+    return;
+  }
   const safe = Math.max(1, Math.min(line, view.state.doc.lines));
   const lineObj = view.state.doc.line(safe);
   view.dispatch({

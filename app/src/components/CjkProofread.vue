@@ -254,13 +254,72 @@ function contextOf(issue: Issue): { before: string; hit: string; after: string }
   return { before: cleanBefore, hit, after: cleanAfter };
 }
 
+function getIssueCharRange(issue: Issue, content: string): { from: number; to: number } {
+  if (!content) return { from: 0, to: 0 };
+
+  // 1. Primary: Decode exact Rust UTF-8 byte offsets (disambiguates multiple occurrences)
+  try {
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    const bytes = enc.encode(content);
+    if (issue.col_start <= bytes.length && issue.col_end <= bytes.length) {
+      const charFrom = dec.decode(bytes.slice(0, issue.col_start)).length;
+      const charTo = dec.decode(bytes.slice(0, issue.col_end)).length;
+      if (content.slice(charFrom, charTo) === issue.original) {
+        return { from: charFrom, to: charTo };
+      }
+    }
+  } catch {}
+
+  // 2. Secondary: Line-scoped search on issue.line
+  const lines = content.split('\n');
+  const lineIdx = Math.max(0, Math.min(issue.line - 1, lines.length - 1));
+  let lineStart = 0;
+  for (let i = 0; i < lineIdx; i++) {
+    lineStart += lines[i].length + 1;
+  }
+  const currentLine = lines[lineIdx] || '';
+  if (issue.original) {
+    const inLine = currentLine.indexOf(issue.original);
+    if (inLine >= 0) {
+      const from = lineStart + inLine;
+      return { from, to: from + issue.original.length };
+    }
+  }
+
+  // 3. Nearby window search (±300 chars)
+  if (issue.original) {
+    const winStart = Math.max(0, lineStart - 300);
+    const winEnd = Math.min(content.length, lineStart + currentLine.length + 300);
+    const inWin = content.slice(winStart, winEnd).indexOf(issue.original);
+    if (inWin >= 0) {
+      const from = winStart + inWin;
+      return { from, to: from + issue.original.length };
+    }
+
+    // 4. Global search
+    const globalIdx = content.indexOf(issue.original);
+    if (globalIdx >= 0) {
+      return { from: globalIdx, to: globalIdx + issue.original.length };
+    }
+  }
+
+  return { from: lineStart, to: lineStart };
+}
+
 function jumpTo(issue: Issue, idx: number) {
   selectedIdx.value = idx;
-  // Reuse the outline-goto event (PaneContent listens for it). Pass
-  // focused paneId or let PaneContent target current pane.
+  const content = tabs.activeTab?.content ?? '';
+  const { from, to } = getIssueCharRange(issue, content);
+
   window.dispatchEvent(
     new CustomEvent('solomd:outline-goto', {
-      detail: { line: issue.line, paneId: tiles.focusedPaneId || undefined },
+      detail: {
+        line: issue.line,
+        from,
+        to,
+        paneId: tiles.focusedPaneId || undefined,
+      },
     }),
   );
 }
