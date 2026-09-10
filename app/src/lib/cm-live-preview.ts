@@ -206,7 +206,7 @@ const liveTheme = EditorView.theme({
   // the inline style; 45% alpha keeps glyphs readable underneath.
   '.cm-selectionLayer': { zIndex: '2 !important' },
   '.cm-selectionBackground': {
-    backgroundColor: 'rgba(255,159,64,0.45) !important',
+    backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
   },
 });
 

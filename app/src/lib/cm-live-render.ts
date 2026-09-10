@@ -854,7 +854,7 @@ const liveEditTheme = EditorView.theme({
   // this one, which is the WYSIWYG "live edit" the reporters actually use.)
   '.cm-selectionLayer': { zIndex: '2 !important' },
   '.cm-selectionBackground': {
-    backgroundColor: 'rgba(255,159,64,0.45) !important',
+    backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
   },
 });
 

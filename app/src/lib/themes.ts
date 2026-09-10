@@ -13,7 +13,7 @@ function mkTheme(
 ): Extension {
   const theme = EditorView.theme(
     {
-      '&': { backgroundColor: bg, color: fg },
+      '&': { backgroundColor: bg, color: fg, '--selection-bg': selection },
       '.cm-content': { caretColor: cursor },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: cursor },
       '.cm-selectionBackground, ::selection': { backgroundColor: `${selection} !important` },

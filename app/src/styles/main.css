@@ -164,6 +164,7 @@
   --text-faint: #616e88;
   --accent: #88c0d0;
   --accent-fg: #2e3440;
+  --selection-bg: rgba(136, 192, 208, 0.25);
   --md-h1: #eceff4; --md-h2: #e5e9f0; --md-h3: #d8dee9;
   --md-h4: #c8ced8; --md-h5: #a8b0c0; --md-h6: #8890a0;
   --md-strong: #eceff4; --md-em: #d8dee9; --md-link: #88c0d0;
@@ -186,6 +187,7 @@
   --text-faint: #93a1a1;
   --accent: #268bd2;
   --accent-fg: #fdf6e3;
+  --selection-bg: rgba(38, 139, 210, 0.18);
   --md-h1: #073642; --md-h2: #586e75; --md-h3: #657b83;
   --md-h4: #839496; --md-h5: #93a1a1; --md-h6: #93a1a1;
   --md-strong: #073642; --md-em: #586e75; --md-link: #268bd2;
@@ -209,6 +211,7 @@
   --text-faint: #586e75;
   --accent: #268bd2;
   --accent-fg: #fdf6e3;
+  --selection-bg: rgba(38, 139, 210, 0.25);
   --md-h1: #93a1a1; --md-h2: #839496; --md-h3: #657b83;
   --md-h4: #586e75; --md-h5: #586e75; --md-h6: #586e75;
   --md-strong: #93a1a1; --md-em: #839496; --md-link: #268bd2;
@@ -232,6 +235,7 @@
   --text-faint: #75715e;
   --accent: #f92672;
   --accent-fg: #ffffff;
+  --selection-bg: rgba(249, 38, 114, 0.22);
   --md-h1: #f8f8f2; --md-h2: #f8f8f2; --md-h3: #e8e8d2;
   --md-h4: #a6a68a; --md-h5: #a6a68a; --md-h6: #75715e;
   --md-strong: #f8f8f2; --md-em: #e6db74; --md-link: #66d9ef;
@@ -254,6 +258,7 @@
   --text-faint: #8b949e;
   --accent: #0366d6;
   --accent-fg: #ffffff;
+  --selection-bg: rgba(3, 102, 214, 0.15);
   --md-h1: #24292e; --md-h2: #24292e; --md-h3: #586069;
   --md-h4: #6a737d; --md-h5: #8b949e; --md-h6: #8b949e;
   --md-strong: #24292e; --md-em: #24292e; --md-link: #0366d6;
@@ -277,6 +282,7 @@
   --text-faint: #6272a4;
   --accent: #bd93f9;
   --accent-fg: #282a36;
+  --selection-bg: rgba(189, 147, 249, 0.22);
   --md-h1: #f8f8f2; --md-h2: #f8f8f2; --md-h3: #bfbfdc;
   --md-h4: #bfbfdc; --md-h5: #6272a4; --md-h6: #6272a4;
   --md-strong: #f8f8f2; --md-em: #f1fa8c; --md-link: #8be9fd;
@@ -300,6 +306,7 @@
   --text-faint: #999990;
   --accent: #9a4d2c;
   --accent-fg: #ffffff;
+  --selection-bg: rgba(180, 160, 120, 0.25);
   --content-font-family: "Source Han Serif SC", "Source Han Serif", "Noto Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", "Lora", serif;
   --md-h1: #1a1a1a; --md-h2: #242424; --md-h3: #333333;
   --md-h4: #444444; --md-h5: #555555; --md-h6: #666660;
@@ -324,6 +331,7 @@
   --text-faint: #5c6370;
   --accent: #528bff;
   --accent-fg: #1e1e1e;
+  --selection-bg: rgba(97, 175, 239, 0.25);
   --md-h1: #ffffff; --md-h2: #f0f0f0; --md-h3: #e0e0e0;
   --md-h4: #cccccc; --md-h5: #aaaaaa; --md-h6: #888888;
   --md-strong: #ffffff; --md-em: #abb2bf; --md-link: #61afef;

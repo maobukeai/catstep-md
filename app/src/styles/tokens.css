@@ -64,6 +64,9 @@
   --success: #38a169;
   --warning: #d4a017;
 
+  /* Selection highlight — comfortable Typora/macOS soft translucent blue by default */
+  --selection-bg: rgba(56, 139, 253, 0.24);
+
   /* Warm-neutral surfaces (plan §2.4) — DEFAULT / light.
    * Only :root and :root[data-theme="dark"] adopt these; the named themes
    * keep their own palettes via later overrides in main.css. */
@@ -77,6 +80,7 @@
 :root[data-theme="dark"] {
   --accent: #ffa54d;
   --accent-fg: #1a1a1a;
+  --selection-bg: rgba(56, 139, 253, 0.35);
 
   /* Warm-neutral dark surfaces (plan §2.4) — warm black, not pure #000 */
   --bg: #1f1e1b;
@@ -84,4 +88,8 @@
   --border: #34322d;
   --text: #e6e1d8;
   --text-muted: #b8b1a6;
+}
+
+::selection {
+  background: var(--selection-bg, rgba(56, 139, 253, 0.24));
 }
