@@ -17,7 +17,7 @@ import { useTabsStore } from '../stores/tabs';
 import { useTilesStore } from '../stores/tiles';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
-import { useAgentPanelStore } from '../stores/agentPanel';
+import { useAgentPanelStore, type AgentReference } from '../stores/agentPanel';
 import { providerById, type ProviderId } from '../lib/ai-providers';
 import { renderMarkdown } from '../lib/markdown';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -50,6 +50,20 @@ const stepElapsedMs = ref(0);
 let stepTimer: ReturnType<typeof setInterval> | null = null;
 const messagesRef = ref<HTMLUListElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
+
+// --- Stage 1: Mentions, Selection, Images, History Search, Ollama ---
+const activeReferences = ref<AgentReference[]>([]);
+const activeImages = ref<string[]>([]);
+const showMentionMenu = ref(false);
+const mentionQuery = ref('');
+const mentionIndex = ref(0);
+const historySearchQuery = ref('');
+const editingSessionId = ref<string | null>(null);
+const editingSessionTitle = ref('');
+const activeSelectionText = ref('');
+const isSelectionDismissed = ref(false);
+const ollamaStatus = ref<{ online: boolean; models: string[] }>({ online: false, models: [] });
+let ollamaTimer: ReturnType<typeof setInterval> | null = null;
 
 watch(
   () => agent.isStreaming,
@@ -151,6 +165,210 @@ function retryLastPrompt() {
 function onWindowClick() {
   if (showHistoryDropdown.value) {
     showHistoryDropdown.value = false;
+  }
+  if (showMentionMenu.value) {
+    showMentionMenu.value = false;
+  }
+}
+
+// Check selection in active editor
+function checkSelection() {
+  const sel = window.getSelection()?.toString().trim() || '';
+  if (sel && sel !== activeSelectionText.value) {
+    activeSelectionText.value = sel;
+    isSelectionDismissed.value = false;
+  }
+}
+
+// Ollama background detector
+async function checkOllama() {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1200);
+    const res = await fetch('http://127.0.0.1:11434/api/tags', { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      const names = Array.isArray(data.models) ? data.models.map((m: any) => m.name || m.model || '') : [];
+      ollamaStatus.value = { online: true, models: names.filter(Boolean) };
+      return;
+    }
+  } catch {
+    /* offline */
+  }
+  ollamaStatus.value = { online: false, models: [] };
+}
+
+// Filtered notes for @ mention
+const filteredMentions = computed(() => {
+  const q = mentionQuery.value.toLowerCase().trim();
+  const entries = workspaceIndex.entries || [];
+  if (!q) {
+    return entries.slice(0, 15);
+  }
+  return entries
+    .filter((e) => {
+      const nameMatch = e.name.toLowerCase().includes(q);
+      const pathMatch = e.path.toLowerCase().includes(q);
+      const stemMatch = e.stem.toLowerCase().includes(q);
+      const tagMatch = e.tags && e.tags.some((t) => t.toLowerCase().includes(q));
+      const titleMatch = e.title && e.title.toLowerCase().includes(q);
+      return nameMatch || pathMatch || stemMatch || tagMatch || titleMatch;
+    })
+    .slice(0, 15);
+});
+
+function toggleMentionMenu() {
+  showMentionMenu.value = !showMentionMenu.value;
+  if (showMentionMenu.value) {
+    mentionQuery.value = '';
+    mentionIndex.value = 0;
+  }
+}
+
+function selectMention(entry: { name: string; path: string; summary?: string }) {
+  if (!activeReferences.value.some((r) => r.path === entry.path)) {
+    activeReferences.value.push({
+      type: 'note',
+      name: entry.name,
+      path: entry.path,
+      preview: entry.summary || '',
+    });
+  }
+  // Clean up the `@query` from draft if typed
+  const textarea = inputRef.value;
+  if (textarea) {
+    const val = draft.value;
+    const cursor = textarea.selectionStart || 0;
+    const textBefore = val.slice(0, cursor);
+    const lastAt = textBefore.lastIndexOf('@');
+    if (lastAt !== -1) {
+      const before = val.slice(0, lastAt);
+      const after = val.slice(cursor);
+      draft.value = (before + after).trimStart();
+      nextTick(() => {
+        textarea.selectionStart = before.length;
+        textarea.selectionEnd = before.length;
+        textarea.focus();
+      });
+    }
+  }
+  showMentionMenu.value = false;
+  mentionQuery.value = '';
+}
+
+function removeReference(path?: string) {
+  activeReferences.value = activeReferences.value.filter((r) => r.path !== path);
+}
+
+function onDraftInput() {
+  const textarea = inputRef.value;
+  if (!textarea) return;
+  const val = draft.value;
+  const cursor = textarea.selectionStart || 0;
+  const textBefore = val.slice(0, cursor);
+  const lastAt = textBefore.lastIndexOf('@');
+  if (lastAt !== -1) {
+    const query = textBefore.slice(lastAt + 1);
+    if (!/\s/.test(query) && query.length <= 30) {
+      mentionQuery.value = query;
+      showMentionMenu.value = true;
+      mentionIndex.value = 0;
+      return;
+    }
+  }
+  showMentionMenu.value = false;
+}
+
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        e.preventDefault();
+        const reader = new FileReader();
+        reader.onload = (loadEvt) => {
+          const dataUrl = loadEvt.target?.result as string;
+          if (dataUrl) {
+            activeImages.value.push(dataUrl);
+            toasts.success('已识别并粘贴剪贴板截图');
+          }
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  }
+}
+
+function removeImage(idx: number) {
+  activeImages.value.splice(idx, 1);
+}
+
+// History Search & Rename
+const filteredSessions = computed(() => {
+  const q = historySearchQuery.value.toLowerCase().trim();
+  if (!q) return agent.sessions;
+  return agent.sessions.filter((s) => {
+    if (s.title && s.title.toLowerCase().includes(q)) return true;
+    return s.messages.some((m) => m.content && m.content.toLowerCase().includes(q));
+  });
+});
+
+function startSessionRename(s: any) {
+  editingSessionId.value = s.id;
+  editingSessionTitle.value = s.title || '新会话';
+}
+
+function saveSessionRename(id: string) {
+  if (editingSessionTitle.value.trim()) {
+    agent.renameSession(id, editingSessionTitle.value.trim());
+  }
+  editingSessionId.value = null;
+}
+
+// Open a referenced note in editor
+function openReferencedNote(relPath?: string) {
+  if (!relPath || !workspace.currentFolder) return;
+  const full = `${workspace.currentFolder}/${relPath}`;
+  void files.openPath(full);
+}
+
+// Save Assistant reply as a new note (F15)
+async function saveAssistantAsNote(content: string) {
+  if (!content) return;
+  if (!workspace.currentFolder) {
+    toasts.warning('请先打开一个工作区文件夹');
+    return;
+  }
+  try {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
+
+    const firstLine = content.split('\n')[0].replace(/^[#\s*`]+/, '').trim();
+    const safeTitle = (firstLine.slice(0, 24).replace(/[\\/:*?"<>|]/g, '') || '智能体沉淀').trim();
+    const fileName = `Agent-${safeTitle}-${dateStr}_${timeStr}.md`;
+    const fullPath = `${workspace.currentFolder}/${fileName}`;
+
+    const frontmatter = `---\ntitle: "${safeTitle}"\ndate: "${now.toISOString()}"\ntags:\n  - agent\n  - ai-archive\n---\n\n`;
+    const finalContent = frontmatter + content;
+
+    await invoke('write_file', {
+      path: fullPath,
+      content: finalContent,
+      encoding: 'UTF-8',
+      workspace: workspace.currentFolder,
+    });
+
+    toasts.success(t('agent.msgSavedAsNote'));
+    await files.openPath(fullPath);
+  } catch (err) {
+    toasts.error(`沉淀笔记失败: ${err}`);
   }
 }
 
@@ -367,11 +585,22 @@ async function send() {
   lastPrompt.value = prompt;
   resetThinkingState();
 
+  const refsToSend = [...activeReferences.value];
+  const imagesToSend = [...activeImages.value];
+
   // Push user message + empty assistant placeholder. Chunks stream into the
   // placeholder via the `solomd://ai-chunk` listener below.
-  agent.addMessage({ role: 'user', content: prompt });
+  agent.addMessage({
+    role: 'user',
+    content: prompt,
+    references: refsToSend.length > 0 ? refsToSend : undefined,
+    images: imagesToSend.length > 0 ? imagesToSend : undefined,
+  });
   agent.addMessage({ role: 'assistant', content: '' });
   draft.value = '';
+  activeReferences.value = [];
+  activeImages.value = [];
+  showMentionMenu.value = false;
   autoscroll();
 
   const cfg = providerById(settings.aiProvider as ProviderId);
@@ -393,6 +622,33 @@ async function send() {
   }
   if (ctx) systemParts.push(ctx);
   if (noteCtx) systemParts.push(noteCtx);
+
+  // Stage 1: Explicitly referenced notes
+  if (refsToSend.length > 0) {
+    const refTexts: string[] = [];
+    for (const refItem of refsToSend) {
+      if (refItem.path) {
+        try {
+          const fullPath = workspace.currentFolder ? `${workspace.currentFolder}/${refItem.path}` : refItem.path;
+          const readRes = await invoke<{ content: string }>('read_file', { path: fullPath });
+          const snippet = readRes.content.length > 8192 ? readRes.content.slice(0, 8192) + '\n…(截断)' : readRes.content;
+          refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n\`\`\`markdown\n${snippet}\n\`\`\``);
+        } catch (e) {
+          refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n(读取失败: ${e})`);
+        }
+      }
+    }
+    if (refTexts.length > 0) {
+      systemParts.push(`【用户通过 @ 语法显式引用的参考笔记】\n以下是用户明确指定的背景参考笔记内容，请重点基于这些内容进行分析解答：\n\n${refTexts.join('\n\n')}`);
+    }
+  }
+
+  // Stage 1: Explicit selection context
+  if (activeSelectionText.value && !isSelectionDismissed.value && !includeActiveNote.value) {
+    const truncatedSel = activeSelectionText.value.length > 8192 ? activeSelectionText.value.slice(0, 8192) + '\n…(截断)' : activeSelectionText.value;
+    systemParts.push(`【用户当前划选的高亮文本片段】\n\`\`\`markdown\n${truncatedSel}\n\`\`\``);
+  }
+
   const messages = [
     { role: 'system', content: systemParts.join('\n\n') },
     ...history,
@@ -461,6 +717,48 @@ function onKeydown(e: KeyboardEvent) {
   // a composition-Enter as "send" — the message would fly out before
   // the candidate is even inserted into the textarea.
   if (e.isComposing || e.keyCode === 229) return;
+
+  // Handle @ mention popover keyboard navigation
+  if (showMentionMenu.value && filteredMentions.value.length > 0) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      mentionIndex.value = (mentionIndex.value + 1) % filteredMentions.value.length;
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      mentionIndex.value = (mentionIndex.value - 1 + filteredMentions.value.length) % filteredMentions.value.length;
+      return;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const target = filteredMentions.value[mentionIndex.value];
+      if (target) {
+        selectMention(target);
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      showMentionMenu.value = false;
+      return;
+    }
+  }
+
+  // History recall with ArrowUp when draft is empty
+  if (e.key === 'ArrowUp' && !draft.value && lastPrompt.value) {
+    e.preventDefault();
+    draft.value = lastPrompt.value;
+    return;
+  }
+
+  // Escape to stop streaming
+  if (e.key === 'Escape' && agent.isStreaming) {
+    e.preventDefault();
+    void stop();
+    return;
+  }
+
   // Enter sends; Shift+Enter inserts newline. Cmd/Ctrl+Enter also sends
   // (mirrors the AI rewrite overlay convention) for single-key power users.
   if (e.key === 'Enter') {
@@ -639,7 +937,10 @@ onMounted(async () => {
   cleanupListeners();
   if (typeof window !== 'undefined') {
     window.addEventListener('click', onWindowClick);
+    document.addEventListener('selectionchange', checkSelection);
   }
+  void checkOllama();
+  ollamaTimer = setInterval(checkOllama, 30_000);
 
   const unlistens: UnlistenFn[] = [];
   window.__solomd_agent_cleanup = () => {
@@ -855,6 +1156,11 @@ onBeforeUnmount(() => {
   cleanupListeners();
   if (typeof window !== 'undefined') {
     window.removeEventListener('click', onWindowClick);
+    document.removeEventListener('selectionchange', checkSelection);
+  }
+  if (ollamaTimer) {
+    clearInterval(ollamaTimer);
+    ollamaTimer = null;
   }
 });
 
@@ -1031,7 +1337,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           <!-- History Dropdown Menu -->
           <div v-if="showHistoryDropdown" class="agent-panel__history-dropdown" @click.stop>
             <div class="agent-panel__history-head">
-              <span>历史对话 ({{ agent.sessions.length }})</span>
+              <div class="agent-panel__history-head-title">
+                <span>历史对话 ({{ agent.sessions.length }})</span>
+              </div>
               <button
                 class="agent-panel__history-new-btn"
                 type="button"
@@ -1040,29 +1348,76 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 + 新建
               </button>
             </div>
+
+            <!-- Search input for history -->
+            <div class="agent-panel__history-search-wrap">
+              <input
+                v-model="historySearchQuery"
+                type="text"
+                class="agent-panel__history-search"
+                :placeholder="t('agent.historySearchPlaceholder')"
+                @click.stop
+              />
+              <span
+                v-if="historySearchQuery"
+                class="agent-panel__history-search-clear"
+                @click.stop="historySearchQuery = ''"
+              >✕</span>
+            </div>
+
             <div class="agent-panel__history-list">
               <div
-                v-for="s in agent.sessions"
+                v-for="s in filteredSessions"
                 :key="s.id"
                 class="agent-panel__history-item"
                 :class="{ 'is-active': s.id === agent.currentSessionId }"
                 @click="agent.switchSession(s.id); showHistoryDropdown = false"
               >
                 <div class="agent-panel__history-item-main">
-                  <div class="agent-panel__history-item-title">{{ s.title || '新会话' }}</div>
-                  <div class="agent-panel__history-item-meta">
-                    <span>{{ formatSessionTime(s.updatedAt) }}</span>
-                    <span>· {{ s.messages.length }} 条消息</span>
-                  </div>
+                  <template v-if="editingSessionId === s.id">
+                    <input
+                      v-model="editingSessionTitle"
+                      class="agent-panel__history-rename-input"
+                      type="text"
+                      @click.stop
+                      @keydown.enter.stop="saveSessionRename(s.id)"
+                      @keydown.esc.stop="editingSessionId = null"
+                    />
+                    <div class="agent-panel__history-rename-actions" @click.stop>
+                      <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">✓</button>
+                      <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">✕</button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="agent-panel__history-item-title">{{ s.title || '新会话' }}</div>
+                    <div class="agent-panel__history-item-meta">
+                      <span>{{ formatSessionTime(s.updatedAt) }}</span>
+                      <span>· {{ s.messages.length }} 条消息</span>
+                    </div>
+                  </template>
                 </div>
-                <button
-                  class="agent-panel__history-item-del"
-                  type="button"
-                  title="删除此会话"
-                  @click.stop="agent.deleteSession(s.id)"
-                >
-                  ✕
-                </button>
+
+                <div v-if="editingSessionId !== s.id" class="agent-panel__history-item-ops" @click.stop>
+                  <button
+                    class="agent-panel__history-item-btn"
+                    type="button"
+                    title="重命名会话"
+                    @click="startSessionRename(s)"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    class="agent-panel__history-item-btn agent-panel__history-item-btn--del"
+                    type="button"
+                    title="删除此会话"
+                    @click="agent.deleteSession(s.id)"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <div v-if="filteredSessions.length === 0" class="agent-panel__history-empty">
+                未找到匹配的会话
               </div>
             </div>
           </div>
@@ -1269,6 +1624,31 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <template v-if="block.msg.role === 'user'">
               <div class="agent-panel__user-msg-row">
                 <div class="agent-panel__user-bubble">
+                  <!-- Referenced Notes Chips (Click to open) -->
+                  <div v-if="block.msg.references && block.msg.references.length" class="agent-panel__msg-refs">
+                    <button
+                      v-for="r in block.msg.references"
+                      :key="r.path"
+                      class="agent-panel__msg-ref-pill"
+                      type="button"
+                      :title="`在编辑器中打开 ${r.name}`"
+                      @click="openReferencedNote(r.path)"
+                    >
+                      📄 {{ r.name }}
+                    </button>
+                  </div>
+
+                  <!-- Attached Images -->
+                  <div v-if="block.msg.images && block.msg.images.length" class="agent-panel__msg-images">
+                    <img
+                      v-for="(img, imgIdx) in block.msg.images"
+                      :key="imgIdx"
+                      :src="img"
+                      class="agent-panel__msg-img"
+                      alt="attachment"
+                    />
+                  </div>
+
                   <div class="agent-panel__user-text">{{ block.msg.content }}</div>
                 </div>
               </div>
@@ -1367,6 +1747,19 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       </svg>
                       <span>{{ t('agent.msgInsert') }}</span>
                     </button>
+                    <button
+                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--save"
+                      type="button"
+                      :title="t('agent.msgSaveAsNoteTitle')"
+                      @click="saveAssistantAsNote(block.msg.content)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3" />
+                        <polyline points="5 7 8 10 11 7" />
+                        <line x1="8" y1="1" x2="8" y2="10" />
+                      </svg>
+                      <span>{{ t('agent.msgSaveAsNote') }}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1442,12 +1835,86 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       </div>
 
       <footer class="agent-panel__compose">
+        <!-- @ Mention Popover -->
+        <div
+          v-if="showMentionMenu && filteredMentions.length > 0"
+          class="agent-panel__mention-popover"
+          @click.stop
+        >
+          <div class="agent-panel__mention-head">
+            <span>引用知识库资源 ({{ filteredMentions.length }})</span>
+            <span class="agent-panel__mention-hint">↑↓ 选择 · ↵ / Tab 确认 · Esc 关闭</span>
+          </div>
+          <div class="agent-panel__mention-list">
+            <button
+              v-for="(item, idx) in filteredMentions"
+              :key="item.path"
+              type="button"
+              class="agent-panel__mention-item"
+              :class="{ 'is-selected': idx === mentionIndex }"
+              @mouseenter="mentionIndex = idx"
+              @click="selectMention(item)"
+            >
+              <span class="agent-panel__mention-icon">📄</span>
+              <div class="agent-panel__mention-info">
+                <span class="agent-panel__mention-name">{{ item.name }}</span>
+                <span class="agent-panel__mention-path">{{ item.path }}</span>
+              </div>
+              <span v-if="item.tags && item.tags.length" class="agent-panel__mention-tag">
+                #{{ item.tags[0] }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Context References Bar (Badges) -->
+        <div
+          v-if="activeReferences.length > 0 || (activeSelectionText && !isSelectionDismissed) || activeImages.length > 0"
+          class="agent-panel__ref-bar"
+        >
+          <!-- Referenced Notes -->
+          <span
+            v-for="r in activeReferences"
+            :key="r.path"
+            class="agent-panel__ref-badge"
+            :title="r.path"
+          >
+            <span class="agent-panel__ref-badge-icon">📄</span>
+            <span class="agent-panel__ref-badge-name">{{ r.name }}</span>
+            <button class="agent-panel__ref-badge-del" type="button" @click="removeReference(r.path)">×</button>
+          </span>
+
+          <!-- Active Selection -->
+          <span
+            v-if="activeSelectionText && !isSelectionDismissed"
+            class="agent-panel__ref-badge agent-panel__ref-badge--selection"
+            :title="activeSelectionText"
+          >
+            <span class="agent-panel__ref-badge-icon">📌</span>
+            <span class="agent-panel__ref-badge-name">{{ t('agent.refSelection') }} ({{ activeSelectionText.length }}字)</span>
+            <button class="agent-panel__ref-badge-del" type="button" @click="isSelectionDismissed = true">×</button>
+          </span>
+
+          <!-- Pasted Image Thumbnails -->
+          <div
+            v-for="(img, imgIdx) in activeImages"
+            :key="imgIdx"
+            class="agent-panel__ref-badge agent-panel__ref-badge--img"
+          >
+            <img :src="img" class="agent-panel__ref-thumb" alt="screenshot" />
+            <span class="agent-panel__ref-badge-name">截图 {{ imgIdx + 1 }}</span>
+            <button class="agent-panel__ref-badge-del" type="button" @click="removeImage(imgIdx)">×</button>
+          </div>
+        </div>
+
         <textarea
           ref="inputRef"
           v-model="draft"
           class="agent-panel__input"
           :placeholder="t('agent.placeholder')"
           rows="2"
+          @input="onDraftInput"
+          @paste="onPaste"
           @keydown="onKeydown"
         ></textarea>
         <div class="agent-panel__compose-foot">
@@ -1469,6 +1936,26 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             >
               📖 只读
             </button>
+          </div>
+
+          <!-- @ Mention Button -->
+          <button
+            type="button"
+            class="agent-panel__mention-btn"
+            :title="t('agent.mentionTooltip')"
+            @click.stop="toggleMentionMenu"
+          >
+            @ 引用
+          </button>
+
+          <!-- Ollama local status pill -->
+          <div
+            v-if="ollamaStatus.online"
+            class="agent-panel__ollama-pill"
+            :title="`本地 Ollama 正在运行，检测到 ${ollamaStatus.models.length} 个本地模型`"
+          >
+            <span class="agent-panel__ollama-dot" />
+            <span>Ollama ({{ ollamaStatus.models.length }})</span>
           </div>
 
           <span class="agent-panel__compose-hint">
@@ -1679,6 +2166,100 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__history-item-del:hover {
   color: #dc2626;
   background: rgba(220, 38, 38, 0.1);
+}
+.agent-panel__history-head-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.agent-panel__history-search-wrap {
+  position: relative;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.agent-panel__history-search {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text);
+  box-sizing: border-box;
+  outline: none;
+}
+.agent-panel__history-search:focus {
+  border-color: var(--accent, #ff9f40);
+}
+.agent-panel__history-search-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.agent-panel__history-item-ops {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.agent-panel__history-item:hover .agent-panel__history-item-ops {
+  opacity: 1;
+}
+.agent-panel__history-item-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.agent-panel__history-item-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.agent-panel__history-item-btn--del:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+.agent-panel__history-rename-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--accent, #ff9f40);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text);
+  outline: none;
+}
+.agent-panel__history-rename-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+.agent-panel__history-action-btn {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.agent-panel__history-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 .agent-panel__chip {
   display: inline-flex;
@@ -1992,6 +2573,50 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-color: #10b981;
   background: rgba(16, 185, 129, 0.08);
 }
+.agent-panel__msg-action-btn--save:hover:not(:disabled) {
+  border-color: #10b981;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+.agent-panel__msg-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.agent-panel__msg-ref-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  font-size: 10.5px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1.5px 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.agent-panel__msg-ref-pill:hover {
+  color: var(--accent, #ff9f40);
+  border-color: var(--accent, #ff9f40);
+  background: var(--bg);
+}
+.agent-panel__msg-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.agent-panel__msg-img {
+  max-width: 140px;
+  max-height: 100px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+  background: var(--bg);
+}
 
 /* --- Welcome & Suggestions --------------------------------------------- */
 .agent-panel__welcome {
@@ -2064,11 +2689,198 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
 /* --- Compose Area ------------------------------------------------------ */
 .agent-panel__compose {
+  position: relative;
   margin-top: auto;
   border-top: 1px solid var(--border);
   background: var(--bg-soft);
   padding: 8px 10px;
 }
+
+/* --- @ Mention Popover ------------------------------------------------- */
+.agent-panel__mention-popover {
+  position: absolute;
+  bottom: 100%;
+  left: 10px;
+  right: 10px;
+  margin-bottom: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-height: 250px;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow: hidden;
+}
+.agent-panel__mention-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.agent-panel__mention-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+.agent-panel__mention-list {
+  overflow-y: auto;
+  max-height: 200px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-panel__mention-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+  font: inherit;
+  width: 100%;
+}
+.agent-panel__mention-item:hover,
+.agent-panel__mention-item.is-selected {
+  background: var(--bg-hover);
+}
+.agent-panel__mention-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.agent-panel__mention-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.agent-panel__mention-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-panel__mention-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-panel__mention-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent, #ff9f40) 14%, transparent);
+  color: var(--accent, #ff9f40);
+  flex-shrink: 0;
+}
+
+/* --- Context Reference Badges Bar -------------------------------------- */
+.agent-panel__ref-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.agent-panel__ref-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--text);
+  max-width: 190px;
+}
+.agent-panel__ref-badge--selection {
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent, #ff9f40) 10%, var(--bg));
+  color: var(--accent, #ff9f40);
+}
+.agent-panel__ref-badge--img {
+  padding: 2px 5px;
+}
+.agent-panel__ref-thumb {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.agent-panel__ref-badge-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.agent-panel__ref-badge-del {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+.agent-panel__ref-badge-del:hover {
+  color: #dc2626;
+}
+
+/* --- Mention Button & Ollama Pill -------------------------------------- */
+.agent-panel__mention-btn {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.12s ease;
+}
+.agent-panel__mention-btn:hover {
+  color: var(--text);
+  border-color: var(--accent, #ff9f40);
+}
+.agent-panel__ollama-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 5px;
+  padding: 2px 6px;
+  cursor: default;
+}
+.agent-panel__ollama-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
 .agent-panel__input {
   width: 100%;
   background: var(--bg);
