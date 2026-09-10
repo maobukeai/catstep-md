@@ -157,6 +157,7 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'tile.splitDown', label: 'Split Pane Down', category: 'navigate', defaults: ['Mod+Shift+Backslash'] },
   { id: 'tile.focusNext', label: 'Focus Next Pane', category: 'navigate', defaults: ['Mod+Alt+ArrowRight'] },
   { id: 'tile.focusPrev', label: 'Focus Previous Pane', category: 'navigate', defaults: ['Mod+Alt+ArrowLeft'] },
+  { id: 'tile.closePane', label: 'Close Current Pane', category: 'navigate', defaults: ['Mod+Alt+W'] },
 
   // ---- Tools ----
   { id: 'settings.open', label: 'Settings', category: 'tools', defaults: ['Mod+Comma'] },

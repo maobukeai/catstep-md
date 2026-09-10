@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTabsStore } from '../stores/tabs';
 import { useTilesStore } from '../stores/tiles';
@@ -21,7 +21,24 @@ const workspace = useWorkspaceStore();
 const files = useFiles();
 const { t } = useI18n();
 
+function formatTabName(name: string): string {
+  if (!name) return '';
+  // Cleanly strip markdown extension for modern uncluttered tab title
+  return name.replace(/\.(md|markdown|mdx)$/i, '');
+}
+
 const tabsEl = ref<HTMLElement | null>(null);
+
+// Scroll shadow indicators
+const canScrollLeft = ref(false);
+const canScrollRight = ref(false);
+
+function updateScrollIndicators() {
+  const el = tabsEl.value;
+  if (!el) return;
+  canScrollLeft.value = el.scrollLeft > 4;
+  canScrollRight.value = el.scrollLeft + el.clientWidth < el.scrollWidth - 4;
+}
 
 // When the active tab changes (e.g., opening a new file that creates a tab
 // off-screen in a crowded tabbar), scroll it into view so the user sees
@@ -33,6 +50,15 @@ watch(
     await nextTick();
     const el = tabsEl.value?.querySelector<HTMLElement>(`[data-tab-id="${id}"]`);
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    updateScrollIndicators();
+  },
+);
+
+watch(
+  () => tabs.tabs.length,
+  async () => {
+    await nextTick();
+    updateScrollIndicators();
   },
 );
 
@@ -41,7 +67,11 @@ const ctxMenu = ref<{ x: number; y: number; tabId: string } | null>(null);
 
 function onContextMenu(e: MouseEvent, tabId: string) {
   e.preventDefault();
-  ctxMenu.value = { x: e.clientX, y: e.clientY, tabId };
+  const menuWidth = 180;
+  const menuHeight = 340;
+  const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+  const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+  ctxMenu.value = { x, y, tabId };
 }
 
 function closeCtxMenu() {
@@ -304,30 +334,55 @@ onBeforeUnmount(() => {
         :key="t.id"
         :data-tab-id="t.id"
         class="tab"
-        :class="{ 'tab--active': t.id === activeTabId, 'tab--dragging': tiles.dragTabId === t.id }"
+        :class="{
+          'tab--active': t.id === activeTabId,
+          'tab--dirty': tabs.isDirty(t.id),
+          'tab--dragging': tiles.dragTabId === t.id,
+        }"
         @click="onTabClick(t.id)"
         @pointerdown="onTabPointerDown($event, t.id)"
         @mousedown.middle="onMiddlePointerDown($event, t.id)"
         @contextmenu="onContextMenu($event, t.id)"
         :title="t.filePath || t.fileName"
       >
-        <span class="tab__name">{{ t.fileName }}</span>
-        <button
-          v-if="t.language === 'markdown'"
-          class="tab__outline"
-          :class="{ 'tab__outline--active': t.showOutline }"
-          :title="t.showOutline ? 'Hide outline' : 'Show outline'"
-          @click.stop="tabs.toggleOutline(t.id)"
-        >≡</button>
-        <span class="tab__dot" v-if="tabs.isDirty(t.id)">●</span>
-        <button
-          class="tab__close"
-          @click.stop="files.closeTabSafe(t.id)"
-          aria-label="Close tab"
-        >×</button>
+        <span class="tab__name">{{ formatTabName(t.fileName) }}</span>
+        
+        <div class="tab__action">
+          <span v-if="tabs.isDirty(t.id)" class="tab__dirty-dot" aria-hidden="true" />
+          <button
+            class="tab__close-btn"
+            @click.stop="files.closeTabSafe(t.id)"
+            :title="(settings.language?.startsWith('zh') ? '关闭标签页' : 'Close tab') + ' (Ctrl+W)'"
+            aria-label="Close tab"
+          >
+            <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
-    <button class="tabbar__new" @click="files.newFile" title="New tab (Ctrl+N)">+</button>
+    <button
+      class="tabbar__new"
+      @click="files.newFile"
+      :title="(settings.language?.startsWith('zh') ? '新建标签页' : 'New tab') + ' (Ctrl+N)'"
+      aria-label="New tab"
+    >
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M8 3.5v9M3.5 8h9" />
+      </svg>
+    </button>
+    <button
+      v-if="tiles.allLeaves.length > 1"
+      class="tabbar__close-pane"
+      @click="closePane"
+      :title="(settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane') + ' (Ctrl+Alt+W)'"
+      aria-label="Close Pane"
+    >
+      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+      </svg>
+    </button>
 
     <!-- Context menu -->
     <Teleport to="body">
@@ -349,10 +404,10 @@ onBeforeUnmount(() => {
         <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFolder')">{{ t('tabMenu.revealInFolder') }}</button>
         <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFileTree')">{{ t('tabMenu.revealInFileTree') }}</button>
         <div class="ctx-sep" />
-        <button class="ctx-item" @click="splitPane('horizontal')">Split Right</button>
-        <button class="ctx-item" @click="splitPane('vertical')">Split Down</button>
+        <button class="ctx-item" @click="splitPane('horizontal')">{{ settings.language?.startsWith('zh') ? '向右拆分分栏' : 'Split Right' }}</button>
+        <button class="ctx-item" @click="splitPane('vertical')">{{ settings.language?.startsWith('zh') ? '向下拆分分栏' : 'Split Down' }}</button>
         <div class="ctx-sep" v-if="tiles.allLeaves.length > 1" />
-        <button class="ctx-item" v-if="tiles.allLeaves.length > 1" @click="closePane">Close Pane</button>
+        <button class="ctx-item" v-if="tiles.allLeaves.length > 1" @click="closePane">{{ settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane' }}</button>
       </div>
     </Teleport>
   </div>
@@ -361,22 +416,27 @@ onBeforeUnmount(() => {
 <style scoped>
 .pane-tabbar {
   display: flex;
-  align-items: stretch;
-  height: var(--tabbar-h);
+  align-items: center;
+  height: var(--tabbar-h, 34px);
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
   user-select: none;
   overflow: hidden;
   flex-shrink: 0;
+  padding: 0 4px;
 }
 .tabs {
   display: flex;
+  align-items: center;
   flex: 1;
+  height: 100%;
+  gap: 2px;
   overflow-x: auto;
   scrollbar-width: none;
   /* Momentum + horizontal touch panning for the overflowing strip on iOS. */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
+  padding: 3px 0;
 }
 .tabs::-webkit-scrollbar { display: none; }
 
@@ -384,94 +444,168 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  max-width: 200px;
-  padding: 0 10px 0 14px;
-  border-right: 1px solid var(--border);
+  max-width: 190px;
+  min-width: 76px;
+  height: 26px;
+  padding: 0 6px 0 12px;
+  border-radius: 6px;
+  border: none;
   cursor: pointer;
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
   position: relative;
-  /* Pointer-based drag (#86): block vertical pan / pinch-zoom during a drag,
-     but ALLOW horizontal panning. Tabs fill the whole strip, so a touch always
-     lands on a `.tab`; `touch-action: none` here meant a finger swipe could
-     never scroll an overflowing tab bar on iOS/iPad — the bar was stuck (the
-     user's #139 follow-up). `pan-x` lets the finger scroll the strip while a
-     mouse drag (unaffected by touch-action) still reorders on desktop. */
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   touch-action: pan-x;
 }
+
+/* Subtle vertical separator line between consecutive inactive tabs */
+.tab:not(.tab--active) + .tab:not(.tab--active)::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 12px;
+  background: var(--border);
+  opacity: 0.6;
+}
+
 .tab:hover {
   background: var(--bg-hover);
+  color: var(--text);
 }
+
 .tab--dragging {
-  opacity: 0.5;
+  opacity: 0.4;
+  transform: scale(0.98);
 }
+
 .tab--active {
   background: var(--bg);
   color: var(--text);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
-.tab--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 2px;
-  background: var(--accent);
+
+:root[data-theme='dark'] .tab--active {
+  background: var(--bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
+
 .tab__name {
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  letter-spacing: 0.01em;
 }
-.tab__dot {
-  color: var(--accent);
-  font-size: 10px;
+
+/* Action area: houses the dirty dot & close button with smooth hover morphing */
+.tab__action {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 2px;
 }
-.tab__outline {
-  font-size: 14px;
-  font-weight: 700;
+
+.tab__dirty-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+}
+
+.tab__close-btn {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
   color: var(--text-faint);
-  padding: 1px 4px;
-  line-height: 1;
-  border-radius: 3px;
-  opacity: 0;
-  transition: opacity 0.12s, color 0.12s, background 0.12s;
-}
-.tab:hover .tab__outline,
-.tab--active .tab__outline {
-  opacity: 1;
-}
-.tab__outline--active {
-  opacity: 1 !important;
-  color: var(--accent);
-  background: var(--bg-active);
-}
-.tab__outline:hover {
-  color: var(--accent);
-  background: var(--bg-hover);
-}
-.tab__close {
-  padding: 0 4px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--text-faint);
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.tab:hover .tab__close,
-.tab--active .tab__close {
-  opacity: 1;
-}
-.tab__close:hover {
-  color: var(--text);
-  background: var(--bg-active);
-}
-.tabbar__new {
-  width: 32px;
+  cursor: pointer;
   padding: 0;
-  font-size: 16px;
-  color: var(--text-muted);
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
+
+/* Active tab or hovered tab shows close button */
+.tab:hover .tab__close-btn,
+.tab--active .tab__close-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* When dirty, hide the dot when the tab is hovered so close button takes over */
+.tab:hover .tab__dirty-dot {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+/* When dirty and not hovered, keep close button invisible so dot displays */
+.tab--dirty:not(:hover) .tab__close-btn {
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none;
+}
+
+.tab__close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tabbar__new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin: 0 2px 0 4px;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tabbar__new:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tabbar__close-pane {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin: 0 4px 0 2px;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.tabbar__close-pane:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
 .ctx-menu {
   position: fixed;
   z-index: var(--z-pop);
