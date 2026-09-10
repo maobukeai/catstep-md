@@ -152,7 +152,7 @@ export async function markdownToImageBlob(
   if (opts.branding) {
     const footer = document.createElement('div');
     footer.className = 'img-footer';
-    footer.innerHTML = `Created with <span class="brand">SoloMD</span> · solomd.app`;
+    footer.innerHTML = `Created with <span class="brand">猫步 MD</span> · Catstep MD`;
     page.appendChild(footer);
   }
 

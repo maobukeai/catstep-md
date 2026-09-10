@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
-title SoloMD Launcher
+title Catstep MD Launcher
 
 where powershell >nul 2>&1
 if %ERRORLEVEL% equ 0 (

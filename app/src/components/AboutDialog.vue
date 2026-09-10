@@ -18,13 +18,10 @@ onMounted(async () => {
 });
 
 const links = {
-  website: 'https://solomd.app',
-  github: 'https://github.com/zhitongblog/solomd',
-  // Update/version-history surfaces point at solomd.app, not GitHub: the
-  // site serves mainland users (Cloudflare edge + Gitee mirror links) where
-  // github.com often doesn't resolve. Same policy as the update toast (#154).
-  releases: 'https://solomd.app/whats-new',
-  sponsor: 'https://solomd.app/#sponsor',
+  website: 'https://github.com/maobukeai/catstep-md',
+  github: 'https://github.com/maobukeai/catstep-md',
+  releases: 'https://github.com/maobukeai/catstep-md/releases',
+  sponsor: 'https://github.com/sponsors/maobukeai',
 };
 
 // NOTE: this function intentionally is NOT named `open` because that
@@ -71,35 +68,35 @@ async function visit(url: string) {
         <button class="about__link" @click="visit(links.website)">
           <span class="about__link-icon">🌐</span>
           <div>
-            <div class="about__link-title">Website / 官网</div>
-            <div class="about__link-url">solomd.app</div>
+            <div class="about__link-title">Website / 项目主页</div>
+            <div class="about__link-url">github.com/maobukeai/catstep-md</div>
           </div>
         </button>
         <button class="about__link" @click="visit(links.github)">
           <span class="about__link-icon">⭐</span>
           <div>
-            <div class="about__link-title">GitHub</div>
-            <div class="about__link-url">zhitongblog/solomd</div>
+            <div class="about__link-title">GitHub 开源仓库</div>
+            <div class="about__link-url">maobukeai/catstep-md</div>
           </div>
         </button>
         <button class="about__link" @click="visit(links.releases)">
           <span class="about__link-icon">📦</span>
           <div>
-            <div class="about__link-title">What's New / 更新日志</div>
-            <div class="about__link-url">solomd.app/whats-new</div>
+            <div class="about__link-title">What's New / 发行日志</div>
+            <div class="about__link-url">github.com/maobukeai/catstep-md/releases</div>
           </div>
         </button>
         <button class="about__link" @click="visit(links.sponsor)">
           <span class="about__link-icon">❤️</span>
           <div>
-            <div class="about__link-title">Sponsor / 赞助</div>
-            <div class="about__link-url">GitHub · Alipay · WeChat</div>
+            <div class="about__link-title">Sponsor / 赞助支持</div>
+            <div class="about__link-url">GitHub Sponsors · maobukeai</div>
           </div>
         </button>
       </div>
 
       <div class="about__footer">
-        © 2026 xiangdong li · MIT License<br />
+        © 2026 maobukeai · MIT License<br />
         Tauri 2 · Vue 3 · CodeMirror 6 · Rust
       </div>
     </div>

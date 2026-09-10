@@ -1,12 +1,10 @@
-# SoloMD
+# 猫步 MD (Catstep MD)
 
-> 让 Agent 住进来的编辑器。
+> 步履轻盈，文思泉涌。让 Agent 住进来的 Typora 风格轻量 Markdown 编辑器。
 
-[![最新版本](https://img.shields.io/github/v/release/zhitongblog/solomd)](https://github.com/zhitongblog/solomd/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/zhitongblog/solomd?color=orange)](LICENSE)
-[![下载量](https://img.shields.io/github/downloads/zhitongblog/solomd/total)](https://github.com/zhitongblog/solomd/releases)
-[![官网](https://img.shields.io/badge/官网-solomd.app-ff9f40.svg)](https://solomd.app/zh)
-[![Gitee 镜像](https://img.shields.io/badge/镜像-gitee.com%2Fzhitong45%2Fsolomd-c71d23.svg)](https://gitee.com/zhitong45/solomd)
+[![最新版本](https://img.shields.io/github/v/release/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/maobukeai/catstep-md?color=orange)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)
 
 🌐 **[English](README.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
 
@@ -171,8 +169,8 @@ E2EE 同步用 Argon2id(RFC9106 默认参数)→ XChaCha20-Poly1305,确定性 no
 依赖:Rust(stable)、Node 18+、pnpm。
 
 ```bash
-git clone https://github.com/zhitongblog/solomd.git
-cd solomd/app
+git clone https://github.com/maobukeai/catstep-md.git
+cd catstep-md/app
 pnpm install
 pnpm tauri dev      # 热重载开发
 pnpm tauri build    # 打 release 包 → src-tauri/target/release/bundle/
@@ -199,6 +197,6 @@ MCP server 是独立 crate,在 `mcp-server/` 目录;端到端测试用的 dev MC
 
 ## License & 致谢
 
-[MIT](LICENSE) © 2026 xiangdong li。SoloMD 站在 Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs` 和 `rmcp` 的肩膀上。赞助:[GitHub Sponsors](https://github.com/sponsors/zhitongblog) 或 [solomd.app/#sponsor](https://solomd.app/#sponsor)。
+[MIT](LICENSE) © 2026 maobukeai / xiangdong li。猫步 MD (Catstep MD) 站在 Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs` 和 `rmcp` 的肩膀上。开源仓库：[GitHub](https://github.com/maobukeai/catstep-md)。
 </content>
 </invoke>

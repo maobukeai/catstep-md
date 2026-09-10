@@ -19,7 +19,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
  */
 
 const STATS_URL = 'https://solomd.app/api/stats';
-const GITHUB_FALLBACK_URL = 'https://api.github.com/repos/zhitongblog/solomd/releases/latest';
+const GITHUB_FALLBACK_URL = 'https://api.github.com/repos/maobukeai/catstep-md/releases/latest';
 
 export interface UpdateResult {
   current: string;
@@ -49,7 +49,7 @@ const MAS_BUILD = import.meta.env.VITE_MAS_BUILD === '1';
 
 export const isMasBuild = (): boolean => MAS_BUILD;
 
-const RELEASES_PAGE = 'https://github.com/zhitongblog/solomd/releases';
+const RELEASES_PAGE = 'https://github.com/maobukeai/catstep-md/releases';
 
 async function fetchFromStatsProxy(): Promise<{ tag: string; url: string } | null> {
   try {

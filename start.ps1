@@ -1,11 +1,11 @@
-﻿# SoloMD PowerShell 一键启动器
+# 猫步 MD (Catstep MD) PowerShell 一键启动器
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
-$host.UI.RawUI.WindowTitle = 'SoloMD 启动器'
+$host.UI.RawUI.WindowTitle = '猫步 MD 启动器'
 
 Write-Host ""
 Write-Host "=======================================================" -ForegroundColor Cyan
-Write-Host "          SoloMD (Typora 极简风格版) 一键启动器" -ForegroundColor Yellow
+Write-Host "       猫步 MD (Catstep MD - Typora 极简风格版) 一键启动器" -ForegroundColor Yellow
 Write-Host "=======================================================" -ForegroundColor Cyan
 Write-Host ""
 

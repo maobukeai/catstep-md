@@ -27,7 +27,7 @@ const workspace = useWorkspaceStore();
 
 // One-liner the user pastes in their terminal. Mirrors scripts/install-cli.sh.
 const CLI_INSTALL_CMD =
-  'curl -fsSL https://raw.githubusercontent.com/zhitongblog/solomd/main/scripts/install-cli.sh | bash';
+  'curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash';
 
 const settings = useSettingsStore();
 // Locale-aware so a Chinese-language SoloMD links to the Chinese docs.

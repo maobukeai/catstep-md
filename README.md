@@ -1,11 +1,10 @@
-# SoloMD
+# 猫步 MD (Catstep MD)
 
-> The editor where agents live.
+> Silent steps. Fluid thoughts. The lightweight Typora-grade Markdown editor where agents live.
 
-[![Latest release](https://img.shields.io/github/v/release/zhitongblog/solomd)](https://github.com/zhitongblog/solomd/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/zhitongblog/solomd?color=orange)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/zhitongblog/solomd/total)](https://github.com/zhitongblog/solomd/releases)
-[![Website](https://img.shields.io/badge/website-solomd.app-ff9f40.svg)](https://solomd.app)
+[![Latest release](https://img.shields.io/github/v/release/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/maobukeai/catstep-md?color=orange)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)
 
 🌐 **[中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)** · 🪞 **[Gitee mirror →](https://gitee.com/zhitong45/solomd)** (faster downloads from China)
 
@@ -206,8 +205,8 @@ Full writeup: <https://solomd.app/security>.
 Prereqs: Rust (stable), Node 18+, pnpm.
 
 ```bash
-git clone https://github.com/zhitongblog/solomd.git
-cd solomd/app
+git clone https://github.com/maobukeai/catstep-md.git
+cd catstep-md/app
 pnpm install
 pnpm tauri dev      # dev with hot reload
 pnpm tauri build    # release artifacts → src-tauri/target/release/bundle/
@@ -234,4 +233,4 @@ One maintainer, two front doors. Async on [GitHub Discussions](https://github.co
 
 ## License & credits
 
-[MIT](LICENSE) © 2026 xiangdong li. SoloMD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Sponsor on [GitHub Sponsors](https://github.com/sponsors/zhitongblog) or via [solomd.app/#sponsor](https://solomd.app/#sponsor).
+[MIT](LICENSE) © 2026 maobukeai / xiangdong li. Catstep MD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Repository: [GitHub](https://github.com/maobukeai/catstep-md).

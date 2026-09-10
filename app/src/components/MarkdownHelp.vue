@@ -1550,7 +1550,7 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
 
           <section class="cli-section">
             <h3 class="cli-section__title">快速安装 / Install</h3>
-            <pre class="cli-code" @click="copyExample('curl -fsSL https://raw.githubusercontent.com/zhitongblog/solomd/main/scripts/install-cli.sh | bash')" title="点击复制命令">curl -fsSL https://raw.githubusercontent.com/zhitongblog/solomd/main/scripts/install-cli.sh | bash</pre>
+            <pre class="cli-code" @click="copyExample('curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash')" title="点击复制命令">curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash</pre>
             <p class="cli-hint">
               安装完成后即可在系统任意终端执行 <code>solomd help</code> 验证。
             </p>

@@ -515,16 +515,16 @@ fn build_app_menu<R: tauri::Runtime>(
     #[cfg(target_os = "macos")]
     {
         let app_about_meta = AboutMetadata {
-            name: Some("SoloMD".into()),
+            name: Some("猫步 MD (Catstep MD)".into()),
             version: Some(env!("CARGO_PKG_VERSION").into()),
-            credits: Some("Made by 智通 / xiangdong li".into()),
-            authors: Some(vec!["xiangdong li".into()]),
-            comments: Some("Lightweight, cross-platform Markdown editor.".into()),
-            website: Some("https://solomd.app".into()),
-            website_label: Some("solomd.app".into()),
+            credits: Some("Made by maobukeai".into()),
+            authors: Some(vec!["maobukeai".into()]),
+            comments: Some("Silent steps. Fluid thoughts. Just write. 用猫步，写好每一篇 Markdown。".into()),
+            website: Some("https://github.com/maobukeai/catstep-md".into()),
+            website_label: Some("github.com/maobukeai/catstep-md".into()),
             ..Default::default()
         };
-        let app_submenu = SubmenuBuilder::new(app, "SoloMD")
+        let app_submenu = SubmenuBuilder::new(app, "猫步 MD")
             .about(Some(app_about_meta))
             .separator()
             .item(&settings_item)
