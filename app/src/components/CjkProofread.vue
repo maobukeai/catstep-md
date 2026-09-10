@@ -61,12 +61,14 @@ const { t, lang } = useI18n();
 const issues = ref<Issue[]>([]);
 const loading = ref(false);
 const selectedIdx = ref(-1);
+const activeFilter = ref<'all' | 'high' | 'medium' | 'low'>('all');
 
 watch(
   () => props.open,
   async (v) => {
     if (v) {
       await nextTick();
+      activeFilter.value = 'all';
       await rescan();
       track('cjk_proofread_opened');
     }
@@ -126,43 +128,59 @@ const grouped = computed(() => {
   return { high, medium, low };
 });
 
+const activeBuckets = computed(() => {
+  const order = ['high', 'medium', 'low'] as const;
+  if (activeFilter.value === 'all') {
+    return order.filter((b) => grouped.value[b].length > 0);
+  }
+  return [activeFilter.value].filter((b) => grouped.value[b].length > 0);
+});
+
 function categoryLabel(cat: Issue['category']): string {
   switch (cat) {
     case 'punct_halfwidth':
-      return t('proofread.categoryPunct');
+      return t('proofread.categoryPunct') || '半角标点';
     case 'de_misuse':
-      return t('proofread.categoryDe');
+      return t('proofread.categoryDe') || '的/地/得混淆';
     case 'latin_quotes':
-      return t('proofread.categoryQuotes');
+      return t('proofread.categoryQuotes') || '英文引号包裹中文';
     case 'repeat':
-      return t('proofread.categoryRepeat');
+      return t('proofread.categoryRepeat') || '重复字词';
     case 'cjk_latin_space':
-      return t('proofread.categorySpace');
+      return t('proofread.categorySpace') || '中西文空格';
     case 'digit_unit_space':
-      return t('proofread.categoryUnit');
+      return t('proofread.categoryUnit') || '数字单位空格';
   }
 }
 
-/** Build a tiny context window (5 chars on each side) using the
- * snapshot we scanned. Indices are byte offsets; we slice the doc
- * with substring math that respects UTF-8 by clamping to char
- * boundaries. */
+function bucketTitle(bucket: 'high' | 'medium' | 'low'): string {
+  switch (bucket) {
+    case 'high':
+      return '高优先级规范';
+    case 'medium':
+      return '中度规范建议';
+    case 'low':
+      return '轻微优化建议';
+  }
+}
+
+/** Build a clean context window for snippet preview */
 function contextOf(issue: Issue): { before: string; hit: string; after: string } {
   const tab = tabs.activeTab;
   if (!tab) return { before: '', hit: '', after: '' };
   const text = tab.content ?? '';
-  // Convert byte offsets to char offsets to slice safely without
-  // splitting a multi-byte boundary. JavaScript indexes by code unit
-  // (UTF-16) so we need a Uint8Array round-trip.
   const enc = new TextEncoder();
   const dec = new TextDecoder();
   const bytes = enc.encode(text);
   const safeStart = Math.max(0, issue.col_start);
   const safeEnd = Math.min(bytes.length, issue.col_end);
-  const before = dec.decode(bytes.slice(Math.max(0, safeStart - 15), safeStart));
+  const before = dec.decode(bytes.slice(Math.max(0, safeStart - 32), safeStart));
   const hit = dec.decode(bytes.slice(safeStart, safeEnd));
-  const after = dec.decode(bytes.slice(safeEnd, Math.min(bytes.length, safeEnd + 15)));
-  return { before: before.slice(-5), hit, after: after.slice(0, 5) };
+  const after = dec.decode(bytes.slice(safeEnd, Math.min(bytes.length, safeEnd + 32)));
+
+  const cleanBefore = before.replace(/[\r\n]+/g, ' ').slice(-16);
+  const cleanAfter = after.replace(/[\r\n]+/g, ' ').slice(0, 16);
+  return { before: cleanBefore, hit, after: cleanAfter };
 }
 
 function jumpTo(issue: Issue, idx: number) {
@@ -265,94 +283,227 @@ void lang;
 
 <template>
   <Teleport to="body">
-  <div v-if="open" class="proof__backdrop" @click.self="emit('close')">
-    <div class="proof" role="dialog" aria-label="CJK Proofread">
-      <header class="proof__head">
-        <h2 class="proof__title">中 {{ t('proofread.heading') }}</h2>
-        <div class="proof__counts">
-          <span class="proof__pill proof__pill--high">
-            {{ t('proofread.severityHigh') }} · {{ counts.high }}
-          </span>
-          <span class="proof__pill proof__pill--medium">
-            {{ t('proofread.severityMedium') }} · {{ counts.medium }}
-          </span>
-          <span class="proof__pill proof__pill--low">
-            {{ t('proofread.severityLow') }} · {{ counts.low }}
-          </span>
-        </div>
-        <div class="proof__actions">
-          <button class="btn btn--ghost" @click="rescan" :disabled="loading">
-            {{ t('proofread.rescan') }}
-          </button>
-          <button
-            class="btn btn--primary"
-            :disabled="issues.length === 0"
-            @click="applyAll('all')"
-          >
-            {{ t('proofread.applyAll') }}
-          </button>
-          <button class="btn btn--close" @click="emit('close')" aria-label="Close">×</button>
-        </div>
-      </header>
+    <div v-if="open" class="proof__backdrop" @click.self="emit('close')">
+      <div class="proof" role="dialog" aria-label="中文排版校对">
+        <!-- Modern Header -->
+        <header class="proof__head">
+          <div class="proof__head-main">
+            <div class="proof__icon-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </div>
+            <div class="proof__head-text">
+              <div class="proof__title-row">
+                <h2 class="proof__title">{{ t('proofread.heading') }}</h2>
+                <span class="proof__count-badge" v-if="issues.length">
+                  共 {{ issues.length }} 处规范建议
+                </span>
+              </div>
+              <p class="proof__subtitle">
+                {{ t('proofread.paletteHint') || '自动检测半角标点、的地得、英文引号与中西文空格排版规范' }}
+              </p>
+            </div>
+          </div>
 
-      <p class="proof__legend">{{ t('proofread.legend') }}</p>
-
-      <div v-if="!tabs.activeTab" class="proof__empty">{{ t('proofread.noActive') }}</div>
-      <div v-else-if="loading" class="proof__empty">…</div>
-      <div v-else-if="issues.length === 0" class="proof__empty">
-        {{ t('proofread.noIssues') }}
-      </div>
-      <div v-else class="proof__body">
-        <section
-          v-for="bucket in (['high', 'medium', 'low'] as const)"
-          :key="bucket"
-          v-show="grouped[bucket].length"
-          class="proof__bucket"
-          :class="`proof__bucket--${bucket}`"
-        >
-          <header class="proof__buckethead">
-            <span class="proof__bucketlabel">
-              {{ t(`proofread.severity${bucket.charAt(0).toUpperCase() + bucket.slice(1)}`) }}
-              ({{ grouped[bucket].length }})
-            </span>
-            <button
-              class="btn btn--small"
-              @click="applyAll(bucket)"
-              :title="t('proofread.applyAllSeverity', { severity: bucket })"
-            >
-              {{ t('proofread.applyAll') }}
+          <div class="proof__head-actions">
+            <button class="btn btn--ghost" @click="rescan" :disabled="loading" title="重新扫描当前文档">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spin': loading }">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>{{ t('proofread.rescan') }}</span>
             </button>
-          </header>
-          <ul class="proof__list">
-            <li
-              v-for="(issue, i) in grouped[bucket]"
-              :key="`${issue.col_start}-${issue.col_end}-${i}`"
-              class="proof__row"
-              :class="{ 'proof__row--selected': selectedIdx === issues.indexOf(issue) }"
-              @click="jumpTo(issue, issues.indexOf(issue))"
+            <button
+              class="btn btn--primary"
+              :disabled="issues.length === 0"
+              @click="applyAll('all')"
+              :title="issues.length ? '一键修复全部问题' : ''"
             >
-              <span class="proof__lineno">{{ t('proofread.line', { n: issue.line }) }}</span>
-              <span class="proof__category">{{ categoryLabel(issue.category) }}</span>
-              <span class="proof__ctx">
-                <span class="proof__ctx-side">{{ contextOf(issue).before }}</span><span
-                  class="proof__ctx-hit"
-                >{{ contextOf(issue).hit }}</span><span class="proof__ctx-side">{{ contextOf(issue).after }}</span>
-              </span>
-              <span class="proof__arrow">→</span>
-              <span class="proof__suggestion">{{ issue.suggestion }}</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+              <span>{{ t('proofread.applyAll') }}</span>
+            </button>
+            <button class="proof__close-btn" @click="emit('close')" aria-label="关闭">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- Filter Tab Strip & Inline Hint -->
+        <div class="proof__substrip" v-if="issues.length">
+          <div class="proof__filters">
+            <button
+              class="proof__tab"
+              :class="{ 'proof__tab--active': activeFilter === 'all' }"
+              @click="activeFilter = 'all'"
+            >
+              全部 ({{ issues.length }})
+            </button>
+            <button
+              v-if="counts.high > 0"
+              class="proof__tab proof__tab--high"
+              :class="{ 'proof__tab--active': activeFilter === 'high' }"
+              @click="activeFilter = 'high'"
+            >
+              <span class="proof__dot proof__dot--high"></span>
+              高优先级 ({{ counts.high }})
+            </button>
+            <button
+              v-if="counts.medium > 0"
+              class="proof__tab proof__tab--medium"
+              :class="{ 'proof__tab--active': activeFilter === 'medium' }"
+              @click="activeFilter = 'medium'"
+            >
+              <span class="proof__dot proof__dot--medium"></span>
+              中度规范 ({{ counts.medium }})
+            </button>
+            <button
+              v-if="counts.low > 0"
+              class="proof__tab proof__tab--low"
+              :class="{ 'proof__tab--active': activeFilter === 'low' }"
+              @click="activeFilter = 'low'"
+            >
+              <span class="proof__dot proof__dot--low"></span>
+              优化建议 ({{ counts.low }})
+            </button>
+          </div>
+
+          <div class="proof__tip">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>点击卡片定位到行 · 点击「修复」自动替换</span>
+          </div>
+        </div>
+
+        <!-- Body / Content -->
+        <div v-if="!tabs.activeTab" class="proof__empty-state">
+          <p>{{ t('proofread.noActive') }}</p>
+        </div>
+        <div v-else-if="loading" class="proof__empty-state">
+          <div class="proof__spinner"></div>
+          <p>正在扫描中文排版规范...</p>
+        </div>
+        <div v-else-if="issues.length === 0" class="proof__empty-state">
+          <div class="proof__empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <h3 class="proof__empty-title">{{ t('proofread.noIssues') }}</h3>
+          <p class="proof__empty-desc">未发现全半角标点、错别字或中西文空格排版问题，文本非常整洁 ✨</p>
+        </div>
+
+        <div v-else class="proof__body">
+          <section
+            v-for="bucket in activeBuckets"
+            :key="bucket"
+            class="proof__bucket"
+            :class="`proof__bucket--${bucket}`"
+          >
+            <!-- Bucket Divider Header -->
+            <div class="proof__bucket-head">
+              <div class="proof__bucket-label">
+                <span class="proof__dot" :class="`proof__dot--${bucket}`"></span>
+                <span>{{ bucketTitle(bucket) }}</span>
+                <span class="proof__bucket-tag">{{ grouped[bucket].length }} 处</span>
+              </div>
               <button
-                class="btn btn--apply"
-                @click.stop="applyOne(issue)"
-                :title="issue.explanation"
+                v-if="grouped[bucket].length > 1"
+                class="btn btn--subtle"
+                @click="applyAll(bucket)"
               >
-                {{ t('proofread.apply') }}
+                修复本组全部 ({{ grouped[bucket].length }})
               </button>
-            </li>
-          </ul>
-        </section>
+            </div>
+
+            <!-- Card List -->
+            <div class="proof__list">
+              <div
+                v-for="(issue, i) in grouped[bucket]"
+                :key="`${issue.col_start}-${issue.col_end}-${i}`"
+                class="proof__card"
+                :class="{ 'proof__card--selected': selectedIdx === issues.indexOf(issue) }"
+                @click="jumpTo(issue, issues.indexOf(issue))"
+              >
+                <!-- Card Header: Meta Tags & Apply Button -->
+                <div class="proof__card-top">
+                  <div class="proof__card-meta">
+                    <span class="proof__lineno">
+                      第 {{ issue.line }} 行
+                    </span>
+                    <span class="proof__category" :class="`proof__category--${issue.severity}`">
+                      {{ categoryLabel(issue.category) }}
+                    </span>
+                  </div>
+
+                  <button
+                    class="btn btn--apply"
+                    @click.stop="applyOne(issue)"
+                    :title="issue.explanation || t('proofread.apply')"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>{{ t('proofread.apply') }}</span>
+                  </button>
+                </div>
+
+                <!-- Clean Diff Box -->
+                <div class="proof__diff">
+                  <div class="proof__diff-pane proof__diff-pane--from">
+                    <span class="proof__diff-badge">待修正</span>
+                    <span class="proof__diff-text">{{ issue.original }}</span>
+                  </div>
+
+                  <div class="proof__diff-arrow">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                      <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                  </div>
+
+                  <div class="proof__diff-pane proof__diff-pane--to">
+                    <span class="proof__diff-badge">规范建议</span>
+                    <span class="proof__diff-text">{{ issue.suggestion }}</span>
+                  </div>
+                </div>
+
+                <!-- Context Sentence Preview -->
+                <div class="proof__context" v-if="contextOf(issue).hit">
+                  <span class="proof__context-tag">上下文</span>
+                  <div class="proof__context-line">
+                    <span class="proof__context-dim">… {{ contextOf(issue).before }}</span>
+                    <span class="proof__context-hit">{{ contextOf(issue).hit }}</span>
+                    <span class="proof__context-dim">{{ contextOf(issue).after }} …</span>
+                  </div>
+                </div>
+
+                <!-- Explanation Note -->
+                <div class="proof__explain" v-if="issue.explanation">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                  <span>{{ issue.explanation }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
-  </div>
   </Teleport>
 </template>
 
@@ -360,227 +511,605 @@ void lang;
 .proof__backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
   z-index: var(--z-modal);
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 8vh;
+  padding-top: 6vh;
+  animation: proofFadeIn 0.16s ease-out;
 }
+
+@keyframes proofFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .proof {
-  background: var(--bg);
+  background: var(--bg-elev);
   color: var(--text);
-  width: min(820px, 92vw);
-  max-height: 78vh;
+  width: min(780px, 94vw);
+  max-height: 84vh;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: proofScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+@keyframes proofScaleIn {
+  from { opacity: 0; transform: scale(0.97) translateY(-6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Header */
 .proof__head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  justify-content: space-between;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-soft, var(--bg));
+  gap: 16px;
+}
+
+.proof__head-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.proof__icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  color: var(--accent, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.proof__head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.proof__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proof__title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.proof__count-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  color: var(--accent, #6366f1);
+}
+
+.proof__subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.proof__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proof__close-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: 4px;
+}
+
+.proof__close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Sub-header Filter Strip & Tip */
+.proof__substrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  gap: 12px;
   flex-wrap: wrap;
 }
-.proof__title {
-  font-size: 14px;
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: 0.02em;
-}
-.proof__counts {
+
+.proof__filters {
   display: flex;
+  align-items: center;
   gap: 6px;
-  flex: 1;
 }
-.proof__pill {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--bg-elev);
+
+.proof__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--bg-soft, transparent);
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-.proof__pill--high {
-  border-color: rgba(220, 70, 70, 0.4);
-  color: #c0322c;
-  background: rgba(220, 70, 70, 0.08);
+
+.proof__tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
-.proof__pill--medium {
-  border-color: rgba(214, 161, 0, 0.45);
-  color: #946a00;
-  background: rgba(214, 161, 0, 0.08);
+
+.proof__tab--active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
-.proof__pill--low {
+
+.proof__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.proof__dot--high {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+}
+
+.proof__dot--medium {
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+}
+
+.proof__dot--low {
+  background: #6366f1;
+}
+
+.proof__tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
   color: var(--text-faint);
 }
-.proof__actions {
+
+/* Body */
+.proof__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 18px 20px;
   display: flex;
-  gap: 6px;
+  flex-direction: column;
+  gap: 16px;
 }
-.btn {
+
+/* Empty & Loading states */
+.proof__empty-state {
+  padding: 56px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.proof__empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent, #6366f1) 10%, transparent);
+  color: var(--accent, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.proof__empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.proof__empty-desc {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  margin: 0;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+.proof__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Bucket Section */
+.proof__bucket {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proof__bucket-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+}
+
+.proof__bucket-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
-  padding: 4px 10px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.proof__bucket-tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  background: var(--bg-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Card List */
+.proof__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.proof__card {
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.proof__card:hover {
+  background: var(--bg-soft);
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 40%, var(--border));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.proof__card--selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent, #6366f1) 4%, var(--bg));
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Card Meta (Top Row) */
+.proof__card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.proof__card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.proof__lineno {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
   background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 5px;
+  line-height: 1.2;
+}
+
+.proof__category {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 5px;
+  line-height: 1.2;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.proof__category--high {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.22);
+}
+
+:root[data-theme='dark'] .proof__category--high {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.proof__category--medium {
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.22);
+}
+
+:root[data-theme='dark'] .proof__category--medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+/* Diff Box */
+.proof__diff {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-soft);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.proof__diff-pane {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 12.5px;
+  word-break: break-all;
+}
+
+.proof__diff-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.proof__diff-pane--from {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+}
+.proof__diff-pane--from .proof__diff-badge {
+  background: rgba(185, 28, 28, 0.15);
+  color: #991b1b;
+}
+
+:root[data-theme='dark'] .proof__diff-pane--from {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+:root[data-theme='dark'] .proof__diff-pane--from .proof__diff-badge {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+.proof__diff-arrow {
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.proof__diff-pane--to {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  font-weight: 600;
+}
+.proof__diff-pane--to .proof__diff-badge {
+  background: rgba(4, 120, 87, 0.15);
+  color: #065f46;
+}
+
+:root[data-theme='dark'] .proof__diff-pane--to {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+:root[data-theme='dark'] .proof__diff-pane--to .proof__diff-badge {
+  background: rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+}
+
+.proof__diff-text {
+  letter-spacing: 0.02em;
+}
+
+/* Context Preview */
+.proof__context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.proof__context-tag {
+  font-size: 10px;
+  color: var(--text-faint);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.proof__context-line {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proof__context-hit {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: #ef4444;
+  text-underline-offset: 3px;
+  padding: 0 2px;
+}
+
+/* Explanation */
+.proof__explain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  background: var(--bg-soft);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.proof__explain svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
   color: var(--text);
   cursor: pointer;
-  transition: all 0.12s;
+  transition: all 0.15s ease;
+  line-height: 1.2;
 }
+
 .btn:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--accent);
 }
+
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: not-allowed;
 }
-.btn--primary {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
-}
-.btn--primary:hover:not(:disabled) {
-  filter: brightness(1.08);
-  background: var(--accent);
-  color: var(--bg);
-}
+
 .btn--ghost {
   background: transparent;
-}
-.btn--small {
-  font-size: 11px;
-  padding: 2px 8px;
-}
-.btn--close {
-  font-size: 18px;
-  line-height: 1;
-  padding: 0 8px;
-  background: transparent;
-  border: none;
-  color: var(--text-faint);
-}
-.btn--apply {
-  font-size: 11px;
-  padding: 2px 8px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.proof__legend {
-  margin: 0;
-  padding: 6px 16px;
-  font-size: 11px;
-  color: var(--text-faint);
-  border-bottom: 1px solid var(--border);
-}
-
-.proof__empty {
-  padding: 36px;
-  text-align: center;
-  color: var(--text-faint);
-  font-size: 13px;
-}
-
-.proof__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px 12px 14px;
-}
-
-.proof__bucket {
-  margin-top: 10px;
-}
-.proof__buckethead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 4px;
-  margin-bottom: 4px;
-}
-.proof__bucketlabel {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-}
-.proof__bucket--high .proof__bucketlabel { color: #c0322c; }
-.proof__bucket--medium .proof__bucketlabel { color: #946a00; }
-
-.proof__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.proof__row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.12s, border-color 0.12s;
-}
-.proof__row:hover,
-.proof__row--selected {
-  background: var(--bg-hover);
   border-color: var(--border);
 }
-.proof__lineno {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  min-width: 56px;
+
+.btn--primary {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  color: #ffffff;
 }
-.proof__category {
-  font-size: 10px;
-  color: var(--text-muted);
+
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  background: var(--accent, #6366f1);
+  color: #ffffff;
+}
+
+.btn--apply {
   background: var(--bg-elev);
+  border-color: var(--border);
+  color: var(--accent, #6366f1);
+  font-size: 11.5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.btn--apply:hover {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.btn--subtle {
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 7px;
-  flex-shrink: 0;
-}
-.proof__ctx {
-  font-family: var(--font-mono);
-  white-space: pre;
   color: var(--text-muted);
-  flex-shrink: 0;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
 }
-.proof__ctx-hit {
-  background: rgba(220, 70, 70, 0.18);
+
+.btn--subtle:hover {
+  background: var(--bg-hover);
   color: var(--text);
-  padding: 0 1px;
-  border-radius: 2px;
+  border-color: var(--accent);
 }
-.proof__bucket--medium .proof__ctx-hit {
-  background: rgba(214, 161, 0, 0.22);
-}
-.proof__bucket--low .proof__ctx-hit {
-  background: rgba(120, 120, 120, 0.18);
-}
-.proof__arrow {
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-  flex-shrink: 0;
-}
-.proof__suggestion {
-  font-family: var(--font-mono);
-  color: var(--accent);
-  flex-shrink: 0;
+
+.spin {
+  animation: spin 0.8s linear infinite;
 }
 </style>
