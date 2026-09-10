@@ -349,7 +349,14 @@ function insertAssistantMessage(content: string) {
 function autoscroll() {
   void nextTick(() => {
     const el = messagesRef.value;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+      const thoughtEls = el.querySelectorAll('.agent-panel__thought-text');
+      if (thoughtEls.length > 0) {
+        const lastThought = thoughtEls[thoughtEls.length - 1];
+        lastThought.scrollTop = lastThought.scrollHeight;
+      }
+    }
   });
 }
 
@@ -2312,9 +2319,18 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
   margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent, #6366f1) 35%, transparent) transparent;
+}
+.agent-panel__thought-text::-webkit-scrollbar {
+  width: 4px;
+}
+.agent-panel__thought-text::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+  border-radius: 4px;
 }
 .agent-panel__thought-time-pill {
   font-family: "JetBrains Mono", Consolas, monospace;
