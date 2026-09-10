@@ -1140,7 +1140,18 @@ body.solomd-printing--dark {
   color: inherit;
 }
 
-/* Ensure contenteditable table cells never fall back to Windows raw dark blue selection */
+/* Defeat CodeMirror base theme rule (.cm-content :focus::selection { background-color: highlight !important; })
+ * which falls back to Windows raw saturated blue (#0078D7) inside contenteditable table cells. */
+.cm-editor .cm-content :focus::selection,
+.cm-editor .cm-content :focus ::selection,
+.cm-content .cm-interactive-table :focus::selection,
+.cm-content .cm-interactive-table :focus ::selection,
+.cm-interactive-table td:focus::selection,
+.cm-interactive-table td:focus ::selection,
+.cm-interactive-table th:focus::selection,
+.cm-interactive-table th:focus ::selection,
+.cm-interactive-table [contenteditable="true"]:focus::selection,
+.cm-interactive-table [contenteditable="true"]:focus ::selection,
 .cm-interactive-table th::selection,
 .cm-interactive-table td::selection,
 .cm-interactive-table *::selection,
@@ -1148,6 +1159,7 @@ body.solomd-printing--dark {
 .tbl__grid td::selection,
 .tbl__grid *::selection {
   background: var(--selection-bg, rgba(56, 139, 253, 0.24)) !important;
+  background-color: var(--selection-bg, rgba(56, 139, 253, 0.24)) !important;
   color: inherit !important;
 }
 

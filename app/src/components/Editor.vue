@@ -2377,6 +2377,10 @@ const fontSizeTheme = (px: number, family: string) =>
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)' },
     '.cm-cursor': { borderLeftColor: 'var(--accent)', borderLeftWidth: '2px' },
     '.cm-selectionBackground, ::selection': { backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important' },
+    '.cm-content :focus::selection, .cm-content :focus ::selection': {
+      backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+      color: 'inherit !important',
+    },
     // v4.3.0 issue #67: distinct current-match highlight for the Cmd+F search
     // panel. CM6 marks the active result with `.cm-searchMatch-selected` —
     // by default it's the same translucent color as the other matches so the

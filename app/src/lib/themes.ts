@@ -17,6 +17,10 @@ function mkTheme(
       '.cm-content': { caretColor: cursor },
       '.cm-cursor, .cm-dropCursor': { borderLeftColor: cursor },
       '.cm-selectionBackground, ::selection': { backgroundColor: `${selection} !important` },
+      '.cm-content :focus::selection, .cm-content :focus ::selection': {
+        backgroundColor: `${selection} !important`,
+        color: 'inherit !important',
+      },
       '.cm-gutters': { backgroundColor: bg, color: gutter, border: 'none' },
       '.cm-activeLineGutter': { color: cursor },
     },

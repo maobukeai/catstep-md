@@ -1489,6 +1489,14 @@ export const liveBlocksTheme = EditorView.theme({
     zIndex: '2',
     position: 'relative',
   },
+  '.cm-content :focus::selection, .cm-content :focus ::selection': {
+    backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+    color: 'inherit !important',
+  },
+  '.cm-interactive-table [contenteditable="true"]:focus::selection, .cm-interactive-table [contenteditable="true"]:focus ::selection': {
+    backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+    color: 'inherit !important',
+  },
   '.cm-live-block--table ::selection, .cm-interactive-table ::selection, .cm-interactive-table *::selection': {
     backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
     color: 'inherit !important',
