@@ -604,8 +604,11 @@ function getSubmenuStyle(name: string) {
               <span class="ctx-item__kbd">Ctrl+K</span>
             </div>
             <div class="ctx-item" @click="dispatch('insertAction', 'image')">
-              <span class="ctx-item__label">{{ t('editorCtx.insertImage') || '图片' }}</span>
+              <span class="ctx-item__label">{{ t('editorCtx.insertImage') || '图片...' }}</span>
               <span class="ctx-item__kbd">Ctrl+Shift+I</span>
+            </div>
+            <div class="ctx-item" @click="dispatch('insertAction', 'imageUrl')">
+              <span class="ctx-item__label">{{ t('editorCtx.insertImageUrl') || '网络图片...' }}</span>
             </div>
             <div class="ctx-item" @click="dispatch('insertAction', 'hr')">
               <span class="ctx-item__label">{{ t('editorCtx.insertHorizontalLine') || '水平分割线' }}</span>

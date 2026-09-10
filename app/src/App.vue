@@ -2186,7 +2186,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               :title="t('toolbar.fileTreeTooltip') + ' (Ctrl+Shift+2)'"
             >
               <Icon name="folder" :size="13" />
-              <span>{{ settings.language?.startsWith('zh') ? '文件' : 'Files' }}</span>
+              <span>{{ t('toolbar.fileTree') }}</span>
             </button>
             <button
               class="typora-sidebar__tab"
@@ -2195,7 +2195,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               :title="t('menubar.toggleOutline') + ' (Ctrl+Shift+1)'"
             >
               <Icon name="outline" :size="13" />
-              <span>{{ settings.language?.startsWith('zh') ? '大纲' : 'Outline' }}</span>
+              <span>{{ t('toolbar.outline') }}</span>
             </button>
             <button
               class="typora-sidebar__tab"
@@ -2204,12 +2204,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               :title="t('toolbar.searchTooltip') + ' (Ctrl+Shift+3)'"
             >
               <Icon name="search" :size="13" />
-              <span>{{ settings.language?.startsWith('zh') ? '搜索' : 'Search' }}</span>
+              <span>{{ t('toolbar.search') }}</span>
             </button>
             <button
               class="typora-sidebar__tab-close"
               @click="settings.toggleLeftSidebar()"
-              :title="(settings.language?.startsWith('zh') ? '收起侧边栏' : 'Close Sidebar') + ' (Ctrl+Shift+L)'"
+              :title="t('toolbar.closeSidebar') + ' (Ctrl+Shift+L)'"
             >
               <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />

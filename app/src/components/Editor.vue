@@ -4,7 +4,7 @@ import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/s
 import { EditorView, Decoration, type DecorationSet, keymap, lineNumbers, highlightActiveLine, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { searchKeymap, search, openSearchPanel, getSearchQuery, setSearchQuery } from '@codemirror/search';
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching } from '@codemirror/language';
+import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, syntaxTree } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { cjkFriendlyEmphasis } from '../lib/cm-cjk-emphasis';
 import mermaid from 'mermaid';
@@ -133,6 +133,7 @@ import { installSvgImageFallbacks, rewriteImageUrls } from '../lib/image-resolve
 import { SLASH_BLOCKS, filterBlocks, expandSnippet } from '../lib/slash-blocks';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { isWindowsEditorRuntime, shouldUsePlainWindowsEditor } from '../lib/platform';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 
 // Incremental find. CoreMirror's search panel only scrolls to a match when you
 // press Enter / click Next — typing in the field just repaints the highlights
@@ -2470,6 +2471,29 @@ function getEditorPhrases() {
   });
 }
 
+function isInsideCodeContext(state: EditorState, pos: number): boolean {
+  if (props.tab.language !== 'markdown') return true;
+  try {
+    const node = syntaxTree(state).resolveInner(pos, -1);
+    for (let n: typeof node | null = node; n; n = n.parent) {
+      const name = n.name;
+      if (
+        name === 'FencedCode' ||
+        name === 'CodeBlock' ||
+        name === 'InlineCode' ||
+        name === 'CodeMark' ||
+        name === 'CodeText' ||
+        name === 'CodeInfo' ||
+        name === 'Comment' ||
+        name === 'Frontmatter'
+      ) {
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
 function buildExtensions() {
   if (usePlainWindowsEditor) return [];
   const markdownSafeMode = false;
@@ -2506,9 +2530,10 @@ function buildExtensions() {
       {
         key: 'Tab',
         run: (cmView: EditorView) => {
-          if (cmView.composing || !cmView.state.selection.main.empty) return false;
-          const docText = cmView.state.doc.toString();
+          if (cmView.composing || !cmView.state.selection.main.empty || props.tab.language !== 'markdown') return false;
           const caret = cmView.state.selection.main.head;
+          if (isInsideCodeContext(cmView.state, caret)) return false;
+          const docText = cmView.state.doc.toString();
           const res = tableNavigate(docText, caret, 'next');
           if (!res) return false;
           if (res.text !== docText) {
@@ -2532,9 +2557,10 @@ function buildExtensions() {
       {
         key: 'Shift-Tab',
         run: (cmView: EditorView) => {
-          if (cmView.composing || !cmView.state.selection.main.empty) return false;
-          const docText = cmView.state.doc.toString();
+          if (cmView.composing || !cmView.state.selection.main.empty || props.tab.language !== 'markdown') return false;
           const caret = cmView.state.selection.main.head;
+          if (isInsideCodeContext(cmView.state, caret)) return false;
+          const docText = cmView.state.doc.toString();
           const res = tableNavigate(docText, caret, 'prev');
           if (!res) return false;
           cmView.dispatch({ selection: { anchor: res.newCaret } });
@@ -2544,9 +2570,10 @@ function buildExtensions() {
       {
         key: 'Enter',
         run: (cmView: EditorView) => {
-          if (cmView.composing || !cmView.state.selection.main.empty) return false;
-          const docText = cmView.state.doc.toString();
+          if (cmView.composing || !cmView.state.selection.main.empty || props.tab.language !== 'markdown') return false;
           const caret = cmView.state.selection.main.head;
+          if (isInsideCodeContext(cmView.state, caret)) return false;
+          const docText = cmView.state.doc.toString();
           const res = tableNavigate(docText, caret, 'enter');
           if (!res) return false;
           if (res.text !== docText) {
@@ -2655,6 +2682,17 @@ function buildExtensions() {
       scroll: (_ev, cmView) => {
         updateInPlaceOverlays(cmView);
         updateSelectionBubble(cmView);
+        return false;
+      },
+      blur: () => {
+        setTimeout(() => {
+          const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+          if (!activeEl?.closest('.inplace-tbl-toolbar, .selection-bubble-bar, .inplace-formula-bar')) {
+            selectionBubbleState.value.visible = false;
+            inPlaceTableState.value.visible = false;
+            inPlaceFormulaState.value.visible = false;
+          }
+        }, 150);
         return false;
       },
       contextmenu: (ev) => {
@@ -2961,6 +2999,9 @@ function formatMath(
 
 // ── Selection Bubble Floating Bar (Catstep MD) ─────────────────────────────
 let isDraggingSelection = false;
+let spotlightTimer: any = null;
+let tableSpotlightTimer: any = null;
+let pulseTimer: any = null;
 
 const selectionBubbleState = ref<{
   visible: boolean;
@@ -2975,12 +3016,12 @@ const selectionBubbleState = ref<{
 });
 
 function updateSelectionBubble(cmView: EditorView) {
-  if (isDraggingSelection || cmView.composing) {
+  if (isDraggingSelection || cmView.composing || props.tab.language !== 'markdown') {
     selectionBubbleState.value.visible = false;
     return;
   }
   const sel = cmView.state.selection.main;
-  if (sel.empty) {
+  if (sel.empty || isInsideCodeContext(cmView.state, sel.from)) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3016,7 +3057,7 @@ function updateSelectionBubble(cmView: EditorView) {
 }
 
 function updateSelectionBubblePlain() {
-  if (isDraggingSelection || !usePlainWindowsEditor || plainComposing) {
+  if (isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown') {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3144,38 +3185,40 @@ function onEditorContextMenu(e: MouseEvent) {
     const caret = curSel.head;
     const docText = view.state.doc.toString();
 
-    // 1. Table
-    let tbl = findTableAtCursor(docText, caret);
-    if (!tbl && (e.target as HTMLElement)?.closest('.cm-interactive-table, table')) {
-      const tableEl = (e.target as HTMLElement).closest('.cm-interactive-table, table')!;
-      try {
-        const tablePos = view.posAtDOM(tableEl);
-        if (tablePos !== null) {
-          tbl = findTableAtCursor(docText, tablePos);
-        }
-      } catch {}
-    }
-    if (tbl) {
-      isTable = true;
-      tableInfo = {
-        canDeleteRow: tbl.rowIndex >= 0,
-        canDeleteCol: tbl.model.header.length > 1,
-        align: tbl.model.aligns[tbl.caretCol] ?? null,
-      };
-    } else if (activeTableWidgetInfo.value) {
-      const info = activeTableWidgetInfo.value;
-      isTable = true;
-      tableInfo = {
-        canDeleteRow: info.canDeleteRow,
-        canDeleteCol: info.canDeleteCol,
-        align: info.align,
-      };
-    }
+    if (props.tab.language === 'markdown' && !isInsideCodeContext(view.state, caret)) {
+      // 1. Table
+      let tbl = findTableAtCursor(docText, caret);
+      if (!tbl && (e.target as HTMLElement)?.closest('.cm-interactive-table, table')) {
+        const tableEl = (e.target as HTMLElement).closest('.cm-interactive-table, table')!;
+        try {
+          const tablePos = view.posAtDOM(tableEl);
+          if (tablePos !== null) {
+            tbl = findTableAtCursor(docText, tablePos);
+          }
+        } catch {}
+      }
+      if (tbl) {
+        isTable = true;
+        tableInfo = {
+          canDeleteRow: tbl.rowIndex >= 0,
+          canDeleteCol: tbl.model.header.length > 1,
+          align: tbl.model.aligns[tbl.caretCol] ?? null,
+        };
+      } else if (activeTableWidgetInfo.value) {
+        const info = activeTableWidgetInfo.value;
+        isTable = true;
+        tableInfo = {
+          canDeleteRow: info.canDeleteRow,
+          canDeleteCol: info.canDeleteCol,
+          align: info.align,
+        };
+      }
 
-    // 2. Math
-    const math = findMathSpanAt(docText, caret);
-    if (math) {
-      mathInfo = { latex: math.body, display: math.display };
+      // 2. Math
+      const math = findMathSpanAt(docText, caret);
+      if (math) {
+        mathInfo = { latex: math.body, display: math.display };
+      }
     }
 
     // 3. Code block
@@ -3470,6 +3513,10 @@ async function onEditorContextMenuAction(action: string, payload?: any) {
     case 'insertAction': {
       if (payload === 'hr') {
         insertMarkdown('\n---\n');
+      } else if (payload === 'image') {
+        void pickAndInsertImage();
+      } else if (payload === 'imageUrl') {
+        window.dispatchEvent(new CustomEvent('solomd:open-image-url-dialog'));
       } else {
         applyFormat(payload);
       }
@@ -3647,7 +3694,11 @@ const inPlaceFormulaState = ref<{
 });
 
 function updateInPlaceOverlays(cmView: EditorView) {
-  if (cmView.composing) return;
+  if (cmView.composing || props.tab.language !== 'markdown') {
+    inPlaceTableState.value.visible = false;
+    inPlaceFormulaState.value.visible = false;
+    return;
+  }
   const sel = cmView.state.selection.main;
   // When text is actively selected, suppress in-place table & formula overlays so they don't clash with SelectionBubbleBar
   if (!sel.empty) {
@@ -3655,8 +3706,13 @@ function updateInPlaceOverlays(cmView: EditorView) {
     inPlaceFormulaState.value.visible = false;
     return;
   }
-  const docText = cmView.state.doc.toString();
   const caret = sel.head;
+  if (isInsideCodeContext(cmView.state, caret)) {
+    inPlaceTableState.value.visible = false;
+    inPlaceFormulaState.value.visible = false;
+    return;
+  }
+  const docText = cmView.state.doc.toString();
 
   // 1. In-place table detection
   const tableInfo = findTableAtCursor(docText, caret);
@@ -3706,7 +3762,11 @@ function updateInPlaceOverlays(cmView: EditorView) {
 }
 
 function updateInPlaceOverlaysPlain() {
-  if (!usePlainWindowsEditor || plainComposing) return;
+  if (!usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown') {
+    inPlaceTableState.value.visible = false;
+    inPlaceFormulaState.value.visible = false;
+    return;
+  }
   const docText = plainText.value || '';
   const caret = plainCaretOffset();
 
@@ -4078,6 +4138,11 @@ function onGlobalKeyDown(e: KeyboardEvent) {
       editorContextMenuState.value.visible = false;
       return;
     }
+    if (inPlaceTableState.value.visible || inPlaceFormulaState.value.visible) {
+      inPlaceTableState.value.visible = false;
+      inPlaceFormulaState.value.visible = false;
+      return;
+    }
     if (selectionBubbleState.value.visible) {
       selectionBubbleState.value.visible = false;
     }
@@ -4110,6 +4175,22 @@ onBeforeUnmount(() => {
   cleanupTransformCase = null;
   cleanupPlainSelection?.();
   cleanupPlainSelection = null;
+  if (spotlightTimer) {
+    clearTimeout(spotlightTimer);
+    spotlightTimer = null;
+  }
+  if (tableSpotlightTimer) {
+    clearTimeout(tableSpotlightTimer);
+    tableSpotlightTimer = null;
+  }
+  if (pulseTimer) {
+    clearTimeout(pulseTimer);
+    pulseTimer = null;
+  }
+  selectionBubbleState.value.visible = false;
+  inPlaceTableState.value.visible = false;
+  inPlaceFormulaState.value.visible = false;
+  closeEditorContextMenu();
   if (contentSyncTimer) {
     // A Vim-mode toggle remounts the Windows editor. Flush the current
     // CodeMirror document before cancelling the debounce so the last keystroke
@@ -4176,6 +4257,18 @@ function restorePlainScroll(saved?: { caret: number; scrollTop: number }) {
 watch(
   () => props.tab.id,
   (newId, oldId) => {
+    selectionBubbleState.value.visible = false;
+    inPlaceTableState.value.visible = false;
+    inPlaceFormulaState.value.visible = false;
+    closeEditorContextMenu();
+    if (spotlightTimer) {
+      clearTimeout(spotlightTimer);
+      spotlightTimer = null;
+    }
+    if (tableSpotlightTimer) {
+      clearTimeout(tableSpotlightTimer);
+      tableSpotlightTimer = null;
+    }
     // Snapshot the OUTGOING tab first — at this point the editor DOM/state
     // still holds the old document (re-sync happens below).
     if (oldId) {
@@ -4459,14 +4552,49 @@ watch(
   },
 );
 
-function gotoLine(line: number, from?: number, to?: number, original?: string, isProofread = false) {
+function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string) {
+  if (heading && (!line || isNaN(line) || line < 1)) {
+    const hNorm = heading.trim().toLowerCase().replace(/^#+\s*/, '');
+    if (!usePlainWindowsEditor && view) {
+      const doc = view.state.doc;
+      for (let i = 1; i <= doc.lines; i++) {
+        const text = doc.line(i).text.trim();
+        const m = text.match(/^#{1,6}\s+(.+)$/);
+        if (m) {
+          const title = m[1].trim().toLowerCase();
+          if (title === hNorm || title.replace(/\s+/g, '-') === hNorm) {
+            line = i;
+            from = doc.line(i).from;
+            to = doc.line(i).to;
+            original = m[1].trim();
+            break;
+          }
+        }
+      }
+    } else if (usePlainWindowsEditor) {
+      const lines = (plainText.value || '').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].trim().match(/^#{1,6}\s+(.+)$/);
+        if (m) {
+          const title = m[1].trim().toLowerCase();
+          if (title === hNorm || title.replace(/\s+/g, '-') === hNorm) {
+            line = i + 1;
+            original = m[1].trim();
+            break;
+          }
+        }
+      }
+    }
+  }
+
   if (usePlainWindowsEditor) {
+    const safeLine = (!line || isNaN(line) || line < 1) ? 1 : line;
     if (plainLiveEnabled.value) {
       if (from != null) {
         plainSetCaret(from, to);
       } else {
-        plainSetCaret(plainLineStartOffset(line));
-        plainScrollToLine(line);
+        plainSetCaret(plainLineStartOffset(safeLine));
+        plainScrollToLine(safeLine);
       }
       return;
     }
@@ -4475,8 +4603,8 @@ function gotoLine(line: number, from?: number, to?: number, original?: string, i
     if (from != null) {
       plainSetCaret(from, to);
     } else {
-      plainSetCaret(plainLineStartOffset(line));
-      plainScrollToLine(line);
+      plainSetCaret(plainLineStartOffset(safeLine));
+      plainScrollToLine(safeLine);
     }
     return;
   }
@@ -4497,7 +4625,7 @@ function gotoLine(line: number, from?: number, to?: number, original?: string, i
   }
 
   // 2. If mismatch or not given, search line in view.state.doc directly
-  if (targetFrom == null && original && line > 0 && line <= view.state.doc.lines) {
+  if (targetFrom == null && original && line && line > 0 && line <= view.state.doc.lines) {
     const lineObj = view.state.doc.line(line);
     let bestIdx = -1;
     let minDistance = Infinity;
@@ -4518,7 +4646,7 @@ function gotoLine(line: number, from?: number, to?: number, original?: string, i
   }
 
   // 3. Nearby lines fallback (±2 lines in case line number shifted)
-  if (targetFrom == null && original && line > 0) {
+  if (targetFrom == null && original && line && line > 0) {
     const minL = Math.max(1, line - 2);
     const maxL = Math.min(view.state.doc.lines, line + 2);
     for (let l = minL; l <= maxL; l++) {
@@ -4540,7 +4668,7 @@ function gotoLine(line: number, from?: number, to?: number, original?: string, i
 
   // 5. Fallback to line start
   if (targetFrom == null) {
-    const safe = Math.max(1, Math.min(line, view.state.doc.lines));
+    const safe = (!line || isNaN(line) || line < 1) ? 1 : Math.min(line, view.state.doc.lines);
     const lineObj = view.state.doc.line(safe);
     targetFrom = lineObj.from;
     targetTo = lineObj.from;
@@ -4556,7 +4684,8 @@ function gotoLine(line: number, from?: number, to?: number, original?: string, i
   if (isProofread) {
     effects.push(setSpotlightEffect.of({ from: finalFrom, to: finalTo }));
     // If target falls within a rendered table widget, highlight and focus the cell directly
-    findAndHighlightTableCellWithRetry(line, original, finalFrom);
+    const targetLine = line ?? view.state.doc.lineAt(finalFrom).number;
+    findAndHighlightTableCellWithRetry(targetLine, original, finalFrom);
 
     if (spotlightTimer) clearTimeout(spotlightTimer);
     spotlightTimer = setTimeout(() => {
@@ -4580,9 +4709,6 @@ function gotoLine(line: number, from?: number, to?: number, original?: string, i
   view.focus();
   triggerJumpPulse();
 }
-
-let spotlightTimer: any = null;
-let tableSpotlightTimer: any = null;
 
 function triggerTableCellSpotlight(cell: HTMLElement, searchOriginal?: string) {
   cell.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
@@ -4723,7 +4849,6 @@ function findAndHighlightTableCellWithRetry(rowLine: number, searchOriginal?: st
   });
 }
 
-let pulseTimer: any = null;
 function triggerJumpPulse() {
   if (!view) return;
   view.dom.classList.add('cm-jump-pulse');
@@ -4740,6 +4865,19 @@ async function insertImageFromPath(srcPath: string): Promise<void> {
   }
   if (!view) return;
   await cmInsertImageFromPath(view, srcPath, imagePasteOpts());
+}
+
+async function pickAndInsertImage(): Promise<void> {
+  try {
+    const sel = await openFileDialog({
+      multiple: false,
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'tiff'] }],
+    });
+    if (typeof sel !== 'string') return;
+    await insertImageFromPath(sel);
+  } catch (e) {
+    console.error('Failed to pick image', e);
+  }
 }
 
 /** Insert a markdown image link for a user-supplied URL (网络图片) at the
@@ -5305,7 +5443,7 @@ const cls = computed(() => ({
     :y="editorContextMenuState.y"
     :context-info="editorContextMenuState.info"
     @action="onEditorContextMenuAction"
-    @close="editorContextMenuState.visible = false"
+    @close="closeEditorContextMenu"
   />
 </template>
 

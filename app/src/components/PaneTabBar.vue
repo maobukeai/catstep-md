@@ -426,7 +426,7 @@ onBeforeUnmount(() => {
           <button
             class="tab__close-btn"
             @click.stop="files.closeTabSafe(t.id)"
-            :title="(settings.language?.startsWith('zh') ? '关闭标签页' : 'Close tab') + ' (Ctrl+W)'"
+            :title="tr('tabMenu.closeTab') + ' (Ctrl+W)'"
             aria-label="Close tab"
           >
             <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
       <button
         class="tabbar__new"
         @click="files.newFile"
-        :title="(settings.language?.startsWith('zh') ? '新建标签页' : 'New tab') + ' (Ctrl+N)'"
+        :title="tr('tabMenu.newTab') + ' (Ctrl+N)'"
         aria-label="New tab"
       >
         <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -454,7 +454,7 @@ onBeforeUnmount(() => {
       <button
         class="tabbar__close-pane"
         @click="closePane"
-        :title="(settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane') + ' (Ctrl+Alt+W)'"
+        :title="tr('tabMenu.closePane') + ' (Ctrl+Alt+W)'"
         aria-label="Close Pane"
       >
         <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -502,15 +502,15 @@ onBeforeUnmount(() => {
           </button>
           <div class="ctx-sep" />
           <button class="ctx-item" @click="splitPane('horizontal')">
-            <span>{{ settings.language?.startsWith('zh') ? '向右拆分分栏' : 'Split Right' }}</span>
+            <span>{{ tr('tabMenu.splitRight') }}</span>
           </button>
           <button class="ctx-item" @click="splitPane('vertical')">
-            <span>{{ settings.language?.startsWith('zh') ? '向下拆分分栏' : 'Split Down' }}</span>
+            <span>{{ tr('tabMenu.splitDown') }}</span>
           </button>
           <template v-if="tiles.allLeaves.length > 1">
             <div class="ctx-sep" />
             <button class="ctx-item ctx-item--danger" @click="closePane">
-              <span>{{ settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane' }}</span>
+              <span>{{ tr('tabMenu.closePane') }}</span>
               <span class="ctx-shortcut">Ctrl+Alt+W</span>
             </button>
           </template>

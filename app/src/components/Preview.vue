@@ -616,6 +616,18 @@ function onPreviewOpenFullTable() {
   });
 }
 
+watch(() => props.tabId, () => {
+  previewTableState.value.visible = false;
+  if (mathEdit.value) cancelMathEdit();
+  searchOpen.value = false;
+});
+
+function onPreviewScroll() {
+  if (previewTableState.value.visible) {
+    previewTableState.value.visible = false;
+  }
+}
+
 onMounted(async () => {
   await nextTick();
   processPlantuml();
@@ -626,12 +638,15 @@ onMounted(async () => {
   host.value?.addEventListener('click', handleLinkClick);
   host.value?.addEventListener('click', onPreviewTableClick);
   host.value?.addEventListener('dblclick', onPreviewDblClick);
+  host.value?.parentElement?.addEventListener('scroll', onPreviewScroll, { passive: true });
 });
 
 onBeforeUnmount(() => {
   host.value?.removeEventListener('click', handleLinkClick);
   host.value?.removeEventListener('click', onPreviewTableClick);
   host.value?.removeEventListener('dblclick', onPreviewDblClick);
+  host.value?.parentElement?.removeEventListener('scroll', onPreviewScroll);
+  previewTableState.value.visible = false;
 });
 
 function openSearch() {

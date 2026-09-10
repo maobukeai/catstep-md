@@ -347,18 +347,7 @@ const menubarNames: MenubarName[] = ['file', 'edit', 'paragraph', 'format', 'vie
 const menubarOpen = ref<MenubarName | null>(null);
 
 function menuTitle(name: MenubarName): string {
-  const isChinese = isZh.value;
-  const titles: Record<MenubarName, { zh: string; en: string }> = {
-    file: { zh: '文件', en: 'File' },
-    edit: { zh: '编辑', en: 'Edit' },
-    paragraph: { zh: '段落', en: 'Paragraph' },
-    format: { zh: '格式', en: 'Format' },
-    view: { zh: '视图', en: 'View' },
-    themes: { zh: '主题', en: 'Themes' },
-    tools: { zh: '工具', en: 'Tools' },
-    help: { zh: '帮助', en: 'Help' },
-  };
-  return isChinese ? titles[name].zh : titles[name].en;
+  return t(`menubar.${name}`);
 }
 
 function toggleMenubar(name: MenubarName, e: MouseEvent) {
@@ -467,99 +456,101 @@ function menuAction(id: string) {
 type MenubarEntry = { id: string; label: string; shortcut?: string } | { sep: true };
 
 const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
-  const isZh = settings.language?.startsWith('zh') ?? true;
+  // Helper: look up a menubar.* i18n key for menu item labels.
+  const m = (key: string) => t(`menubar.${key}`);
   return {
     file: [
-      { id: 'file.new', label: isZh ? '新建 Markdown' : 'New Markdown', shortcut: shortcutLabel('file.new', settings.keybindings, macChord) || 'Ctrl+N' },
-      { id: 'file.newText', label: isZh ? '新建纯文本' : 'New Plain Text', shortcut: shortcutLabel('file.newText', settings.keybindings, macChord) || 'Ctrl+Alt+N' },
+      { id: 'file.new', label: m('newMd'), shortcut: shortcutLabel('file.new', settings.keybindings, macChord) || 'Ctrl+N' },
+      { id: 'file.newText', label: m('newText'), shortcut: shortcutLabel('file.newText', settings.keybindings, macChord) || 'Ctrl+Alt+N' },
       { sep: true },
-      { id: 'file.open', label: isZh ? '打开文件...' : 'Open File...', shortcut: shortcutLabel('file.open', settings.keybindings, macChord) || 'Ctrl+O' },
-      { id: 'file.openFolder', label: isZh ? '打开文件夹...' : 'Open Folder...' },
-      { id: 'file.import', label: isZh ? '导入文档...' : 'Import Documents...', shortcut: shortcutLabel('file.import', settings.keybindings, macChord) || 'Ctrl+Alt+O' },
+      { id: 'file.open', label: m('openFile'), shortcut: shortcutLabel('file.open', settings.keybindings, macChord) || 'Ctrl+O' },
+      { id: 'file.openFolder', label: m('openFolder') },
+      { id: 'file.import', label: m('importDocs'), shortcut: shortcutLabel('file.import', settings.keybindings, macChord) || 'Ctrl+Alt+O' },
       { sep: true },
-      { id: 'file.save', label: isZh ? '保存' : 'Save', shortcut: shortcutLabel('file.save', settings.keybindings, macChord) || 'Ctrl+S' },
-      { id: 'file.saveAs', label: isZh ? '另存为...' : 'Save As...', shortcut: shortcutLabel('file.saveAs', settings.keybindings, macChord) || 'Ctrl+Shift+S' },
-      { id: 'file.openExternal', label: isZh ? '在默认应用中打开' : 'Open in Default App', shortcut: shortcutLabel('file.openExternal', settings.keybindings, macChord) },
+      { id: 'file.save', label: m('save'), shortcut: shortcutLabel('file.save', settings.keybindings, macChord) || 'Ctrl+S' },
+      { id: 'file.saveAs', label: m('saveAs'), shortcut: shortcutLabel('file.saveAs', settings.keybindings, macChord) || 'Ctrl+Shift+S' },
+      { id: 'file.openExternal', label: m('openExternal'), shortcut: shortcutLabel('file.openExternal', settings.keybindings, macChord) },
       { sep: true },
-      { id: 'file.exportHtml', label: isZh ? '导出为 HTML' : 'Export HTML' },
-      { id: 'file.exportDocx', label: isZh ? '导出为 Word (DOCX)' : 'Export DOCX' },
-      { id: 'file.exportPdf', label: isZh ? '导出为 PDF' : 'Export PDF' },
-      { id: 'file.exportPdfPrint', label: isZh ? '系统打印 / 导出 PDF...' : 'Print / Export PDF...', shortcut: shortcutLabel('file.print', settings.keybindings, macChord) || 'Ctrl+P' },
-      { id: 'file.exportImage', label: isZh ? '导出为长图' : 'Export Long Image' },
+      { id: 'file.exportHtml', label: m('exportHtml') },
+      { id: 'file.exportDocx', label: m('exportDocx') },
+      { id: 'file.exportPdf', label: m('exportPdf') },
+      { id: 'file.exportPdfPrint', label: m('exportPdfPrint'), shortcut: shortcutLabel('file.print', settings.keybindings, macChord) || 'Ctrl+P' },
+      { id: 'file.exportImage', label: m('exportImage') },
       { sep: true },
-      { id: 'file.copyMarkdown', label: isZh ? '复制 Markdown 源码' : 'Copy Markdown' },
-      { id: 'file.copyHtml', label: isZh ? '复制为格式化 HTML' : 'Copy Formatted HTML' },
-      { id: 'file.copyImage', label: isZh ? '复制为长图到剪贴板' : 'Copy Image to Clipboard' },
+      { id: 'file.copyMarkdown', label: m('copyMarkdown') },
+      { id: 'file.copyHtml', label: m('copyHtml') },
+      { id: 'file.copyImage', label: m('copyImage') },
       { sep: true },
-      { id: 'view.settings', label: isZh ? '偏好设置...' : 'Preferences...', shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) ? 'Ctrl+,' : undefined },
+      { id: 'view.settings', label: m('preferences'), shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) ? 'Ctrl+,' : undefined },
       { sep: true },
-      { id: 'file.exit', label: isZh ? '退出' : 'Exit', shortcut: shortcutLabel('file.exit', settings.keybindings, macChord) || 'Alt+F4' },
+      { id: 'file.exit', label: m('exit'), shortcut: shortcutLabel('file.exit', settings.keybindings, macChord) || 'Alt+F4' },
     ],
     edit: [
-      { id: 'edit.undo', label: isZh ? '撤销' : 'Undo', shortcut: 'Ctrl+Z' },
-      { id: 'edit.redo', label: isZh ? '重做' : 'Redo', shortcut: 'Ctrl+Y' },
+      { id: 'edit.undo', label: m('undo'), shortcut: 'Ctrl+Z' },
+      { id: 'edit.redo', label: m('redo'), shortcut: 'Ctrl+Y' },
       { sep: true },
-      { id: 'edit.cut', label: isZh ? '剪切' : 'Cut', shortcut: 'Ctrl+X' },
-      { id: 'edit.copy', label: isZh ? '复制' : 'Copy', shortcut: 'Ctrl+C' },
-      { id: 'edit.paste', label: isZh ? '粘贴' : 'Paste', shortcut: 'Ctrl+V' },
-      { id: 'edit.selectAll', label: isZh ? '全选' : 'Select All', shortcut: 'Ctrl+A' },
+      { id: 'edit.cut', label: m('cut'), shortcut: 'Ctrl+X' },
+      { id: 'edit.copy', label: m('copy'), shortcut: 'Ctrl+C' },
+      { id: 'edit.paste', label: m('paste'), shortcut: 'Ctrl+V' },
+      { id: 'edit.selectAll', label: m('selectAll'), shortcut: 'Ctrl+A' },
       { sep: true },
-      { id: 'edit.find', label: isZh ? '查找' : 'Find', shortcut: 'Ctrl+F' },
-      { id: 'edit.replace', label: isZh ? '替换' : 'Replace', shortcut: 'Ctrl+H' },
+      { id: 'edit.find', label: m('find'), shortcut: 'Ctrl+F' },
+      { id: 'edit.replace', label: m('replace'), shortcut: 'Ctrl+H' },
     ],
     paragraph: [
-      { id: 'format.h1', label: isZh ? '一级标题 (H1)' : 'Heading 1', shortcut: 'Ctrl+1' },
-      { id: 'format.h2', label: isZh ? '二级标题 (H2)' : 'Heading 2', shortcut: 'Ctrl+2' },
-      { id: 'format.h3', label: isZh ? '三级标题 (H3)' : 'Heading 3', shortcut: 'Ctrl+3' },
-      { id: 'format.h4', label: isZh ? '四级标题 (H4)' : 'Heading 4', shortcut: 'Ctrl+4' },
-      { id: 'format.h5', label: isZh ? '五级标题 (H5)' : 'Heading 5', shortcut: 'Ctrl+5' },
-      { id: 'format.h6', label: isZh ? '六级标题 (H6)' : 'Heading 6', shortcut: 'Ctrl+6' },
-      { id: 'format.paragraph', label: isZh ? '正文段落' : 'Paragraph', shortcut: 'Ctrl+0' },
+      { id: 'format.h1', label: m('h1'), shortcut: 'Ctrl+1' },
+      { id: 'format.h2', label: m('h2'), shortcut: 'Ctrl+2' },
+      { id: 'format.h3', label: m('h3'), shortcut: 'Ctrl+3' },
+      { id: 'format.h4', label: m('h4'), shortcut: 'Ctrl+4' },
+      { id: 'format.h5', label: m('h5'), shortcut: 'Ctrl+5' },
+      { id: 'format.h6', label: m('h6'), shortcut: 'Ctrl+6' },
+      { id: 'format.paragraph', label: m('paragraphText'), shortcut: 'Ctrl+0' },
       { sep: true },
-      { id: 'format.ul', label: isZh ? '无序列表' : 'Bullet List', shortcut: shortcutLabel('format.bulletList', settings.keybindings, macChord) || 'Ctrl+Shift+U' },
-      { id: 'format.ol', label: isZh ? '有序列表' : 'Numbered List', shortcut: shortcutLabel('format.orderedList', settings.keybindings, macChord) || 'Ctrl+Shift+O' },
-      { id: 'format.task', label: isZh ? '任务列表' : 'Task List', shortcut: shortcutLabel('format.taskList', settings.keybindings, macChord) || 'Ctrl+Shift+X' },
+      { id: 'format.ul', label: m('bulletList'), shortcut: shortcutLabel('format.bulletList', settings.keybindings, macChord) || 'Ctrl+Shift+U' },
+      { id: 'format.ol', label: m('numberedList'), shortcut: shortcutLabel('format.orderedList', settings.keybindings, macChord) || 'Ctrl+Shift+O' },
+      { id: 'format.task', label: m('taskList'), shortcut: shortcutLabel('format.taskList', settings.keybindings, macChord) || 'Ctrl+Shift+X' },
       { sep: true },
-      { id: 'insert.table', label: isZh ? '插入表格' : 'Insert Table', shortcut: shortcutLabel('insert.table', settings.keybindings, macChord) || 'Ctrl+T' },
-      { id: 'insert.quote', label: isZh ? '引用区块' : 'Blockquote', shortcut: shortcutLabel('format.quote', settings.keybindings, macChord) || 'Ctrl+Shift+Q' },
-      { id: 'format.codeblock', label: isZh ? '代码块' : 'Code Block', shortcut: shortcutLabel('insert.codeBlock', settings.keybindings, macChord) || 'Ctrl+Shift+K' },
-      { id: 'format.mathblock', label: isZh ? '公式块' : 'Math Block', shortcut: shortcutLabel('insert.mathBlock', settings.keybindings, macChord) || 'Ctrl+Shift+M' },
-      { id: 'insert.divider', label: isZh ? '水平分割线' : 'Horizontal Rule' },
+      { id: 'insert.table', label: m('insertTable'), shortcut: shortcutLabel('insert.table', settings.keybindings, macChord) || 'Ctrl+T' },
+      { id: 'insert.quote', label: m('blockquote'), shortcut: shortcutLabel('format.quote', settings.keybindings, macChord) || 'Ctrl+Shift+Q' },
+      { id: 'format.codeblock', label: m('codeBlock'), shortcut: shortcutLabel('insert.codeBlock', settings.keybindings, macChord) || 'Ctrl+Shift+K' },
+      { id: 'format.mathblock', label: m('mathBlock'), shortcut: shortcutLabel('insert.mathBlock', settings.keybindings, macChord) || 'Ctrl+Shift+M' },
+      { id: 'insert.divider', label: m('horizontalRule') },
     ],
     format: [
-      { id: 'format.bold', label: isZh ? '加粗' : 'Bold', shortcut: shortcutLabel('format.bold', settings.keybindings, macChord) || 'Ctrl+B' },
-      { id: 'format.italic', label: isZh ? '斜体' : 'Italic', shortcut: shortcutLabel('format.italic', settings.keybindings, macChord) || 'Ctrl+I' },
-      { id: 'format.underline', label: isZh ? '下划线' : 'Underline', shortcut: shortcutLabel('format.underline', settings.keybindings, macChord) || 'Ctrl+U' },
-      { id: 'format.strikethrough', label: isZh ? '删除线' : 'Strikethrough', shortcut: shortcutLabel('format.strikethrough', settings.keybindings, macChord) || 'Alt+Shift+5' },
-      { id: 'format.code', label: isZh ? '行内代码' : 'Inline Code', shortcut: shortcutLabel('format.code', settings.keybindings, macChord) || 'Ctrl+`' },
-      { id: 'format.math', label: isZh ? '行内公式' : 'Inline Math', shortcut: shortcutLabel('format.inlineMath', settings.keybindings, macChord) || 'Ctrl+Shift+M' },
+      { id: 'format.bold', label: m('bold'), shortcut: shortcutLabel('format.bold', settings.keybindings, macChord) || 'Ctrl+B' },
+      { id: 'format.italic', label: m('italic'), shortcut: shortcutLabel('format.italic', settings.keybindings, macChord) || 'Ctrl+I' },
+      { id: 'format.underline', label: m('underline'), shortcut: shortcutLabel('format.underline', settings.keybindings, macChord) || 'Ctrl+U' },
+      { id: 'format.strikethrough', label: m('strikethrough'), shortcut: shortcutLabel('format.strikethrough', settings.keybindings, macChord) || 'Alt+Shift+5' },
+      { id: 'format.code', label: m('inlineCode'), shortcut: shortcutLabel('format.code', settings.keybindings, macChord) || 'Ctrl+`' },
+      { id: 'format.math', label: m('inlineMath'), shortcut: shortcutLabel('format.inlineMath', settings.keybindings, macChord) || 'Ctrl+Shift+M' },
       { sep: true },
-      { id: 'format.link', label: isZh ? '插入超链接' : 'Insert Link', shortcut: shortcutLabel('format.link', settings.keybindings, macChord) || 'Ctrl+K' },
-      { id: 'format.image', label: isZh ? '插入本地图片...' : 'Insert Local Image...', shortcut: shortcutLabel('format.image', settings.keybindings, macChord) || 'Ctrl+Shift+I' },
-      { id: 'format.imageNetwork', label: isZh ? '插入网络图片链接...' : 'Insert Web Image...' },
+      { id: 'format.link', label: m('insertLink'), shortcut: shortcutLabel('format.link', settings.keybindings, macChord) || 'Ctrl+K' },
+      { id: 'format.image', label: m('insertImage'), shortcut: shortcutLabel('format.image', settings.keybindings, macChord) || 'Ctrl+Shift+I' },
+      { id: 'format.imageNetwork', label: m('insertWebImage') },
       { sep: true },
-      { id: 'format.aiRewrite', label: isZh ? 'AI 润色与改写' : 'AI Rewrite', shortcut: 'Ctrl+J' },
+      { id: 'format.cleanAI', label: m('cleanAI') },
+      { id: 'format.aiRewrite', label: m('aiRewrite'), shortcut: 'Ctrl+J' },
     ],
     view: [
-      { id: 'view.modeLiveEdit', label: isZh ? '编辑模式' : 'Edit Mode' },
-      { id: 'view.modeReading', label: isZh ? '阅读模式' : 'Reading Mode', shortcut: macChord ? '⇧⌘R' : 'Ctrl+Shift+R' },
-      { id: 'view.modeEdit', label: isZh ? '源码模式' : 'Source Mode' },
-      { id: 'view.modeSplit', label: isZh ? '双栏对照' : 'Split View' },
+      { id: 'view.modeLiveEdit', label: m('editMode') },
+      { id: 'view.modeReading', label: m('readingMode'), shortcut: macChord ? '⇧⌘R' : 'Ctrl+Shift+R' },
+      { id: 'view.modeEdit', label: m('sourceMode') },
+      { id: 'view.modeSplit', label: m('splitView') },
       { sep: true },
-      { id: 'view.sidebarFiles', label: isZh ? '文件大纲侧边栏 (文件列表)' : 'File Tree Sidebar', shortcut: 'Ctrl+Shift+1' },
-      { id: 'view.sidebarOutline', label: isZh ? '文档目录大纲' : 'Document Outline', shortcut: 'Ctrl+Shift+2' },
-      { id: 'view.sidebarSearch', label: isZh ? '全局搜索' : 'Global Search', shortcut: shortcutLabel('view.sidebarSearch', settings.keybindings, macChord) || 'Ctrl+Shift+3' },
+      { id: 'view.sidebarFiles', label: m('fileTreeSidebar'), shortcut: 'Ctrl+Shift+1' },
+      { id: 'view.sidebarOutline', label: m('docOutline'), shortcut: 'Ctrl+Shift+2' },
+      { id: 'view.sidebarSearch', label: m('globalSearchMenu'), shortcut: shortcutLabel('view.sidebarSearch', settings.keybindings, macChord) || 'Ctrl+Shift+3' },
       { sep: true },
-      { id: 'view.toggleSourceMode', label: isZh ? '切换编辑 / 源码模式' : 'Toggle Edit / Source Mode', shortcut: shortcutLabel('view.toggleSourceMode', settings.keybindings, macChord) || 'Ctrl+/' },
-      { id: 'view.toggleFocusMode', label: isZh ? '专注模式' : 'Focus Mode', shortcut: 'F8' },
-      { id: 'view.toggleTypewriter', label: isZh ? '打字机模式' : 'Typewriter Mode', shortcut: 'F9' },
-      { id: 'view.toggleFullscreen', label: isZh ? '全屏' : 'Fullscreen', shortcut: 'F11' },
+      { id: 'view.toggleSourceMode', label: m('toggleSourceMode'), shortcut: shortcutLabel('view.toggleSourceMode', settings.keybindings, macChord) || 'Ctrl+/' },
+      { id: 'view.toggleFocusMode', label: m('focusMode'), shortcut: 'F8' },
+      { id: 'view.toggleTypewriter', label: m('typewriterMode'), shortcut: 'F9' },
+      { id: 'view.toggleFullscreen', label: m('fullscreen'), shortcut: 'F11' },
       {
         id: 'view.limitEditorWidth',
-        label: (settings.limitEditorWidth ? '✓  ' : '    ') + (isZh ? '限制编辑器宽度 (居中可读列)' : 'Limit Editor Width (Readable Column)'),
+        label: (settings.limitEditorWidth ? '✓  ' : '    ') + m('limitEditorWidth'),
       },
       { sep: true },
-      { id: 'view.toggleTheme', label: isZh ? '切换浅色 / 深色主题' : 'Toggle Theme' },
+      { id: 'view.toggleTheme', label: m('toggleTheme') },
       { sep: true },
       { id: 'view.zoomUiIn', label: t('menubar.uiZoomIn'), shortcut: 'Ctrl+=' },
       { id: 'view.zoomUiOut', label: t('menubar.uiZoomOut'), shortcut: 'Ctrl+-' },
@@ -578,22 +569,22 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
               label:
                 (settings.activeCustomThemeId === th.id ? '✓  ' : '    ') +
                 (th.name || th.id) +
-                (isZh ? ' (自定义)' : ' (Custom)'),
+                ` (${m('customTheme')})`,
             })),
           ]
         : []),
     ],
     tools: [
-      { id: 'tools.agent', label: isZh ? '猫步 AI 助手' : 'Catstep AI Agent', shortcut: 'Ctrl+J / Ctrl+Shift+A' },
-      { id: 'tools.cjkProofread', label: isZh ? '中英文排版规范校对' : 'CJK Proofread', shortcut: 'F6' },
-      { id: 'tools.cleanAI', label: isZh ? '一键清理 AI 格式痕迹' : 'Clean AI Artifacts' },
-      { id: 'tools.cmdPalette', label: isZh ? '命令面板' : 'Command Palette', shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) || 'Ctrl+Shift+P' },
-      { id: 'tools.pomodoro', label: isZh ? '猫步专注' : 'Catstep Focus' },
+      { id: 'tools.agent', label: m('aiAgent'), shortcut: 'Ctrl+J / Ctrl+Shift+A' },
+      { id: 'tools.cjkProofread', label: m('cjkProofread'), shortcut: 'F6' },
+      { id: 'tools.cleanAI', label: m('cleanAI') },
+      { id: 'tools.cmdPalette', label: m('cmdPalette'), shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) || 'Ctrl+Shift+P' },
+      { id: 'tools.pomodoro', label: m('pomodoro') },
     ],
     help: [
-      { id: 'help.markdown', label: isZh ? 'Markdown 语法速查' : 'Markdown Reference', shortcut: shortcutLabel('help.markdown', settings.keybindings, macChord) || 'F1' },
+      { id: 'help.markdown', label: m('mdHelp'), shortcut: shortcutLabel('help.markdown', settings.keybindings, macChord) || 'F1' },
       { sep: true },
-      { id: 'help.about', label: isZh ? '关于 猫步 MD' : 'About Catstep MD' },
+      { id: 'help.about', label: m('about') },
     ],
   };
 });
@@ -734,8 +725,8 @@ onBeforeUnmount(() => {
         class="toolbar__brand-btn"
         type="button"
         @click="emit('open-about')"
-        :title="isZh ? '关于 猫步 MD (检查更新与版本)' : 'About Catstep MD (Updates & Version)'"
-        :aria-label="isZh ? '关于 猫步 MD' : 'About Catstep MD'"
+        :title="t('menubar.about')"
+        :aria-label="t('menubar.about')"
       >
         <BrandMark class="toolbar__brand" :size="19" />
       </button>
@@ -777,37 +768,37 @@ onBeforeUnmount(() => {
           class="segmented-btn"
           :class="{ 'is-active': isEditing }"
           @click="onSelectEditMode"
-          :title="isZh ? '编辑模式 (所见即所得书写)' : 'Edit Mode (Live Preview)'"
+          :title="t('menubar.editMode')"
         >
           <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
           </svg>
-          <span class="segmented-text">{{ isZh ? '编辑' : 'Edit' }}</span>
+          <span class="segmented-text">{{ t('toolbar.edit') }}</span>
         </button>
         <button
           class="segmented-btn"
           :class="{ 'is-active': isReading }"
           @click="onSelectReadingMode"
-          :title="isZh ? '阅读模式 (纯净只读沉浸，双击段落回跳编辑)' : 'Reading Mode (Zen Reader)'"
+          :title="t('menubar.readingMode')"
         >
           <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
           </svg>
-          <span class="segmented-text">{{ isZh ? '阅读' : 'Read' }}</span>
+          <span class="segmented-text">{{ t('toolbar.preview') }}</span>
         </button>
         <button
           class="segmented-btn"
           :class="{ 'is-active': isSource }"
           @click="onSelectSourceMode"
-          :title="isZh ? '源码模式 (纯 Markdown 源码 / Ctrl+/)' : 'Source Mode (Raw Markdown / Ctrl+/)'"
+          :title="t('menubar.sourceMode')"
         >
           <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6" />
             <polyline points="8 6 2 12 8 18" />
           </svg>
-          <span class="segmented-text">{{ isZh ? '源码' : 'Source' }}</span>
+          <span class="segmented-text">{{ t('toolbar.edit') === '编辑' ? '源码' : 'Source' }}</span>
         </button>
       </div>
 
