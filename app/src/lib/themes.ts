@@ -197,14 +197,14 @@ export function dataThemeFor(theme: Theme): string {
 
 export const themeLabels: { value: Theme; label: string }[] = [
   // ── 浅色优雅写作系列 ──
-  { value: 'github-light', label: 'GitHub (Typora 经典白)' },
-  { value: 'newsprint', label: 'Newsprint (Typora 报刊宋体)' },
+  { value: 'github-light', label: '猫步晴白 (官方默认)' },
+  { value: 'newsprint', label: 'Newsprint (报刊宋体)' },
   { value: 'catppuccin-latte', label: 'Catppuccin 暖白奶霜 (柔和温润)' },
   { value: 'sepia', label: '温润羊皮纸 (Bear 护眼暖阳)' },
   { value: 'vue', label: 'Vue 翡翠极简 (清新明澈)' },
 
   // ── 深色沉浸专注系列 ──
-  { value: 'night', label: 'Night (Typora 极客黑)' },
+  { value: 'night', label: '猫步玄夜 (官方默认)' },
   { value: 'catppuccin-mocha', label: 'Catppuccin 摩卡暗夜 (现代顶流)' },
   { value: 'forest', label: '松柏青墨 (竹林幽夜)' },
   { value: 'dracula', label: 'Dracula (经典德古拉)' },
