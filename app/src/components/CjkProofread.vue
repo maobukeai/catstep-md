@@ -433,8 +433,8 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
   const tab = tabs.activeTab;
   if (!tab) return;
   const target = severity === 'all'
-    ? [...issues.value]
-    : issues.value.filter((i) => i.severity === severity);
+    ? [...visibleIssues.value]
+    : visibleIssues.value.filter((i) => i.severity === severity);
   if (target.length === 0) {
     toasts.info(t('proofread.nothingToApply'));
     return;
@@ -442,9 +442,7 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
   // Sort descending so applying late edits doesn't shift early offsets.
   // ALSO: skip overlapping issues (e.g. cjk_latin_space across the
   // same boundary) — a simple greedy filter keeps the first (latest
-  // by position) per overlap window. Chosen over a more elaborate
-  // resolver because overlaps are rare in practice and the rescan
-  // afterwards picks up anything we skipped.
+  // by position) per overlap window.
   const sorted = target.slice().sort((a, b) => b.col_start - a.col_start);
   const enc = new TextEncoder();
   const dec = new TextDecoder();
@@ -454,7 +452,8 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
   for (const issue of sorted) {
     if (issue.col_end > lastStart) continue; // overlap — skip
     if (issue.col_start > bytes.length || issue.col_end > bytes.length) continue;
-    const sugBytes = enc.encode(issue.suggestion);
+    const replacement = customSuggestions.value[issueKey(issue)] ?? issue.suggestion;
+    const sugBytes = enc.encode(replacement);
     const merged = new Uint8Array(
       issue.col_start + sugBytes.length + (bytes.length - issue.col_end),
     );
@@ -481,7 +480,7 @@ function onKey(e: KeyboardEvent) {
     return;
   }
 
-  // Guard: if user is typing inside editor or an input, don't steal keys like Arrow/Enter/j/k
+  // Guard: if user is typing inside editor or an input, don't steal regular keys like Arrow/Enter/j/k
   const targetEl = e.target as HTMLElement | null;
   const isEditable = !!targetEl && (
     targetEl.isContentEditable ||
@@ -490,7 +489,19 @@ function onKey(e: KeyboardEvent) {
     !!targetEl.closest?.('.cm-content') ||
     !!targetEl.closest?.('.cm-editor')
   );
-  if (isEditable) return;
+  if (isEditable) {
+    if (e.altKey && (e.key === 'ArrowDown' || e.key === 'j')) {
+      e.preventDefault();
+      nextIssue();
+    } else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'k')) {
+      e.preventDefault();
+      prevIssue();
+    } else if (e.altKey && e.key === 'Enter') {
+      e.preventDefault();
+      applyCurrent();
+    }
+    return;
+  }
 
   // Collect currently visible issues in display order
   const currentList: Issue[] = [];
@@ -979,7 +990,7 @@ void ignoreCategory;
             <span class="proof__kbd-label">忽略</span>
             <span class="proof__kbd">Esc</span>
             <span class="proof__kbd-label">退出</span>
-            <span class="proof__foot-hint">· 双击卡片快速定位正文编辑</span>
+            <span class="proof__foot-hint">· 双击卡片快速定位正文（正文中支持 Alt+↓/↑ 切换与 Alt+Enter 修复）</span>
           </div>
           <div class="proof__foot-stats">
             <span v-if="fixedCount > 0" class="proof__fixed-badge">已修复 {{ fixedCount }} 处</span>
