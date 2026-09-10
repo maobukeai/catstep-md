@@ -35,14 +35,13 @@ interface Settings {
   // #193 — non-blinking (solid) caret in the editor.
   solidCursor: boolean;
   // #190 — dedicated code font (code blocks / inline code / mono UI).
-  // Empty = built-in monospace stack.
   codeFontFamily: string;
   showOutline: boolean;
   outlineSide: 'left' | 'right';
-  // v4.6.2 — outline heading marker style. 'jump' = a/b/c… keyboard-jump labels
-  // (default; mixes letters + digits past 25 headings); 'number' = clean
-  // sequential 1/2/3…; 'none' = hidden.
+  // outline heading marker style. 'none' = clean Typora style (default);
+  // 'number' = clean sequential 1/2/3…; 'jump' = a/b/c… keyboard-jump labels.
   outlineMarker: 'jump' | 'number' | 'none';
+  outlineMarkerCleanMigrated: boolean;
   showFileTree: boolean;
   /** v4.3.x release marker: set on first launch after the default flipped
    *  from `false` → `true` (desktop). If absent on load, `load()` force-enables
@@ -469,7 +468,8 @@ function defaults(): Settings {
     codeFontFamily: '',
     showOutline: false,
     outlineSide: 'right',
-    outlineMarker: 'jump',
+    outlineMarker: 'none',
+    outlineMarkerCleanMigrated: true,
     showFileTree: !isMobile(),
     // Fresh installs already see the new default — mark migration done so
     // load()'s one-time force-on path is a no-op for them.
@@ -727,6 +727,14 @@ function load(): Settings {
           delete merged.keybindings['view.toggleFileTree'];
         }
         merged.typoraShortcutsMigrated = true;
+      }
+      // Clean outline migration: default to 'none' for clean Typora-style outline.
+      // Migrates existing installs that had the old 'jump' default.
+      if (!parsed.outlineMarkerCleanMigrated) {
+        if (merged.outlineMarker === 'jump') {
+          merged.outlineMarker = 'none';
+        }
+        merged.outlineMarkerCleanMigrated = true;
       }
       return merged;
     }

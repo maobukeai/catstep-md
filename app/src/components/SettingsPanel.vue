@@ -705,9 +705,9 @@ function onSelectPdfFont(v: string) {
             :value="settings.outlineMarker"
             @change="settings.setOutlineMarker(($event.target as HTMLSelectElement).value as 'jump' | 'number' | 'none')"
           >
-            <option value="jump">{{ t('settings.outlineMarkerJump') }}</option>
-            <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
             <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
+            <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
+            <option value="jump">{{ t('settings.outlineMarkerJump') }}</option>
           </select>
         </section>
 

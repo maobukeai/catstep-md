@@ -299,8 +299,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
       <span class="outline__statusbar-prefix">: g</span><span class="outline__statusbar-buf">{{ lineBuffer || '_' }}</span>
       <span class="outline__statusbar-hint">Enter ↵ goto · Esc cancel</span>
     </div>
-    <div v-else-if="visibleItems.length" class="outline__statusbar outline__statusbar--idle">
-      <span class="outline__statusbar-hint">{{ settings.outlineMarker === 'none' ? 'g+digits → line' : (settings.outlineMarker === 'number' ? 'number → jump · g+digits → line' : 'letter → jump · g+digits → line') }}</span>
+    <div v-else-if="visibleItems.length && settings.outlineMarker !== 'none'" class="outline__statusbar outline__statusbar--idle">
+      <span class="outline__statusbar-hint">{{ settings.outlineMarker === 'number' ? 'number → jump · g+digits → line' : 'letter → jump · g+digits → line' }}</span>
     </div>
   </aside>
 </template>
