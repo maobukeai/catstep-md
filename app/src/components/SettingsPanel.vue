@@ -553,7 +553,7 @@ function onSelectPdfFont(v: string) {
   <DsModal
     :model-value="open"
     :title="t('settings.title')"
-    width="860px"
+    width="820px"
     class="settings-modal"
     @update:model-value="emit('close')"
   >
@@ -568,16 +568,12 @@ function onSelectPdfFont(v: string) {
             :class="{ 'settings__nav-item--active': activeCategory === c.id }"
             @click="activeCategory = c.id"
           >
-            <span class="settings__nav-icon">{{ c.icon }}</span>
-            <span class="settings__nav-label">{{ t(c.labelKey) }}</span>
+            {{ t(c.labelKey) }}
           </button>
         </nav>
       <div ref="bodyEl" class="settings__body" :data-active-cat="activeCategory">
         <div class="settings__category-header">
-          <div class="settings__category-title">
-            <span class="settings__category-icon">{{ currentCategoryMeta.icon }}</span>
-            <h2>{{ t(currentCategoryMeta.labelKey) }}</h2>
-          </div>
+          <h2>{{ t(currentCategoryMeta.labelKey) }}</h2>
           <p class="settings__category-desc">{{ currentCategoryMeta.desc }}</p>
         </div>
         <!-- Group 1: 语言与外观 -->
@@ -2033,35 +2029,35 @@ function onSelectPdfFont(v: string) {
   flex: 1;
   display: flex;
   min-height: 0;
-  height: min(640px, 84vh);
+  height: min(600px, 80vh);
 }
 .settings__nav {
-  width: 196px;
+  width: 110px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   display: flex;
   flex-direction: column;
-  padding: 14px 10px;
-  gap: 4px;
+  padding: 12px 6px;
+  gap: 2px;
   overflow-y: auto;
 }
 .settings__nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 13px;
-  font-size: 13.5px;
+  justify-content: flex-start;
+  padding: 7px 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   text-align: left;
   font: inherit;
-  position: relative;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 .settings__nav-item:hover {
   background: var(--bg-hover);
@@ -2071,17 +2067,6 @@ function onSelectPdfFont(v: string) {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-weight: 600;
-}
-.settings__nav-icon {
-  font-size: 16px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-}
-.settings__nav-label {
-  flex: 1;
 }
 
 /* Category visibility */
@@ -2101,7 +2086,7 @@ function onSelectPdfFont(v: string) {
 
 .settings__body {
   flex: 1;
-  padding: 22px 32px 48px 32px;
+  padding: 20px 28px 48px 28px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -2110,28 +2095,19 @@ function onSelectPdfFont(v: string) {
 
 .settings__category-header {
   margin-bottom: 12px;
-  padding-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
-.settings__category-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.settings__category-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-.settings__category-title h2 {
+.settings__category-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
 }
 .settings__category-desc {
-  margin: 4px 0 0 0;
-  font-size: 12.5px;
+  margin: 3px 0 0 0;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
 }
