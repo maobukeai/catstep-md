@@ -345,7 +345,7 @@ defineExpose({ gotoLine, editorRef });
 
 function onOutlineGotoEvent(e: Event) {
   const { line, paneId } = (e as CustomEvent).detail;
-  if (paneId !== props.paneId) return;
+  if (paneId && paneId !== props.paneId) return;
   gotoLine(line);
 }
 

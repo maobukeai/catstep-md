@@ -310,6 +310,8 @@ function onUnsavedAction(action: 'save' | 'discard' | 'cancel') {
 // Expose to child composables (useFiles) via provide/inject
 provide('showUnsavedDialog', showUnsavedDialog);
 (window as any).__solomd_showUnsavedDialog = showUnsavedDialog;
+(window as any).__solomd_openProofread = () => { cjkProofreadOpen.value = true; };
+window.addEventListener('solomd:open-proofread', () => { cjkProofreadOpen.value = true; });
 
 // File-changed dialog state
 const fileChangedOpen = ref(false);
@@ -1850,10 +1852,39 @@ watch(visibleRsPanes, () => {
   });
 });
 
-// Per-pane height map → inline flex-basis. Panes without a stored height
-// fall back to the CSS flex defaults (1× for read-only panes, 4× for
-// Agent so chat keeps room when no splitter has been touched).
+// Collapsible sidebar accordion panes
+const collapsedPanes = ref<Record<string, boolean>>({});
+function togglePaneCollapse(id: string) {
+  collapsedPanes.value[id] = !collapsedPanes.value[id];
+}
+
+function onPaneHeaderPointerDown(e: PointerEvent, id: string) {
+  const el = e.target as HTMLElement | null;
+  if (!el) return;
+  if (el.closest('button, input, textarea, a, select, [data-no-drag]')) return;
+  const isHeader = el.closest(
+    'header, .sp__head, .backlinks__head, .tags-panel__head, .history__head, .agent-panel__head, .tasks-panel__head, .inspector__head, .ds-panel__head, .outline__head'
+  );
+  if (!isHeader) return;
+  startPaneReorder(e, id);
+}
+
+function onPaneHeaderDblClick(e: MouseEvent, id: string) {
+  const el = e.target as HTMLElement | null;
+  if (!el || el.closest('button, input, textarea, a, select')) return;
+  const isHeader = el.closest(
+    'header, .sp__head, .backlinks__head, .tags-panel__head, .history__head, .agent-panel__head, .tasks-panel__head, .inspector__head, .ds-panel__head, .outline__head'
+  );
+  if (isHeader) {
+    togglePaneCollapse(id);
+  }
+}
+
+// Per-pane height map → inline flex-basis.
 function paneStyle(id: string) {
+  if (collapsedPanes.value[id]) {
+    return { flex: '0 0 34px', height: '34px', minHeight: '34px', maxHeight: '34px', overflow: 'hidden' };
+  }
   const h = settings.rightSidebarPaneHeights[id];
   if (h && h > 0) {
     return { flex: `0 0 ${h}px`, height: `${h}px` };
@@ -2036,7 +2067,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               class="typora-sidebar__tab-close"
               @click="settings.toggleLeftSidebar()"
               :title="(settings.language?.startsWith('zh') ? '收起侧边栏' : 'Close Sidebar') + ' (Ctrl+Shift+L)'"
-            >✕</button>
+            >
+              <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+                <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
+              </svg>
+            </button>
           </div>
           <div class="typora-sidebar__body">
             <template v-if="settings.leftSidebarTab === 'files'">
@@ -2063,7 +2099,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             @mousedown="onSidebarResize('left', $event)"
           />
           <template v-for="(p, idx) in visibleRsPanes" :key="p.id">
-            <RsSplitter v-if="idx > 0" :above="visibleRsPanes[idx-1].id" :below="p.id" />
+            <RsSplitter v-if="idx > 0 && !collapsedPanes[visibleRsPanes[idx-1].id] && !collapsedPanes[p.id]" :above="visibleRsPanes[idx-1].id" :below="p.id" />
             <div
               :data-rs-pane="p.id"
               :class="[
@@ -2071,43 +2107,79 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
                 `rs-pane-host--${p.id}`,
                 draggingPaneId === p.id ? 'rs-pane-host--dragging' : '',
                 dragOverPaneId === p.id ? 'rs-pane-host--drop-target' : '',
+                collapsedPanes[p.id] ? 'rs-pane-host--collapsed' : '',
               ]"
               :style="paneStyle(p.id)"
+              @pointerdown="onPaneHeaderPointerDown($event, p.id)"
+              @dblclick="onPaneHeaderDblClick($event, p.id)"
             >
-              <div
-                class="rs-pane-grip"
-                :title="t('rsPane.dragToReorder')"
-                @pointerdown="startPaneReorder($event, p.id)"
-              >⋮⋮</div>
               <GlobalSearch
                 v-if="p.id === 'search'"
+                :collapsed="!!collapsedPanes['search']"
                 :prefill="searchPrefill"
+                @toggle-collapse="togglePaneCollapse('search')"
                 @close="searchOpen = false"
               />
-              <Outline v-if="p.id === 'outline'" :cursor-line="cursorLine" @goto="onOutlineGoto" />
-              <BacklinksPanel v-if="p.id === 'backlinks'" @close="ctxToggle(() => settings.toggleBacklinks())" />
-              <RelationshipsPanel v-if="p.id === 'relationships'" @close="ctxToggle(() => settings.toggleRelationships())" />
+              <Outline
+                v-if="p.id === 'outline'"
+                :collapsed="!!collapsedPanes['outline']"
+                :cursor-line="cursorLine"
+                @toggle-collapse="togglePaneCollapse('outline')"
+                @goto="onOutlineGoto"
+              />
+              <BacklinksPanel
+                v-if="p.id === 'backlinks'"
+                :collapsed="!!collapsedPanes['backlinks']"
+                @toggle-collapse="togglePaneCollapse('backlinks')"
+                @close="ctxToggle(() => settings.toggleBacklinks())"
+              />
+              <RelationshipsPanel
+                v-if="p.id === 'relationships'"
+                :collapsed="!!collapsedPanes['relationships']"
+                @toggle-collapse="togglePaneCollapse('relationships')"
+                @close="ctxToggle(() => settings.toggleRelationships())"
+              />
               <TagsPanel
                 v-if="p.id === 'tags'"
+                :collapsed="!!collapsedPanes['tags']"
+                @toggle-collapse="togglePaneCollapse('tags')"
                 @close="ctxToggle(() => settings.toggleTagsPanel())"
                 @filter-tag="onFilterTag"
               />
               <TasksPanel
                 v-if="p.id === 'tasks'"
+                :collapsed="!!collapsedPanes['tasks']"
+                @toggle-collapse="togglePaneCollapse('tasks')"
                 @close="ctxToggle(() => settings.toggleTasksPanel())"
               />
               <NeighborhoodPanel
                 v-if="p.id === 'neighborhood'"
+                :collapsed="!!collapsedPanes['neighborhood']"
+                @toggle-collapse="togglePaneCollapse('neighborhood')"
                 @close="ctxToggle(() => settings.toggleNeighborhood())"
               />
               <TypesPanel
                 v-if="p.id === 'types'"
+                :collapsed="!!collapsedPanes['types']"
+                @toggle-collapse="togglePaneCollapse('types')"
                 @close="ctxToggle(() => settings.toggleTypesPanel())"
               />
-              <HistoryPanel v-if="p.id === 'history'" @close="ctxToggle(() => settings.toggleHistoryPanel())" />
-              <PropertiesInspector v-if="p.id === 'inspector'" @close="ctxToggle(() => settings.toggleInspector())" />
+              <HistoryPanel
+                v-if="p.id === 'history'"
+                :collapsed="!!collapsedPanes['history']"
+                @toggle-collapse="togglePaneCollapse('history')"
+                @close="ctxToggle(() => settings.toggleHistoryPanel())"
+              />
+              <PropertiesInspector
+                v-if="p.id === 'inspector'"
+                :collapsed="!!collapsedPanes['inspector']"
+                @toggle-collapse="togglePaneCollapse('inspector')"
+                @close="ctxToggle(() => settings.toggleInspector())"
+              />
               <AgentPanel
                 v-if="p.id === 'agent'"
+                :collapsed="!!collapsedPanes['agent']"
+                @toggle-collapse="togglePaneCollapse('agent')"
                 @open-settings="(section?: string) => openSettingsAt(section ?? 'integrations')"
                 @close="ctxToggle(() => settings.toggleAgentPanel())"
               />
@@ -2133,16 +2205,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             :class="{ 'is-resizing': isSideSidebarResizing }"
             @mousedown="onSidebarResize('right', $event)"
           />
-          <div class="right-drawer-bar">
-            <span class="right-drawer-bar__title">✨ {{ settings.language?.startsWith('zh') ? 'SoloMD 工具箱' : 'SoloMD Tools' }}</span>
-            <button
-              class="right-drawer-bar__close"
-              @click="settings.toggleRightDrawer()"
-              :title="(settings.language?.startsWith('zh') ? '收起工具抽屉' : 'Close Drawer') + ' (Ctrl+Shift+A)'"
-            >✕</button>
-          </div>
           <template v-for="(p, idx) in visibleRsPanes" :key="p.id">
-            <RsSplitter v-if="idx > 0" :above="visibleRsPanes[idx-1].id" :below="p.id" />
+            <RsSplitter v-if="idx > 0 && !collapsedPanes[visibleRsPanes[idx-1].id] && !collapsedPanes[p.id]" :above="visibleRsPanes[idx-1].id" :below="p.id" />
             <div
               :data-rs-pane="p.id"
               :class="[
@@ -2150,43 +2214,79 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
                 `rs-pane-host--${p.id}`,
                 draggingPaneId === p.id ? 'rs-pane-host--dragging' : '',
                 dragOverPaneId === p.id ? 'rs-pane-host--drop-target' : '',
+                collapsedPanes[p.id] ? 'rs-pane-host--collapsed' : '',
               ]"
               :style="paneStyle(p.id)"
+              @pointerdown="onPaneHeaderPointerDown($event, p.id)"
+              @dblclick="onPaneHeaderDblClick($event, p.id)"
             >
-              <div
-                class="rs-pane-grip"
-                :title="t('rsPane.dragToReorder')"
-                @pointerdown="startPaneReorder($event, p.id)"
-              >⋮⋮</div>
               <GlobalSearch
                 v-if="p.id === 'search'"
+                :collapsed="!!collapsedPanes['search']"
                 :prefill="searchPrefill"
+                @toggle-collapse="togglePaneCollapse('search')"
                 @close="searchOpen = false"
               />
-              <Outline v-if="p.id === 'outline'" :cursor-line="cursorLine" @goto="onOutlineGoto" />
-              <BacklinksPanel v-if="p.id === 'backlinks'" @close="ctxToggle(() => settings.toggleBacklinks())" />
-              <RelationshipsPanel v-if="p.id === 'relationships'" @close="ctxToggle(() => settings.toggleRelationships())" />
+              <Outline
+                v-if="p.id === 'outline'"
+                :collapsed="!!collapsedPanes['outline']"
+                :cursor-line="cursorLine"
+                @toggle-collapse="togglePaneCollapse('outline')"
+                @goto="onOutlineGoto"
+              />
+              <BacklinksPanel
+                v-if="p.id === 'backlinks'"
+                :collapsed="!!collapsedPanes['backlinks']"
+                @toggle-collapse="togglePaneCollapse('backlinks')"
+                @close="ctxToggle(() => settings.toggleBacklinks())"
+              />
+              <RelationshipsPanel
+                v-if="p.id === 'relationships'"
+                :collapsed="!!collapsedPanes['relationships']"
+                @toggle-collapse="togglePaneCollapse('relationships')"
+                @close="ctxToggle(() => settings.toggleRelationships())"
+              />
               <TagsPanel
                 v-if="p.id === 'tags'"
+                :collapsed="!!collapsedPanes['tags']"
+                @toggle-collapse="togglePaneCollapse('tags')"
                 @close="ctxToggle(() => settings.toggleTagsPanel())"
                 @filter-tag="onFilterTag"
               />
               <TasksPanel
                 v-if="p.id === 'tasks'"
+                :collapsed="!!collapsedPanes['tasks']"
+                @toggle-collapse="togglePaneCollapse('tasks')"
                 @close="ctxToggle(() => settings.toggleTasksPanel())"
               />
               <NeighborhoodPanel
                 v-if="p.id === 'neighborhood'"
+                :collapsed="!!collapsedPanes['neighborhood']"
+                @toggle-collapse="togglePaneCollapse('neighborhood')"
                 @close="ctxToggle(() => settings.toggleNeighborhood())"
               />
               <TypesPanel
                 v-if="p.id === 'types'"
+                :collapsed="!!collapsedPanes['types']"
+                @toggle-collapse="togglePaneCollapse('types')"
                 @close="ctxToggle(() => settings.toggleTypesPanel())"
               />
-              <HistoryPanel v-if="p.id === 'history'" @close="ctxToggle(() => settings.toggleHistoryPanel())" />
-              <PropertiesInspector v-if="p.id === 'inspector'" @close="ctxToggle(() => settings.toggleInspector())" />
+              <HistoryPanel
+                v-if="p.id === 'history'"
+                :collapsed="!!collapsedPanes['history']"
+                @toggle-collapse="togglePaneCollapse('history')"
+                @close="ctxToggle(() => settings.toggleHistoryPanel())"
+              />
+              <PropertiesInspector
+                v-if="p.id === 'inspector'"
+                :collapsed="!!collapsedPanes['inspector']"
+                @toggle-collapse="togglePaneCollapse('inspector')"
+                @close="ctxToggle(() => settings.toggleInspector())"
+              />
               <AgentPanel
                 v-if="p.id === 'agent'"
+                :collapsed="!!collapsedPanes['agent']"
+                @toggle-collapse="togglePaneCollapse('agent')"
                 @open-settings="(section?: string) => openSettingsAt(section ?? 'integrations')"
                 @close="ctxToggle(() => settings.toggleAgentPanel())"
               />
@@ -2480,7 +2580,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   flex: 0 0 auto;
 }
 .typora-sidebar__body :deep(.ftree),
-.typora-sidebar__body :deep(.outline) {
+.typora-sidebar__body :deep(.outline),
+.typora-sidebar__body :deep(.sp) {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
@@ -2503,7 +2604,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   width: 260px;
   flex: 0 0 260px;
   min-width: 200px;
-  background: var(--bg-soft, var(--bg));
+  background: var(--bg-elev);
 }
 .side-sidebar--left {
   border-right: 1px solid var(--border);
@@ -2634,34 +2735,47 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   border-left: 0;
   border-right: 0;
 }
-/* v4.3.0 issue #57b — drag grip + drop-target highlight for right-sidebar
-   reordering. Grip is intentionally subtle (8px dotted strip at the top of
-   each pane); hovering surfaces it more clearly. Only the grip is draggable
-   so text selection inside the pane still works. */
-.rs-pane-grip {
+.rs-pane-host {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 10px;
-  flex: 0 0 10px;
-  color: var(--text-faint);
-  font-size: 8px;
-  letter-spacing: 2px;
+  flex-direction: column;
+  position: relative;
+  border-top: 1px solid var(--border);
+  transition: flex-basis 0.15s ease;
+}
+.rs-pane-host:first-of-type {
+  border-top: none;
+}
+.rs-pane-host--collapsed {
+  flex: 0 0 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  overflow: hidden !important;
+}
+.rs-pane-host--collapsed > :deep(*) {
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  overflow: hidden !important;
+}
+.rs-pane-host :deep(header),
+.rs-pane-host :deep(.sp__head),
+.rs-pane-host :deep(.backlinks__head),
+.rs-pane-host :deep(.tags-panel__head),
+.rs-pane-host :deep(.history__head),
+.rs-pane-host :deep(.agent-panel__head),
+.rs-pane-host :deep(.tasks-panel__head),
+.rs-pane-host :deep(.inspector__head),
+.rs-pane-host :deep(.ds-panel__head),
+.rs-pane-host :deep(.outline__head) {
   cursor: grab;
   user-select: none;
-  -webkit-user-select: none;
-  /* #131 — pointer-driven reorder: stop the browser turning a vertical drag on
-     the grip into a scroll/pan gesture so pointermove tracking stays clean. */
-  touch-action: none;
-  background: transparent;
-  transition: background 120ms, color 120ms;
 }
-.rs-pane-grip:hover {
-  background: var(--bg-hover);
-  color: var(--text-muted);
-}
-.rs-pane-grip:active {
-  cursor: grabbing;
+.rs-pane-host--dragging :deep(header) {
+  cursor: grabbing !important;
 }
 .rs-pane-host--dragging {
   opacity: 0.4;
@@ -2669,11 +2783,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .rs-pane-host--drop-target {
   outline: 2px dashed var(--accent);
   outline-offset: -2px;
-}
-/* Make sure the grip + content layout share vertical space cleanly. */
-.rs-pane-host > .rs-pane-grip + :deep(*) {
-  flex: 1 1 0;
-  min-height: 0;
 }
 .content {
   flex: 1;
@@ -2726,10 +2835,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .typora-sidebar__tabs {
   display: flex;
   align-items: center;
+  height: var(--tabbar-h, 34px);
+  box-sizing: border-box;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 0 6px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-elev);
   white-space: nowrap;
 }
 .typora-sidebar__tab {
@@ -2762,21 +2873,29 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   color: var(--text);
 }
 .typora-sidebar__tab.active {
-  background: var(--bg-active);
+  background: var(--bg);
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .typora-sidebar__tab-close {
-  padding: 3px 6px;
-  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-faint);
   border-radius: 4px;
   cursor: pointer;
   background: transparent;
+  border: 1px solid transparent;
+  padding: 0;
+  transition: all 0.12s ease;
 }
 .typora-sidebar__tab-close:hover {
   color: var(--text);
   background: var(--bg-hover);
+  border-color: var(--border);
 }
 .typora-sidebar__body {
   flex: 1;
@@ -2785,28 +2904,4 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   flex-direction: column;
 }
 
-/* Typora-style Right Tools Drawer Header */
-.right-drawer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.right-drawer-bar__close {
-  padding: 2px 5px;
-  font-size: 11px;
-  color: var(--text-faint);
-  border-radius: 3px;
-  cursor: pointer;
-  background: transparent;
-}
-.right-drawer-bar__close:hover {
-  color: var(--text);
-  background: var(--bg-hover);
-}
 </style>

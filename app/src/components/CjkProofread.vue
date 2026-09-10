@@ -65,6 +65,24 @@ const activeFilter = ref<'all' | 'high' | 'medium' | 'low'>('all');
 const activeCategory = ref<string | null>(null);
 const ignoredKeys = ref<Set<string>>(new Set());
 
+// Layout mode: 'docked' (sleek right inspector float) vs 'center' (centered dialog)
+const layoutMode = ref<'docked' | 'center'>(
+  (localStorage.getItem('solomd:proofread-layout') as 'docked' | 'center') || 'docked',
+);
+
+function toggleLayout() {
+  layoutMode.value = layoutMode.value === 'docked' ? 'center' : 'docked';
+  try {
+    localStorage.setItem('solomd:proofread-layout', layoutMode.value);
+  } catch {}
+}
+
+function onBackdropClick() {
+  if (layoutMode.value === 'center') {
+    emit('close');
+  }
+}
+
 const issueKey = (i: Issue) => `${i.line}:${i.col_start}:${i.col_end}:${i.original}`;
 
 watch(
@@ -210,10 +228,10 @@ function contextOf(issue: Issue): { before: string; hit: string; after: string }
 function jumpTo(issue: Issue, idx: number) {
   selectedIdx.value = idx;
   // Reuse the outline-goto event (PaneContent listens for it). Pass
-  // undefined paneId so the focused pane handles it.
+  // focused paneId or let PaneContent target current pane.
   window.dispatchEvent(
     new CustomEvent('solomd:outline-goto', {
-      detail: { line: issue.line, paneId: tiles.focusedPaneId },
+      detail: { line: issue.line, paneId: tiles.focusedPaneId || undefined },
     }),
   );
 }
@@ -293,6 +311,17 @@ function onKey(e: KeyboardEvent) {
     return;
   }
 
+  // Guard: if user is typing inside editor or an input, don't steal keys like Arrow/Enter/j/k
+  const targetEl = e.target as HTMLElement | null;
+  const isEditable = !!targetEl && (
+    targetEl.isContentEditable ||
+    targetEl.tagName === 'INPUT' ||
+    targetEl.tagName === 'TEXTAREA' ||
+    !!targetEl.closest?.('.cm-content') ||
+    !!targetEl.closest?.('.cm-editor')
+  );
+  if (isEditable) return;
+
   // Collect currently visible issues in display order
   const currentList: Issue[] = [];
   for (const bucket of activeBuckets.value) {
@@ -342,8 +371,24 @@ void lang;
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="proof__backdrop" @click.self="emit('close')">
-      <div class="proof" role="dialog" aria-label="中文排版校对">
+    <div
+      v-if="open"
+      class="proof__backdrop"
+      :class="{
+        'proof__backdrop--docked': layoutMode === 'docked',
+        'proof__backdrop--center': layoutMode === 'center',
+      }"
+      @click.self="onBackdropClick"
+    >
+      <div
+        class="proof"
+        :class="{
+          'proof--docked': layoutMode === 'docked',
+          'proof--center': layoutMode === 'center',
+        }"
+        role="dialog"
+        aria-label="中文排版校对"
+      >
         <!-- Modern Header -->
         <header class="proof__head">
           <div class="proof__head-main">
@@ -357,7 +402,7 @@ void lang;
               <div class="proof__title-row">
                 <h2 class="proof__title">{{ t('proofread.heading') }}</h2>
                 <span class="proof__count-badge" v-if="visibleIssues.length">
-                  共 {{ visibleIssues.length }} 处规范建议
+                  共 {{ visibleIssues.length }} 处
                 </span>
               </div>
               <p class="proof__subtitle">
@@ -367,13 +412,30 @@ void lang;
           </div>
 
           <div class="proof__head-actions">
+            <!-- Layout Switch: Docked Inspector vs Center Modal -->
+            <button
+              class="btn btn--ghost proof__layout-btn"
+              @click="toggleLayout"
+              :title="layoutMode === 'docked' ? '切换为居中弹窗' : '切换为靠右侧检查器'"
+            >
+              <svg v-if="layoutMode === 'docked'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <rect x="7" y="7" width="10" height="10" rx="1"></rect>
+              </svg>
+              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <line x1="15" y1="3" x2="15" y2="21"></line>
+              </svg>
+              <span class="proof__btn-text">{{ layoutMode === 'docked' ? '居中' : '靠右' }}</span>
+            </button>
+
             <button class="btn btn--ghost" @click="rescan" :disabled="loading" title="重新扫描当前文档">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" :class="{ 'spin': loading }">
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <polyline points="1 20 1 14 7 14"></polyline>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
               </svg>
-              <span>{{ t('proofread.rescan') }}</span>
+              <span class="proof__btn-text">{{ t('proofread.rescan') }}</span>
             </button>
             <button
               class="btn btn--primary"
@@ -384,7 +446,7 @@ void lang;
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
-              <span>{{ t('proofread.applyAll') }}</span>
+              <span class="proof__btn-text">{{ t('proofread.applyAll') }}</span>
             </button>
             <button class="proof__close-btn" @click="emit('close')" aria-label="关闭">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -622,12 +684,56 @@ void lang;
 </template>
 
 <style scoped>
+/* Backdrop */
 .proof__backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(4px);
   z-index: var(--z-modal);
+  transition: background 0.2s ease;
+}
+
+/* Docked Right Inspector Mode (Clean, unblurred, transparent so editor is 100% visible) */
+.proof__backdrop--docked {
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  padding-top: calc(var(--titlebar-h, 36px) + 8px);
+  padding-bottom: calc(var(--statusbar-h, 24px) + 8px);
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+
+.proof--docked {
+  pointer-events: auto;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  height: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.16), 0 2px 10px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
+  animation: proofSlideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes proofSlideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Center Modal Mode (Subtle tint, NO blur so document is clear) */
+.proof__backdrop--center {
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: none;
+  pointer-events: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -640,23 +746,60 @@ void lang;
   to { opacity: 1; }
 }
 
-.proof {
-  background: var(--bg-elev);
-  color: var(--text);
+.proof--center {
+  pointer-events: auto;
   width: min(780px, 94vw);
   max-height: 84vh;
-  border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.08);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  border: 1px solid var(--border);
   animation: proofScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes proofScaleIn {
   from { opacity: 0; transform: scale(0.97) translateY(-6px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.proof {
+  background: var(--bg-elev);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Compact docked adjustments */
+.proof--docked .proof__subtitle {
+  display: none;
+}
+.proof--docked .proof__head {
+  padding: 10px 14px;
+}
+.proof--docked .proof__head-actions {
+  gap: 5px;
+}
+.proof--docked .proof__head-actions .btn {
+  padding: 4px 7px;
+  font-size: 11.5px;
+}
+.proof--docked .proof__substrip {
+  padding: 6px 12px;
+  gap: 8px;
+}
+.proof--docked .proof__body {
+  padding: 10px 12px 16px;
+  gap: 12px;
+}
+.proof--docked .proof__card {
+  padding: 10px 12px;
+}
+.proof--docked .proof__foot {
+  padding: 8px 12px;
+}
+.proof--docked .proof__diff {
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 /* Header */
