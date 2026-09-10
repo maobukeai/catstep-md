@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, ref } from 'vue';
 import { renderMarkdown } from '../lib/markdown';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { toggleFullscreen } from '../lib/fullscreen';
 import Reveal from 'reveal.js';
 import 'reveal.js/reveal.css';
 
@@ -30,6 +31,20 @@ const total = ref(0);
 const idx = ref(0);
 const showHelp = ref(false);
 const title = ref('');
+
+function getLocale(): 'zh' | 'en' {
+  try {
+    const raw = localStorage.getItem('solomd.settings.v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.language?.startsWith('en')) return 'en';
+      if (parsed.language?.startsWith('zh')) return 'zh';
+    }
+  } catch {}
+  const nav = typeof navigator !== 'undefined' ? navigator.language : '';
+  return nav.startsWith('zh') ? 'zh' : 'en';
+}
+const isZh = ref(getLocale() === 'zh');
 
 type RevealDeck = InstanceType<typeof Reveal>;
 let deck: RevealDeck | null = null;
@@ -98,8 +113,29 @@ function extractMeta(raw: string): SlideMeta {
 
 /**
  * Split the source markdown into slide blocks. Reveal-style:
- *   `\n---\n` → next horizontal slide
- *   `\n--\n`  → next vertical sub-slide (within the current horizontal stack)
+/**
+ * Detect standard CommonMark horizontal rules and presentation breaks:
+ * - 3 or more hyphens, asterisks, or underscores (with optional 0~3 leading spaces and spaces between symbols)
+ *   e.g. `---`, `----`, `***`, `****`, `___`, `- - -`, `* * *`, `_ _ _`
+ * - HTML `<hr>` / `<hr/>` / `<hr />`
+ * - Marp / Remark slide break comments: `<!-- slide -->`, `<!-- pagebreak -->`
+ * - Chinese em-dashes: `——` or `———`
+ *
+ * Excludes `--` which is reserved for vertical slides.
+ */
+function isVerticalSeparator(line: string): boolean {
+  return /^(?:[ ]{0,3}--[ ]*|<!--\s*vertical\s*-->)$/i.test(line);
+}
+
+function isHorizontalSeparator(line: string): boolean {
+  if (isVerticalSeparator(line)) return false;
+  return /^(?:[ ]{0,3}(?:(?:-[ ]*){3,}|(?:\*[ ]*){3,}|(?:_[ ]*){3,})\s*|<hr\s*\/?>|<!--\s*(?:slide|pagebreak)\s*-->|(?:——+|———+)\s*)$/i.test(line);
+}
+
+/**
+ * Split the source markdown into slide blocks. Reveal-style:
+ *   Horizontal separator (`---`, `***`, `___`, `<hr>`, etc.) → next horizontal slide
+ *   Vertical separator (`--`) → next vertical sub-slide (within the current horizontal stack)
  * Fence-aware: separators inside ``` blocks are content, not slide breaks.
  */
 function splitSlides(src: string): string[][] {
@@ -122,9 +158,9 @@ function splitSlides(src: string): string[][] {
 
   for (const line of lines) {
     if (/^```/.test(line)) inFence = !inFence;
-    if (!inFence && /^---\s*$/.test(line)) {
+    if (!inFence && isHorizontalSeparator(line)) {
       pushHorizontal();
-    } else if (!inFence && /^--\s*$/.test(line)) {
+    } else if (!inFence && isVerticalSeparator(line)) {
       pushBuf();
       stack[0].push(''); // start a new vertical slide; we'll fill it on subsequent lines
     } else {
@@ -182,48 +218,46 @@ function buildDeck(src: string, host: HTMLElement) {
 }
 
 /**
- * Toggle fullscreen using Tauri's window API first, then fall back to
- * the HTML5 Fullscreen API. On Windows the Tauri setter sometimes needs a
- * user gesture to take effect; the HTML5 path works because `F` is one.
- */
-async function toggleFullscreen() {
-  let usedTauri = false;
-  try {
-    const win = getCurrentWindow();
-    const isFs = await win.isFullscreen();
-    await win.setFullscreen(!isFs);
-    usedTauri = true;
-    await new Promise((r) => setTimeout(r, 50));
-    if ((await win.isFullscreen()) === isFs) {
-      usedTauri = false;
-    }
-  } catch {}
-  if (usedTauri) return;
-  try {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await document.documentElement.requestFullscreen();
-    }
-  } catch (e) {
-    console.warn('fullscreen toggle failed', e);
-  }
-}
+
 
 async function exitShow() {
-  try {
-    const win = getCurrentWindow();
-    if (await win.isFullscreen()) {
-      await win.setFullscreen(false);
-      await new Promise((r) => setTimeout(r, 350));
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    try {
+      const win = getCurrentWindow();
+      if (await win.isFullscreen()) {
+        await win.setFullscreen(false);
+        await new Promise((r) => setTimeout(r, 350));
+      }
+      await win.close();
+      return;
+    } catch (e) {
+      console.warn('slideshow exit failed', e);
     }
-    await win.close();
-  } catch (e) {
-    console.warn('slideshow exit failed', e);
   }
+  window.close();
 }
 
 function onKey(e: KeyboardEvent) {
+  // If current slide has overflowing content, ArrowDown / j and ArrowUp / k
+  // scroll the slide smoothly first, rather than instantly jumping slides.
+  if (e.key === 'ArrowDown' || e.key === 'j') {
+    const curSlide = (deck as any)?.getCurrentSlide?.();
+    if (curSlide && curSlide.scrollHeight - curSlide.scrollTop - curSlide.clientHeight > 15) {
+      e.preventDefault();
+      e.stopPropagation();
+      curSlide.scrollBy({ top: 120, behavior: 'smooth' });
+      return;
+    }
+  } else if (e.key === 'ArrowUp' || e.key === 'k') {
+    const curSlide = (deck as any)?.getCurrentSlide?.();
+    if (curSlide && curSlide.scrollTop > 15) {
+      e.preventDefault();
+      e.stopPropagation();
+      curSlide.scrollBy({ top: -120, behavior: 'smooth' });
+      return;
+    }
+  }
+
   // Reveal handles arrow keys / space / page-up/down natively. We only
   // need our own escape-hatch shortcuts: F (fullscreen), Esc (exit),
   // ? (help overlay).
@@ -249,9 +283,21 @@ onMounted(async () => {
     source = localStorage.getItem(STORAGE_KEY) || '';
     title.value = localStorage.getItem(TITLE_KEY) || 'Slideshow';
   } catch {}
-  // Strip front matter (first --- ... --- block) — front-matter is config,
-  // not slide-1 content.
-  source = source.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+  // Strip front matter (first --- ... --- block) ONLY if it actually looks like
+  // YAML front-matter (key: value pairs, metadata), so we never accidentally
+  // swallow a user's first slide if they started the presentation with `---`.
+  const fmMatch = /^(?:---|\+\+\+)\r?\n([\s\S]*?)\r?\n(?:---|\+\+\+)\r?\n/.exec(source);
+  if (fmMatch) {
+    const body = fmMatch[1];
+    const lines = body.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const isYaml = lines.length > 0 && lines.every((l) => {
+      const t = l.trim();
+      return t.startsWith('#') || /^[\w.-]+\s*:/.test(t);
+    });
+    if (isYaml) {
+      source = source.slice(fmMatch[0].length);
+    }
+  }
   document.title = `${title.value} — SoloMD Slideshow`;
 
   // Build the DOM once into the .slides container, then init Reveal on
@@ -271,6 +317,12 @@ onMounted(async () => {
       transition: 'slide',
       backgroundTransition: 'fade',
       autoSlide: 0,
+      width: 1200,
+      height: 720,
+      margin: 0.04,
+      minScale: 0.2,
+      maxScale: 2.0,
+      center: false,
       // Plugins are intentionally NOT loaded — our markdown is already
       // rendered (with KaTeX, Mermaid, highlight.js). Reveal's own
       // markdown / highlight plugins would just duplicate work.
@@ -280,11 +332,15 @@ onMounted(async () => {
     deck.on('slidechanged', (event: any) => {
       idx.value = (event?.indexh ?? 0);
       total.value = deck?.getTotalSlides() ?? 0;
+      // Reset scroll position on newly active slide so it starts from top
+      if (event?.currentSlide) {
+        event.currentSlide.scrollTop = 0;
+      }
     });
     total.value = deck.getTotalSlides();
   }
 
-  window.addEventListener('keydown', onKey);
+  window.addEventListener('keydown', onKey, true);
 
   // Try to enter fullscreen on launch via Tauri.
   try {
@@ -295,38 +351,97 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKey);
-  try {
-    deck?.destroy();
-  } catch {}
+  window.removeEventListener('keydown', onKey, true);
+  if (deck) {
+    deck.destroy();
+    deck = null;
+  }
 });
 </script>
 
 <template>
-  <div ref="containerRef" class="solomd-slideshow reveal">
-    <div ref="slidesRef" class="slides"></div>
+  <div ref="containerRef" class="reveal solomd-slideshow">
+    <div ref="slidesRef" class="slides" />
+
+    <!-- Interactive Glass Capsule HUD in Bottom Right -->
     <div class="slide__hud" @click.stop>
-      <span class="slide__pos">{{ idx + 1 }} / {{ total }}</span>
-      <span class="slide__hint">F fullscreen · ? help · Esc exit</span>
+      <div class="slide__hud-capsule">
+        <span class="slide__pos">
+          <span class="slide__pos-cur">{{ idx + 1 }}</span>
+          <span class="slide__pos-sep">/</span>
+          <span class="slide__pos-total">{{ total }}</span>
+        </span>
+        <span class="slide__hud-divider" />
+        <button
+          class="slide__hud-btn"
+          :title="isZh ? '全屏放映 (F)' : 'Toggle Fullscreen (F)'"
+          @click.stop="toggleFullscreen"
+        >
+          <kbd>F</kbd>
+          <span>{{ isZh ? '全屏' : 'Full' }}</span>
+        </button>
+        <button
+          class="slide__hud-btn"
+          :title="isZh ? '快捷键帮助 (?)' : 'Shortcuts Help (?)'"
+          @click.stop="showHelp = !showHelp"
+        >
+          <kbd>?</kbd>
+          <span>{{ isZh ? '帮助' : 'Help' }}</span>
+        </button>
+        <button
+          class="slide__hud-btn slide__hud-btn--exit"
+          :title="isZh ? '退出放映 (Esc)' : 'Exit Slideshow (Esc)'"
+          @click.stop="exitShow"
+        >
+          <kbd>Esc</kbd>
+          <span>{{ isZh ? '退出' : 'Exit' }}</span>
+        </button>
+      </div>
     </div>
-    <div v-if="showHelp" class="slide__help" @click.stop="showHelp = false">
+
+    <!-- Localized Shortcuts Help Modal -->
+    <div v-if="showHelp" class="slide__help" @click.self="showHelp = false">
       <div class="slide__help-card">
-        <h2>Slideshow Shortcuts</h2>
+        <div class="slide__help-head">
+          <h2>{{ isZh ? '幻灯片放映快捷键指南' : 'Slideshow Shortcuts' }}</h2>
+          <button class="slide__help-close" @click="showHelp = false">✕</button>
+        </div>
         <table>
           <tbody>
-            <tr><td>Next slide</td><td>→ ↓ Space PageDown</td></tr>
-            <tr><td>Previous slide</td><td>← ↑ PageUp</td></tr>
-            <tr><td>First / last slide</td><td>Home / End</td></tr>
-            <tr><td>Toggle fullscreen</td><td>F</td></tr>
-            <tr><td>Show / hide this help</td><td>?</td></tr>
-            <tr><td>Exit</td><td>Esc</td></tr>
-            <tr><td>Vertical sub-slides</td><td>Use <code>--</code> separator</td></tr>
+            <tr>
+              <td>{{ isZh ? '下一页幻灯片' : 'Next slide' }}</td>
+              <td><kbd>→</kbd> <kbd>↓</kbd> <kbd>Space</kbd> <kbd>PageDown</kbd></td>
+            </tr>
+            <tr>
+              <td>{{ isZh ? '上一页幻灯片' : 'Previous slide' }}</td>
+              <td><kbd>←</kbd> <kbd>↑</kbd> <kbd>PageUp</kbd></td>
+            </tr>
+            <tr>
+              <td>{{ isZh ? '第一页 / 最后一页' : 'First / last slide' }}</td>
+              <td><kbd>Home</kbd> / <kbd>End</kbd></td>
+            </tr>
+            <tr>
+              <td>{{ isZh ? '切换全屏模式' : 'Toggle fullscreen' }}</td>
+              <td><kbd>F</kbd> / <kbd>F11</kbd></td>
+            </tr>
+            <tr>
+              <td>{{ isZh ? '显示 / 隐藏帮助' : 'Show / hide help' }}</td>
+              <td><kbd>?</kbd></td>
+            </tr>
+            <tr>
+              <td>{{ isZh ? '退出放映模式' : 'Exit slideshow' }}</td>
+              <td><kbd>Esc</kbd></td>
+            </tr>
+            <tr>
+              <td>{{ isZh ? '垂直下级幻灯片' : 'Vertical sub-slides' }}</td>
+              <td><code>--</code> {{ isZh ? '分页标记' : 'separator' }}</td>
+            </tr>
           </tbody>
         </table>
         <p class="slide__help-foot">
-          Slides split by <code>---</code> (horizontal) or <code>--</code>
-          (vertical). Add a background with
-          <code>&lt;!-- bg: ./image.jpg --&gt;</code> at the top of any slide.
+          {{ isZh
+            ? '💡 提示：支持使用单独一行的 ---、***、___、---- 或 HTML <hr> 水平分页，使用 -- 垂直子分页。顶部支持 <!-- bg: 图片URL或颜色代码 --> 自定义每页背景。'
+            : '💡 Tip: Split slides with a line containing ---, ***, ___, or <hr>. Add <!-- bg: ./image.jpg --> at the top of a slide to customize its background.' }}
         </p>
       </div>
     </div>
@@ -337,165 +452,417 @@ onBeforeUnmount(() => {
 .solomd-slideshow {
   position: fixed;
   inset: 0;
-  background: #1a1a1a;
-  color: #f0f0f0;
+  background: radial-gradient(circle at 50% 25%, #1e222d 0%, #111318 100%);
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-/*
- * Reveal injects its own classes (.reveal, .slides). We override visuals
- * to match the previous SoloMD slideshow look-and-feel — dark canvas,
- * larger headings, accent-orange links — instead of pulling in any of
- * reveal's bundled themes (which would double the CSS payload).
- */
+
+/* Reveal progress bar in SoloMD brand orange */
+.solomd-slideshow :deep(.reveal .progress) {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.solomd-slideshow :deep(.reveal .progress span) {
+  background: linear-gradient(90deg, #ff9f40, #ff7a18);
+}
+
 .solomd-slideshow :deep(.slides) {
   text-align: left !important;
 }
+
 .solomd-slideshow :deep(.slides section) {
-  font-size: clamp(20px, 2.4vw, 32px);
-  line-height: 1.55;
-  padding: 40px 60px;
+  height: 720px;
+  max-height: 720px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  top: 0 !important;
+  font-size: clamp(17px, 1.8vw, 24px);
+  line-height: 1.68;
+  padding: 24px 44px 36px;
   text-align: left;
+  letter-spacing: 0.005em;
+  word-break: normal;
+  overflow-wrap: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 159, 64, 0.4) transparent;
 }
-.solomd-slideshow :deep(h1) {
-  font-size: 2.4em;
-  margin: 0 0 0.6em;
+.solomd-slideshow :deep(.slides section)::-webkit-scrollbar {
+  width: 6px;
+}
+.solomd-slideshow :deep(.slides section)::-webkit-scrollbar-track {
+  background: transparent;
+}
+.solomd-slideshow :deep(.slides section)::-webkit-scrollbar-thumb {
+  background: rgba(255, 159, 64, 0.35);
+  border-radius: 4px;
+}
+.solomd-slideshow :deep(.slides section)::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 159, 64, 0.65);
+}
+
+/* Title Slide / Cover Slide (starts with h1) */
+.solomd-slideshow :deep(section:has(> h1:first-child)) {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-height: 100% !important;
   text-align: center;
+}
+.solomd-slideshow :deep(section:has(> h1:first-child) h1) {
+  margin-top: 0;
+  margin-bottom: 0.6em;
+}
+.solomd-slideshow :deep(section:has(> h1:first-child) p) {
+  text-align: center;
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+  color: #94a3b8;
+  font-size: 1.15em;
+  line-height: 1.8;
+}
+
+.solomd-slideshow :deep(h1) {
+  font-size: clamp(32px, 3.6vw, 48px);
+  margin: 0 0 0.55em;
+  text-align: center;
+  font-weight: 800;
+  text-transform: none;
+  line-height: 1.28;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+  text-wrap: balance;
+}
+
+.solomd-slideshow :deep(h2) {
+  font-size: clamp(22px, 2.4vw, 32px);
+  margin: 0 0 0.45em;
   font-weight: 700;
   text-transform: none;
+  line-height: 1.35;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.solomd-slideshow :deep(h2) {
-  font-size: 1.8em;
-  margin: 0 0 0.5em;
-  font-weight: 600;
-  text-transform: none;
+.solomd-slideshow :deep(h2::before) {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 0.85em;
+  background: linear-gradient(180deg, #ff9f40, #ff7a18);
+  border-radius: 3px;
+  flex-shrink: 0;
 }
+
 .solomd-slideshow :deep(h3) {
-  font-size: 1.4em;
-  margin: 0.4em 0;
+  font-size: clamp(16px, 1.7vw, 22px);
+  margin: 0.4em 0 0.22em;
+  font-weight: 600;
+  color: #e2e8f0;
   text-transform: none;
 }
+
 .solomd-slideshow :deep(p),
 .solomd-slideshow :deep(ul),
-.solomd-slideshow :deep(ol),
-.solomd-slideshow :deep(blockquote) {
+.solomd-slideshow :deep(ol) {
   font-size: 1em;
-  margin: 0.6em 0;
+  margin: 0.45em 0;
+  line-height: 1.65;
+  color: #cbd5e1;
 }
-.solomd-slideshow :deep(li) { margin: 0.25em 0; }
+
+.solomd-slideshow :deep(ul),
+.solomd-slideshow :deep(ol) {
+  padding-left: 1.2em;
+}
+
+.solomd-slideshow :deep(li) {
+  margin: 0.28em 0;
+  line-height: 1.62;
+}
+.solomd-slideshow :deep(li::marker) {
+  color: #ff9f40;
+}
+
+.solomd-slideshow :deep(strong),
+.solomd-slideshow :deep(b) {
+  color: #ffffff;
+  font-weight: 600;
+}
+
 .solomd-slideshow :deep(code) {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
-  font-size: 0.85em;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fed7aa;
+  padding: 0.15em 0.45em;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
 }
+
 .solomd-slideshow :deep(pre) {
-  background: rgba(0, 0, 0, 0.4);
-  padding: 16px 20px;
-  border-radius: 8px;
+  background: #0d1117 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin: 0.45em 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   overflow-x: auto;
-  font-size: 0.7em;
-  line-height: 1.5;
+  font-size: 0.72em;
+  line-height: 1.45;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .solomd-slideshow :deep(pre code) {
   background: transparent;
+  border: none;
+  color: inherit;
   padding: 0;
   font-size: 1em;
   display: block;
 }
+
 .solomd-slideshow :deep(blockquote) {
+  background: rgba(255, 159, 64, 0.08);
   border-left: 4px solid #ff9f40;
-  padding-left: 16px;
-  color: #ccc;
-  font-style: italic;
+  border-radius: 0 10px 10px 0;
+  padding: 14px 20px;
+  margin: 1.2em 0;
+  color: #fed7aa;
+  font-style: normal;
+  line-height: 1.7;
 }
+
 .solomd-slideshow :deep(table) {
-  border-collapse: collapse;
-  margin: 1em 0;
-  font-size: 0.85em;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1.2em 0;
+  font-size: 0.88em;
 }
-.solomd-slideshow :deep(th),
+.solomd-slideshow :deep(th) {
+  background: rgba(255, 159, 64, 0.12);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
 .solomd-slideshow :deep(td) {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 8px 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
 }
+.solomd-slideshow :deep(tr:last-child td) {
+  border-bottom: none;
+}
+
 .solomd-slideshow :deep(img) {
   max-width: 100%;
   height: auto;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
-.solomd-slideshow :deep(a) { color: #ff9f40; }
-.solomd-slideshow :deep(hr) { border-color: rgba(255, 255, 255, 0.2); }
+.solomd-slideshow :deep(a) {
+  color: #ff9f40;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.solomd-slideshow :deep(hr) {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 1.5em 0;
+}
+
+/* Glass Capsule HUD in Bottom Right */
 .slide__hud {
   position: fixed;
-  bottom: 16px;
+  bottom: 20px;
   right: 24px;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
-  font-family: ui-monospace, Menlo, monospace;
-  pointer-events: none;
   z-index: 100;
+}
+.slide__hud-capsule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(22, 25, 32, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  padding: 5px 14px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.slide__hud-capsule:hover {
+  background: rgba(26, 30, 40, 0.92);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 .slide__pos {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
-.slide__hint {
-  display: inline;
+.slide__pos-cur {
+  color: #ff9f40;
+  font-weight: 700;
+}
+.slide__pos-sep {
+  color: rgba(255, 255, 255, 0.3);
   font-size: 11px;
 }
+.slide__pos-total {
+  color: rgba(255, 255, 255, 0.55);
+}
+.slide__hud-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.slide__hud-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.15s ease;
+}
+.slide__hud-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.slide__hud-btn kbd {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.slide__hud-btn--exit:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+.slide__hud-btn--exit:hover kbd {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+/* Help Modal Card */
 .slide__help {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
+  animation: fadeIn 0.15s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .slide__help-card {
-  background: #2a2a2a;
-  padding: 32px 40px;
-  border-radius: 12px;
-  max-width: 560px;
-  font-size: 15px;
+  background: #1e222b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 28px 36px;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  color: #f1f5f9;
 }
-.slide__help-card h2 {
-  margin: 0 0 18px;
-  font-size: 18px;
+.slide__help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.slide__help-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
   color: #ff9f40;
+}
+.slide__help-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.slide__help-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
 }
 .slide__help-card table {
   width: 100%;
   border-collapse: collapse;
+  margin-bottom: 16px;
 }
 .slide__help-card td {
-  padding: 6px 0;
-  vertical-align: top;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 14px;
 }
 .slide__help-card td:first-child {
-  color: #aaa;
-  width: 50%;
+  color: #94a3b8;
+  width: 45%;
 }
 .slide__help-card td:last-child {
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 13px;
+  text-align: right;
+}
+.slide__help-card kbd {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #f8fafc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  margin-left: 4px;
 }
 .slide__help-foot {
-  margin: 18px 0 0;
-  font-size: 12px;
-  color: #888;
-  border-top: 1px solid #444;
-  padding-top: 14px;
-  line-height: 1.55;
-}
-.slide__help-foot code {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1px 6px;
-  border-radius: 3px;
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+  line-height: 1.6;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 </style>

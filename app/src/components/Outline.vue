@@ -3,6 +3,7 @@ import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { extractOutline, type OutlineItem } from '../lib/markdown';
+import { useI18n } from '../i18n';
 
 interface OutlineNode {
   item: OutlineItem;
@@ -15,10 +16,11 @@ interface VisibleOutlineItem extends OutlineItem {
   depth: number;
 }
 
-const props = defineProps<{ cursorLine?: number }>();
-const emit = defineEmits<{ (e: 'goto', line: number): void }>();
+const props = defineProps<{ cursorLine?: number; collapsed?: boolean }>();
+const emit = defineEmits<{ (e: 'goto', line: number): void; (e: 'toggle-collapse'): void }>();
 const tabs = useTabsStore();
 const settings = useSettingsStore();
+const { t } = useI18n();
 const listRef = ref<HTMLUListElement | null>(null);
 const collapsedByTab = ref<Record<string, number[]>>({});
 
@@ -260,47 +262,77 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
 <template>
   <aside class="outline">
     <div class="outline__header">
-      <span>Outline</span>
-      <button class="outline__close" @click="tabs.activeId && tabs.toggleOutline(tabs.activeId)">×</button>
+      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="outline__title">{{ t('outline.heading') }}</span>
+      </div>
+      <button class="rs-pane-close outline__close" :title="t('outline.close')" @click.stop="tabs.activeId && tabs.toggleOutline(tabs.activeId)">
+        <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+          <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
+        </svg>
+      </button>
     </div>
-    <div v-if="!visibleItems.length" class="outline__empty">No headings</div>
-    <ul ref="listRef" class="outline__list" v-else>
-      <li
-        v-for="(it, i) in visibleItems"
-        :key="`${it.line}-${it.text}`"
-        :class="['outline__item', { 'outline__item--active': i === activeIndex }]"
-        :style="{ '--outline-pl': 8 + it.depth * 12 + 'px' }"
-      >
-        <button
-          v-if="it.hasChildren"
-          class="outline__twisty"
-          :title="it.collapsed ? 'Expand section' : 'Collapse section'"
-          @click.stop="toggleCollapsed(it.line)"
+    <div v-show="!collapsed" class="outline__body">
+      <div v-if="!visibleItems.length" class="outline__empty">{{ t('outline.empty') }}</div>
+      <ul ref="listRef" class="outline__list" v-else>
+        <li
+          v-for="(it, i) in visibleItems"
+          :key="`${it.line}-${it.text}`"
+          :class="['outline__item', { 'outline__item--active': i === activeIndex }]"
+          :style="{ '--outline-pl': 4 + it.depth * 5 + 'px' }"
         >
-          {{ it.collapsed ? '▸' : '▾' }}
-        </button>
-        <span v-else class="outline__twisty outline__twisty--spacer" aria-hidden="true"></span>
-        <span
-          v-if="labelAt(i)"
-          class="outline__keylabel"
-          :title="`Press ${labelAt(i)} to jump`"
-          aria-hidden="true"
-        >{{ labelAt(i) }}</span>
-        <button
-          class="outline__label"
-          @click="emit('goto', it.line)"
-          :title="it.text"
-        >
-          {{ it.text }}
-        </button>
-      </li>
-    </ul>
-    <div v-if="jumpMode === 'line-jump'" class="outline__statusbar">
-      <span class="outline__statusbar-prefix">: g</span><span class="outline__statusbar-buf">{{ lineBuffer || '_' }}</span>
-      <span class="outline__statusbar-hint">Enter ↵ goto · Esc cancel</span>
-    </div>
-    <div v-else-if="visibleItems.length && settings.outlineMarker !== 'none'" class="outline__statusbar outline__statusbar--idle">
-      <span class="outline__statusbar-hint">{{ settings.outlineMarker === 'number' ? 'number → jump · g+digits → line' : 'letter → jump · g+digits → line' }}</span>
+          <button
+            v-if="it.hasChildren"
+            class="outline__twisty"
+            :title="it.collapsed ? t('outline.expandSection') : t('outline.collapseSection')"
+            @click.stop="toggleCollapsed(it.line)"
+          >
+            <svg
+              class="outline__twisty-icon"
+              :class="{ 'is-expanded': !it.collapsed }"
+              viewBox="0 0 16 16"
+              width="6.5"
+              height="6.5"
+              aria-hidden="true"
+            >
+              <path
+                d="M5.5 3.5l4.5 4.5L5.5 12.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <span v-else class="outline__twisty outline__twisty--spacer" aria-hidden="true"></span>
+          <span
+            v-if="labelAt(i)"
+            class="outline__keylabel"
+            :title="t('outline.jumpHint', { key: labelAt(i) })"
+            aria-hidden="true"
+          >{{ labelAt(i) }}</span>
+          <button
+            class="outline__label"
+            @click="emit('goto', it.line)"
+            :title="it.text"
+          >
+            {{ it.text }}
+          </button>
+        </li>
+      </ul>
+      <div v-if="jumpMode === 'line-jump'" class="outline__statusbar">
+        <span class="outline__statusbar-prefix">: g</span><span class="outline__statusbar-buf">{{ lineBuffer || '_' }}</span>
+        <span class="outline__statusbar-hint">{{ t('outline.lineJumpHint') }}</span>
+      </div>
+      <div v-else-if="visibleItems.length && settings.outlineMarker !== 'none'" class="outline__statusbar outline__statusbar--idle">
+        <span class="outline__statusbar-hint">{{ settings.outlineMarker === 'number' ? t('outline.numberJumpHint') : t('outline.letterJumpHint') }}</span>
+      </div>
     </div>
   </aside>
 </template>
@@ -317,27 +349,56 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   user-select: none;
 }
 .outline__header {
-  padding: 10px 14px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
+  height: 34px;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.outline__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.outline__empty {
+  padding: 14px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.outline__title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  line-height: 1;
 }
 .outline__close {
-  padding: 0 4px;
-  font-size: 16px;
-  line-height: 1;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
   color: var(--text-faint);
-  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.12s ease;
 }
 .outline__close:hover {
   color: var(--text);
   background: var(--bg-hover);
+  border-color: var(--border);
 }
 .outline__list {
   list-style: none;
@@ -348,11 +409,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
 }
 .outline__item {
   font-size: 12px;
-  padding: 2px 10px 2px var(--outline-pl, 8px);
+  line-height: 1.45;
+  padding: 2px 6px 2px var(--outline-pl, 4px);
   display: flex;
-  align-items: center;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 2px;
   color: var(--text);
+  transition: background 0.1s ease, color 0.1s ease;
 }
 .outline__item:hover {
   background: var(--bg-hover);
@@ -362,26 +425,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   background: var(--bg-active);
   color: var(--accent);
   font-weight: 600;
-  border-left: 3px solid var(--accent);
-  padding-left: calc(var(--outline-pl, 8px) - 3px);
+  border-left: 2px solid var(--accent);
+  padding-left: calc(var(--outline-pl, 4px) - 2px);
 }
 .outline__twisty {
-  width: 14px;
+  width: 8px;
   height: 14px;
-  flex: 0 0 14px;
+  flex: 0 0 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  line-height: 1;
   color: var(--text-faint);
-  border-radius: 3px;
+  border-radius: 2px;
+  margin-top: 1.5px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 .outline__twisty:hover {
-  background: var(--bg-hover);
   color: var(--accent);
 }
+.outline__twisty-icon {
+  width: 6.5px;
+  height: 6.5px;
+  transition: transform 0.15s ease;
+  transform-origin: center;
+}
+.outline__twisty-icon.is-expanded {
+  transform: rotate(90deg);
+}
 .outline__twisty--spacer {
+  width: 8px;
+  flex: 0 0 8px;
   pointer-events: none;
 }
 .outline__label {
@@ -390,9 +466,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   font: inherit;
   color: inherit;
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.45;
 }
 .outline__empty {
   padding: 14px;
@@ -411,6 +488,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   color: var(--text-muted);
   letter-spacing: 0.04em;
   user-select: none;
+  margin-top: 1.5px;
 }
 .outline__item:hover .outline__keylabel,
 .outline__item--active .outline__keylabel {

@@ -9,6 +9,7 @@ import { useInbox } from './useInbox';
 import { usePomodoroStore, getLastPreset } from '../stores/pomodoro';
 import { eventToCombo, resolveBindings } from '../lib/keybindings';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { toggleFullscreen } from '../lib/fullscreen';
 
 interface Hooks {
   openPalette?: () => void;
@@ -46,22 +47,7 @@ export function useShortcuts(hooks: Hooks = {}) {
     );
   }
 
-  async function toggleFullscreen() {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const win = getCurrentWindow();
-        const isFull = await win.isFullscreen();
-        await win.setFullscreen(!isFull);
-        return;
-      } catch {}
-    }
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await document.documentElement.requestFullscreen();
-    }
-  }
+
 
   /** #106 — cycle the focused pane to the previous/next tab in the bar.
    *  Routes through tiles.setActiveTab so the pane's activeTabId stays in
@@ -97,7 +83,15 @@ export function useShortcuts(hooks: Hooks = {}) {
     'tab.reopenClosed': () => void tabs.reopenLastClosedTab(),
     'file.openExternal': () => runById('file.openExternal'),
     'window.new': () => runById('window.new'),
-    'file.exit': () => void getCurrentWindow().close(),
+    'file.exit': () => {
+      if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+        try {
+          void getCurrentWindow().close();
+          return;
+        } catch {}
+      }
+      window.close();
+    },
 
     'editor.caseCycle': () => runById('editor.caseCycle'),
     'format.markdown': () => runById('format.markdown'),
@@ -200,6 +194,7 @@ export function useShortcuts(hooks: Hooks = {}) {
     'tile.splitDown': () => tiles.splitPane(tiles.focusedPaneId, 'vertical'),
     'tile.focusNext': () => tiles.focusNextPane(),
     'tile.focusPrev': () => tiles.focusPrevPane(),
+    'tile.closePane': () => tiles.closePane(tiles.focusedPaneId),
 
     'settings.open': () => hooks.openSettings?.(),
     'help.markdown': () => hooks.openHelp?.(),
@@ -230,18 +225,33 @@ export function useShortcuts(hooks: Hooks = {}) {
     const actionId = bindings.get(combo);
     if (!actionId) return;
 
-    const target = e.target as HTMLElement | null;
+    // Intercept fullscreen immediately to prevent WebView2 default accelerator
+    if (actionId === 'view.toggleFullscreen' || combo === 'F11') {
+      e.preventDefault();
+      void toggleFullscreen();
+      return;
+    }
+
+    const target = e.target instanceof Element ? e.target : null;
     const isInsideEditor = !!target?.closest(
       '.plain-host, .pane--editor, .cm-editor, .plain-block__textarea, .plain-editor'
     );
-    const isFormInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as any).isContentEditable);
+    const isFormInput = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || (target as HTMLElement).isContentEditable);
     const isInsideModal = !!target?.closest(
       '.palette, .quick-switcher, .settings-modal, .modal, .ds-modal, .recipes__modal, .fx, .wiz, [role="dialog"], [aria-modal="true"]'
     );
 
     // Prevent shortcuts from leaking through while the user is actively typing inside open modals/dialogs
     // (SettingsPanel, CommandPalette, QuickSwitcher, etc.) or form inputs, e.g. Ctrl+W closing background tabs.
-    if (isInsideModal && (isFormInput || actionId === 'file.closeTab')) {
+    // However, allow the shortcut that toggles/closes the modal itself (e.g. F1 to toggle help, Ctrl+, to toggle settings, Ctrl+Shift+P for palette).
+    const isModalToggle =
+      isInsideModal &&
+      (actionId === 'palette.open' ||
+        actionId === 'quickSwitcher.open' ||
+        actionId === 'settings.open' ||
+        actionId === 'help.markdown');
+
+    if (isInsideModal && !isModalToggle && (isFormInput || actionId === 'file.closeTab')) {
       return;
     }
     if (isFormInput && !isInsideEditor && (actionId.startsWith('format.') || actionId.startsWith('editor.') || actionId === 'file.closeTab')) {

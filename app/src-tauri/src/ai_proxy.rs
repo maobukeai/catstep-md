@@ -562,83 +562,191 @@ pub struct ModelProbe {
     pub error: Option<String>,
 }
 
-/// `GET {base}/models` against an OpenAI-compatible server and return the
-/// model ids it advertises. Used by the AI Settings connection pill for
-/// self-hosted servers (llama.cpp, LM Studio, vLLM, Ollama's /v1 shim);
-/// hosted providers use `ai_verify_key` instead, which checks the key.
+fn default_base_for_provider(provider: &str) -> Option<&'static str> {
+    match provider {
+        "openai" => Some("https://api.openai.com/v1"),
+        "anthropic" => Some("https://api.anthropic.com/v1"),
+        "gemini" => Some("https://generativelanguage.googleapis.com/v1beta/openai"),
+        "xai" => Some("https://api.x.ai/v1"),
+        "mistral" => Some("https://api.mistral.ai/v1"),
+        "groq" => Some("https://api.groq.com/openai/v1"),
+        "deepseek" => Some("https://api.deepseek.com/v1"),
+        "qwen" => Some("https://dashscope.aliyuncs.com/compatible-mode/v1"),
+        "glm" => Some("https://open.bigmodel.cn/api/paas/v4"),
+        "kimi" => Some("https://api.moonshot.cn/v1"),
+        "volcengine" => Some("https://ark.cn-beijing.volces.com/api/v3"),
+        "siliconflow" => Some("https://api.siliconflow.cn/v1"),
+        "minimax" => Some("https://api.minimax.io/v1"),
+        "openrouter" => Some("https://openrouter.ai/api/v1"),
+        "opencode-go" => Some("https://opencode.ai/zen/go/v1"),
+        "ollama" => Some("http://localhost:11434"),
+        _ => None,
+    }
+}
+
+fn extract_models_from_json(json: &serde_json::Value) -> Vec<String> {
+    let arr = json
+        .get("data")
+        .and_then(|d| d.as_array())
+        .or_else(|| json.get("models").and_then(|d| d.as_array()))
+        .or_else(|| json.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut models = Vec::new();
+    for m in arr {
+        if let Some(methods) = m.get("supportedGenerationMethods").and_then(|v| v.as_array()) {
+            let can_generate = methods.iter().any(|method| {
+                method.as_str() == Some("generateContent")
+            });
+            if !can_generate {
+                continue;
+            }
+        }
+        let raw_id = m.get("id")
+            .and_then(|v| v.as_str())
+            .or_else(|| m.get("name").and_then(|v| v.as_str()))
+            .or_else(|| m.get("model").and_then(|v| v.as_str()))
+            .or_else(|| m.as_str());
+
+        if let Some(id_str) = raw_id {
+            let stripped = id_str.strip_prefix("models/").unwrap_or(id_str).trim();
+            if !stripped.is_empty() {
+                models.push(stripped.to_string());
+            }
+        }
+    }
+    models.sort();
+    models.dedup();
+    models
+}
+
+/// `GET {base}/models` against any provider/server and return the
+/// model ids it advertises.
 #[tauri::command]
-pub async fn ai_list_models(provider: String, base_url: Option<String>) -> ModelProbe {
-    let base = openai_base(base_url.as_deref());
-    let url = format!("{base}/models");
-    let key = read_key(&provider).unwrap_or_default();
+pub async fn ai_list_models(
+    provider: String,
+    base_url: Option<String>,
+    key: Option<String>,
+) -> ModelProbe {
+    let default_base = default_base_for_provider(&provider);
+    let raw_base = match base_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        Some(b) => b,
+        None => default_base.unwrap_or("https://api.openai.com/v1"),
+    };
+
+    let base = if provider == "ollama" {
+        ollama_addr::base_url(Some(raw_base))
+    } else {
+        normalize_openai_base(raw_base).unwrap_or_else(|| raw_base.trim_end_matches('/').to_string())
+    };
+
+    let key_str = match key {
+        Some(k) if !k.trim().is_empty() => k.trim().to_string(),
+        _ => read_key(&provider).unwrap_or_default(),
+    };
 
     let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(6))
-        .connect_timeout(Duration::from_secs(6))
+        .timeout(Duration::from_secs(12))
+        .connect_timeout(Duration::from_secs(8))
         .build()
     {
         Ok(c) => c,
         Err(e) => {
             return ModelProbe {
-                url,
+                url: base,
                 error: Some(e.to_string()),
                 ..Default::default()
             }
         }
     };
 
-    let resp = match with_optional_bearer(client.get(&url), &key).send().await {
-        Ok(r) => r,
-        Err(e) => {
-            return ModelProbe {
-                url,
-                error: Some(format!("{e}")),
-                ..Default::default()
-            }
+    let mut candidate_urls = Vec::new();
+    if provider == "ollama" {
+        candidate_urls.push(format!("{base}/api/tags"));
+        candidate_urls.push(format!("{base}/v1/models"));
+    } else {
+        candidate_urls.push(format!("{base}/models"));
+        if provider == "gemini" || base.contains("googleapis.com") || base.contains("google-ai-studio") {
+            candidate_urls.push(format!("{base}/v1beta/models"));
         }
-    };
-    let status = resp.status();
-    if !status.is_success() {
-        let txt = resp.text().await.unwrap_or_default();
+    }
+
+    let mut last_error = None;
+    let mut chosen_url = candidate_urls[0].clone();
+
+    for url in candidate_urls {
+        chosen_url = url.clone();
+        let mut req_builder = client.get(&url);
+        if !key_str.is_empty() {
+            req_builder = with_optional_bearer(req_builder, &key_str);
+            req_builder = req_builder.header("api-key", &key_str);
+            req_builder = req_builder.header("x-goog-api-key", &key_str);
+            req_builder = req_builder.header("x-api-key", &key_str);
+            req_builder = req_builder.header("anthropic-version", "2023-06-01");
+        }
+
+        let resp_res = req_builder.send().await;
+        let resp = match resp_res {
+            Ok(r) => r,
+            Err(e) => {
+                last_error = Some(format!("network: {e}"));
+                continue;
+            }
+        };
+
+        let status = resp.status();
+        if !status.is_success() {
+            if (status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::UNAUTHORIZED)
+                && !key_str.is_empty()
+                && !url.contains("key=")
+            {
+                let sep = if url.contains('?') { '&' } else { '?' };
+                let alt_url = format!("{url}{sep}key={key_str}");
+                if let Ok(alt_resp) = client.get(&alt_url).send().await {
+                    if alt_resp.status().is_success() {
+                        if let Ok(json) = alt_resp.json::<serde_json::Value>().await {
+                            let models = extract_models_from_json(&json);
+                            if !models.is_empty() {
+                                return ModelProbe {
+                                    ok: true,
+                                    models,
+                                    url: alt_url,
+                                    error: None,
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            let txt = resp.text().await.unwrap_or_default();
+            last_error = Some(format!("HTTP {status}: {}", truncate(&txt, 160)));
+            continue;
+        }
+
+        let json: serde_json::Value = match resp.json().await {
+            Ok(v) => v,
+            Err(e) => {
+                last_error = Some(format!("bad JSON: {e}"));
+                continue;
+            }
+        };
+
+        let models = extract_models_from_json(&json);
         return ModelProbe {
-            url,
-            error: Some(format!("HTTP {status}: {}", truncate(&txt, 160))),
-            ..Default::default()
+            ok: true,
+            models,
+            url: chosen_url,
+            error: None,
         };
     }
-    let json: serde_json::Value = match resp.json().await {
-        Ok(v) => v,
-        Err(e) => {
-            return ModelProbe {
-                url,
-                error: Some(format!("bad JSON: {e}")),
-                ..Default::default()
-            }
-        }
-    };
-    // OpenAI shape is `{ "data": [ { "id": "..." } ] }`; a few forks answer
-    // with a bare array. Accept both.
-    let arr = json
-        .get("data")
-        .and_then(|d| d.as_array())
-        .or_else(|| json.as_array())
-        .cloned()
-        .unwrap_or_default();
-    let models = arr
-        .iter()
-        .filter_map(|m| {
-            m.get("id")
-                .and_then(|v| v.as_str())
-                .or_else(|| m.as_str())
-                .map(|s| s.to_string())
-        })
-        .collect::<Vec<_>>();
 
     ModelProbe {
-        ok: true,
-        models,
-        url,
-        error: None,
+        ok: false,
+        models: Vec::new(),
+        url: chosen_url,
+        error: last_error,
     }
 }
 
@@ -999,6 +1107,19 @@ fn emit_chunk(app: &AppHandle, request_id: &str, chunk: &str) {
     }
     let _ = app.emit(
         "solomd://ai-chunk",
+        ChunkEvent {
+            request_id: request_id.to_string(),
+            chunk: chunk.to_string(),
+        },
+    );
+}
+
+fn emit_thought(app: &AppHandle, request_id: &str, chunk: &str) {
+    if chunk.is_empty() {
+        return;
+    }
+    let _ = app.emit(
+        "solomd://ai-thought",
         ChunkEvent {
             request_id: request_id.to_string(),
             chunk: chunk.to_string(),
@@ -2076,6 +2197,12 @@ async fn anthropic_one_turn(
                                     emit_chunk(app, request_id, t);
                                 }
                             }
+                        } else if dtype == "thinking_delta" {
+                            if let Some(t) = delta.get("thinking").and_then(|s| s.as_str()) {
+                                if !t.is_empty() {
+                                    emit_thought(app, request_id, t);
+                                }
+                            }
                         } else if dtype == "input_json_delta" {
                             if let Some(p) =
                                 delta.get("partial_json").and_then(|s| s.as_str())
@@ -2565,6 +2692,16 @@ async fn openai_one_turn(
                         }
                     }
                     let delta = c.get("delta").cloned().unwrap_or(Value::Null);
+                    if let Some(reasoning) = delta
+                        .get("reasoning_content")
+                        .or_else(|| delta.get("reasoning"))
+                        .or_else(|| delta.get("thought"))
+                        .and_then(|s| s.as_str())
+                    {
+                        if !reasoning.is_empty() {
+                            emit_thought(app, request_id, reasoning);
+                        }
+                    }
                     if let Some(content) = delta.get("content").and_then(|s| s.as_str()) {
                         if !content.is_empty() {
                             text.push_str(content);
@@ -2637,11 +2774,12 @@ async fn openai_one_turn(
 /// terminates an SSE event, or None if no complete event is buffered yet.
 /// Handles both `\n\n` and `\r\n\r\n` separators.
 fn find_event_boundary(buf: &str) -> Option<usize> {
-    // Prefer CRLF if both happen to appear; the trim in the caller skips it.
-    if let Some(i) = buf.find("\r\n\r\n") {
-        return Some(i);
+    match (buf.find("\r\n\r\n"), buf.find("\n\n")) {
+        (Some(crlf), Some(lf)) => Some(crlf.min(lf)),
+        (Some(crlf), None) => Some(crlf),
+        (None, Some(lf)) => Some(lf),
+        (None, None) => None,
     }
-    buf.find("\n\n")
 }
 
 #[cfg(test)]

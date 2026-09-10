@@ -28,7 +28,8 @@ import {
 import PropertyRow from './properties/PropertyRow.vue';
 import AddPropertyForm from './properties/AddPropertyForm.vue';
 
-const emit = defineEmits<{ close: [] }>();
+defineProps<{ collapsed?: boolean }>();
+const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 
 const props = useProperties();
 const store = usePropertiesStore();
@@ -129,60 +130,74 @@ const activeName = computed(() => tabs.activeTab?.fileName ?? null);
 <template>
   <div class="inspector">
     <header class="inspector__head">
-      <span class="inspector__title">{{ t('inspector.heading') }}</span>
-      <span v-if="props.ready.value && rows.length" class="inspector__count">{{ rows.length }}</span>
+      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="inspector__title">{{ t('inspector.heading') }}</span>
+        <span v-if="props.ready.value && rows.length" class="inspector__count">{{ rows.length }}</span>
+      </div>
       <button
         class="rs-pane-close"
         type="button"
         :title="t('rightSidebar.hidePane')"
-        @click="emit('close')"
-      >×</button>
+        @click.stop="emit('close')"
+      >
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="3" x2="13" y2="13"/>
+          <line x1="13" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
     </header>
 
-    <div v-if="!workspace.currentFolder" class="inspector__empty">{{ t('inspector.openFolder') }}</div>
-    <div v-else-if="!props.activePath.value" class="inspector__empty">{{ t('inspector.noActive') }}</div>
-    <div v-else-if="!props.ready.value" class="inspector__empty">{{ t('inspector.notMarkdown') }}</div>
+    <div v-show="!collapsed" class="inspector__main">
+      <div v-if="!workspace.currentFolder" class="inspector__empty">{{ t('inspector.openFolder') }}</div>
+      <div v-else-if="!props.activePath.value" class="inspector__empty">{{ t('inspector.noActive') }}</div>
+      <div v-else-if="!props.ready.value" class="inspector__empty">{{ t('inspector.notMarkdown') }}</div>
 
-    <div v-else class="inspector__body">
-      <div v-if="activeName" class="inspector__file">{{ activeName }}</div>
+      <div v-else class="inspector__body">
+        <div v-if="activeName" class="inspector__file">{{ activeName }}</div>
 
-      <div class="inspector__rows">
-        <PropertyRow
-          v-for="row in rows"
-          :key="row.key"
-          :prop-key="row.key"
-          :value="row.value"
-          :mode="row.mode"
-          :pinned="row.pinned"
-          @update="onUpdate(row.key, $event)"
-          @remove="onRemove(row.key)"
-          @recast="onRecast(row.key, row.value, $event)"
-          @toggle-pin="onTogglePin(row.key)"
-        />
-        <p v-if="!rows.length" class="inspector__none">{{ t('inspector.noProps') }}</p>
-      </div>
-
-      <div v-if="suggested.length" class="inspector__suggested">
-        <span class="inspector__suggested-label">{{ t('inspector.suggested') }}</span>
-        <div class="inspector__suggested-chips">
-          <button
-            v-for="s in suggested"
-            :key="s.key"
-            type="button"
-            class="inspector__suggested-chip"
-            @click="addSuggested(s)"
-          >+ {{ s.key }}</button>
+        <div class="inspector__rows">
+          <PropertyRow
+            v-for="row in rows"
+            :key="row.key"
+            :prop-key="row.key"
+            :value="row.value"
+            :mode="row.mode"
+            :pinned="row.pinned"
+            @update="onUpdate(row.key, $event)"
+            @remove="onRemove(row.key)"
+            @recast="onRecast(row.key, row.value, $event)"
+            @toggle-pin="onTogglePin(row.key)"
+          />
+          <p v-if="!rows.length" class="inspector__none">{{ t('inspector.noProps') }}</p>
         </div>
-      </div>
 
-      <AddPropertyForm
-        v-if="adding"
-        @confirm="onAddConfirm"
-        @cancel="adding = false"
-      />
-      <button v-else type="button" class="inspector__add" @click="adding = true">
-        + {{ t('inspector.addProperty') }}
-      </button>
+        <div v-if="suggested.length" class="inspector__suggested">
+          <span class="inspector__suggested-label">{{ t('inspector.suggested') }}</span>
+          <div class="inspector__suggested-chips">
+            <button
+              v-for="s in suggested"
+              :key="s.key"
+              type="button"
+              class="inspector__suggested-chip"
+              @click="addSuggested(s)"
+            >+ {{ s.key }}</button>
+          </div>
+        </div>
+
+        <AddPropertyForm
+          v-if="adding"
+          @confirm="onAddConfirm"
+          @cancel="adding = false"
+        />
+        <button v-else type="button" class="inspector__add" @click="adding = true">
+          + {{ t('inspector.addProperty') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -200,30 +215,43 @@ const activeName = computed(() => tabs.activeTab?.fileName ?? null);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
 }
+.inspector__title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .inspector__title {
-  flex: 1;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 .inspector__count {
-  background: var(--bg);
+  background: var(--bg-hover);
   border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  padding: 1px 8px;
-  font-size: 11px;
-  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+.inspector__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .inspector__empty {
-  padding: var(--sp-6) var(--sp-4);
+  padding: 14px 16px;
   text-align: center;
   color: var(--text-muted);
   font-size: 12px;

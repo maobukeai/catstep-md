@@ -5,20 +5,27 @@ withDefaults(
     /** Show a left grip handle (drag affordance), like .rs-pane-host. */
     grip?: boolean;
     closable?: boolean;
+    collapsed?: boolean;
   }>(),
-  { grip: false, closable: true },
+  { grip: false, closable: true, collapsed: false },
 );
 
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 </script>
 
 <template>
   <section class="ds-panel">
     <header class="ds-panel__head">
-      <span v-if="grip" class="ds-panel__grip" aria-hidden="true" />
-      <span class="ds-panel__title">
-        <slot name="title">{{ title }}</slot>
-      </span>
+      <div class="rs-pane-title-group ds-panel__title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="ds-panel__title">
+          <slot name="title">{{ title }}</slot>
+        </span>
+      </div>
       <span class="ds-panel__actions">
         <slot name="actions" />
         <button
@@ -26,11 +33,16 @@ const emit = defineEmits<{ close: [] }>();
           class="ds-panel__close"
           type="button"
           aria-label="Close"
-          @click="emit('close')"
-        >×</button>
+          @click.stop="emit('close')"
+        >
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/>
+            <line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
       </span>
     </header>
-    <div class="ds-panel__body">
+    <div v-show="!collapsed" class="ds-panel__body">
       <slot />
     </div>
   </section>
@@ -48,8 +60,11 @@ const emit = defineEmits<{ close: [] }>();
 .ds-panel__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
 }
@@ -78,15 +93,17 @@ const emit = defineEmits<{ close: [] }>();
   gap: var(--sp-1);
 }
 .ds-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  line-height: 1;
+  color: var(--text-faint);
   cursor: pointer;
   width: 22px;
   height: 22px;
   border-radius: var(--r-sm);
+  transition: all 0.12s ease;
 }
 .ds-panel__close:hover {
   background: var(--bg-hover);

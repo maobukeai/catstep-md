@@ -18,13 +18,11 @@
  *   Consistent with SoloMD primary blue branding in both Light (github-light) and Dark themes.
  */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { shortcutLabel } from '../lib/keybindings';
-import { isMacOS } from '../lib/platform';
 import { useSettingsStore } from '../stores/settings';
 import { usePomodoroStore } from '../stores/pomodoro';
 import { useI18n } from '../i18n';
 import { isDarkTheme } from '../lib/themes';
-import { invoke } from '@tauri-apps/api/core';
+import { openPipFocusTimer } from '../lib/pip-window';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -32,22 +30,17 @@ const emit = defineEmits<{ (e: 'close'): void }>();
 const pomodoro = usePomodoroStore();
 const { t } = useI18n();
 const settings = useSettingsStore();
-const macChord = isMacOS();
 
 const isDark = computed(() => isDarkTheme(settings.theme));
 const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
 
 async function switchToPiP() {
   try {
-    await invoke('pip_timer_open');
+    await openPipFocusTimer();
     emit('close');
   } catch (e) {
     console.error('Failed to open desktop PiP window:', e);
   }
-}
-
-function withChord(key: string, actionId: string): string {
-  return t(key, { key: shortcutLabel(actionId, settings.keybindings, macChord) || '—' });
 }
 
 // ── Position & Dragging State ───────────────────────────────────────────────
@@ -254,7 +247,7 @@ onBeforeUnmount(() => {
             <polyline points="12 7 12 12 15 15" />
           </svg>
           <span class="pomo-card__title">
-            {{ isMinimized ? (pomodoro.active ? pomodoro.countdown : '专注计时') : t('pomodoro.heading') }}
+            {{ isMinimized ? (pomodoro.active ? pomodoro.countdown : '猫步专注') : t('pomodoro.heading') }}
           </span>
           <span v-if="pomodoro.active && !isMinimized" class="pomo-card__status-tag" :class="{ 'is-paused': pomodoro.isPaused }">
             {{ pomodoro.isPaused ? '已暂停' : pomodoro.isBreak ? '休息中' : '专注中' }}
@@ -278,7 +271,7 @@ onBeforeUnmount(() => {
           <!-- Desktop Picture-in-Picture (OS Always-on-Top) -->
           <button
             class="pomo-card__btn pomo-card__btn--pip"
-            :title="isZh ? '转为桌面画中画小窗 (跨应用全局置顶，切到其他软件均可见)' : 'Desktop Picture-in-Picture (Always on top of all apps)'"
+            :title="isZh ? '转为「猫步专注」桌面悬浮窗 (全局置顶，跨应用相伴)' : 'Catstep Focus (Always on top of all apps)'"
             @click="switchToPiP"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -440,11 +433,6 @@ onBeforeUnmount(() => {
               <input type="checkbox" v-model="notify" class="pomo-checkbox" />
               <span class="pomo-switch-label">时间到时弹出系统桌面通知</span>
             </label>
-          </div>
-
-          <!-- Shortcut Footer -->
-          <div class="pomo-footer-hint">
-            <span class="pomo-kbd-hint">{{ withChord('pomodoro.shortcutHint', 'pomodoro.startLast') }}</span>
           </div>
         </section>
       </div>

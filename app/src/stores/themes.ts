@@ -38,6 +38,7 @@ export interface ThemeManifest {
 
 export interface InstalledTheme {
   id: string;
+  name?: string;
   path: string;
 }
 
@@ -168,6 +169,43 @@ export const useThemesStore = defineStore('themes', {
       const i = this.activeTags.indexOf(lower);
       if (i === -1) this.activeTags.push(lower);
       else this.activeTags.splice(i, 1);
+    },
+
+    async openThemeFolder() {
+      try {
+        await invoke('theme_open_folder');
+      } catch (e) {
+        console.error('Failed to open theme folder:', e);
+      }
+    },
+
+    async openUserCss() {
+      try {
+        await invoke('theme_open_user_css');
+      } catch (e) {
+        console.error('Failed to open user.css:', e);
+      }
+    },
+
+    async readUserCss(): Promise<string> {
+      try {
+        return await invoke<string>('theme_read_user_css');
+      } catch (e) {
+        console.warn('Failed to read user.css:', e);
+        return '';
+      }
+    },
+
+    async saveWallpaper(sourcePath: string): Promise<string> {
+      return await invoke<string>('theme_save_wallpaper', { sourcePath });
+    },
+
+    async openWallpapersFolder() {
+      try {
+        await invoke('theme_open_wallpapers_folder');
+      } catch (e) {
+        console.error('Failed to open wallpapers folder:', e);
+      }
     },
 
     clearTags() {

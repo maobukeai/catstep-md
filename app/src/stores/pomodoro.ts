@@ -80,15 +80,28 @@ function loadPersisted(): PersistedState | null {
   }
 }
 
+const syncChannel =
+  typeof BroadcastChannel !== 'undefined'
+    ? new BroadcastChannel('solomd:pomodoro-sync')
+    : null;
+
+function broadcastSync() {
+  try {
+    syncChannel?.postMessage({ t: Date.now() });
+  } catch {}
+}
+
 function savePersisted(s: PersistedState) {
   try {
     localStorage.setItem(LS_STATE, JSON.stringify(s));
+    broadcastSync();
   } catch {}
 }
 
 function clearPersisted() {
   try {
     localStorage.removeItem(LS_STATE);
+    broadcastSync();
   } catch {}
 }
 
@@ -291,6 +304,16 @@ export const usePomodoroStore = defineStore('pomodoro', {
       if (this.paused) this.resume();
       else this.pause();
     },
+    addMinutes(min: number) {
+      if (!this.active || this.flashing) return;
+      const addMs = Math.round(min * 60 * 1000);
+      this.durationMs = (this.durationMs ?? 0) + addMs;
+      if (this.paused && typeof this.pausedRemainingMs === 'number') {
+        this.pausedRemainingMs += addMs;
+      }
+      this.now = Date.now();
+      this._persist();
+    },
     /** User-initiated stop. Does NOT chain a break and does NOT record a session. */
     stop() {
       this._abort();
@@ -389,7 +412,19 @@ export const usePomodoroStore = defineStore('pomodoro', {
      */
     rehydrate() {
       const persisted = loadPersisted();
-      if (!persisted) return;
+      if (!persisted) {
+        if (this.active) {
+          this.active = false;
+          this.flashing = false;
+          this.paused = false;
+          this.phase = undefined;
+          this.startedAt = undefined;
+          this.durationMs = undefined;
+          this.pausedRemainingMs = 0;
+          this._stopTick();
+        }
+        return;
+      }
       Object.assign(this, persisted);
       this.active = true;
       this.flashing = false;
@@ -407,3 +442,23 @@ export const usePomodoroStore = defineStore('pomodoro', {
     },
   },
 });
+
+// Cross-window sync hooks:
+if (syncChannel) {
+  syncChannel.onmessage = () => {
+    try {
+      const store = usePomodoroStore();
+      store.rehydrate();
+    } catch {}
+  };
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === LS_STATE) {
+      try {
+        const store = usePomodoroStore();
+        store.rehydrate();
+      } catch {}
+    }
+  });
+}

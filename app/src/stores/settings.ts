@@ -43,6 +43,7 @@ interface Settings {
   // 'number' = clean sequential 1/2/3…; 'jump' = a/b/c… keyboard-jump labels.
   outlineMarker: 'jump' | 'number' | 'none';
   outlineMarkerCleanMigrated: boolean;
+  typewriterDefaultMigrated: boolean;
   showFileTree: boolean;
   /** v4.3.x release marker: set on first launch after the default flipped
    *  from `false` → `true` (desktop). If absent on load, `load()` force-enables
@@ -98,6 +99,14 @@ interface Settings {
   limitEditorWidth: boolean;
   // Custom CSS theme override (path to a .css file on disk)
   customCssPath: string;
+  // v5.0 — Catstep Visual & Theme Engine 2.0
+  activeCustomThemeId: string;
+  bgType: 'none' | 'texture' | 'image';
+  bgImage: string;
+  bgTexture: 'paper' | 'grid' | 'dots' | 'linen' | '';
+  bgBlur: number;
+  bgOpacity: number;
+  bgFrostedCard: boolean;
   // Anonymous telemetry (Aptabase). Defaults true but user can opt out.
   telemetryEnabled: boolean;
   // First-run banner dismissal. Shown once, never again.
@@ -474,6 +483,7 @@ function defaults(): Settings {
     outlineSide: 'right',
     outlineMarker: 'none',
     outlineMarkerCleanMigrated: true,
+    typewriterDefaultMigrated: true,
     showFileTree: !isMobile(),
     // Fresh installs already see the new default — mark migration done so
     // load()'s one-time force-on path is a no-op for them.
@@ -489,7 +499,7 @@ function defaults(): Settings {
     livePreview: true,
     spellCheck: true,
     focusMode: false,
-    typewriterMode: false,
+    typewriterMode: true,
     vimMode: false,
     uiFontSize: 13,
     autoCheckUpdate: true,
@@ -520,6 +530,13 @@ function defaults(): Settings {
     plantumlServer: 'https://www.plantuml.com/plantuml',
     limitEditorWidth: false,
     customCssPath: '',
+    activeCustomThemeId: '',
+    bgType: 'none',
+    bgImage: '',
+    bgTexture: '',
+    bgBlur: 0,
+    bgOpacity: 85,
+    bgFrostedCard: true,
     telemetryEnabled: true,
     telemetryNoticeAck: false,
     restoreSession: true,
@@ -747,6 +764,11 @@ function load(): Settings {
           merged.outlineMarker = 'none';
         }
         merged.outlineMarkerCleanMigrated = true;
+      }
+      // Typewriter mode is now enabled by default for all users
+      if (!parsed.typewriterDefaultMigrated) {
+        merged.typewriterMode = true;
+        merged.typewriterDefaultMigrated = true;
       }
       // Quick capture conflict migration: migrate default CmdOrCtrl+Alt+M to CmdOrCtrl+Alt+C
       // so in-app formula editor (Mod+Alt+M) is never shadowed.
@@ -1300,6 +1322,38 @@ export const useSettingsStore = defineStore('settings', {
     },
     setCustomCssPath(p: string) {
       this.customCssPath = p;
+      this.persist();
+    },
+    setActiveCustomThemeId(id: string) {
+      this.activeCustomThemeId = id;
+      this.persist();
+    },
+    setBgType(type: 'none' | 'texture' | 'image') {
+      this.bgType = type;
+      this.persist();
+    },
+    setBgImage(path: string) {
+      this.bgImage = path;
+      this.persist();
+    },
+    setBgTexture(texture: 'paper' | 'grid' | 'dots' | 'linen' | '') {
+      this.bgTexture = texture;
+      this.persist();
+    },
+    setBgBlur(val: number) {
+      this.bgBlur = Math.max(0, Math.min(40, Math.round(val)));
+      this.persist();
+    },
+    setBgOpacity(val: number) {
+      this.bgOpacity = Math.max(0, Math.min(100, Math.round(val)));
+      this.persist();
+    },
+    setBgFrostedCard(val: boolean) {
+      this.bgFrostedCard = val;
+      this.persist();
+    },
+    toggleBgFrostedCard() {
+      this.bgFrostedCard = !this.bgFrostedCard;
       this.persist();
     },
     togglePreviewFitWidth() {

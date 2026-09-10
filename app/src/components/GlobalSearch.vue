@@ -18,8 +18,8 @@ import { useTilesStore } from '../stores/tiles';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useI18n } from '../i18n';
 
-const props = defineProps<{ prefill?: string }>();
-const emit = defineEmits<{ (e: 'close'): void }>();
+const props = defineProps<{ prefill?: string; collapsed?: boolean }>();
+const emit = defineEmits<{ (e: 'close'): void; (e: 'toggle-collapse'): void }>();
 
 const search = useGlobalSearch();
 const files = useFiles();
@@ -150,59 +150,98 @@ function onKey(e: KeyboardEvent) {
 <template>
   <div class="sp">
     <header class="sp__head">
-      <span class="sp__title">{{ t('search.heading') }}</span>
+      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="sp__title">{{ t('search.heading') }}</span>
+        <span v-if="hits.length > 0" class="sp__count-badge">{{ hits.length }}</span>
+      </div>
       <button
         class="rs-pane-close"
         type="button"
         :title="t('rightSidebar.hidePane')"
-        @click="emit('close')"
-      >×</button>
-    </header>
-    <div class="sp__input-wrap">
-      <input
-        ref="inputRef"
-        v-model="query"
-        class="sp__input"
-        :placeholder="t('search.placeholder')"
-        spellcheck="false"
-        @keydown="onKey"
-      />
-      <span v-if="loading" class="sp__loading">…</span>
-    </div>
-    <div v-if="!workspace.currentFolder" class="sp__empty">
-      <p class="sp__msg">{{ t('search.openFolder') }}</p>
-      <button class="sp__open-btn" type="button" @click="files.openFolder">
-        📁 {{ t('menubar.openFolder') }}
+        @click.stop="emit('close')"
+      >
+        <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="3" x2="13" y2="13" />
+          <line x1="13" y1="3" x2="3" y2="13" />
+        </svg>
       </button>
-    </div>
-    <div v-else-if="!query.trim()" class="sp__empty">
-      {{ t('search.typeToSearch') }}
-    </div>
-    <div v-else-if="!hits.length && !loading" class="sp__empty">
-      {{ t('search.noMatches') }}
-    </div>
-    <div v-else class="sp__results">
-      <div v-for="[file, fileHits] in grouped" :key="file" class="sp__group">
-        <div
-          class="sp__file"
-          :class="{ 'sp__file--active': file === activeFilePath }"
-        >{{ shortPath(file) }}</div>
-        <div
-          v-for="hit in fileHits"
-          :key="hit.line"
-          class="sp__hit"
-          :class="{ 'sp__hit--active': hits.indexOf(hit) === selectedIdx }"
-          @click="openHit(hit)"
-          @mouseenter="selectedIdx = hits.indexOf(hit)"
-        >
-          <span class="sp__lineno">L{{ hit.line }}</span>
-          <span class="sp__snippet" v-html="highlight(hit.snippet)"></span>
+    </header>
+    <div v-show="!collapsed" class="sp__body">
+      <div class="sp__input-container">
+        <div class="sp__input-wrap">
+          <svg class="sp__search-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <line x1="10.5" y1="10.5" x2="14" y2="14" />
+          </svg>
+          <input
+            ref="inputRef"
+            v-model="query"
+            class="sp__input"
+            :placeholder="t('search.placeholder')"
+            spellcheck="false"
+            @keydown="onKey"
+          />
+          <button
+            v-if="query"
+            class="sp__clear-btn"
+            type="button"
+            title="Clear"
+            @click="query = ''; inputRef?.focus()"
+          >
+            <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="4" y1="4" x2="12" y2="12" />
+              <line x1="12" y1="4" x2="4" y2="12" />
+            </svg>
+          </button>
+          <span v-else-if="loading" class="sp__loading">…</span>
         </div>
       </div>
-    </div>
-    <div class="sp__footer">
-      <span>{{ t('search.hitCount', { n: hits.length }) }}</span>
-      <span>{{ t('search.keyHint') }}</span>
+      <div v-if="!workspace.currentFolder" class="sp__empty">
+        <p class="sp__msg">{{ t('search.openFolder') }}</p>
+        <button class="sp__open-btn" type="button" @click="files.openFolder">
+          📁 {{ t('menubar.openFolder') }}
+        </button>
+      </div>
+      <div v-else-if="!query.trim()" class="sp__empty">
+        {{ t('search.typeToSearch') }}
+      </div>
+      <div v-else-if="!hits.length && !loading" class="sp__empty">
+        {{ t('search.noMatches') }}
+      </div>
+      <div v-else class="sp__results">
+        <div v-for="[file, fileHits] in grouped" :key="file" class="sp__group">
+          <div
+            class="sp__file"
+            :class="{ 'sp__file--active': file === activeFilePath }"
+          >
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="sp__file-icon" aria-hidden="true">
+              <path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6l-4-4z" />
+              <polyline points="9 2 9 6 13 6" />
+            </svg>
+            <span class="sp__file-name">{{ shortPath(file) }}</span>
+          </div>
+          <div
+            v-for="hit in fileHits"
+            :key="hit.line"
+            class="sp__hit"
+            :class="{ 'sp__hit--active': hits.indexOf(hit) === selectedIdx }"
+            @click="openHit(hit)"
+            @mouseenter="selectedIdx = hits.indexOf(hit)"
+          >
+            <span class="sp__lineno">L{{ hit.line }}</span>
+            <span class="sp__snippet" v-html="highlight(hit.snippet)"></span>
+          </div>
+        </div>
+      </div>
+      <div class="sp__footer">
+        <span>{{ t('search.hitCount', { n: hits.length }) }}</span>
+        <span>{{ t('search.keyHint') }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -212,45 +251,121 @@ function onKey(e: KeyboardEvent) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg);
+  background: var(--bg-elev);
   overflow: hidden;
 }
 .sp__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  height: 34px;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-soft);
+  background: var(--bg-elev);
+}
+.sp__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sp__count-badge {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
 }
 .sp__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.sp__close {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+.sp__close:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+.sp__input-container {
+  padding: 6px 10px;
 }
 .sp__input-wrap {
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--border);
-  padding: 0 12px;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.sp__input-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft, rgba(255, 159, 64, 0.15));
+}
+.sp__search-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 .sp__input {
   flex: 1;
   background: transparent;
   border: none;
   outline: none;
-  padding: 10px 0;
-  font: 13px var(--font-ui);
+  padding: 0;
+  font: 12.5px var(--font-ui);
+  color: var(--text);
+  min-width: 0;
+}
+.sp__clear-btn {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.sp__clear-btn:hover {
+  background: var(--bg-hover);
   color: var(--text);
 }
 .sp__loading {
   color: var(--accent);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 .sp__empty {
-  padding: 24px 16px;
+  padding: 14px 16px;
   color: var(--text-faint);
   text-align: center;
   font-size: 12px;
@@ -282,37 +397,59 @@ function onKey(e: KeyboardEvent) {
   margin-bottom: 4px;
 }
 .sp__file {
-  padding: 6px 12px;
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .sp__file--active {
-  position: relative;
+  color: var(--accent);
 }
 .sp__file--active::after {
   content: ' ●';
   font-size: 8px;
-  vertical-align: middle;
+  color: var(--accent);
+  margin-left: 2px;
+}
+.sp__file-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.sp__file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sp__hit {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 12px 5px 20px;
+  gap: 8px;
+  padding: 4px 12px 4px 22px;
   font-size: 12px;
   cursor: pointer;
   font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background 0.1s;
+  color: var(--text);
+  transition: all 0.12s ease;
 }
-.sp__hit:hover,
+.sp__hit:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
 .sp__hit--active {
-  background: var(--bg-hover, rgba(255, 159, 64, 0.12));
+  background: var(--bg-active);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+  padding-left: 20px;
 }
 .sp__lineno {
   color: var(--text-faint);

@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { shortcutLabel } from '../lib/keybindings';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../stores/settings';
+import { useThemesStore } from '../stores/themes';
 import { useTabsStore } from '../stores/tabs';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useRagStore } from '../stores/rag';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { themeLabels } from '../lib/themes';
+import { reloadAllCustomStyles } from '../lib/custom-theme';
 import { useI18n } from '../i18n';
 import { quickCaptureError } from '../lib/quick-capture-status';
 import {
@@ -186,8 +188,8 @@ const ACTION_LABELS_ZH: Record<string, string> = {
   'help.markdown': 'Markdown 语法与快捷键速查',
   'proofread.cjk': '中英文排版规范校对',
   'daily.openToday': '打开今日日记',
-  'inbox.toggle': '收件箱',
-  'pomodoro.startLast': '番茄钟专注计时',
+  'inbox.toggle': '待整理',
+  'pomodoro.startLast': '猫步专注',
 };
 
 /**
@@ -360,6 +362,64 @@ watch(
 );
 
 const settings = useSettingsStore();
+const themesStore = useThemesStore();
+const toasts = useToastsStore();
+const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
+
+async function refreshCustomThemes() {
+  await themesStore.refreshInstalled();
+  await reloadAllCustomStyles(settings.customCssPath);
+  toasts.success(isZh.value ? '已刷新主题与样式' : 'Themes and styles reloaded');
+}
+
+const currentThemeSelectValue = computed(() =>
+  settings.activeCustomThemeId ? `custom:${settings.activeCustomThemeId}` : settings.theme
+);
+
+function onThemeSelectChange(val: string) {
+  if (val.startsWith('custom:')) {
+    const customId = val.slice(7);
+    const found = themesStore.installed.find((t) => t.id === customId);
+    if (found) {
+      settings.setActiveCustomThemeId(found.id);
+      settings.setCustomCssPath(found.path);
+    }
+  } else {
+    settings.setActiveCustomThemeId('');
+    settings.setCustomCssPath('');
+    settings.setTheme(val as Theme);
+  }
+}
+
+async function pickWallpaper() {
+  const path = await openFileDialog({
+    multiple: false,
+    filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }],
+  });
+  if (path && typeof path === 'string') {
+    try {
+      const savedPath = await themesStore.saveWallpaper(path);
+      settings.setBgImage(savedPath);
+      settings.setBgType('image');
+      toasts.success(isZh.value ? '已成功应用自定义背景壁纸' : 'Wallpaper applied successfully');
+    } catch (e) {
+      console.error('Failed to save wallpaper:', e);
+      settings.setBgImage(path);
+      settings.setBgType('image');
+    }
+  }
+}
+
+function clearWallpaper() {
+  settings.setBgImage('');
+  if (settings.bgType === 'image') {
+    settings.setBgType('none');
+  }
+}
+
+onMounted(() => {
+  void themesStore.refreshInstalled();
+});
 
 // #246 — dictionaries actually present, so the picker can't offer a language
 // that would fail to load. `spellcheck_list_dicts` scans
@@ -385,7 +445,6 @@ async function openDictsFolder() {
 }
 void refreshSpellDicts();
 const tabs = useTabsStore();
-const toasts = useToastsStore();
 const workspace = useWorkspaceStore();
 const rag = useRagStore();
 
@@ -621,18 +680,123 @@ function onSelectPdfFont(v: string) {
               </div>
             </div>
 
-            <!-- Row: Theme -->
+            <!-- Row: Theme & Typora CSS Engine -->
             <div class="setting-row">
               <div class="setting-row__info">
                 <label class="setting-row__title">{{ t('settings.theme') }}</label>
+                <p class="setting-row__hint">{{ isZh ? '内置经典主题及本地 Typora 自定义 CSS 主题' : 'Built-in themes and local custom Typora CSS themes' }}</p>
               </div>
-              <div class="setting-row__control">
+              <div class="setting-row__control setting-row__control--stack setting-row__control--wide">
                 <select
-                  :value="settings.theme"
-                  @change="settings.setTheme(($event.target as HTMLSelectElement).value as Theme)"
+                  :value="currentThemeSelectValue"
+                  @change="onThemeSelectChange(($event.target as HTMLSelectElement).value)"
                 >
-                  <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
+                  <optgroup :label="isZh ? '内置主题' : 'Built-in Themes'">
+                    <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
+                  </optgroup>
+                  <optgroup v-if="themesStore.installed.length > 0" :label="isZh ? '自定义 / Typora 主题' : 'Custom / Typora Themes'">
+                    <option
+                      v-for="cth in themesStore.installed"
+                      :key="cth.id"
+                      :value="`custom:${cth.id}`"
+                    >
+                      {{ cth.name || cth.id }}
+                    </option>
+                  </optgroup>
                 </select>
+
+                <div class="theme-actions-row">
+                  <button type="button" class="btn-subtle" @click="themesStore.openThemeFolder()" :title="isZh ? '打开本地 themes 文件夹，可直接放入 Typora .css 文件' : 'Open local themes folder'">
+                    📂 {{ isZh ? '打开主题文件夹' : 'Themes Folder' }}
+                  </button>
+                  <button type="button" class="btn-subtle" @click="themesStore.openUserCss()" :title="isZh ? '编辑 user.css 全局自定义样式' : 'Edit global user.css'">
+                    📝 {{ isZh ? '编辑 user.css' : 'user.css' }}
+                  </button>
+                  <button type="button" class="btn-subtle" @click="refreshCustomThemes()" :title="isZh ? '重新扫描主题文件夹与重新加载样式' : 'Refresh installed themes'">
+                    🔄 {{ isZh ? '刷新' : 'Refresh' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Visual Canvas & Background -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '写作背景画布' : 'Canvas Background' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '为编辑与预览画卷衬托质感纹理或自定义壁纸' : 'Decorate your writing canvas with textures or wallpapers' }}</p>
+              </div>
+              <div class="setting-row__control setting-row__control--stack setting-row__control--wide">
+                <select
+                  :value="settings.bgType"
+                  @change="settings.setBgType(($event.target as HTMLSelectElement).value as any)"
+                >
+                  <option value="none">{{ isZh ? '无（经典纯净）' : 'None (Clean)' }}</option>
+                  <option value="texture">{{ isZh ? '质感平铺纹理' : 'Subtle Texture' }}</option>
+                  <option value="image">{{ isZh ? '自定义图片壁纸' : 'Custom Image Wallpaper' }}</option>
+                </select>
+
+                <!-- Texture Preset Selection -->
+                <div v-if="settings.bgType === 'texture'" class="bg-option-row">
+                  <label class="bg-option-label">{{ isZh ? '纹理样式：' : 'Texture:' }}</label>
+                  <select
+                    :value="settings.bgTexture"
+                    @change="settings.setBgTexture(($event.target as HTMLSelectElement).value as any)"
+                  >
+                    <option value="paper">{{ isZh ? '📜 羊皮宣纸 (Paper)' : 'Paper' }}</option>
+                    <option value="grid">{{ isZh ? '📐 工程网格 (Grid)' : 'Grid' }}</option>
+                    <option value="dots">{{ isZh ? '◽ 点阵笔记 (Dots)' : 'Dots' }}</option>
+                    <option value="linen">{{ isZh ? '🧶 细织亚麻 (Linen)' : 'Linen' }}</option>
+                  </select>
+                </div>
+
+                <!-- Custom Wallpaper Selection -->
+                <div v-if="settings.bgType === 'image'" class="bg-option-row">
+                  <button type="button" class="btn-subtle" @click="pickWallpaper">
+                    🖼️ {{ isZh ? '选择壁纸图片…' : 'Pick Image…' }}
+                  </button>
+                  <button type="button" class="btn-subtle" @click="themesStore.openWallpapersFolder()" :title="isZh ? '打开壁纸存放目录' : 'Open wallpapers folder'">
+                    📂 {{ isZh ? '壁纸目录' : 'Folder' }}
+                  </button>
+                  <button v-if="settings.bgImage" type="button" class="btn-subtle btn-subtle--danger" @click="clearWallpaper">
+                    ❌ {{ isZh ? '清除' : 'Clear' }}
+                  </button>
+                </div>
+
+                <!-- Shared Visual Tuning Sliders when background is active -->
+                <div v-if="settings.bgType !== 'none'" class="bg-tuning-panel">
+                  <div class="bg-tuning-slider">
+                    <span class="tuning-slider-title">{{ isZh ? '暗/亮蒙层不透明度' : 'Overlay Opacity' }} ({{ settings.bgOpacity }}%)</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="95"
+                      step="5"
+                      :value="settings.bgOpacity"
+                      @input="settings.setBgOpacity(Number(($event.target as HTMLInputElement).value))"
+                    />
+                  </div>
+
+                  <div class="bg-tuning-slider">
+                    <span class="tuning-slider-title">{{ isZh ? '背景模糊度' : 'Background Blur' }} ({{ settings.bgBlur }}px)</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="30"
+                      step="1"
+                      :value="settings.bgBlur"
+                      @input="settings.setBgBlur(Number(($event.target as HTMLInputElement).value))"
+                    />
+                  </div>
+
+                  <label class="bg-card-checkbox">
+                    <input
+                      type="checkbox"
+                      :checked="settings.bgFrostedCard"
+                      @change="settings.toggleBgFrostedCard()"
+                    />
+                    <span>{{ isZh ? '毛玻璃悬浮卡片模式 (突出写作主体)' : 'Frosted Glass Card' }}</span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -1777,13 +1941,6 @@ function onSelectPdfFont(v: string) {
 
         <section data-cat="writing">
           <label>
-            <input type="checkbox" :checked="settings.typewriterMode" @change="settings.toggleTypewriterMode()" />
-            {{ t('settings.typewriterMode') }}
-          </label>
-        </section>
-
-        <section data-cat="writing">
-          <label>
             <input type="checkbox" :checked="settings.vimMode" @change="settings.toggleVimMode()" />
             {{ t('settings.vimMode') }}
           </label>
@@ -2256,6 +2413,108 @@ function onSelectPdfFont(v: string) {
   margin: 0;
 }
 
+.setting-row__control--wide {
+  width: 320px;
+  max-width: 100%;
+}
+.setting-row__control--wide select {
+  width: 100%;
+  max-width: 100%;
+}
+.theme-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  width: 100%;
+}
+.btn-subtle {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-subtle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+}
+.btn-subtle--danger:hover {
+  border-color: var(--danger, #ef4444);
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg));
+}
+.bg-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+  width: 100%;
+}
+.bg-option-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.bg-option-row select {
+  flex: 1;
+  max-width: 180px;
+}
+.bg-tuning-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg-hover) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.bg-tuning-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tuning-slider-title {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.bg-card-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text);
+  cursor: pointer;
+  margin-top: 4px;
+  user-select: none;
+}
+.bg-card-checkbox input[type='checkbox'] {
+  width: 32px;
+  height: 18px;
+}
+.bg-card-checkbox input[type='checkbox']::after {
+  width: 14px;
+  height: 14px;
+}
+.bg-card-checkbox input[type='checkbox']:checked::after {
+  transform: translateX(14px);
+}
+
 /* Standalone Card-style sections fallback */
 section[data-cat] {
   display: flex;
@@ -2540,8 +2799,8 @@ input[type='range']::-webkit-slider-thumb:active {
 /* Modern sleek scrollbars */
 .settings__body::-webkit-scrollbar,
 .settings__nav::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 .settings__body::-webkit-scrollbar-track,
 .settings__nav::-webkit-scrollbar-track {
@@ -2549,11 +2808,12 @@ input[type='range']::-webkit-slider-thumb:active {
 }
 .settings__body::-webkit-scrollbar-thumb,
 .settings__nav::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 3px;
+  background: color-mix(in srgb, var(--text-muted) 28%, transparent);
+  border-radius: 9999px;
+  transition: background 0.15s ease;
 }
 .settings__body::-webkit-scrollbar-thumb:hover,
 .settings__nav::-webkit-scrollbar-thumb:hover {
-  background: var(--text-faint);
+  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
 }
 </style>

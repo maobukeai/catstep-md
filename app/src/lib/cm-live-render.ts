@@ -122,6 +122,9 @@ function inlineHtmlMark(kind: LiveInlineHtmlKind): Decoration {
 const lineClass = (cls: string) => Decoration.line({ class: cls });
 const quoteLine = lineClass('cm-md-quote-line');
 const fencedLine = lineClass('cm-md-fenced-line');
+const fencedStartLine = lineClass('cm-md-fenced-line cm-md-fenced-start');
+const fencedEndLine = lineClass('cm-md-fenced-line cm-md-fenced-end');
+const fencedSingleLine = lineClass('cm-md-fenced-line cm-md-fenced-start cm-md-fenced-end');
 const headingLine = (level: number) => lineClass(`cm-md-heading-line cm-md-heading-line-${level}`);
 
 const hideDeco = Decoration.replace({});
@@ -518,7 +521,15 @@ function buildDecorations(view: EditorView): DecorationSet {
             const lineObj = view.state.doc.line(ln);
             if (!seenFencedLines.has(lineObj.from)) {
               seenFencedLines.add(lineObj.from);
-              ranges.push(fencedLine.range(lineObj.from));
+              if (startLine === endLine) {
+                ranges.push(fencedSingleLine.range(lineObj.from));
+              } else if (ln === startLine) {
+                ranges.push(fencedStartLine.range(lineObj.from));
+              } else if (ln === endLine) {
+                ranges.push(fencedEndLine.range(lineObj.from));
+              } else {
+                ranges.push(fencedLine.range(lineObj.from));
+              }
             }
           }
           // v4.11.18 — the copy button rides the block's first line and is
@@ -814,28 +825,55 @@ const liveEditTheme = EditorView.theme({
     backgroundColor: 'var(--md-code-bg)',
     fontFamily: 'var(--font-mono)',
     color: 'var(--text)',
-    // Containing block for the copy button that rides the block's first line.
+    paddingLeft: '16px',
+    paddingRight: '16px',
+    borderLeft: '1px solid var(--border)',
+    borderRight: '1px solid var(--border)',
+    boxSizing: 'border-box',
     position: 'relative',
   },
 
-  // v4.11.18 — code-block copy button. Same visual language as the preview
-  // pane's `.code-copy-button` (styles/main.css), sized down a notch so it
-  // fits inside a single editor line.
+  // v4.12.1 — macOS traffic-light window header on code block start line.
+  // Perfectly mirrors Reading mode's `.code-block-shell::before`.
+  '.cm-md-fenced-start': {
+    borderTop: '1px solid var(--border)',
+    borderTopLeftRadius: '8px',
+    borderTopRightRadius: '8px',
+    borderBottom: '1px solid var(--border)',
+    backgroundColor: 'var(--bg-elev) !important',
+    minHeight: '28px',
+    marginTop: '1.2em',
+    paddingLeft: '54px !important',
+    backgroundImage: 'radial-gradient(circle at 14px 14px, #ff5f56 0px, #ff5f56 4px, transparent 4px), radial-gradient(circle at 26px 14px, #ffbd2e 0px, #ffbd2e 4px, transparent 4px), radial-gradient(circle at 38px 14px, #27c93f 0px, #27c93f 4px, transparent 4px)',
+    backgroundRepeat: 'no-repeat',
+  },
+
+  '.cm-md-fenced-end': {
+    borderBottom: '1px solid var(--border)',
+    borderBottomLeftRadius: '8px',
+    borderBottomRightRadius: '8px',
+    marginBottom: '1.2em',
+    minHeight: '12px',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+  },
+
+  // v4.11.18 / v4.12.1 — code-block copy button. Rides in the window header bar
+  // on the first line, matching Reading mode (.code-copy-button).
   '.cm-md-code-copy': {
     position: 'absolute',
     zIndex: '3',
-    top: '1px',
+    top: '3px',
     right: '8px',
-    minWidth: '42px',
-    height: '20px',
+    minWidth: '48px',
+    height: '22px',
     padding: '0 8px',
     border: '1px solid var(--border)',
-    borderRadius: '5px',
-    background: 'color-mix(in srgb, var(--bg) 88%, transparent)',
+    borderRadius: '4px',
+    background: 'var(--bg)',
     color: 'var(--text-muted)',
-    font: '11px/18px var(--font-ui)',
+    font: '11px/1 var(--font-ui)',
     cursor: 'pointer',
-    opacity: '0.55',
+    opacity: '0.85',
     userSelect: 'none',
     transition: 'opacity 0.15s, color 0.15s, border-color 0.15s',
   },
@@ -917,6 +955,8 @@ export const LIVE_EDIT_CLASSES = [
   'cm-md-link',
   'cm-md-quote-line',
   'cm-md-fenced-line',
+  'cm-md-fenced-start',
+  'cm-md-fenced-end',
   'cm-md-code-copy',
   'cm-md-bullet',
   'cm-md-hr',

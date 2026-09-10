@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, h, ref } from 'vue';
 import { combosFor, formatCombo } from '../lib/keybindings';
 import { isMacOS } from '../lib/platform';
 import { useSettingsStore } from '../stores/settings';
@@ -31,16 +31,63 @@ export interface ShortcutDef {
   tag?: string;
 }
 
-const CATEGORIES: { id: string; zh: string; en: string; icon: string }[] = [
-  { id: 'all', zh: '全部', en: 'All', icon: '⚡' },
-  { id: 'essentials', zh: '常用高频', en: 'Essentials', icon: '⭐' },
-  { id: 'format', zh: '排版格式', en: 'Typography', icon: '🔤' },
-  { id: 'blocks', zh: '段落结构', en: 'Blocks & Tables', icon: '📑' },
-  { id: 'edit', zh: '编辑选择', en: 'Edit & Select', icon: '✂️' },
-  { id: 'view', zh: '视图模式', en: 'View & Modes', icon: '👁️' },
-  { id: 'file', zh: '文件标签', en: 'Files & Tabs', icon: '📁' },
-  { id: 'tools', zh: 'AI 与工具', en: 'AI & Tools', icon: '✨' },
+const CATEGORIES: { id: string; zh: string; en: string }[] = [
+  { id: 'all', zh: '全部', en: 'All' },
+  { id: 'essentials', zh: '常用高频', en: 'Essentials' },
+  { id: 'format', zh: '排版格式', en: 'Typography' },
+  { id: 'blocks', zh: '段落结构', en: 'Blocks & Tables' },
+  { id: 'edit', zh: '编辑选择', en: 'Edit & Select' },
+  { id: 'view', zh: '视图模式', en: 'View & Modes' },
+  { id: 'file', zh: '文件标签', en: 'Files & Tabs' },
+  { id: 'tools', zh: 'AI 与工具', en: 'AI & Tools' },
 ];
+
+function renderCategoryIcon(id: string) {
+  const icons: Record<string, () => any> = {
+    all: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('rect', { x: 3, y: 3, width: 7, height: 7, rx: 1 }),
+        h('rect', { x: 14, y: 3, width: 7, height: 7, rx: 1 }),
+        h('rect', { x: 14, y: 14, width: 7, height: 7, rx: 1 }),
+        h('rect', { x: 3, y: 14, width: 7, height: 7, rx: 1 }),
+      ]),
+    essentials: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('polygon', { points: '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' }),
+      ]),
+    format: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('polyline', { points: '4 7 4 4 20 4 20 7' }),
+        h('line', { x1: 9, y1: 20, x2: 15, y2: 20 }),
+        h('line', { x1: 12, y1: 4, x2: 12, y2: 20 }),
+      ]),
+    blocks: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('line', { x1: 21, y1: 6, x2: 3, y2: 6 }),
+        h('line', { x1: 15, y1: 12, x2: 3, y2: 12 }),
+        h('line', { x1: 17, y1: 18, x2: 3, y2: 18 }),
+      ]),
+    edit: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('path', { d: 'M12 20h9' }),
+        h('path', { d: 'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' }),
+      ]),
+    view: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('path', { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
+        h('circle', { cx: 12, cy: 12, r: 3 }),
+      ]),
+    file: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('path', { d: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' }),
+      ]),
+    tools: () =>
+      h('svg', { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [
+        h('path', { d: 'M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z' }),
+      ]),
+  };
+  return (icons[id] || icons.all)();
+}
 
 const ALL_SHORTCUTS: ShortcutDef[] = [
   // ── 1. 常用高频 (Essentials) ──────────────────────────────────────────────
@@ -1002,7 +1049,7 @@ const ALL_SHORTCUTS: ShortcutDef[] = [
     id: 'tool-pomodoro',
     action: 'pomodoro.startLast',
     category: 'tools',
-    zh: '启动番茄钟专注计时',
+    zh: '启动猫步专注',
     en: 'Start Pomodoro focus session',
     winFallback: 'Ctrl+Shift+Z',
     macFallback: '⌘⇧Z',
@@ -1092,7 +1139,7 @@ const groupedShortcuts = computed(() => {
     ? CATEGORIES.filter((c) => c.id !== 'all')
     : CATEGORIES.filter((c) => c.id === cat);
 
-  const groups: { id: string; zh: string; en: string; icon: string; items: ShortcutDef[] }[] = [];
+  const groups: { id: string; zh: string; en: string; items: ShortcutDef[] }[] = [];
 
   for (const c of relevantCats) {
     const matched = ALL_SHORTCUTS.filter((item) => {
@@ -1108,7 +1155,6 @@ const groupedShortcuts = computed(() => {
         id: c.id,
         zh: c.zh,
         en: c.en,
-        icon: c.icon,
         items: matched,
       });
     }
@@ -1340,6 +1386,8 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
   <DsModal
     :model-value="props.open"
     width="920px"
+    height="min(680px, 85vh)"
+    min-height="min(680px, 85vh)"
     @update:model-value="emit('close')"
   >
     <template #header>
@@ -1395,7 +1443,10 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
               :class="{ 'is-active': activeTab === 'shortcuts' }"
               @click="activeTab = 'shortcuts'"
             >
-              <span class="help-tab__icon">⌨️</span>
+              <svg class="help-tab__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10" />
+              </svg>
               <span>快捷键速查</span>
               <span class="help-tab__count">{{ ALL_SHORTCUTS.length }}</span>
             </button>
@@ -1404,7 +1455,13 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
               :class="{ 'is-active': activeTab === 'syntax' }"
               @click="activeTab = 'syntax'"
             >
-              <span class="help-tab__icon">📝</span>
+              <svg class="help-tab__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <line x1="10" y1="9" x2="8" y2="9" />
+              </svg>
               <span>Markdown 语法</span>
             </button>
             <button
@@ -1412,7 +1469,10 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
               :class="{ 'is-active': activeTab === 'cli' }"
               @click="activeTab = 'cli'"
             >
-              <span class="help-tab__icon">⚡</span>
+              <svg class="help-tab__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="4 17 10 11 4 5" />
+                <line x1="12" y1="19" x2="20" y2="19" />
+              </svg>
               <span>终端 CLI</span>
             </button>
           </div>
@@ -1436,21 +1496,6 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
             >✕</button>
           </div>
         </div>
-
-        <!-- Row 3: Category filter pills (only for shortcuts) -->
-        <div v-if="activeTab === 'shortcuts'" class="help-header__categories">
-          <button
-            v-for="cat in CATEGORIES"
-            :key="cat.id"
-            class="cat-pill"
-            :class="{ 'is-active': activeCategory === cat.id }"
-            @click="activeCategory = cat.id"
-          >
-            <span class="cat-pill__icon">{{ cat.icon }}</span>
-            <span class="cat-pill__label">{{ cat.zh }}</span>
-            <span class="cat-pill__count">{{ categoryCount(cat.id) }}</span>
-          </button>
-        </div>
       </div>
     </template>
 
@@ -1458,6 +1503,21 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
     <div class="help-content">
       <!-- 1. Shortcuts Tab -->
       <template v-if="activeTab === 'shortcuts'">
+        <!-- Category filter pills for shortcuts -->
+        <div class="shortcuts-categories">
+          <button
+            v-for="cat in CATEGORIES"
+            :key="cat.id"
+            class="cat-pill"
+            :class="{ 'is-active': activeCategory === cat.id }"
+            @click="activeCategory = cat.id"
+          >
+            <component :is="renderCategoryIcon(cat.id)" class="cat-pill__icon" />
+            <span class="cat-pill__label">{{ cat.zh }}</span>
+            <span class="cat-pill__count">{{ categoryCount(cat.id) }}</span>
+          </button>
+        </div>
+
         <div v-if="totalMatches > 0" class="shortcuts-container">
           <section
             v-for="g in groupedShortcuts"
@@ -1465,7 +1525,7 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
             class="shortcut-group"
           >
             <div v-if="activeCategory === 'all'" class="shortcut-group__header">
-              <span class="shortcut-group__icon">{{ g.icon }}</span>
+              <component :is="renderCategoryIcon(g.id)" class="shortcut-group__icon" />
               <span class="shortcut-group__title">{{ g.zh }}</span>
               <span class="shortcut-group__en">{{ g.en }}</span>
               <span class="shortcut-group__count">{{ g.items.length }} 项</span>
@@ -1508,7 +1568,12 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
         </div>
 
         <div v-else class="help-empty">
-          <div class="help-empty__icon">🔍</div>
+          <div class="help-empty__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
           <div class="help-empty__text">未找到与 "{{ searchQuery }}" 匹配的快捷键</div>
           <button class="help-empty__btn" @click="searchQuery = ''; activeCategory = 'all'">
             清空筛选条件
@@ -1536,7 +1601,14 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
           </div>
         </section>
         <div v-if="filteredSyntax.length === 0" class="help-empty">
-          <div class="help-empty__icon">📝</div>
+          <div class="help-empty__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+          </div>
           <div class="help-empty__text">没有匹配的 Markdown 语法</div>
         </div>
       </template>
@@ -1597,7 +1669,14 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
     <template #footer>
       <div class="help-ftr">
         <div class="help-ftr__hint">
-          <span>💡 提示：按 <kbd class="keycap keycap--mini">Esc</kbd> 或点击外部遮罩关闭 · 自定义按键请前往「设置 (Ctrl+,) ➔ 快捷键」</span>
+          <svg class="help-ftr__hint-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <path d="M12 17v4m-3-1h6" />
+            <path d="M9 18h6" />
+            <path d="M10 22h4" />
+            <path d="M18.36 5.64l-1.42 1.42M5.64 5.64l1.42 1.42M21 12h-2M5 12H3M9 13a4 4 0 1 1 6 0c-.5.5-1 1-1 2h-4c0-1-.5-1.5-1-2z" />
+          </svg>
+          <span>提示：按 <kbd class="keycap keycap--mini">Esc</kbd> 或点击外部遮罩关闭 · 自定义按键请前往「设置 (Ctrl+,) ➔ 快捷键」</span>
         </div>
         <div class="help-ftr__status">
           <span class="help-ftr__badge">Typora 快捷键规范对齐 100%</span>
@@ -1608,18 +1687,38 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
 </template>
 
 <style scoped>
-/* ── Override DsModal Head to support multi-row header ─────────────────────── */
+/* ── Override DsModal Head & Panel to lock uniform window dimensions ──────── */
+:deep(.ds-modal__panel) {
+  height: min(680px, 85vh) !important;
+  max-height: calc(100vh - 48px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
 :deep(.ds-modal__head) {
   align-items: flex-start !important;
   padding: 14px 18px 12px !important;
   border-bottom: 1px solid var(--border) !important;
+  flex-shrink: 0 !important;
 }
 :deep(.ds-modal__close) {
   margin-top: 2px !important;
   flex-shrink: 0 !important;
 }
 :deep(.ds-modal__body) {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
   padding: 14px 18px !important;
+}
+:deep(.ds-modal__foot) {
+  flex-shrink: 0 !important;
+}
+
+.help-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Full Header Wrapper ─────────────────────────────────────────────────── */
@@ -1822,14 +1921,17 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
   color: var(--text);
 }
 
-/* ── Row 3: Category Filter Pills ─────────────────────────────────────────── */
-.help-header__categories {
+/* ── Category Filter Pills (Inside Shortcuts Tab) ─────────────────────────── */
+.shortcuts-categories {
   display: flex;
   align-items: center;
   gap: 5px;
   overflow-x: auto;
   width: 100%;
-  padding: 2px 0;
+  padding: 0 0 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .cat-pill {
   display: inline-flex;
@@ -1858,6 +1960,14 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
   color: var(--accent, #ff9f40);
   font-weight: 600;
 }
+.cat-pill__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
 .cat-pill__count {
   font-size: 9.5px;
   opacity: 0.75;
@@ -1878,7 +1988,13 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
   margin-bottom: 8px;
 }
 .shortcut-group__icon {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  color: var(--accent, #ff9f40);
+  flex-shrink: 0;
 }
 .shortcut-group__title {
   font-size: 12px;
@@ -2202,6 +2318,11 @@ const cliExampleNew = `solomd new "daily-${today}" "今日重点待办："`;
 .help-ftr__hint {
   display: flex;
   align-items: center;
+  gap: 6px;
+}
+.help-ftr__hint-icon {
+  color: var(--accent, #ff9f40);
+  flex-shrink: 0;
 }
 .help-ftr__badge {
   font-weight: 600;

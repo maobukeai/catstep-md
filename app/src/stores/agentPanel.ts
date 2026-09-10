@@ -33,6 +33,10 @@ export interface AgentMessage {
   id: string;
   role: AgentMessageRole;
   content: string;
+  /** Model reasoning/thinking stream (DeepSeek-R1 / Gemini / Claude 3.7 / Codex). */
+  thought?: string;
+  thoughtDurationMs?: number;
+  thoughtExpanded?: boolean;
   /** Populated when `role === 'tool'`. */
   tool?: AgentToolPayload;
   createdAt: number;
@@ -82,6 +86,18 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         last.content += chunk;
       }
     },
+    appendToLastThought(chunk: string) {
+      const last = this.messages[this.messages.length - 1];
+      if (last && last.role === 'assistant') {
+        last.thought = (last.thought || '') + chunk;
+      }
+    },
+    setLastThoughtDuration(ms: number) {
+      const last = this.messages[this.messages.length - 1];
+      if (last && last.role === 'assistant') {
+        last.thoughtDurationMs = ms;
+      }
+    },
     /**
      * Insert a tool-call placeholder card immediately after the last
      * assistant placeholder. The result fills in once
@@ -91,6 +107,12 @@ export const useAgentPanelStore = defineStore('agentPanel', {
      * assistant turns in one chat round).
      */
     insertToolCall(payload: { toolCallId: string; name: string; args: Record<string, unknown>; runId?: string }) {
+      // If the preceding assistant message is empty and has no thought, remove it
+      // so we never render a ghost blank card before a tool execution.
+      const last = this.messages[this.messages.length - 1];
+      if (last && last.role === 'assistant' && !last.content && !last.thought) {
+        this.messages.pop();
+      }
       this.addMessage({
         role: 'tool',
         content: '',

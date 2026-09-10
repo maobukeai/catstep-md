@@ -51,7 +51,8 @@ const idx = useWorkspaceIndexStore();
 const files = useFiles();
 const { t } = useI18n();
 
-const emit = defineEmits<{ close: [] }>();
+defineProps<{ collapsed?: boolean }>();
+const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 
 /** Active tab's file path — the default focal note when no pivot is active. */
 const activeTabPath = computed<string | null>(() => tabs.activeTab?.filePath ?? null);
@@ -247,7 +248,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
-  <DsPanel grip @close="emit('close')">
+  <DsPanel grip :collapsed="collapsed" @close="emit('close')" @toggle-collapse="emit('toggle-collapse')">
     <template #title>{{ t('neighborhood.heading') }}</template>
     <template #actions>
       <DsChip v-if="focalPath && !isEmpty" size="sm">{{ totalCount }}</DsChip>

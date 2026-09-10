@@ -3,11 +3,12 @@ import { onMounted, onBeforeUnmount, ref, watch, watchEffect, computed, provide,
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { readText as readClipboardText } from '@tauri-apps/plugin-clipboard-manager';
 import { setMarkdownHardBreaks, setMarkdownAutoNumberHeadings, setMarkdownSmartQuotes } from './lib/markdown';
 import { openNewWindow } from './lib/new-window';
+import { toggleFullscreen } from './lib/fullscreen';
 import Toolbar from './components/Toolbar.vue';
 import Icon from './components/Icons.vue';
 import TelemetryBanner from './components/TelemetryBanner.vue';
@@ -71,7 +72,8 @@ import { useFiles } from './composables/useFiles';
 import { useExport } from './composables/useExport';
 import { useShortcuts } from './composables/useShortcuts';
 import { useFileWatcher } from './composables/useFileWatcher';
-import { loadCustomTheme } from './lib/custom-theme';
+import { loadUserCss, reloadAllCustomStyles } from './lib/custom-theme';
+import { isDarkTheme } from './lib/themes';
 import { isIOS, isMacOS, isAndroid, isMobile } from './lib/platform';
 import { useViewport } from './composables/useViewport';
 import { nativeMenuAccelerators } from './lib/keybindings';
@@ -334,13 +336,13 @@ function onFileChangedAction(action: 'reload' | 'overwrite' | 'cancel') {
 }
 
 useShortcuts({
-  openPalette: () => (paletteOpen.value = true),
-  openSettings: () => (settingsOpen.value = true),
-  openHelp: () => (helpOpen.value = true),
+  openPalette: () => (paletteOpen.value = !paletteOpen.value),
+  openSettings: () => (settingsOpen.value = !settingsOpen.value),
+  openHelp: () => (helpOpen.value = !helpOpen.value),
   openGlobalSearch: () => toggleGlobalSearch(),
-  openRagSearch: () => (ragSearchOpen.value = true),
-  openQuickSwitcher: () => (quickSwitcherOpen.value = true),
-  openCjkProofread: () => (cjkProofreadOpen.value = true),
+  openRagSearch: () => (ragSearchOpen.value = !ragSearchOpen.value),
+  openQuickSwitcher: () => (quickSwitcherOpen.value = !quickSwitcherOpen.value),
+  openCjkProofread: () => (cjkProofreadOpen.value = !cjkProofreadOpen.value),
 });
 
 useFileWatcher(showFileChangedDialog);
@@ -820,10 +822,60 @@ watchEffect(async () => {
 watch(
   () => settings.customCssPath,
   (path) => {
-    loadCustomTheme(path);
+    void reloadAllCustomStyles(path);
   },
   { immediate: true }
 );
+
+// ── Catstep MD Visual Canvas & Background Engine ─────────────────────────────
+const hasActiveBackground = computed(() => {
+  if (settings.bgType === 'image' && !!settings.bgImage) return true;
+  if (settings.bgType === 'texture' && !!settings.bgTexture) return true;
+  return false;
+});
+
+const bgImageUrl = computed(() => {
+  if (!settings.bgImage) return '';
+  if (
+    settings.bgImage.startsWith('http://') ||
+    settings.bgImage.startsWith('https://') ||
+    settings.bgImage.startsWith('data:')
+  ) {
+    return settings.bgImage;
+  }
+  return convertFileSrc(settings.bgImage);
+});
+
+const bgTextureClass = computed(() => {
+  if (settings.bgType === 'texture' && settings.bgTexture) {
+    return `catstep-texture--${settings.bgTexture}`;
+  }
+  return '';
+});
+
+const bgCanvasStyle = computed(() => {
+  const style: Record<string, string> = {};
+  if (settings.bgType === 'image' && bgImageUrl.value) {
+    style.backgroundImage = `url("${bgImageUrl.value}")`;
+    style.backgroundSize = 'cover';
+    style.backgroundPosition = 'center';
+    style.backgroundRepeat = 'no-repeat';
+  }
+  if (settings.bgBlur > 0) {
+    style.filter = `blur(${settings.bgBlur}px)`;
+    style.transform = 'scale(1.05)';
+  }
+  return style;
+});
+
+const bgOverlayStyle = computed(() => {
+  const opacity = Math.max(0, Math.min(100, settings.bgOpacity ?? 85)) / 100;
+  const isDark = isDarkTheme(settings.theme);
+  const baseColor = isDark ? '18, 18, 20' : '255, 255, 255';
+  return {
+    backgroundColor: `rgba(${baseColor}, ${opacity})`,
+  };
+});
 
 function onOpenHelpEvent() {
   helpOpen.value = true;
@@ -1084,11 +1136,7 @@ function dispatchMenuAction(id: string) {
       settings.toggleTypewriterMode();
       break;
     case 'view.toggleFullscreen':
-      if (document.fullscreenElement) {
-        void document.exitFullscreen();
-      } else {
-        void document.documentElement.requestFullscreen();
-      }
+      void toggleFullscreen();
       break;
     case 'view.toggleAgentPanel':
     case 'tools.agent':
@@ -1128,8 +1176,10 @@ function dispatchMenuAction(id: string) {
       paletteOpen.value = true;
       break;
     case 'tools.pomodoro':
-      if (pomodoro.active) pomodoro.reset();
-      else pomodoro.start(settings.pomodoroDefaultMinutes, { notify: true });
+      window.dispatchEvent(new CustomEvent('solomd:toggle-pomodoro'));
+      break;
+    case 'tools.pomodoroPip':
+      import('@tauri-apps/api/core').then(({ invoke }) => invoke('pip_timer_open')).catch(() => {});
       break;
     default:
       console.warn('unknown menu action', id);
@@ -1157,6 +1207,7 @@ function onWindowBlur() {
 }
 
 onMounted(async () => {
+  void loadUserCss();
   // #153 (mobile) — Android's WebView reports env(safe-area-inset-top) as 0
   // under forced edge-to-edge, so the toolbar rendered under the status bar
   // and was untappable. Read the real bar heights natively and inject them as
@@ -1802,45 +1853,6 @@ const visibleRsPanes = computed(() => {
 // the Tauri webview ships with `dragDropEnabled: true` (the app needs the
 // native OS file-drop for "drop a file to open it" + image drop), and that
 // native handler swallows in-webview HTML5 DnD — so the grip silently did
-// nothing. Pointer events are not intercepted, so we drive the reorder
-// manually: pointerdown on the grip → track the pane under the cursor →
-// pointerup commits the move. Works on mouse, trackpad and touch alike.
-const draggingPaneId = ref<string | null>(null);
-const dragOverPaneId = ref<string | null>(null);
-function startPaneReorder(e: PointerEvent, id: string) {
-  if (e.button !== 0 && e.pointerType === 'mouse') return;
-  e.preventDefault();
-  draggingPaneId.value = id;
-  dragOverPaneId.value = null;
-  const paneUnder = (x: number, y: number): string | null => {
-    const host = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest(
-      '[data-rs-pane]',
-    ) as HTMLElement | null;
-    return host?.getAttribute('data-rs-pane') || null;
-  };
-  const onMove = (m: PointerEvent) => {
-    const over = paneUnder(m.clientX, m.clientY);
-    dragOverPaneId.value = over && over !== id ? over : null;
-  };
-  const onUp = () => {
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    const src = draggingPaneId.value;
-    const tgt = dragOverPaneId.value;
-    draggingPaneId.value = null;
-    dragOverPaneId.value = null;
-    if (!src || !tgt || src === tgt) return;
-    // Index into the full order list (not just the visible subset) so the
-    // reorder survives toggling pane visibility off + on.
-    const order = [...(settings.rsPaneOrder || [])];
-    const targetIdx = order.indexOf(tgt);
-    if (targetIdx < 0) return;
-    settings.moveRsPane(src, targetIdx);
-  };
-  document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', onUp);
-}
-
 // Sidebar visibility / pane composition changes the editor's available
 // width. CodeMirror's ResizeObserver may lag for a frame, so dispatch
 // solomd:relayout on the next paint and let Editor.vue requestMeasure().
@@ -1852,28 +1864,92 @@ watch(visibleRsPanes, () => {
   });
 });
 
-// Collapsible sidebar accordion panes
+// Collapsible sidebar accordion panes & smooth drag reorder
 const collapsedPanes = ref<Record<string, boolean>>({});
 function togglePaneCollapse(id: string) {
-  collapsedPanes.value[id] = !collapsedPanes.value[id];
+  collapsedPanes.value = {
+    ...collapsedPanes.value,
+    [id]: !collapsedPanes.value[id],
+  };
 }
 
+const draggingPaneId = ref<string | null>(null);
+const dragOverPaneId = ref<string | null>(null);
+let wasDragging = false;
+
 function onPaneHeaderPointerDown(e: PointerEvent, id: string) {
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
   const el = e.target as HTMLElement | null;
   if (!el) return;
   if (el.closest('button, input, textarea, a, select, [data-no-drag]')) return;
   const isHeader = el.closest(
-    'header, .sp__head, .backlinks__head, .tags-panel__head, .history__head, .agent-panel__head, .tasks-panel__head, .inspector__head, .ds-panel__head, .outline__head'
+    'header, .sp__head, .backlinks__head, .tags-panel__head, .history__head, .agent-panel__head, .tasks-panel__head, .inspector__head, .ds-panel__head, .outline__head, .outline__header'
   );
   if (!isHeader) return;
-  startPaneReorder(e, id);
+
+  const startX = e.clientX;
+  const startY = e.clientY;
+  let isDragging = false;
+  wasDragging = false;
+
+  const paneUnder = (x: number, y: number): string | null => {
+    const host = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest(
+      '[data-rs-pane]',
+    ) as HTMLElement | null;
+    return host?.getAttribute('data-rs-pane') || null;
+  };
+
+  const onMove = (m: PointerEvent) => {
+    const dist = Math.hypot(m.clientX - startX, m.clientY - startY);
+    if (!isDragging && dist > 6) {
+      isDragging = true;
+      wasDragging = true;
+      draggingPaneId.value = id;
+    }
+    if (isDragging) {
+      const over = paneUnder(m.clientX, m.clientY);
+      dragOverPaneId.value = over && over !== id ? over : null;
+    }
+  };
+
+  const onUp = () => {
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+
+    if (isDragging) {
+      const src = draggingPaneId.value;
+      const tgt = dragOverPaneId.value;
+      draggingPaneId.value = null;
+      dragOverPaneId.value = null;
+      setTimeout(() => {
+        wasDragging = false;
+      }, 60);
+
+      if (!src || !tgt || src === tgt) return;
+      const order = [...(settings.rsPaneOrder || [])];
+      const targetIdx = order.indexOf(tgt);
+      if (targetIdx < 0) return;
+      settings.moveRsPane(src, targetIdx);
+    } else {
+      draggingPaneId.value = null;
+      dragOverPaneId.value = null;
+    }
+  };
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
 }
 
-function onPaneHeaderDblClick(e: MouseEvent, id: string) {
+function onPaneHeaderClick(e: MouseEvent, id: string) {
+  if (wasDragging) {
+    wasDragging = false;
+    return;
+  }
   const el = e.target as HTMLElement | null;
-  if (!el || el.closest('button, input, textarea, a, select')) return;
+  if (!el) return;
+  if (el.closest('button, input, textarea, a, select, [data-no-collapse]')) return;
   const isHeader = el.closest(
-    'header, .sp__head, .backlinks__head, .tags-panel__head, .history__head, .agent-panel__head, .tasks-panel__head, .inspector__head, .ds-panel__head, .outline__head'
+    'header, .sp__head, .backlinks__head, .tags-panel__head, .history__head, .agent-panel__head, .tasks-panel__head, .inspector__head, .ds-panel__head, .outline__head, .outline__header'
   );
   if (isHeader) {
     togglePaneCollapse(id);
@@ -1889,7 +1965,10 @@ function paneStyle(id: string) {
   if (h && h > 0) {
     return { flex: `0 0 ${h}px`, height: `${h}px` };
   }
-  return {};
+  if (id === 'agent') {
+    return { flex: '2.5 1 0', minHeight: '180px' };
+  }
+  return { flex: '1 1 0', minHeight: '80px' };
 }
 
 const sideSidebarStyle = computed(() => {
@@ -2010,7 +2089,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
     -->
     <Toolbar
       @open-palette="paletteOpen = true"
-      @open-settings="openSettingsAt()"
+      @open-settings="(sec?: string) => openSettingsAt(sec)"
       @open-help="helpOpen = true"
       @open-search="toggleGlobalSearch()"
       @open-about="aboutOpen = true"
@@ -2111,7 +2190,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               ]"
               :style="paneStyle(p.id)"
               @pointerdown="onPaneHeaderPointerDown($event, p.id)"
-              @dblclick="onPaneHeaderDblClick($event, p.id)"
+              @click="onPaneHeaderClick($event, p.id)"
             >
               <GlobalSearch
                 v-if="p.id === 'search'"
@@ -2186,13 +2265,29 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             </div>
           </template>
         </aside>
-        <div class="content">
-          <ReadingView v-if="settings.viewMode === 'reading'" />
-          <BasesView v-else-if="basesOpen" />
-          <InboxView v-else-if="inboxViewOpen" />
-          <TypeLensView v-else-if="typeLensOpen" :type-name="typeLensName" />
-          <ViewNoteList v-else-if="viewPaneVisible" />
-          <TileRoot v-else :node="tiles.root" @cursor="onCursor" @selection="onSelection" />
+        <div class="content" :class="{ 'has-custom-bg': hasActiveBackground }">
+          <!-- Layer 1: GPU Background Canvas -->
+          <div
+            v-if="hasActiveBackground"
+            class="catstep-bg-canvas"
+            :class="bgTextureClass"
+            :style="bgCanvasStyle"
+          />
+          <!-- Layer 2: Adaptive Overlay -->
+          <div
+            v-if="hasActiveBackground"
+            class="catstep-bg-overlay"
+            :style="bgOverlayStyle"
+          />
+          <!-- Layer 3: Prose Writing Area (with optional frosted card) -->
+          <div class="catstep-prose-wrap" :class="{ 'is-frosted-card': settings.bgFrostedCard && hasActiveBackground }">
+            <ReadingView v-if="settings.viewMode === 'reading'" />
+            <BasesView v-else-if="basesOpen" />
+            <InboxView v-else-if="inboxViewOpen" />
+            <TypeLensView v-else-if="typeLensOpen" :type-name="typeLensName" />
+            <ViewNoteList v-else-if="viewPaneVisible" />
+            <TileRoot v-else :node="tiles.root" @cursor="onCursor" @selection="onSelection" />
+          </div>
         </div>
         <aside
           v-if="showRightSidebar && settings.outlineSide !== 'left'"
@@ -2218,7 +2313,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               ]"
               :style="paneStyle(p.id)"
               @pointerdown="onPaneHeaderPointerDown($event, p.id)"
-              @dblclick="onPaneHeaderDblClick($event, p.id)"
+              @click="onPaneHeaderClick($event, p.id)"
             >
               <GlobalSearch
                 v-if="p.id === 'search'"
@@ -2722,18 +2817,19 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   width: 100%;
   height: 100%;
 }
-.rs-pane-host :deep(.outline) {
+.rs-pane-host :deep(.outline),
+.rs-pane-host :deep(.backlinks),
+.rs-pane-host :deep(.rel),
+.rs-pane-host :deep(.tags-panel),
+.rs-pane-host :deep(.history),
+.rs-pane-host :deep(.agent-panel),
+.rs-pane-host :deep(.ds-panel),
+.rs-pane-host :deep(.tasks-panel),
+.rs-pane-host :deep(.inspector),
+.rs-pane-host :deep(.sp) {
   width: 100% !important;
-  border-left: 0;
-  border-right: 0;
-}
-.rs-pane-host :deep(.backlinks) {
-  border-left: 0;
-  border-right: 0;
-}
-.rs-pane-host :deep(.rel) {
-  border-left: 0;
-  border-right: 0;
+  border-left: 0 !important;
+  border-right: 0 !important;
 }
 .rs-pane-host {
   flex: 1 1 0;
@@ -2742,11 +2838,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   display: flex;
   flex-direction: column;
   position: relative;
-  border-top: 1px solid var(--border);
   transition: flex-basis 0.15s ease;
-}
-.rs-pane-host:first-of-type {
-  border-top: none;
 }
 .rs-pane-host--collapsed {
   flex: 0 0 34px !important;
@@ -2760,29 +2852,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   min-height: 34px !important;
   max-height: 34px !important;
   overflow: hidden !important;
-}
-.rs-pane-host :deep(header),
-.rs-pane-host :deep(.sp__head),
-.rs-pane-host :deep(.backlinks__head),
-.rs-pane-host :deep(.tags-panel__head),
-.rs-pane-host :deep(.history__head),
-.rs-pane-host :deep(.agent-panel__head),
-.rs-pane-host :deep(.tasks-panel__head),
-.rs-pane-host :deep(.inspector__head),
-.rs-pane-host :deep(.ds-panel__head),
-.rs-pane-host :deep(.outline__head) {
-  cursor: grab;
-  user-select: none;
-}
-.rs-pane-host--dragging :deep(header) {
-  cursor: grabbing !important;
-}
-.rs-pane-host--dragging {
-  opacity: 0.4;
-}
-.rs-pane-host--drop-target {
-  outline: 2px dashed var(--accent);
-  outline-offset: -2px;
 }
 .content {
   flex: 1;

@@ -39,36 +39,6 @@ const settings = useSettingsStore();
 const toasts = useToastsStore();
 const ghSync = useGithubSyncStore();
 
-// v4.6.x — sidebar width resize state
-const isResizing = ref(false);
-const startX = ref(0);
-const startWidth = ref(0);
-
-function onResizeStart(e: MouseEvent) {
-  e.preventDefault();
-  isResizing.value = true;
-  startX.value = e.clientX;
-  startWidth.value = settings.fileTreeWidth;
-  document.body.style.cursor = 'ew-resize';
-  document.body.style.userSelect = 'none';
-
-  const onMove = (m: MouseEvent) => {
-    const dx = m.clientX - startX.value;
-    settings.setFileTreeWidth(startWidth.value + dx);
-  };
-
-  const onUp = () => {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    isResizing.value = false;
-  };
-
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
-
 /** v4.6.1 — Tolaria-parity "Copy Git URL": repository-backed blob URL for a
  *  file node, built from the linked remote + relative path (branch=main). */
 async function copyGitUrl(node: Node) {
@@ -76,7 +46,7 @@ async function copyGitUrl(node: Node) {
   const remote = ghSync.status?.remote_url ?? '';
   const m = remote.match(/(?:@|:\/\/)([^/:]+)[:/]([^/]+)\/(.+?)(?:\.git)?$/i);
   if (!folder || !m) {
-    toasts.warning(t('explorer.copyGitUrlNoRepo') || 'This workspace has no linked Git remote.');
+    toasts.warning(t('explorer.copyGitUrlNoRepo'));
     return;
   }
   const [, host, owner, repo] = m;
@@ -85,14 +55,14 @@ async function copyGitUrl(node: Node) {
   const rel = node.path.slice(folderNorm.length).split('\\').join('/').split('/').map(encodeURIComponent).join('/');
   const blobSeg = /gitlab/i.test(host) ? '/-/blob/' : '/blob/';
   await writeText(`https://${host}/${owner}/${repo}${blobSeg}main/${rel}`);
-  toasts.success(t('explorer.copyGitUrlDone') || 'Git URL copied to clipboard.');
+  toasts.success(t('explorer.copyGitUrlDone'));
   closeCtx();
 }
 
 /** #120 — copy the node's absolute filesystem path (file OR folder). */
 async function copyNodePath(node: Node) {
   await writeText(node.path);
-  toasts.success(t('explorer.copyPathDone') || 'Path copied.');
+  toasts.success(t('explorer.copyPathDone'));
   closeCtx();
 }
 
@@ -106,7 +76,7 @@ async function copyNodeRelativePath(node: Node) {
     if (node.path.startsWith(folderNorm)) rel = node.path.slice(folderNorm.length);
   }
   await writeText(rel.split('\\').join('/'));
-  toasts.success(t('explorer.copyRelPathDone') || 'Relative path copied.');
+  toasts.success(t('explorer.copyRelPathDone'));
   closeCtx();
 }
 const tabs = useTabsStore();
@@ -612,43 +582,56 @@ onBeforeUnmount(() => {
     :style="{ '--file-tree-width': settings.fileTreeWidth + 'px' }"
     @contextmenu.prevent="openCtx($event, null)"
   >
-    <!-- Width resize handle -->
-    <div
-      class="ftree__resize-handle"
-      :class="{ 'ftree__resize-handle--active': isResizing }"
-      @mousedown="onResizeStart"
-    />
     <div class="ftree__header">
-      <span>Explorer</span>
+      <span class="ftree__title">{{ t('explorer.heading') }}</span>
       <div class="ftree__header-btns">
         <button
           class="ftree__hbtn"
-          :title="t('explorer.newFile') || 'New file'"
+          :title="t('explorer.newFile')"
           @click="root && startNewFile(root.path)"
           :disabled="!root"
-        >＋</button>
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <line x1="8" y1="3" x2="8" y2="13" />
+            <line x1="3" y1="8" x2="13" y2="8" />
+          </svg>
+        </button>
         <button
           class="ftree__hbtn"
-          :title="t('explorer.refresh') || 'Refresh'"
+          :title="t('explorer.refresh')"
           @click="scheduleRefresh"
           :disabled="!root"
-        >↻</button>
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9L14 6" />
+            <path d="M14 2.5v3.5h-3.5" />
+          </svg>
+        </button>
         <button
           class="ftree__hbtn"
-          :title="t('explorer.openFolder') || 'Open folder…'"
+          :title="t('explorer.openFolder')"
           @click="files.openFolder"
-        >📁</button>
+        >
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
+          </svg>
+        </button>
         <button
           v-if="workspace.currentFolder"
           class="ftree__hbtn"
-          :title="t('explorer.closeFolder') || 'Close folder'"
+          :title="t('explorer.closeFolder')"
           @click="closeFolder"
-        >✕</button>
+        >
+          <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+            <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
+          </svg>
+        </button>
       </div>
     </div>
 
     <div v-if="!root" class="ftree__empty">
-      <button class="ftree__open-btn" @click="files.openFolder">Open Folder…</button>
+      <button class="ftree__open-btn" @click="files.openFolder">{{ t('explorer.openFolder') }}</button>
     </div>
     <div v-else class="ftree__body">
       <!-- v4.3.5: root display doubles as the workspace switcher. Click
@@ -657,13 +640,17 @@ onBeforeUnmount(() => {
         <button
           class="ftree__root ftree__root--btn"
           :class="{ 'ftree__root--open': switcherOpen }"
-          :title="(t('explorer.switchWorkspace') || 'Switch workspace') + ' · ' + root.path"
+          :title="t('explorer.switchWorkspace') + ' · ' + root.path"
           @click.stop="toggleSwitcher"
           @contextmenu.prevent="openCtx($event, root)"
         >
-          <span class="ftree__root-vicon" aria-hidden="true">🗂</span>
+          <svg class="ftree__root-vicon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
+          </svg>
           <span class="ftree__root-name">{{ root.name }}</span>
-          <span class="ftree__root-caret" aria-hidden="true">▾</span>
+          <svg class="ftree__root-caret" viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 6l4 4 4-4" />
+          </svg>
         </button>
         <div v-if="switcherOpen" class="ftree__switcher" @click.stop>
           <div class="ftree__switcher-label">{{ t('explorer.recentFolders') }}</div>
@@ -683,7 +670,10 @@ onBeforeUnmount(() => {
           </div>
           <div class="ftree__switcher-sep"></div>
           <button class="ftree__switcher-item ftree__switcher-item--cta" @click="openFolderAndClose">
-            📁 {{ t('explorer.openFolder') }}
+            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+              <path d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
+            </svg>
+            {{ t('explorer.openFolder') }}
           </button>
         </div>
       </div>
@@ -732,7 +722,25 @@ onBeforeUnmount(() => {
           :title="showInboxOnly ? t('inbox.filterOff') : t('inbox.filterOn')"
           @click="inbox.toggleFilter()"
         >
-          <span class="ftree__icon">{{ showInboxOnly ? '▾' : '▸' }}</span>
+          <span class="ftree__icon">
+            <svg
+              viewBox="0 0 16 16"
+              width="6.5"
+              height="6.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              :style="{
+                transition: 'transform 0.15s ease',
+                transform: showInboxOnly ? 'rotate(90deg)' : 'none',
+                display: 'inline-block',
+              }"
+            >
+              <path d="M5.5 3.5l4.5 4.5L5.5 12.5" />
+            </svg>
+          </span>
         </button>
         <button
           class="ftree__inbox-open"
@@ -748,7 +756,7 @@ onBeforeUnmount(() => {
 
       <div v-if="root.loading" class="ftree__loading">
         <span class="ftree__spinner" aria-hidden="true"></span>
-        <span>Loading…</span>
+        <span>{{ t('explorer.loading') }}</span>
       </div>
       <ul v-else class="ftree__list">
         <FileTreeNode
@@ -761,8 +769,8 @@ onBeforeUnmount(() => {
           @toggle="toggle"
           @contextmenu="openCtx"
         />
-        <li v-if="root.truncated" class="ftree__truncated" :title="`This folder has more than 10,000 entries; showing the first batch. Move groups into subfolders to see them all.`">
-          + 10,000+ more —— folder is huge
+        <li v-if="root.truncated" class="ftree__truncated" :title="t('explorer.folderTruncatedHint')">
+          {{ t('explorer.folderTruncated') }}
         </li>
       </ul>
     </div>
@@ -777,27 +785,27 @@ onBeforeUnmount(() => {
     >
       <template v-if="!ctx.node || ctx.node.is_dir">
         <button class="ftree__ctx-item" @click="startNewFile((ctx.node ?? root!).path)">
-          📄 {{ t('explorer.newFile') || 'New File' }}
+          📄 {{ t('explorer.newFile') }}
         </button>
         <button class="ftree__ctx-item" @click="startNewFolder((ctx.node ?? root!).path)">
-          📁 {{ t('explorer.newFolder') || 'New Folder' }}
+          📁 {{ t('explorer.newFolder') }}
         </button>
       </template>
       <div v-if="ctx.node" class="ftree__ctx-sep"></div>
       <button v-if="ctx.node" class="ftree__ctx-item" @click="startRename(ctx.node)">
-        ✎ {{ t('explorer.rename') || 'Rename' }}
+        ✎ {{ t('explorer.rename') }}
       </button>
       <button v-if="ctx.node" class="ftree__ctx-item ftree__ctx-item--danger" @click="deleteNode(ctx.node)">
-        🗑 {{ t('explorer.delete') || 'Delete' }}
+        🗑 {{ t('explorer.delete') }}
       </button>
       <button v-if="ctx.node" class="ftree__ctx-item" @click="copyNodePath(ctx.node)">
-        📋 {{ t('explorer.copyPath') || 'Copy Path' }}
+        📋 {{ t('explorer.copyPath') }}
       </button>
       <button v-if="ctx.node" class="ftree__ctx-item" @click="copyNodeRelativePath(ctx.node)">
-        📋 {{ t('explorer.copyRelPath') || 'Copy Relative Path' }}
+        📋 {{ t('explorer.copyRelPath') }}
       </button>
       <button v-if="ctx.node && !ctx.node.is_dir" class="ftree__ctx-item" @click="copyGitUrl(ctx.node)">
-        🔗 {{ t('explorer.copyGitUrl') || 'Copy Git URL' }}
+        🔗 {{ t('explorer.copyGitUrl') }}
       </button>
       <!-- #148 follow-up — hidden on mobile: revealItemInDir silently no-ops
            there (no user-reachable file manager can browse the app sandbox
@@ -805,7 +813,7 @@ onBeforeUnmount(() => {
       <template v-if="!isMobile()">
         <div class="ftree__ctx-sep"></div>
         <button class="ftree__ctx-item" @click="revealNode(ctx.node ?? root!)">
-          🔍 {{ t('explorer.reveal') || 'Reveal in Finder' }}
+          🔍 {{ t('explorer.reveal') }}
         </button>
       </template>
     </div>
@@ -828,6 +836,7 @@ export const FileTreeNode = defineComponent({
     // #182 — the full-names toggle lives in settings; this inner component is
     // module-scoped so it can't close over <script setup>'s store instance.
     const nodeSettings = useSettingsStore();
+    const nodeTabs = useTabsStore();
     const subtreeHasInbox = (node: any): boolean => {
       if (!node.is_dir) return props.inboxPaths.has(node.path);
       if (!node.children) return false;
@@ -915,13 +924,18 @@ export const FileTreeNode = defineComponent({
       // full-names setting skips JS mid-ellipsis; CSS wraps instead.
       const displayName =
         !n.is_dir && !nodeSettings.explorerFullNames ? truncateFileName(n.name) : n.name;
+      const isActive = !n.is_dir && nodeTabs.activeTab?.filePath === n.path;
 
       const items: any[] = [
         h(
           'li',
           {
-            class: ['ftree__item', n.is_dir ? 'ftree__item--dir' : 'ftree__item--file'],
-            style: { paddingLeft: indent + 'px' },
+            class: [
+              'ftree__item',
+              n.is_dir ? 'ftree__item--dir' : 'ftree__item--file',
+              { 'ftree__item--active': isActive },
+            ],
+            style: { paddingLeft: (isActive ? Math.max(0, indent - 2) : indent) + 'px' },
             onClick: () => emit('toggle', n),
             onContextmenu: (e: MouseEvent) => {
               e.preventDefault();
@@ -931,7 +945,32 @@ export const FileTreeNode = defineComponent({
             title: n.path,
           },
           [
-            h('span', { class: 'ftree__icon' }, n.is_dir ? (n.expanded ? '▾' : '▸') : getFileIcon(n.name)),
+            h(
+              'span',
+              { class: ['ftree__icon', { 'ftree__icon--dir': n.is_dir }] },
+              n.is_dir
+                ? h(
+                    'svg',
+                    {
+                      class: 'ftree__chevron',
+                      viewBox: '0 0 16 16',
+                      width: '6.5',
+                      height: '6.5',
+                      fill: 'none',
+                      stroke: 'currentColor',
+                      strokeWidth: '2',
+                      strokeLinecap: 'round',
+                      strokeLinejoin: 'round',
+                      style: {
+                        transition: 'transform 0.15s ease',
+                        transform: n.expanded ? 'rotate(90deg)' : 'none',
+                        display: 'inline-block',
+                      },
+                    },
+                    [h('path', { d: 'M5.5 3.5l4.5 4.5L5.5 12.5' })]
+                  )
+                : getFileIcon(n.name)
+            ),
             h('span', { class: 'ftree__name' }, displayName),
             !n.is_dir && props.inboxPaths.has(n.path)
               ? h('span', { class: 'ftree__inbox-dot', title: 'inbox' }, '●')
@@ -971,34 +1010,47 @@ export const FileTreeNode = defineComponent({
   position: relative;
 }
 .ftree__header {
+  height: 36px;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.ftree__title {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
+  line-height: 1;
 }
 .ftree__header-btns {
   display: flex;
+  align-items: center;
   gap: 2px;
 }
 .ftree__hbtn {
-  padding: 0 6px;
-  font-size: 13px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
   color: var(--text-muted);
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
-  line-height: 1.6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
 }
 .ftree__hbtn:hover:not(:disabled) {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border);
 }
 .ftree__hbtn:disabled {
   opacity: 0.35;
@@ -1070,12 +1122,12 @@ export const FileTreeNode = defineComponent({
   display: flex;
   align-items: center;
   gap: 7px;
-  width: calc(100% - 16px);
-  margin: 6px 8px 4px;
-  padding: 7px 10px;
-  background: var(--bg-elev);
+  width: calc(100% - 20px);
+  margin: 6px 10px 4px;
+  padding: 6px 10px;
+  background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--r-md, 8px);
+  border-radius: 6px;
   text-align: left;
   cursor: pointer;
   font: inherit;
@@ -1214,9 +1266,19 @@ export const FileTreeNode = defineComponent({
   cursor: pointer;
   color: var(--text);
   border-radius: 0;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 :deep(.ftree__item:hover) {
   background: var(--bg-hover, color-mix(in srgb, var(--accent) 10%, transparent));
+}
+:deep(.ftree__item--active) {
+  background: var(--bg-active);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
+}
+:deep(.ftree__item--active .ftree__name) {
+  color: var(--accent);
+  font-weight: 600;
 }
 :deep(.ftree__icon) {
   width: 14px;
@@ -1244,7 +1306,7 @@ export const FileTreeNode = defineComponent({
   -webkit-box-orient: vertical;
 }
 :deep(.ftree__item--dir .ftree__name) {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--text);
 }
 /* #182 — full-filename mode: wrap long names across lines instead of the
@@ -1385,25 +1447,6 @@ export const FileTreeNode = defineComponent({
   height: 1px;
   background: var(--border);
   margin: 4px 0;
-}
-
-/* Width resize handle */
-.ftree__resize-handle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: ew-resize;
-  background: transparent;
-  z-index: 10;
-  transition: background 0.15s;
-}
-
-.ftree__resize-handle:hover,
-.ftree__resize-handle--active {
-  background: var(--accent, #ff9f40);
-  opacity: 0.4;
 }
 
 /* Better filename display with middle ellipsis for very long names */

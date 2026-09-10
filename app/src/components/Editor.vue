@@ -224,7 +224,7 @@ const props = withDefaults(
   }>(),
   {
     focusMode: false,
-    typewriterMode: false,
+    typewriterMode: true,
     spellCheck: true,
   },
 );

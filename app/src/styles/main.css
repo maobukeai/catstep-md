@@ -418,6 +418,31 @@ body,
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background: var(--bg);
+}
+
+/* Fullscreen & backdrop reset to eliminate black letterbox */
+:fullscreen,
+::backdrop {
+  background-color: var(--bg) !important;
+}
+
+html:fullscreen,
+html:fullscreen body,
+html:fullscreen #app,
+html:fullscreen .app {
+  height: 100% !important;
+  min-height: 100vh !important;
+  width: 100% !important;
+  background-color: var(--bg) !important;
+}
+
+html.is-pip-timer,
+html.is-pip-timer body,
+html.is-pip-timer #app {
+  background: transparent !important;
+  background-color: transparent !important;
+  overflow: hidden !important;
 }
 
 body {
@@ -1732,4 +1757,104 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
   background: rgba(255, 255, 255, 0.12) !important;
   color: #ffffff !important;
 }
+
+/* ==========================================================================
+   Catstep MD Visual Canvas & Background Engine (v2.0)
+   ========================================================================== */
+
+.content {
+  position: relative;
+  overflow: hidden;
+}
+
+.catstep-bg-canvas {
+  position: absolute;
+  inset: -16px;
+  z-index: 0;
+  pointer-events: none;
+  background-size: cover;
+  background-position: center;
+  transition: background-image 0.25s ease, filter 0.2s ease;
+  will-change: transform, filter;
+}
+
+.catstep-bg-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: background-color 0.2s ease;
+}
+
+.catstep-prose-wrap {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+}
+
+/* Frosted glass card mode */
+.catstep-prose-wrap.is-frosted-card {
+  margin: 14px auto;
+  max-width: min(100% - 28px, 1024px);
+  height: calc(100% - 28px);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  overflow: hidden;
+}
+
+/* Translucent panes when custom background is active */
+.content.has-custom-bg .pane--editor,
+.content.has-custom-bg .pane--preview,
+.content.has-custom-bg .pane-content,
+.content.has-custom-bg .reading-view {
+  background: transparent !important;
+}
+
+.content.has-custom-bg .cm-editor,
+.content.has-custom-bg .cm-gutters,
+.content.has-custom-bg .preview-content {
+  background-color: transparent !important;
+}
+
+/* Built-in Texture Patterns (100% Vector CSS) */
+.catstep-texture--paper {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(at 15% 15%, rgba(205, 165, 105, 0.08) 0px, transparent 55%),
+    radial-gradient(at 85% 85%, rgba(185, 145, 85, 0.07) 0px, transparent 55%),
+    repeating-linear-gradient(0deg, rgba(160, 120, 60, 0.018) 0px, rgba(160, 120, 60, 0.018) 1px, transparent 1px, transparent 4px);
+  background-size: 100% 100%, 100% 100%, 8px 8px;
+}
+
+.catstep-texture--grid {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.catstep-texture--dots {
+  background-color: var(--bg);
+  background-image: radial-gradient(color-mix(in srgb, var(--text-faint) 45%, transparent) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.catstep-texture--linen {
+  background-color: var(--bg);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.018) 0px, rgba(0, 0, 0, 0.018) 2px, transparent 2px, transparent 6px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.018) 0px, rgba(0, 0, 0, 0.018) 2px, transparent 2px, transparent 6px);
+  background-size: 8px 8px;
+}
+
 

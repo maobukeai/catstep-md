@@ -140,7 +140,7 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'view.toggleRightSidebar', label: 'Toggle Right Sidebar', category: 'view', defaults: ['Mod+Alt+B'] },
   { id: 'view.toggleOutline', label: 'Toggle Outline', category: 'view', defaults: [] },
   { id: 'view.toggleInspector', label: 'Toggle Properties Inspector', category: 'view', defaults: ['Mod+Alt+I'] },
-  { id: 'view.slideshow', label: 'Slideshow', category: 'view', defaults: ['Mod+Alt+P'] },
+  { id: 'view.slideshow', label: 'Slideshow', category: 'view', defaults: ['Mod+Alt+P', 'F5'] },
   // Folding.
   { id: 'fold.toggle', label: 'Fold / Unfold Section at Cursor', category: 'view', defaults: ['Mod+Alt+BracketLeft'] },
   { id: 'fold.all', label: 'Fold All Sections', category: 'view', defaults: ['Mod+Alt+Shift+BracketLeft'] },

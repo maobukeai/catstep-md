@@ -24,6 +24,7 @@ pub mod rag;
 // v2.4 inbound HTTP capture endpoint — production-grade, opt-in via Settings.
 pub mod capture_endpoint;
 pub mod quick_capture;
+pub mod focus_pip;
 // v4.0 — public REST API mirroring the agent_tools surface for non-MCP
 // clients (Alfred / Raycast / n8n / shell scripts). Localhost-only,
 // bearer-token auth, opt-in via Settings → Integrations. Same wire shape
@@ -122,11 +123,11 @@ pub fn run() {
     let builder = builder.plugin(
         tauri_plugin_window_state::Builder::default()
             .with_state_flags(tauri_plugin_window_state::StateFlags::all())
-            // The quick-capture box is undecorated, fixed-size and always on
+            // The quick-capture box and focus-pip timer are undecorated, fixed-size and always on
             // top by design. Restoring a remembered geometry (decorations
-            // included — StateFlags::all) would hand it back a title bar and a
+            // included — StateFlags::all) would hand them back a title bar and a
             // stale position on the next launch.
-            .with_denylist(&[quick_capture::CAPTURE_LABEL])
+            .with_denylist(&[quick_capture::CAPTURE_LABEL, focus_pip::PIP_LABEL])
             .build(),
     );
     #[cfg(desktop)]
@@ -253,6 +254,11 @@ pub fn run() {
             quick_capture::quick_capture_close,
             quick_capture::quick_capture_write,
             quick_capture::quick_capture_set_shortcut,
+            focus_pip::pip_timer_open,
+            focus_pip::pip_timer_close,
+            focus_pip::pip_timer_resize,
+            focus_pip::pip_focus_main,
+            focus_pip::pip_timer_is_open,
             rest_api::rest_get_state,
             rest_api::rest_set_enabled,
             rest_api::rest_regenerate_token,
@@ -275,6 +281,11 @@ pub fn run() {
             themes::theme_install,
             themes::theme_uninstall,
             themes::theme_list_installed,
+            themes::theme_open_folder,
+            themes::theme_open_user_css,
+            themes::theme_read_user_css,
+            themes::theme_save_wallpaper,
+            themes::theme_open_wallpapers_folder,
             #[cfg(not(target_os = "android"))]
             github_sync::github_set_token,
             #[cfg(not(target_os = "android"))]
@@ -348,6 +359,9 @@ pub fn run() {
             agent_tools::agent_tool_autogit_diff,
             agent_tools::agent_tool_write_note,
             agent_tools::agent_tool_append_to_note,
+            agent_tools::agent_tool_patch_note,
+            agent_tools::agent_tool_delete_note,
+            agent_tools::agent_tool_restore_note_backup,
             agent_tools::agent_tool_read_agent_trace,
             agent_tools::agent_list_runs,
             agent_trace::agent_trace_read,

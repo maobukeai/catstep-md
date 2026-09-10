@@ -38,7 +38,8 @@ const toasts = useToastsStore();
 const { t } = useI18n();
 const files = useFiles();
 
-const emit = defineEmits<{ close: [] }>();
+defineProps<{ collapsed?: boolean }>();
+const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 
 const activeFile = computed(() => tabs.activeTab?.filePath ?? null);
 const folder = computed(() => workspace.currentFolder);
@@ -154,85 +155,99 @@ function timeAgo(unix: number): string {
 <template>
   <div class="history">
     <header class="history__head">
-      <span class="history__title">{{ t('history.heading') }}</span>
-      <span v-if="!loading && commits.length > 0" class="history__count">{{ commits.length }}</span>
+      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="history__title">{{ t('history.heading') }}</span>
+        <span v-if="!loading && commits.length > 0" class="history__count">{{ commits.length }}</span>
+      </div>
       <button
         class="rs-pane-close"
         type="button"
         :title="t('rightSidebar.hidePane')"
-        @click="emit('close')"
-      >×</button>
+        @click.stop="emit('close')"
+      >
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="3" x2="13" y2="13"/>
+          <line x1="13" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
     </header>
 
-    <!-- v2.6 — GitHub sync conflict resolver. Sits above the commit list
-         when a pull surfaced merge conflicts; auto-hides when empty. -->
-    <GithubConflictPanel />
+    <div v-show="!collapsed" class="history__body">
+      <!-- v2.6 — GitHub sync conflict resolver. Sits above the commit list
+           when a pull surfaced merge conflicts; auto-hides when empty. -->
+      <GithubConflictPanel />
 
-    <!-- 1. No folder open -->
-    <div v-if="!folder" class="history__empty">
-      <p class="history__msg">{{ t('history.openFolder') }}</p>
-      <button class="history__init-btn" type="button" @click="files.openFolder">
-        📁 {{ t('menubar.openFolder') }}
-      </button>
-    </div>
-
-    <!-- 2a. #230 — platform has no git backend at all (Android) -->
-    <div v-else-if="!gitBackend" class="history__empty">
-      <p class="history__msg">{{ t('settings.syncUnsupportedAndroid') }}</p>
-    </div>
-
-    <!-- 2. Folder is not under git -->
-    <div v-else-if="!gh.isInitialized" class="history__empty">
-      <p class="history__msg">{{ t('history.notInitialized') }}</p>
-      <button class="history__init-btn" :disabled="gh.loading" @click="onInit">
-        {{ gh.loading ? '…' : t('history.initBtn') }}
-      </button>
-    </div>
-
-    <!-- 3. No active file or no commits -->
-    <div v-else-if="!activeFile" class="history__empty">
-      {{ t('history.noActive') }}
-    </div>
-    <div v-else-if="loading" class="history__empty">
-      {{ t('history.loading') }}
-    </div>
-    <div v-else-if="commits.length === 0" class="history__empty">
-      {{ t('history.empty') }}
-    </div>
-
-    <!-- 4. Commit list -->
-    <ul v-else class="history__list">
-      <li v-for="c in commits" :key="c.sha" class="history__item">
-        <button
-          class="history__row"
-          :class="{ 'history__row--open': expandedSha === c.sha }"
-          @click="toggleRow(c.sha)"
-        >
-          <span class="history__sha">{{ c.short_sha }}</span>
-          <span class="history__time">{{ timeAgo(c.time) }}</span>
-          <span class="history__msg-line">{{ c.message }}</span>
+      <!-- 1. No folder open -->
+      <div v-if="!folder" class="history__empty">
+        <p class="history__msg">{{ t('history.openFolder') }}</p>
+        <button class="history__init-btn" type="button" @click="files.openFolder">
+          📁 {{ t('menubar.openFolder') }}
         </button>
+      </div>
 
-        <div v-if="expandedSha === c.sha" class="history__diff-wrap">
-          <div class="history__diff-toolbar">
-            <button class="history__restore" @click="onRestore(c.sha, c.short_sha)">
-              {{ t('history.restore') }}
-            </button>
-            <span class="history__author">{{ c.author }}</span>
-          </div>
-          <div v-if="diffCache[c.sha] === undefined" class="history__diff-loading">
-            {{ t('history.loading') }}
-          </div>
-          <div v-else-if="!diffCache[c.sha]" class="history__diff-empty">
-            {{ t('history.diffUnavailable') }}
-          </div>
-          <pre v-else class="history__diff">
+      <!-- 2a. #230 — platform has no git backend at all (Android) -->
+      <div v-else-if="!gitBackend" class="history__empty">
+        <p class="history__msg">{{ t('settings.syncUnsupportedAndroid') }}</p>
+      </div>
+
+      <!-- 2. Folder is not under git -->
+      <div v-else-if="!gh.isInitialized" class="history__empty">
+        <p class="history__msg">{{ t('history.notInitialized') }}</p>
+        <button class="history__init-btn" :disabled="gh.loading" @click="onInit">
+          {{ gh.loading ? '…' : t('history.initBtn') }}
+        </button>
+      </div>
+
+      <!-- 3. No active file or no commits -->
+      <div v-else-if="!activeFile" class="history__empty">
+        {{ t('history.noActive') }}
+      </div>
+      <div v-else-if="loading" class="history__empty">
+        {{ t('history.loading') }}
+      </div>
+      <div v-else-if="commits.length === 0" class="history__empty">
+        {{ t('history.empty') }}
+      </div>
+
+      <!-- 4. Commit list -->
+      <ul v-else class="history__list">
+        <li v-for="c in commits" :key="c.sha" class="history__item">
+          <button
+            class="history__row"
+            :class="{ 'history__row--open': expandedSha === c.sha }"
+            @click="toggleRow(c.sha)"
+          >
+            <span class="history__sha">{{ c.short_sha }}</span>
+            <span class="history__time">{{ timeAgo(c.time) }}</span>
+            <span class="history__msg-line">{{ c.message }}</span>
+          </button>
+
+          <div v-if="expandedSha === c.sha" class="history__diff-wrap">
+            <div class="history__diff-toolbar">
+              <button class="history__restore" @click="onRestore(c.sha, c.short_sha)">
+                {{ t('history.restore') }}
+              </button>
+              <span class="history__author">{{ c.author }}</span>
+            </div>
+            <div v-if="diffCache[c.sha] === undefined" class="history__diff-loading">
+              {{ t('history.loading') }}
+            </div>
+            <div v-else-if="!diffCache[c.sha]" class="history__diff-empty">
+              {{ t('history.diffUnavailable') }}
+            </div>
+            <pre v-else class="history__diff">
 <template v-for="(hunk, hi) in diffCache[c.sha]!.hunks" :key="hi"><span class="history__hunk-hdr">@@ -{{ hunk.old_start }},{{ hunk.old_lines }} +{{ hunk.new_start }},{{ hunk.new_lines }} @@</span>
 <template v-for="(line, li) in hunk.lines" :key="`${hi}-${li}`"><span :class="['history__line', `history__line--${line.kind}`]">{{ line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' ' }}{{ line.text }}</span>
 </template></template></pre>
-        </div>
-      </li>
-    </ul>
+          </div>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -249,28 +264,43 @@ function timeAgo(unix: number): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-soft);
+  background: var(--bg-elev);
+}
+.history__title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .history__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 .history__count {
-  background: var(--bg-elev);
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-  color: var(--text-muted);
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+.history__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 .history__empty {
-  padding: 24px 16px;
+  padding: 14px 16px;
   text-align: center;
   color: var(--text-faint);
   font-size: 12px;

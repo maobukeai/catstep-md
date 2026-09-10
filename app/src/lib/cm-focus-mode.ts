@@ -21,7 +21,10 @@ import {
 const dimmedLine = Decoration.line({ class: 'cm-line-dimmed' });
 
 const dimTheme = EditorView.theme({
-  '.cm-line-dimmed': { opacity: '0.35' },
+  '.cm-line-dimmed': {
+    opacity: '0.55',
+    transition: 'opacity 0.18s ease',
+  },
 });
 
 const focusPlugin = ViewPlugin.fromClass(

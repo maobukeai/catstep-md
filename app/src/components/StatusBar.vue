@@ -11,7 +11,6 @@ import { useI18n } from '../i18n';
 import WritingGoals from './WritingGoals.vue';
 import PomodoroPill from './PomodoroPill.vue';
 import SyncStatusPill from './SyncStatusPill.vue';
-import { usePomodoroStore } from '../stores/pomodoro';
 
 const props = withDefaults(
   defineProps<{ line: number; col: number; selectionText?: string }>(),
@@ -21,7 +20,6 @@ const tabs = useTabsStore();
 const settings = useSettingsStore();
 const writingSession = useWritingSessionStore();
 const inbox = useInbox();
-const pomodoro = usePomodoroStore();
 const { t } = useI18n();
 
 const macChord = isMacOS();
@@ -264,8 +262,22 @@ function onPillClick() {
     <WritingGoals v-if="settings.showWritingStats" />
 
     <!-- Zen Mode Badges -->
-    <span v-if="settings.focusMode" class="seg seg--badge" title="Focus Mode (F8)">🎯 Focus</span>
-    <span v-if="settings.typewriterMode" class="seg seg--badge" title="Typewriter Mode (F9)">⌨️ Typewriter</span>
+    <button
+      v-if="settings.focusMode"
+      class="seg seg--badge"
+      :title="isZh ? '专注模式 (F8)' : 'Focus Mode (F8)'"
+      @click="settings.toggleFocusMode()"
+    >
+      🎯 {{ isZh ? '专注' : 'Focus' }}
+    </button>
+    <button
+      v-if="settings.typewriterMode"
+      class="seg seg--badge seg--typewriter"
+      :title="isZh ? '打字机模式 (光标居中 · F9)' : 'Typewriter Mode (F9)'"
+      @click="settings.toggleTypewriterMode()"
+    >
+      ⌨️ {{ isZh ? '打字机' : 'Typewriter' }}
+    </button>
 
     <span class="spacer"></span>
 
@@ -283,7 +295,7 @@ function onPillClick() {
       }}
     </span>
 
-    <PomodoroPill v-if="pomodoro.active" />
+    <PomodoroPill />
     <SyncStatusPill />
 
     <!-- Inbox Pill -->
@@ -588,12 +600,36 @@ function onPillClick() {
 }
 
 .seg--badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--bg-active);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1;
+  background: var(--bg-hover, rgba(128, 128, 128, 0.08));
   color: var(--text-muted);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft, rgba(128, 128, 128, 0.2));
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.seg--badge:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft, rgba(59, 130, 246, 0.08));
+}
+.seg--typewriter {
+  background: var(--accent-soft, rgba(59, 130, 246, 0.08));
+  color: var(--accent, #3b82f6);
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.seg--typewriter:hover {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: var(--accent);
 }
 </style>
 

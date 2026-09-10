@@ -26,7 +26,8 @@ const idx = useWorkspaceIndexStore();
 const tiles = useTilesStore();
 const { t } = useI18n();
 
-const emit = defineEmits<{ (e: 'close'): void }>();
+defineProps<{ collapsed?: boolean }>();
+const emit = defineEmits<{ (e: 'close'): void; (e: 'toggle-collapse'): void }>();
 
 type Filter = 'open' | 'today' | 'all';
 const filter = ref<Filter>('open');
@@ -86,65 +87,79 @@ async function openTask(task: WorkspaceTask) {
 <template>
   <div class="tasks-panel">
     <header class="tasks-panel__head">
-      <span class="tasks-panel__title">{{ t('tasks.heading') }}</span>
-      <span v-if="openCount" class="tasks-panel__badge">{{ openCount }}</span>
+      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="tasks-panel__title">{{ t('tasks.heading') }}</span>
+        <span v-if="openCount" class="tasks-panel__badge">{{ openCount }}</span>
+      </div>
       <button
         class="rs-pane-close"
         type="button"
         :title="t('rightSidebar.hidePane')"
-        @click="emit('close')"
-      >×</button>
+        @click.stop="emit('close')"
+      >
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="3" x2="13" y2="13"/>
+          <line x1="13" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
     </header>
 
-    <div class="tasks-panel__filters">
-      <button
-        v-for="f in (['open', 'today', 'all'] as Filter[])"
-        :key="f"
-        class="tasks-panel__chip"
-        :class="{ 'tasks-panel__chip--on': filter === f }"
-        @click="filter = f"
-      >{{ t(`tasks.filter.${f}`) }}</button>
-      <button
-        class="tasks-panel__chip tasks-panel__chip--flag"
-        :class="{ 'tasks-panel__chip--on': priorityOnly }"
-        :title="t('tasks.priorityOnly')"
-        @click="priorityOnly = !priorityOnly"
-      >⏫</button>
-    </div>
+    <div v-show="!collapsed" class="tasks-panel__body">
+      <div class="tasks-panel__filters">
+        <button
+          v-for="f in (['open', 'today', 'all'] as Filter[])"
+          :key="f"
+          class="tasks-panel__chip"
+          :class="{ 'tasks-panel__chip--on': filter === f }"
+          @click="filter = f"
+        >{{ t(`tasks.filter.${f}`) }}</button>
+        <button
+          class="tasks-panel__chip tasks-panel__chip--flag"
+          :class="{ 'tasks-panel__chip--on': priorityOnly }"
+          :title="t('tasks.priorityOnly')"
+          @click="priorityOnly = !priorityOnly"
+        >⏫</button>
+      </div>
 
-    <div v-if="!hasFolder" class="tasks-panel__empty">{{ t('tasks.openFolder') }}</div>
-    <div v-else-if="groups.length === 0" class="tasks-panel__empty">{{ t('tasks.empty') }}</div>
+      <div v-if="!hasFolder" class="tasks-panel__empty">{{ t('tasks.openFolder') }}</div>
+      <div v-else-if="groups.length === 0" class="tasks-panel__empty">{{ t('tasks.empty') }}</div>
 
-    <div v-else class="tasks-panel__list">
-      <section v-for="group in groups" :key="group.path" class="tasks-panel__group">
-        <h4 class="tasks-panel__file">{{ group.fileName }}</h4>
-        <ul class="tasks-panel__items">
-          <li v-for="task in group.items" :key="`${task.path}:${task.line}`" class="tasks-panel__item">
-            <input
-              type="checkbox"
-              class="tasks-panel__check"
-              :checked="task.done"
-              :aria-label="task.meta.title"
-              @click.stop="toggle(task)"
-            />
-            <button
-              class="tasks-panel__row"
-              :class="{ 'tasks-panel__row--done': task.done }"
-              @click="openTask(task)"
-            >
-              <span class="tasks-panel__text">{{ task.meta.title }}</span>
-              <span v-if="task.meta.priority" class="tasks-panel__prio">
-                {{ PRIORITY_MARK[task.meta.priority] }}
-              </span>
-              <span
-                v-if="task.meta.due"
-                class="tasks-panel__due"
-                :class="{ 'tasks-panel__due--overdue': overdue(task) }"
-              >{{ task.meta.due }}</span>
-            </button>
-          </li>
-        </ul>
-      </section>
+      <div v-else class="tasks-panel__list">
+        <section v-for="group in groups" :key="group.path" class="tasks-panel__group">
+          <h4 class="tasks-panel__file">{{ group.fileName }}</h4>
+          <ul class="tasks-panel__items">
+            <li v-for="task in group.items" :key="`${task.path}:${task.line}`" class="tasks-panel__item">
+              <input
+                type="checkbox"
+                class="tasks-panel__check"
+                :checked="task.done"
+                :aria-label="task.meta.title"
+                @click.stop="toggle(task)"
+              />
+              <button
+                class="tasks-panel__row"
+                :class="{ 'tasks-panel__row--done': task.done }"
+                @click="openTask(task)"
+              >
+                <span class="tasks-panel__text">{{ task.meta.title }}</span>
+                <span v-if="task.meta.priority" class="tasks-panel__prio">
+                  {{ PRIORITY_MARK[task.meta.priority] }}
+                </span>
+                <span
+                  v-if="task.meta.due"
+                  class="tasks-panel__due"
+                  :class="{ 'tasks-panel__due--overdue': overdue(task) }"
+                >{{ task.meta.due }}</span>
+              </button>
+            </li>
+          </ul>
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -161,26 +176,33 @@ async function openTask(task: WorkspaceTask) {
 .tasks-panel__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  justify-content: space-between;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-soft);
+  background: var(--bg-elev);
+}
+.tasks-panel__title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .tasks-panel__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  flex: 1;
+  letter-spacing: 0.05em;
 }
 .tasks-panel__badge {
-  background: var(--bg-elev);
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-  color: var(--text-muted);
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 .tasks-panel__filters {
@@ -207,8 +229,15 @@ async function openTask(task: WorkspaceTask) {
   border-color: var(--accent, #ff9f40);
   color: var(--accent, #ff9f40);
 }
+.tasks-panel__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .tasks-panel__empty {
-  padding: 24px 16px;
+  padding: 14px 16px;
   text-align: center;
   color: var(--text-faint);
   font-size: 12px;

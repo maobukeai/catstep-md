@@ -10,7 +10,8 @@ const idx = useWorkspaceIndexStore();
 const files = useFiles();
 const { t } = useI18n();
 
-const emit = defineEmits<{ close: [] }>();
+defineProps<{ collapsed?: boolean }>();
+const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 
 const refs = ref<BacklinkRef[]>([]);
 const loading = ref(false);
@@ -70,30 +71,44 @@ onBeforeUnmount(() => {});
 <template>
   <div class="backlinks">
     <header class="backlinks__head">
-      <span class="backlinks__title">{{ t('backlinks.heading') }}</span>
-      <span v-if="!loading" class="backlinks__count">{{ refs.length }}</span>
+      <div class="backlinks__title-group rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="backlinks__title">{{ t('backlinks.heading') }}</span>
+        <span v-if="!loading" class="backlinks__count">{{ refs.length }}</span>
+      </div>
       <button
         class="rs-pane-close"
         type="button"
         :title="t('rightSidebar.hidePane')"
-        @click="emit('close')"
-      >×</button>
+        @click.stop="emit('close')"
+      >
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <line x1="3" y1="3" x2="13" y2="13"/>
+          <line x1="13" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
     </header>
 
-    <div v-if="loading" class="backlinks__empty">{{ t('backlinks.loading') }}</div>
-    <div v-else-if="!idx.ready" class="backlinks__empty">{{ t('backlinks.openFolder') }}</div>
-    <div v-else-if="!activeStem" class="backlinks__empty">{{ t('backlinks.noActive') }}</div>
-    <div v-else-if="refs.length === 0" class="backlinks__empty">{{ t('backlinks.noResults') }}</div>
+    <div v-show="!collapsed" class="backlinks__body">
+      <div v-if="loading" class="backlinks__empty">{{ t('backlinks.loading') }}</div>
+      <div v-else-if="!idx.ready" class="backlinks__empty">{{ t('backlinks.openFolder') }}</div>
+      <div v-else-if="!activeStem" class="backlinks__empty">{{ t('backlinks.noActive') }}</div>
+      <div v-else-if="refs.length === 0" class="backlinks__empty">{{ t('backlinks.noResults') }}</div>
 
-    <ul v-else class="backlinks__list">
-      <li v-for="(r, i) in refs" :key="`${r.from_path}-${r.line}-${i}`" class="backlinks__item">
-        <button class="backlinks__row" @click="openBacklink(r)">
-          <div class="backlinks__file">{{ r.from_name }}</div>
-          <div class="backlinks__loc">L{{ r.line }}</div>
-          <pre class="backlinks__ctx" v-if="r.context.length > 0">{{ r.context.join('\n') }}</pre>
-        </button>
-      </li>
-    </ul>
+      <ul v-else class="backlinks__list">
+        <li v-for="(r, i) in refs" :key="`${r.from_path}-${r.line}-${i}`" class="backlinks__item">
+          <button class="backlinks__row" @click="openBacklink(r)">
+            <div class="backlinks__file">{{ r.from_name }}</div>
+            <div class="backlinks__loc">L{{ r.line }}</div>
+            <pre class="backlinks__ctx" v-if="r.context.length > 0">{{ r.context.join('\n') }}</pre>
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -110,24 +125,32 @@ onBeforeUnmount(() => {});
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-soft);
+  background: var(--bg-elev);
+}
+.backlinks__title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .backlinks__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 .backlinks__count {
-  background: var(--bg-elev);
+  background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11px;
-  color: var(--text-muted);
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 .backlinks__empty {

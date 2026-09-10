@@ -22,14 +22,16 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { forceWinChromePreview, isIOS, isMacOS, isWindowsDesktop } from '../lib/platform';
 import { EditorView } from '@codemirror/view';
+import { openPipFocusTimer } from '../lib/pip-window';
 import { themeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
+import { useThemesStore } from '../stores/themes';
 import type { Theme } from '../types';
 
 const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'open-palette'): void;
-  (e: 'open-settings'): void;
+  (e: 'open-settings', section?: string): void;
   (e: 'open-help'): void;
   (e: 'open-search'): void;
   (e: 'open-about'): void;
@@ -37,6 +39,7 @@ const emit = defineEmits<{
 
 const tabs = useTabsStore();
 const settings = useSettingsStore();
+const themesStore = useThemesStore();
 const tiles = useTilesStore();
 const files = useFiles();
 const exporter = useExport();
@@ -420,7 +423,7 @@ function menuAction(id: string) {
   else if (id === 'tools.agent') toggleAiDrawer();
   else if (id === 'tools.cmdPalette') emit('open-palette');
   else if (id === 'tools.pomodoro') togglePomo();
-  else if (id === 'tools.pomodoroPip') void invoke('pip_timer_open');
+  else if (id === 'tools.pomodoroPip') void openPipFocusTimer();
   else if (id === 'view.settings') emit('open-settings');
   else if (id === 'help.markdown') emit('open-help');
   else if (id === 'help.about') emit('open-about');
@@ -432,10 +435,30 @@ function menuAction(id: string) {
   else if (id === 'view.toggleTheme') {
     toggleDayNight();
   }
+  else if (id === 'themes.openFolder') {
+    void themesStore.openThemeFolder();
+  }
+  else if (id === 'themes.openUserCss') {
+    void themesStore.openUserCss();
+  }
+  else if (id === 'themes.visualSettings') {
+    emit('open-settings', 'appearance');
+  }
   else if (id.startsWith('theme:')) {
     const themeName = id.slice(6) as Theme;
+    settings.setActiveCustomThemeId('');
+    settings.setCustomCssPath('');
     settings.setTheme(themeName);
     track('theme_changed', { theme: themeName });
+  }
+  else if (id.startsWith('custom-theme:')) {
+    const customId = id.slice(13);
+    const found = themesStore.installed.find((t) => t.id === customId);
+    if (found) {
+      settings.setActiveCustomThemeId(found.id);
+      settings.setCustomCssPath(found.path);
+      track('custom_theme_changed', { id: found.id });
+    }
   } else {
     window.dispatchEvent(new CustomEvent('solomd:menu-action', { detail: id }));
   }
@@ -519,16 +542,16 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'format.aiRewrite', label: isZh ? 'AI 润色与改写' : 'AI Rewrite', shortcut: 'Ctrl+J' },
     ],
     view: [
-      { id: 'view.modeEdit', label: isZh ? '纯源码模式' : 'Source Code Only' },
-      { id: 'view.modeLiveEdit', label: isZh ? '实时所见即所得模式' : 'Live Preview Mode' },
-      { id: 'view.modeSplit', label: isZh ? '双栏分栏对照' : 'Split View' },
-      { id: 'view.modeReading', label: isZh ? '无干扰阅读模式' : 'Distraction-Free Reading', shortcut: 'Ctrl+Shift+R' },
+      { id: 'view.modeLiveEdit', label: isZh ? '编辑模式' : 'Edit Mode' },
+      { id: 'view.modeReading', label: isZh ? '阅读模式' : 'Reading Mode', shortcut: macChord ? '⇧⌘R' : 'Ctrl+Shift+R' },
+      { id: 'view.modeEdit', label: isZh ? '源码模式' : 'Source Mode' },
+      { id: 'view.modeSplit', label: isZh ? '双栏对照' : 'Split View' },
       { sep: true },
       { id: 'view.sidebarFiles', label: isZh ? '文件大纲侧边栏 (文件列表)' : 'File Tree Sidebar', shortcut: 'Ctrl+Shift+1' },
       { id: 'view.sidebarOutline', label: isZh ? '文档目录大纲' : 'Document Outline', shortcut: 'Ctrl+Shift+2' },
       { id: 'view.sidebarSearch', label: isZh ? '全局搜索' : 'Global Search', shortcut: shortcutLabel('view.sidebarSearch', settings.keybindings, macChord) || 'Ctrl+Shift+3' },
       { sep: true },
-      { id: 'view.toggleSourceMode', label: isZh ? '切换实时预览 / 源码模式' : 'Toggle Source Mode', shortcut: shortcutLabel('view.toggleSourceMode', settings.keybindings, macChord) || 'Ctrl+/' },
+      { id: 'view.toggleSourceMode', label: isZh ? '切换编辑 / 源码模式' : 'Toggle Edit / Source Mode', shortcut: shortcutLabel('view.toggleSourceMode', settings.keybindings, macChord) || 'Ctrl+/' },
       { id: 'view.toggleFocusMode', label: isZh ? '专注模式' : 'Focus Mode', shortcut: 'F8' },
       { id: 'view.toggleTypewriter', label: isZh ? '打字机模式' : 'Typewriter Mode', shortcut: 'F9' },
       { id: 'view.toggleFullscreen', label: isZh ? '全屏' : 'Fullscreen', shortcut: 'F11' },
@@ -543,17 +566,34 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'view.zoomUiOut', label: t('menubar.uiZoomOut'), shortcut: 'Ctrl+-' },
       { id: 'view.zoomUiReset', label: t('menubar.uiZoomReset'), shortcut: 'Ctrl+Alt+0' },
     ],
-    themes: themeLabels.map((th) => ({
-      id: `theme:${th.value}`,
-      label: (settings.theme === th.value ? '✓  ' : '    ') + th.label,
-    })),
+    themes: [
+      ...themeLabels.map((th) => ({
+        id: `theme:${th.value}`,
+        label: (!settings.activeCustomThemeId && settings.theme === th.value ? '✓  ' : '    ') + th.label,
+      })),
+      ...(themesStore.installed.length > 0
+        ? [
+            { sep: true as const },
+            ...themesStore.installed.map((th) => ({
+              id: `custom-theme:${th.id}`,
+              label:
+                (settings.activeCustomThemeId === th.id ? '✓  ' : '    ') +
+                (th.name || th.id) +
+                (isZh ? ' (自定义)' : ' (Custom)'),
+            })),
+          ]
+        : []),
+      { sep: true as const },
+      { id: 'themes.openFolder', label: isZh ? '📂 打开主题文件夹...' : '📂 Open Theme Folder...' },
+      { id: 'themes.openUserCss', label: isZh ? '📝 编辑 user.css (全局样式)...' : '📝 Edit user.css (Global Style)...' },
+      { id: 'themes.visualSettings', label: isZh ? '🎨 自定义背景与壁纸...' : '🎨 Custom Background & Canvas...' },
+    ],
     tools: [
       { id: 'tools.agent', label: isZh ? '猫步 AI 助手' : 'Catstep AI Agent', shortcut: 'Ctrl+J / Ctrl+Shift+A' },
       { id: 'tools.cjkProofread', label: isZh ? '中英文排版规范校对' : 'CJK Proofread', shortcut: 'F6' },
       { id: 'tools.cleanAI', label: isZh ? '一键清理 AI 格式痕迹' : 'Clean AI Artifacts' },
       { id: 'tools.cmdPalette', label: isZh ? '命令面板' : 'Command Palette', shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) || 'Ctrl+Shift+P' },
-      { id: 'tools.pomodoro', label: isZh ? '专注计时 (应用内浮窗)' : 'Focus Timer (In-App)' },
-      { id: 'tools.pomodoroPip', label: isZh ? '桌面画中画小窗 (全局置顶)' : 'Desktop Picture-in-Picture' },
+      { id: 'tools.pomodoro', label: isZh ? '猫步专注' : 'Catstep Focus' },
     ],
     help: [
       { id: 'help.markdown', label: isZh ? 'Markdown 语法速查' : 'Markdown Reference', shortcut: shortcutLabel('help.markdown', settings.keybindings, macChord) || 'F1' },
@@ -655,6 +695,7 @@ function onOpenPomodoroEvent() {
 }
 
 onMounted(() => {
+  void themesStore.refreshInstalled();
   document.addEventListener('click', onDocClick, true);
   window.addEventListener('resize', onViewportChange);
   window.addEventListener('scroll', onScrollAnywhere, true);

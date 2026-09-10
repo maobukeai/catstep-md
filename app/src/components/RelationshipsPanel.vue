@@ -46,7 +46,8 @@ const files = useFiles();
 const rel = useRelationships();
 const { t } = useI18n();
 
-const emit = defineEmits<{ close: [] }>();
+defineProps<{ collapsed?: boolean }>();
+const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 
 /** Suggested starter relationship keys, shown as placeholder slots when the
  *  active doc doesn't already declare them. */
@@ -270,7 +271,7 @@ async function commitAddRel(stem: string) {
 </script>
 
 <template>
-  <DsPanel grip @close="emit('close')">
+  <DsPanel grip :collapsed="collapsed" @close="emit('close')" @toggle-collapse="emit('toggle-collapse')">
     <template #title>{{ t('relationships.heading') }}</template>
 
     <div v-if="!idx.ready" class="rel__empty">

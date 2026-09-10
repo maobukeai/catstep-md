@@ -27,9 +27,12 @@ const idx = useWorkspaceIndexStore();
 const daily = useDailyNotes();
 const { t } = useI18n();
 
+defineProps<{ collapsed?: boolean }>();
+
 const emit = defineEmits<{
   (e: 'filter-tag', tag: string): void;
   (e: 'close'): void;
+  (e: 'toggle-collapse'): void;
 }>();
 
 /** Sorted tags: descending count, then alphabetical for stable display. */
@@ -57,42 +60,66 @@ function onTomorrow() {
 <template>
   <div class="tags-panel">
     <header class="tags-panel__head">
-      <span class="tags-panel__title">{{ t('tags.heading') }}</span>
-      <div class="tags-panel__actions">
-        <button
-          class="tags-panel__btn"
-          :title="t('tags.yesterdayBtn')"
-          @click="onYesterday"
-        >‹</button>
-        <button
-          class="tags-panel__btn tags-panel__btn--primary"
-          @click="onToday"
-        >{{ t('tags.todayBtn') }}</button>
-        <button
-          class="tags-panel__btn"
-          :title="t('tags.tomorrowBtn')"
-          @click="onTomorrow"
-        >›</button>
+      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+        <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
+          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
+        </span>
+        <span class="tags-panel__title">{{ t('tags.heading') }}</span>
       </div>
-      <button
-        class="rs-pane-close"
-        type="button"
-        :title="t('rightSidebar.hidePane')"
-        @click="emit('close')"
-      >×</button>
+      <div class="tags-panel__head-right">
+        <div v-show="!collapsed" class="tags-panel__actions">
+          <button
+            class="tags-panel__btn tags-panel__btn--nav"
+            :title="t('tags.yesterdayBtn')"
+            @click.stop="onYesterday"
+          >
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <polyline points="10 3 5 8 10 13"/>
+            </svg>
+          </button>
+          <button
+            class="tags-panel__btn tags-panel__btn--primary"
+            @click.stop="onToday"
+          >{{ t('tags.todayBtn') }}</button>
+          <button
+            class="tags-panel__btn tags-panel__btn--nav"
+            :title="t('tags.tomorrowBtn')"
+            @click.stop="onTomorrow"
+          >
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <polyline points="6 3 11 8 6 13"/>
+            </svg>
+          </button>
+        </div>
+        <button
+          class="rs-pane-close"
+          type="button"
+          :title="t('rightSidebar.hidePane')"
+          @click.stop="emit('close')"
+        >
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <line x1="3" y1="3" x2="13" y2="13"/>
+            <line x1="13" y1="3" x2="3" y2="13"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
-    <div v-if="!hasFolder" class="tags-panel__empty">{{ t('tags.openFolder') }}</div>
-    <div v-else-if="sortedTags.length === 0" class="tags-panel__empty">{{ t('tags.empty') }}</div>
+    <div v-show="!collapsed" class="tags-panel__body">
+      <div v-if="!hasFolder" class="tags-panel__empty">{{ t('tags.openFolder') }}</div>
+      <div v-else-if="sortedTags.length === 0" class="tags-panel__empty">{{ t('tags.empty') }}</div>
 
-    <ul v-else class="tags-panel__list">
-      <li v-for="row in sortedTags" :key="row.tag" class="tags-panel__item">
-        <button class="tags-panel__row" @click="onClickTag(row.tag)">
-          <span class="tags-panel__pill">#{{ row.tag }}</span>
-          <span class="tags-panel__count">{{ row.count }}</span>
-        </button>
-      </li>
-    </ul>
+      <ul v-else class="tags-panel__list">
+        <li v-for="row in sortedTags" :key="row.tag" class="tags-panel__item">
+          <button class="tags-panel__row" @click="onClickTag(row.tag)">
+            <span class="tags-panel__pill">#{{ row.tag }}</span>
+            <span class="tags-panel__count">{{ row.count }}</span>
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -109,42 +136,66 @@ function onTomorrow() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-soft);
-  gap: 8px;
+  background: var(--bg-elev);
 }
 .tags-panel__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
-.tags-panel__actions {
+.tags-panel__head-right {
   display: flex;
+  align-items: center;
   gap: 4px;
 }
-.tags-panel__btn {
-  background: var(--bg-elev);
+.tags-panel__actions {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px;
+}
+.tags-panel__btn {
+  background: transparent;
+  border: none;
   color: var(--text-muted);
-  border-radius: 4px;
-  padding: 2px 8px;
+  border-radius: 3px;
+  padding: 2px 7px;
   font-size: 11px;
+  line-height: 14px;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+}
+.tags-panel__btn--nav {
+  padding: 2px 5px;
 }
 .tags-panel__btn:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
 .tags-panel__btn--primary {
-  color: var(--accent, #ff9f40);
+  color: var(--accent);
   font-weight: 600;
 }
+.tags-panel__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .tags-panel__empty {
-  padding: 24px 16px;
+  padding: 14px 16px;
   text-align: center;
   color: var(--text-faint);
   font-size: 12px;

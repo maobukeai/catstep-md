@@ -7,6 +7,8 @@ const props = withDefaults(
     title?: string;
     closeOnBackdrop?: boolean;
     width?: string;
+    height?: string;
+    minHeight?: string;
     /**
      * Whether to teleport the modal to <body>. Defaults to true (the modal
      * self-teleports, so callers don't need their own <Teleport> wrapper).
@@ -108,7 +110,7 @@ onBeforeUnmount(() => {
         aria-modal="true"
         :aria-label="title"
         tabindex="-1"
-        :style="{ width }"
+        :style="{ width, height, minHeight }"
       >
         <header v-if="title || $slots.header" class="ds-modal__head">
           <slot name="header">
@@ -169,6 +171,7 @@ onBeforeUnmount(() => {
   outline: none;
 }
 .ds-modal__head {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -207,12 +210,15 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 2px var(--accent);
 }
 .ds-modal__body {
+  flex: 1;
+  min-height: 0;
   padding: var(--sp-5);
   overflow-y: auto;
   color: var(--text);
   font-size: 13px;
 }
 .ds-modal__foot {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;

@@ -10,6 +10,7 @@ import { useToastsStore } from '../stores/toasts';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { openNewWindow } from '../lib/new-window';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { toggleFullscreen } from '../lib/fullscreen';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import {
   simplifiedToTraditional,
@@ -34,6 +35,7 @@ import { useGithubSyncStore } from '../stores/githubSync';
 import { useGithubSync } from './useGithubSync';
 import { IS_APP_STORE_BUILD } from '../lib/app-build';
 import { hasGitBackend } from '../lib/platform';
+import { useI18n } from '../i18n';
 
 export interface Command {
   id: string;
@@ -44,6 +46,7 @@ export interface Command {
 }
 
 export function useCommands(): Command[] {
+  const { t } = useI18n();
   const files = useFiles();
   const settings = useSettingsStore();
   // #180 — the palette must show the chord that actually works today, not
@@ -131,13 +134,13 @@ export function useCommands(): Command[] {
 
   /** Replace the active editor's content (used for the Chinese conversion commands). */
   function transformActive(fn: (s: string) => string, successMsg: string) {
-    const t = tabs.activeTab;
-    if (!t) {
-      toasts.warning('No active document');
+    const tDoc = tabs.activeTab;
+    if (!tDoc) {
+      toasts.warning(t('toast.noActiveDoc'));
       return;
     }
-    const next = fn(t.content);
-    tabs.setContent(t.id, next);
+    const next = fn(tDoc.content);
+    tabs.setContent(tDoc.id, next);
     toasts.success(successMsg);
   }
 
@@ -149,22 +152,7 @@ export function useCommands(): Command[] {
     );
   }
 
-  async function toggleFullscreen() {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
-        const win = getCurrentWindow();
-        const isFull = await win.isFullscreen();
-        await win.setFullscreen(!isFull);
-        return;
-      } catch {}
-    }
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-    } else {
-      await document.documentElement.requestFullscreen();
-    }
-  }
+
 
   const all: Command[] = [
     // ---- Typora Formatting ----
@@ -528,13 +516,13 @@ export function useCommands(): Command[] {
       id: 'clean.aiArtifacts',
       title: 'Clean AI Artifacts (smart quotes, em-dashes, invisible chars)',
       hint: 'Strip junk Unicode that LLM chat interfaces leak into copied text',
-      run: () => transformActive(cleanAIArtifacts, 'AI artifacts cleaned'),
+      run: () => transformActive(cleanAIArtifacts, t('toast.aiCleaned')),
     },
     {
       id: 'clean.stripMarkdown',
       title: 'Strip All Markdown to Plain Text',
       hint: 'Remove headings, bold, lists, code fences — leave only prose',
-      run: () => transformActive(stripMarkdownToPlain, 'Stripped to plain text'),
+      run: () => transformActive(stripMarkdownToPlain, (settings.language?.startsWith('zh') ?? true) ? '已去除 Markdown 格式为纯文本' : 'Stripped to plain text'),
     },
 
     { id: 'export.html', title: 'Export to HTML…', run: () => exporter.exportHtml() },
@@ -704,20 +692,37 @@ export function useCommands(): Command[] {
             t.fileName || 'Untitled',
           );
         } catch {}
-        const label = `solomd-slideshow-${Date.now()}`;
-        try {
-          const win = new WebviewWindow(label, {
-            url: '/?slideshow=1',
-            title: 'SoloMD — Slideshow',
-            width: 1200,
-            height: 800,
-            decorations: true,
-            resizable: true,
-          });
-          win.once('tauri://error', (e) => console.error('slideshow window error', e));
-        } catch (e) {
-          console.error('failed to open slideshow', e);
-          toasts.warning('Failed to open slideshow window');
+
+        const openFallback = () => {
+          try {
+            window.open('/?slideshow=1', '_blank', 'width=1200,height=800,menubar=no,toolbar=no,location=no');
+          } catch (e) {
+            console.error('failed to open slideshow window fallback', e);
+            toasts.warning('Failed to open slideshow window');
+          }
+        };
+
+        if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+          const label = `solomd-slideshow-${Date.now()}`;
+          try {
+            const win = new WebviewWindow(label, {
+              url: '/?slideshow=1',
+              title: 'SoloMD — Slideshow',
+              width: 1200,
+              height: 800,
+              decorations: true,
+              resizable: true,
+            });
+            win.once('tauri://error', (e) => {
+              console.warn('slideshow tauri window error, falling back to window.open', e);
+              openFallback();
+            });
+          } catch (e) {
+            console.warn('slideshow WebviewWindow creation failed, falling back to window.open', e);
+            openFallback();
+          }
+        } else {
+          openFallback();
         }
       },
     },
@@ -730,7 +735,11 @@ export function useCommands(): Command[] {
           await openNewWindow();
         } catch (e) {
           console.error('failed to create window', e);
-          toasts.warning('Failed to open a new window');
+          try {
+            window.open('/', '_blank');
+          } catch {
+            toasts.warning('Failed to open a new window');
+          }
         }
       },
     },

@@ -15,6 +15,15 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
  */
 export function openNewWindow(): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (typeof window !== 'undefined' && !('__TAURI_INTERNALS__' in window)) {
+      try {
+        window.open('/', '_blank');
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
+      return;
+    }
     const label = `solomd-${Date.now()}`;
     let win: WebviewWindow;
     try {
@@ -25,13 +34,25 @@ export function openNewWindow(): Promise<void> {
         height: 700,
       });
     } catch (e) {
-      reject(e);
+      try {
+        window.open('/', '_blank');
+        resolve();
+      } catch {
+        reject(e);
+      }
       return;
     }
     // `new WebviewWindow` doesn't throw when the backend refuses (a missing
     // ACL, a duplicate label); it reports through this event instead, which is
     // why a failure here looks like "nothing happened" rather than an error.
-    win.once('tauri://error', (e) => reject(new Error(String(e.payload))));
+    win.once('tauri://error', (e) => {
+      try {
+        window.open('/', '_blank');
+        resolve();
+      } catch {
+        reject(new Error(String(e.payload)));
+      }
+    });
     win.once('tauri://created', () => resolve());
   });
 }

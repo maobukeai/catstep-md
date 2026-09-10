@@ -39,8 +39,8 @@ const types = useTypesStore();
 const files = useFiles();
 const lens = useTypeLens();
 const { t } = useI18n();
-
-defineEmits<{ (e: 'close'): void }>();
+const props = defineProps<{ collapsed?: boolean }>();
+defineEmits<{ (e: 'close'): void; (e: 'toggle-collapse'): void }>();
 
 const sections = computed<TypeSection[]>(() => types.sections);
 const hasFolder = computed(() => types.hasFolder);
@@ -116,7 +116,7 @@ function memberPinned(
 </script>
 
 <template>
-  <DsPanel grip :title="t('types.heading')" @close="$emit('close')">
+  <DsPanel grip :collapsed="props.collapsed" :title="t('types.heading')" @close="$emit('close')" @toggle-collapse="$emit('toggle-collapse')">
     <template #actions>
       <DsButton
         size="sm"

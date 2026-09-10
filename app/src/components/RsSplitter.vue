@@ -69,6 +69,9 @@ function startDrag(e: MouseEvent) {
   border-top: 1px solid var(--border);
   position: relative;
   z-index: 5;
-  transition: background 0.15s;
+  transition: background 0.15s ease;
+}
+.rs-splitter:hover {
+  background: var(--accent, #ff9f40);
 }
 </style>

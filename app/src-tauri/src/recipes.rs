@@ -57,8 +57,11 @@ pub const KNOWN_TOOLS: &[&str] = &[
     "write_note",
     "append_to_note",
     "read_agent_trace",
+    "patch_note",
+    "delete_note",
+    "restore_note_backup",
 ];
-pub const WRITE_TOOLS: &[&str] = &["write_note", "append_to_note"];
+pub const WRITE_TOOLS: &[&str] = &["write_note", "append_to_note", "patch_note", "delete_note", "restore_note_backup"];
 
 pub fn read_only_tools() -> Vec<String> {
     KNOWN_TOOLS

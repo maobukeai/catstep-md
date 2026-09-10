@@ -76,25 +76,120 @@ const status = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null);
 
 const currentProviderConfig = computed(() => providerById(props.provider));
 
+// ---------------------------------------------------------------------------
+// Dynamic Model Fetching across providers (GET /models or provider API)
+// ---------------------------------------------------------------------------
+const fetchedModels = ref<string[]>([]);
+const fetchingModels = ref(false);
+const fetchModelsStatus = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+
+async function onFetchModels(): Promise<void> {
+  if (fetchingModels.value) return;
+  fetchingModels.value = true;
+  fetchModelsStatus.value = null;
+
+  try {
+    const cfg = currentProviderConfig.value;
+    const url = (props.baseUrl || '').trim() || cfg?.defaultBaseUrl || null;
+    const key = keyInput.value.trim() || null;
+
+    let p: ModelProbe;
+    try {
+      p = await invoke<ModelProbe>('ai_list_models', {
+        provider: props.provider,
+        baseUrl: url,
+        key,
+      });
+    } catch (invErr) {
+      if (typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
+        p = {
+          ok: true,
+          models: props.provider === 'gemini'
+            ? ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
+            : ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.4-mini', 'gpt-4o', 'gpt-4o-mini'],
+          url: url || 'http://localhost:preview',
+        };
+      } else {
+        throw invErr;
+      }
+    }
+
+    if (p.ok && p.models && p.models.length > 0) {
+      fetchedModels.value = p.models;
+      fetchModelsStatus.value = {
+        kind: 'ok',
+        msg: t('ai.fetchModelsSuccess', { n: p.models.length }),
+      };
+      if (!props.model.trim() && p.models.length > 0) {
+        emit('update:model', p.models[0]);
+      }
+    } else if (p.error) {
+      fetchModelsStatus.value = {
+        kind: 'err',
+        msg: `${t('ai.fetchModelsFailed')}: ${p.error}`,
+      };
+    } else {
+      fetchModelsStatus.value = {
+        kind: 'err',
+        msg: `${t('ai.fetchModelsFailed')}: 未返回可用模型`,
+      };
+    }
+  } catch (e) {
+    fetchModelsStatus.value = {
+      kind: 'err',
+      msg: `${t('ai.fetchModelsFailed')}: ${String(e)}`,
+    };
+  } finally {
+    fetchingModels.value = false;
+  }
+}
+
+/** Clickable preset models from modelHint */
+const hintModelList = computed<string[]>(() => {
+  const cfg = currentProviderConfig.value;
+  if (!cfg?.modelHint) return [];
+  const out: string[] = [];
+  for (const segment of cfg.modelHint.split('·')) {
+    let s = segment.trim().replace(/^\(/, '').replace(/\)$/, '');
+    const colonIdx = s.indexOf(':');
+    if (colonIdx >= 0) s = s.slice(colonIdx + 1);
+    for (const m of s.split('/')) {
+      const id = m.trim();
+      if (id && !id.includes(' ') && !id.includes('…') && !id.includes('（')) {
+        if (!out.includes(id)) out.push(id);
+      }
+    }
+  }
+  return out;
+});
+
+defineExpose({ onFetchModels, hintModelList });
+
 /**
  * Parse the provider's modelHint into a flat list of model ids for the
- * <datalist> dropdown. Hints look like:
- *   "旗舰: deepseek-v4-pro · 通用: deepseek-v4-flash · (旧版即将下线: deepseek-chat / deepseek-reasoner)"
- * — split by both `·` and `/`, drop the category labels (anything before `:`),
- * trim parens / whitespace, dedupe, and front-load the defaultModel.
+ * <datalist> dropdown.
  */
 const modelChoices = computed<string[]>(() => {
   const cfg = currentProviderConfig.value;
-  if (!cfg) return [];
-  // A self-hosted server has no canonical model list — the only truthful
-  // source is what it just told us via /v1/models.
-  if (props.provider === 'openai-compat') return probe.value?.models ?? [];
   const out = new Set<string>();
+
+  // If remote models were fetched, prioritize them:
+  for (const m of fetchedModels.value) {
+    out.add(m);
+  }
+
+  if (props.provider === 'openai-compat') {
+    for (const m of probe.value?.models ?? []) {
+      out.add(m);
+    }
+    return Array.from(out);
+  }
+
+  if (!cfg) return Array.from(out);
   if (cfg.defaultModel) out.add(cfg.defaultModel);
   const hint = cfg.modelHint || '';
   for (const segment of hint.split('·')) {
     let s = segment.trim().replace(/^\(/, '').replace(/\)$/, '');
-    // Drop the "标准:" / "推理:" / "Coding:" label.
     const colonIdx = s.indexOf(':');
     if (colonIdx >= 0) s = s.slice(colonIdx + 1);
     for (const m of s.split('/')) {
@@ -338,6 +433,8 @@ watch(
   (p) => {
     keyInput.value = '';
     status.value = null;
+    fetchedModels.value = [];
+    fetchModelsStatus.value = null;
     refreshHasKey(p);
     // Re-probe Ollama on every switch INTO ollama (force = false uses
     // the 30s cache so back-and-forth flips don't spam the server).
@@ -613,21 +710,26 @@ function onProviderChange(ev: Event): void {
 
 <template>
   <section class="ai-settings">
-    <h3 class="ai-settings__heading">{{ t('ai.settingsHeading') }}</h3>
+    <!-- ① 全局 AI 模型与服务商配置 -->
+    <div class="ai-settings__card">
+      <div class="ai-settings__card-header">
+        <h3 class="ai-settings__heading">{{ t('ai.settingsHeading') }}</h3>
+        <p class="ai-settings__desc">{{ t('ai.globalDesc') }}</p>
+      </div>
 
-    <label class="ai-settings__row ai-settings__row--toggle">
-      <input
-        type="checkbox"
-        :checked="enabled"
-        @change="emit('update:enabled', ($event.target as HTMLInputElement).checked)"
-      />
-      <span>
-        <span class="ai-settings__label">{{ t('ai.enable') }}</span>
-        <span class="ai-settings__hint">{{ t('ai.enableHint') }}</span>
-      </span>
-    </label>
+      <label class="ai-settings__row ai-settings__row--toggle">
+        <input
+          type="checkbox"
+          :checked="enabled"
+          @change="emit('update:enabled', ($event.target as HTMLInputElement).checked)"
+        />
+        <span>
+          <span class="ai-settings__label">{{ t('ai.enable') }}</span>
+          <span class="ai-settings__hint">{{ t('ai.enableHint') }}</span>
+        </span>
+      </label>
 
-    <div class="ai-settings__group">
+      <div class="ai-settings__group">
       <div class="ai-settings__row">
         <label class="ai-settings__label" for="ai-provider">{{ t('ai.provider') }}</label>
         <select
@@ -642,23 +744,97 @@ function onProviderChange(ev: Event): void {
 
       <div class="ai-settings__row">
         <label class="ai-settings__label" for="ai-model">{{ t('ai.model') }}</label>
-        <input
-          id="ai-model"
-          :value="model"
-          class="ai-settings__input"
-          :placeholder="currentProviderConfig?.defaultModel"
-          :list="`ai-model-options-${provider}`"
-          autocomplete="off"
-          spellcheck="false"
-          @input="emit('update:model', ($event.target as HTMLInputElement).value)"
-        />
+        <div class="ai-settings__model-input-group">
+          <input
+            id="ai-model"
+            :value="model"
+            class="ai-settings__input"
+            :placeholder="currentProviderConfig?.defaultModel"
+            :list="`ai-model-options-${provider}`"
+            autocomplete="off"
+            spellcheck="false"
+            @input="emit('update:model', ($event.target as HTMLInputElement).value)"
+          />
+          <button
+            type="button"
+            class="ai-settings__btn ai-settings__btn--fetch"
+            :disabled="fetchingModels"
+            :title="t('ai.fetchModels')"
+            @click="onFetchModels"
+          >
+            <svg
+              v-if="fetchingModels"
+              class="ai-settings__spin"
+              width="13"
+              height="13"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="10" />
+            </svg>
+            <svg
+              v-else
+              width="13"
+              height="13"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M2.5 8a5.5 5.5 0 0 1 9.35-3.9M13.5 8a5.5 5.5 0 0 1-9.35 3.9" />
+              <polyline points="12 1.5 12 4.5 9 4.5" />
+              <polyline points="4 14.5 4 11.5 7 11.5" />
+            </svg>
+            {{ fetchingModels ? t('ai.fetchingModels') : t('ai.fetchModels') }}
+          </button>
+        </div>
         <datalist :id="`ai-model-options-${provider}`">
           <option v-for="m in modelChoices" :key="m" :value="m" />
         </datalist>
       </div>
-      <p v-if="currentProviderConfig?.modelHint" class="ai-settings__hint">
-        {{ t('ai.modelHintPrefix') }}: {{ currentProviderConfig.modelHint }}
-      </p>
+
+      <div v-if="fetchModelsStatus" class="ai-settings__keystatus">
+        <span
+          :class="[
+            'ai-settings__pill',
+            fetchModelsStatus.kind === 'ok' ? 'ai-settings__pill--ok' : 'ai-settings__pill--warn',
+          ]"
+        >
+          {{ fetchModelsStatus.kind === 'ok' ? '●' : '⚠️' }} {{ fetchModelsStatus.msg }}
+        </span>
+      </div>
+
+      <div v-if="fetchedModels.length > 0" class="ai-settings__row">
+        <label class="ai-settings__label" for="ai-model-select">{{ t('ai.selectFetchedModel') }}</label>
+        <select
+          id="ai-model-select"
+          class="ai-settings__input"
+          :value="fetchedModels.includes(model) ? model : ''"
+          @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="" disabled>-- {{ t('ai.selectFetchedModel') }} ({{ fetchedModels.length }}) --</option>
+          <option v-for="m in fetchedModels" :key="m" :value="m">{{ m }}</option>
+        </select>
+      </div>
+
+      <div v-if="hintModelList.length > 0" class="ai-settings__hint ai-settings__hints-list">
+        <span class="ai-settings__hints-label">{{ t('ai.modelHintPrefix') }}:</span>
+        <button
+          v-for="hm in hintModelList"
+          :key="hm"
+          type="button"
+          class="ai-settings__hint-chip"
+          :class="{ 'is-active': model === hm }"
+          :title="t('ai.clickToApplyModel')"
+          @click="emit('update:model', hm)"
+        >
+          {{ hm }}
+        </button>
+      </div>
       <p v-if="currentProviderConfig?.signupUrl" class="ai-settings__hint">
         <a :href="currentProviderConfig.signupUrl" target="_blank" rel="noopener">
           {{ t('ai.getKey') }} ↗
@@ -996,9 +1172,25 @@ function onProviderChange(ev: Event): void {
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- v4.0 pillar 1 — Agent Panel settings. -->
-    <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('agentSettings.heading') }}</h3>
+  <!-- ② 选中文本即时改写 -->
+  <div class="ai-settings__card">
+    <div class="ai-settings__card-header">
+      <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('ai.rewriteHeading') }}</h3>
+      <p class="ai-settings__desc">{{ t('ai.rewriteDesc') }}</p>
+    </div>
+    <div class="ai-settings__tip-card">
+      <span class="ai-settings__tip-badge">💡 {{ t('ai.rewriteUsageTip') }}</span>
+    </div>
+  </div>
+
+  <!-- ③ 智能体（工具调用 + 写入权限） -->
+  <div class="ai-settings__card">
+    <div class="ai-settings__card-header">
+      <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('agentSettings.heading') }}</h3>
+      <p class="ai-settings__desc">{{ t('agentSettings.desc') }}</p>
+    </div>
     <div class="ai-settings__group">
       <label class="ai-settings__row ai-settings__row--toggle">
         <input
@@ -1070,6 +1262,7 @@ function onProviderChange(ev: Event): void {
         </button>
       </div>
     </div>
+  </div>
   </section>
 </template>
 
@@ -1077,15 +1270,51 @@ function onProviderChange(ev: Event): void {
 .ai-settings {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
+  gap: 14px;
+  padding: 10px 0;
+}
+.ai-settings__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--bg-hover) 25%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.ai-settings__card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 .ai-settings__heading {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 4px;
+  margin: 0;
+}
+.ai-settings__heading--sub {
+  font-size: 13px;
+}
+.ai-settings__desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+.ai-settings__tip-card {
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+.ai-settings__tip-badge {
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 .ai-settings__row {
   display: flex;
@@ -1155,6 +1384,56 @@ function onProviderChange(ev: Event): void {
 .ai-settings__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+.ai-settings__model-input-group {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+}
+.ai-settings__btn--fetch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.ai-settings__spin {
+  animation: ai-spin 0.9s linear infinite;
+}
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.ai-settings__hints-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-left: 120px;
+}
+.ai-settings__hints-label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.ai-settings__hint-chip {
+  background: var(--bg-soft, rgba(125, 125, 125, 0.08));
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ai-settings__hint-chip:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+.ai-settings__hint-chip.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 500;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .ai-settings__btn--primary {
   background: var(--accent, #6366f1);

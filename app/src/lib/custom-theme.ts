@@ -1,39 +1,98 @@
 /**
- * Custom CSS theme injection.
+ * Catstep MD — Custom Theme & User CSS Sandboxing Engine (v2.0).
  *
- * Lets the user point SoloMD at any .css file on disk; we read it via Tauri
- * and inject as a <style id="solomd-custom-theme"> element. Re-applying
- * replaces the previous content. Empty path removes the style element.
+ * Provides:
+ *  1. Scoped CSS transformation: Maps Typora's `#write` and bare HTML tags
+ *     safely into `:is(#write, .preview-content, .cm-editor, .reading-view, .catstep-writing-canvas)`
+ *     preventing external CSS from polluting the app chrome (toolbars, sidebars, modals).
+ *  2. Dual-layer injection:
+ *     - `<style id="catstep-active-theme">` (active custom theme from <config_dir>/themes/)
+ *     - `<style id="catstep-user-css">` (global user stylesheet <config_dir>/themes/user.css)
  */
 
 import { invoke } from '@tauri-apps/api/core';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
 
-const STYLE_ID = 'solomd-custom-theme';
+export const STYLE_THEME_ID = 'catstep-active-theme';
+export const STYLE_USER_ID = 'catstep-user-css';
+// Legacy style id fallback for backward compatibility
+const LEGACY_STYLE_ID = 'solomd-custom-theme';
+
+const TARGET_CONTAINERS = ':is(#write, .preview-content, .cm-editor, .reading-view, .catstep-writing-canvas)';
 
 /**
- * A selector that (also) targets `body` — `body`, `body:root`, `html body`,
- * `body, .foo`, `body[data-theme]`, … SoloMD forces
- * `background-attachment: scroll !important` on body to stop drag flicker; a
- * theme that (re)sets it to `fixed` on body would override that and make the
- * whole viewport re-rasterize on every frame while dragging → flicker.
+ * Scope Typora & user-provided CSS rules so they only target document surfaces
+ * and never escape into the application shell.
  */
-const BODY_SELECTOR_RE = /(^|[,\s])body([\s:\[\]\.#>+~,]|$)/i;
+export function scopeTyporaCss(rawCss: string): string {
+  if (!rawCss || !rawCss.trim()) return '';
 
-/** A declaration block that sets `background-attachment: fixed` (own property
- *  or inside a `background` shorthand). */
+  return rawCss.replace(
+    /(^|})(?:([^{}@]+)\{)/g,
+    (fullMatch, prevClose, rawSelector) => {
+      const trimmedSel = rawSelector.trim();
+      if (!trimmedSel || trimmedSel.startsWith('@')) {
+        return fullMatch;
+      }
+
+      const scopedSelectors = trimmedSel
+        .split(',')
+        .map((part: string) => {
+          const s = part.trim();
+          if (!s) return s;
+
+          // Keep :root variables or theme data attributes intact
+          if (
+            s === ':root' ||
+            s.startsWith(':root[') ||
+            s.startsWith(':root:') ||
+            s.startsWith('[data-theme')
+          ) {
+            return s;
+          }
+
+          // Convert html / body to writing canvas containers
+          if (s === 'html' || s === 'body' || s === 'html, body' || s === 'body, html') {
+            return TARGET_CONTAINERS;
+          }
+          if (s.startsWith('body ') || s.startsWith('html ')) {
+            return s.replace(/^(body|html)\s+/, `${TARGET_CONTAINERS} `);
+          }
+
+          // Convert Typora signature #write to universal containers
+          if (s.startsWith('#write')) {
+            return s.replace(/^#write\b/, TARGET_CONTAINERS);
+          }
+
+          // Already scoped to writing containers or internal panels
+          if (
+            s.includes('.preview-content') ||
+            s.includes('.cm-') ||
+            s.includes('.reading-view') ||
+            s.includes('.catstep-') ||
+            s.includes('.rs-') ||
+            s.includes('.sp__') ||
+            s.includes('.ds-')
+          ) {
+            return s;
+          }
+
+          // Prefix generic/bare element or class selectors with the writing container
+          return `${TARGET_CONTAINERS} ${s}`;
+        })
+        .join(', ');
+
+      return `${prevClose || ''}\n${scopedSelectors} {`;
+    },
+  );
+}
+
+const BODY_SELECTOR_RE = /(^|[,\s])body([\s:\[\]\.#>+~,]|$)/i;
 const BODY_FIXED_RE = /background-attachment\s*:\s*fixed|background\s*:[^;{}]*\bfixed\b/i;
 
-/**
- * Detect whether a custom theme sets `background-attachment: fixed` **on
- * body** (not any other element), and warn that it will re-enable drag
- * flicker. Called after a theme loads.
- */
 function warnIfFixedAttachment(css: string) {
   if (!css) return;
-  // Scan each `selector { declarations }` rule; only care if the selector
-  // targets body and the block sets a fixed attachment.
   const RULE_RE = /([^{}]+)\{([^{}]*)\}/g;
   let match: RegExpExecArray | null;
   while ((match = RULE_RE.exec(css))) {
@@ -41,7 +100,7 @@ function warnIfFixedAttachment(css: string) {
     const declarations = match[2];
     if (BODY_SELECTOR_RE.test(selector) && BODY_FIXED_RE.test(declarations)) {
       const { t } = useI18n();
-      useToastsStore().warning(t('settings.customCssFixedWarning'), 5000);
+      useToastsStore().warning(t('settings.customCssFixedWarning') || 'Custom theme sets fixed background attachment', 5000);
       return;
     }
   }
@@ -55,14 +114,7 @@ interface FileReadResult {
 }
 
 /**
- * Read `path` and inject it as the custom theme.
- *
- * Never throws: the `settings.customCssPath` watcher in App.vue calls this
- * fire-and-forget, so a deleted or unreadable file must not surface as an
- * unhandled rejection. Returns whether the CSS was actually applied — callers
- * that report back to the user (the Settings reload button) need to tell a
- * real reload from a silent failure, since the failure path *removes* the
- * theme rather than leaving stale CSS in place.
+ * Load and apply a custom theme CSS file onto `<style id="catstep-active-theme">`.
  */
 export async function loadCustomTheme(path: string): Promise<boolean> {
   if (!path) {
@@ -71,7 +123,8 @@ export async function loadCustomTheme(path: string): Promise<boolean> {
   }
   try {
     const result = await invoke<FileReadResult>('read_file', { path });
-    applyCss(result.content);
+    const scoped = scopeTyporaCss(result.content);
+    applyStyleTag(STYLE_THEME_ID, scoped);
     warnIfFixedAttachment(result.content);
     return true;
   } catch (e) {
@@ -81,17 +134,56 @@ export async function loadCustomTheme(path: string): Promise<boolean> {
   }
 }
 
-function applyCss(css: string) {
-  let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
+export function removeCustomTheme() {
+  const el = document.getElementById(STYLE_THEME_ID);
+  if (el) el.remove();
+  const legacy = document.getElementById(LEGACY_STYLE_ID);
+  if (legacy) legacy.remove();
+}
+
+/**
+ * Load and apply global `user.css` onto `<style id="catstep-user-css">`.
+ */
+export async function loadUserCss(): Promise<boolean> {
+  try {
+    const raw = await invoke<string>('theme_read_user_css');
+    if (!raw || !raw.trim()) {
+      removeUserCss();
+      return true;
+    }
+    const scoped = scopeTyporaCss(raw);
+    applyStyleTag(STYLE_USER_ID, scoped);
+    return true;
+  } catch (e) {
+    console.warn('Failed to load user.css:', e);
+    removeUserCss();
+    return false;
+  }
+}
+
+export function removeUserCss() {
+  const el = document.getElementById(STYLE_USER_ID);
+  if (el) el.remove();
+}
+
+function applyStyleTag(id: string, css: string) {
+  let el = document.getElementById(id) as HTMLStyleElement | null;
   if (!el) {
     el = document.createElement('style');
-    el.id = STYLE_ID;
+    el.id = id;
     document.head.appendChild(el);
   }
   el.textContent = css;
 }
 
-export function removeCustomTheme() {
-  const el = document.getElementById(STYLE_ID);
-  if (el) el.remove();
+/**
+ * Convenience helper to reload both active custom theme and user.css.
+ */
+export async function reloadAllCustomStyles(customCssPath?: string): Promise<void> {
+  await loadUserCss();
+  if (customCssPath) {
+    await loadCustomTheme(customCssPath);
+  } else {
+    removeCustomTheme();
+  }
 }

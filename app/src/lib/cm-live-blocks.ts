@@ -1461,28 +1461,38 @@ export const liveBlocksTheme = EditorView.theme({
     color: 'var(--text-faint)',
     fontStyle: 'italic',
   },
-  '.cm-live-block--table table': {
+  '.cm-live-block--table table, .cm-interactive-table': {
     borderCollapse: 'collapse',
-    margin: '0.6em 0',
-    fontSize: '0.95em',
+    margin: '1.2em 0',
+    fontSize: '1em',
     width: 'max-content',
     maxWidth: '100%',
-    borderRadius: '4px',
+    borderRadius: '6px',
     boxShadow: '0 0 0 1px var(--border)',
     overflow: 'hidden',
   },
-  '.cm-live-block--table th, .cm-live-block--table td': {
+  '.cm-live-block--table th, .cm-live-block--table td, .cm-interactive-table th, .cm-interactive-table td': {
     border: '1px solid var(--border)',
-    padding: '7px 14px',
+    padding: '6px 13px',
     textAlign: 'left',
     minWidth: '64px',
     outline: 'none',
     transition: 'box-shadow 0.15s ease, background 0.15s ease',
   },
-  '.cm-live-block--table thead th': {
-    background: 'var(--bg-soft)',
+  '.cm-live-block--table thead th, .cm-interactive-table thead th': {
+    background: 'var(--bg-elev)',
     fontWeight: '600',
     color: 'var(--text)',
+  },
+  '.cm-live-block--table tbody tr:nth-child(even), .cm-interactive-table tbody tr:nth-child(even)': {
+    background: 'color-mix(in srgb, var(--bg-hover) 35%, transparent)',
+  },
+  '.cm-live-block--table code, .cm-interactive-table code': {
+    fontFamily: 'var(--font-mono)',
+    fontSize: '0.9em',
+    background: 'var(--bg-hover)',
+    padding: '0.15em 0.4em',
+    borderRadius: '4px',
   },
   '.cm-live-block--table th[contenteditable="true"]:focus, .cm-live-block--table td[contenteditable="true"]:focus': {
     outline: '1.5px solid var(--accent-ring, rgba(56, 139, 253, 0.55))',

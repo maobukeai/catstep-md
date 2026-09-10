@@ -138,7 +138,7 @@ pub const READ_TOOLS: &[&str] = &[
     "autogit_diff",
     "read_agent_trace",
 ];
-pub const WRITE_TOOLS: &[&str] = &["write_note", "append_to_note"];
+pub const WRITE_TOOLS: &[&str] = &["write_note", "append_to_note", "patch_note", "delete_note", "restore_note_backup"];
 
 pub fn all_tools() -> Vec<&'static str> {
     READ_TOOLS.iter().chain(WRITE_TOOLS.iter()).copied().collect()
@@ -266,6 +266,40 @@ pub fn tool_descriptor(name: &str) -> Option<(&'static str, Value)> {
                     "content": { "type": "string" }
                 }
             }),
+        ),
+        "patch_note" => (
+            "Find and replace a specific block of text in a markdown note. Requires --allow-write. Target content must match exactly.",
+            json!({
+                "type": "object",
+                "required": ["path", "target_content", "replacement_content"],
+                "properties": {
+                    "path": { "type": "string" },
+                    "target_content": { "type": "string", "description": "The exact block of text to be replaced." },
+                    "replacement_content": { "type": "string", "description": "The new text that will replace the target content." },
+                    "allow_multiple": { "type": "boolean", "description": "If true, replace all occurrences of target_content. Defaults to false." }
+                }
+            }),
+        ),
+        "delete_note" => (
+            "Move a note to the workspace's .trash/ directory. Requires --allow-write.",
+            json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": { "type": "string" }
+                }
+            }),
+        ),
+        "restore_note_backup" => (
+            "Restore a note to its backup version after an unwanted modification.",
+            json!({
+                "type": "object",
+                "required": ["path", "backup_path"],
+                "properties": {
+                    "path": { "type": "string" },
+                    "backup_path": { "type": "string" }
+                }
+            })
         ),
         _ => return None,
     };
@@ -1024,12 +1058,26 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let abs = resolve_in_workspace(workspace, path_arg)?;
-    if abs.exists() && !allow_overwrite {
-        return Err(format!(
-            "{} already exists; pass allow_overwrite=true to replace",
-            abs.to_string_lossy()
-        ));
+    
+    let mut backup_path_str = None;
+    if abs.exists() {
+        if !allow_overwrite {
+            return Err(format!(
+                "File '{}' already exists. If you intended to modify the existing file, please use `patch_note` to target specific changes. If you explicitly want to overwrite the entire file from scratch, you must set `allow_overwrite: true` in your `write_note` call.",
+                abs.to_string_lossy()
+            ));
+        }
+        if let Ok(original) = fs::read_to_string(&abs) {
+            let backup_dir = workspace.join(".backup");
+            let _ = fs::create_dir_all(&backup_dir);
+            let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
+            let backup_name = format!("{}_{}", timestamp, abs.file_name().unwrap_or_default().to_string_lossy());
+            let backup_path = backup_dir.join(&backup_name);
+            let _ = fs::write(&backup_path, &original);
+            backup_path_str = Some(backup_path.to_string_lossy().to_string());
+        }
     }
+
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
@@ -1038,6 +1086,7 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         "ok": true,
         "bytes_written": content.as_bytes().len(),
         "path": abs.to_string_lossy(),
+        "backup_path": backup_path_str
     }))
 }
 
@@ -1069,6 +1118,135 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
     }))
 }
 
+fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let path_arg = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .ok_or("path: required")?;
+    let target = args
+        .get("target_content")
+        .and_then(|v| v.as_str())
+        .ok_or("target_content: required")?;
+    let replacement = args
+        .get("replacement_content")
+        .and_then(|v| v.as_str())
+        .ok_or("replacement_content: required")?;
+    let allow_multiple = args
+        .get("allow_multiple")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let abs = resolve_in_workspace(workspace, path_arg)?;
+    if !abs.exists() {
+        return Err(format!("file not found: {}", abs.to_string_lossy()));
+    }
+    
+    let original = fs::read_to_string(&abs).map_err(|e| format!("read: {e}"))?;
+    
+    // Tier 1: Exact match
+    let mut modified = original.clone();
+    let mut matches = 0;
+    
+    if original.contains(target) {
+        let count = original.matches(target).count();
+        if count > 1 && !allow_multiple {
+            return Err("target_content matches multiple locations. Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+        }
+        modified = original.replace(target, replacement);
+        matches = count;
+    }
+    
+    // Tier 2: Normalized match (CRLF/LF normalization and trailing whitespace removal)
+    if matches == 0 {
+        let mut regex_pattern = String::new();
+        let lines: Vec<&str> = target.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim_end();
+            regex_pattern.push_str(&regex_lite::escape(trimmed));
+            if i < lines.len() - 1 {
+                regex_pattern.push_str(r"[ \t]*\r?\n");
+            }
+        }
+        
+        if target.ends_with('\n') {
+            regex_pattern.push_str(r"[ \t]*\r?\n?");
+        }
+        
+        if let Ok(re) = Regex::new(&regex_pattern) {
+            let count = re.find_iter(&original).count();
+            if count > 0 {
+                if count > 1 && !allow_multiple {
+                    return Err("target_content matches multiple locations (after normalization). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+                }
+                // We use replace_all with a closure to avoid `$` getting interpreted as capture groups.
+                modified = re.replace_all(&original, |_caps: &regex_lite::Captures| replacement.to_string()).to_string();
+                matches = count;
+            } else {
+                // Tier 3: Whitespace-tolerant match
+                let stripped_original: String = original.chars().filter(|c| !c.is_whitespace()).collect();
+                let stripped_target: String = target.chars().filter(|c| !c.is_whitespace()).collect();
+                if stripped_original.contains(&stripped_target) {
+                    return Err("target_content found but whitespace mismatches. Please provide the exact text including whitespace or a shorter block.".into());
+                }
+            }
+        }
+    }
+    
+    if matches == 0 {
+        return Err("target_content not found in file".into());
+    }
+    
+    // Save backup for revert
+    let backup_dir = workspace.join(".backup");
+    let _ = fs::create_dir_all(&backup_dir);
+    let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
+    let backup_name = format!("{}_{}", timestamp, abs.file_name().unwrap_or_default().to_string_lossy());
+    let backup_path = backup_dir.join(&backup_name);
+    let _ = fs::write(&backup_path, &original);
+    
+    fs::write(&abs, &modified).map_err(|e| format!("write: {e}"))?;
+    
+    Ok(json!({
+        "ok": true,
+        "matches_replaced": matches,
+        "bytes_written": modified.len(),
+        "path": abs.to_string_lossy(),
+        "backup_path": backup_path.to_string_lossy()
+    }))
+}
+
+fn tool_delete_note(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let path_arg = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .ok_or("path: required")?;
+    let abs = resolve_in_workspace(workspace, path_arg)?;
+    if !abs.exists() {
+        return Err(format!("file not found: {}", abs.to_string_lossy()));
+    }
+    
+    let trash_dir = workspace.join(".trash");
+    fs::create_dir_all(&trash_dir).map_err(|e| format!("mkdir .trash: {e}"))?;
+    
+    let file_name = abs.file_name().unwrap_or_default();
+    // Add timestamp to avoid collisions
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let name_str = file_name.to_string_lossy();
+    let new_name = format!("{}_{}", timestamp, name_str);
+    
+    let trash_path = trash_dir.join(new_name);
+    fs::rename(&abs, &trash_path).map_err(|e| format!("move to trash: {e}"))?;
+    
+    Ok(json!({
+        "ok": true,
+        "path": abs.to_string_lossy(),
+        "trashed_to": trash_path.to_string_lossy(),
+    }))
+}
+
 fn tool_read_agent_trace(workspace: &Path, args: &Value) -> Result<Value, String> {
     // P3 will land a richer reader; for now we just parse trace.jsonl
     // line-by-line into JSON values, dropping malformed lines.
@@ -1095,6 +1273,31 @@ fn tool_read_agent_trace(workspace: &Path, args: &Value) -> Result<Value, String
         .filter_map(|l| serde_json::from_str::<Value>(l).ok())
         .collect();
     Ok(json!({"steps": steps}))
+}
+
+fn tool_restore_note_backup(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let path_arg = args
+        .get("path")
+        .and_then(|v| v.as_str())
+        .ok_or("path: required")?;
+    let backup_arg = args
+        .get("backup_path")
+        .and_then(|v| v.as_str())
+        .ok_or("backup_path: required")?;
+    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let backup = PathBuf::from(backup_arg);
+
+    if !backup.exists() {
+        return Err(format!("backup file not found: {}", backup.to_string_lossy()));
+    }
+    let original = fs::read_to_string(&backup).map_err(|e| format!("read backup: {e}"))?;
+    fs::write(&abs, original).map_err(|e| format!("write: {e}"))?;
+
+    Ok(json!({
+        "ok": true,
+        "path": abs.to_string_lossy(),
+        "restored": true
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -1143,6 +1346,9 @@ pub fn dispatch_tool_inner(workspace: &Path, tool: &str, args: Value) -> Result<
         "autogit_diff" => tool_autogit_diff(workspace, &args),
         "write_note" => tool_write_note(workspace, &args),
         "append_to_note" => tool_append_to_note(workspace, &args),
+        "patch_note" => tool_patch_note(workspace, &args),
+        "delete_note" => tool_delete_note(workspace, &args),
+        "restore_note_backup" => tool_restore_note_backup(workspace, &args),
         "read_agent_trace" => tool_read_agent_trace(workspace, &args),
         other => Err(format!("unknown tool: {other}")),
     }
@@ -1187,6 +1393,9 @@ agent_tool_cmd!(agent_tool_autogit_log, "autogit_log");
 agent_tool_cmd!(agent_tool_autogit_diff, "autogit_diff");
 agent_tool_cmd!(agent_tool_write_note, "write_note");
 agent_tool_cmd!(agent_tool_append_to_note, "append_to_note");
+agent_tool_cmd!(agent_tool_patch_note, "patch_note");
+agent_tool_cmd!(agent_tool_delete_note, "delete_note");
+agent_tool_cmd!(agent_tool_restore_note_backup, "restore_note_backup");
 agent_tool_cmd!(agent_tool_read_agent_trace, "read_agent_trace");
 
 /// List recent agent runs by reading `<workspace>/.solomd/agent-runs/`.
