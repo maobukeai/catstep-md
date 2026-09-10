@@ -583,10 +583,6 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
             })),
           ]
         : []),
-      { sep: true as const },
-      { id: 'themes.openFolder', label: isZh ? '打开主题文件夹…' : 'Open Themes Folder…' },
-      { id: 'themes.openUserCss', label: isZh ? '编辑 user.css (全局样式)…' : 'Edit user.css (Global Style)…' },
-      { id: 'themes.visualSettings', label: isZh ? '背景画布与壁纸设置…' : 'Canvas Background & Wallpaper Settings…' },
     ],
     tools: [
       { id: 'tools.agent', label: isZh ? '猫步 AI 助手' : 'Catstep AI Agent', shortcut: 'Ctrl+J / Ctrl+Shift+A' },
