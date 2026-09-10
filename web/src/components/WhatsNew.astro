@@ -27,10 +27,17 @@ const home = lang === 'en' ? '/' : `/${lang}/`;
 // component-scoped — Astro only adds its scoping attribute to elements it can
 // see in this template. They are global instead, every selector confined to
 // `.whats-new`.
-const cta = data.cta.map((label) => label.replace('{VERSION}', VERSION));
+// `{VERSION}` is a placeholder in the prose — in the CTA labels and in the
+// page title/description, which say things like "What's new in SoloMD 4.12.0".
+// Substituted here rather than left to a template literal, because the prose
+// now lives in a data file where `${...}` would just be text.
+const fill = (t: string) => t.replaceAll('{VERSION}', VERSION);
+const cta = data.cta.map(fill);
+const metaTitle = fill(data.meta.title);
+const metaDescription = fill(data.meta.description);
 ---
 
-<Layout title={data.meta.title} description={data.meta.description} lang={lang}>
+<Layout title={metaTitle} description={metaDescription} lang={lang}>
   <Header lang={lang} />
   <main id="main">
     <article class="container whats-new">

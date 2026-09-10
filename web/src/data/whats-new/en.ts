@@ -6,8 +6,8 @@ import type { WhatsNewData } from './types';
 const data: WhatsNewData = {
   version: "4.12.0",
   meta: {
-    title: "What's new in SoloMD ${VERSION} — release notes v4.0 – v4.11",
-    description: "SoloMD ${VERSION} release notes. v4.11: malformed tables from AI/PDF exports now auto-repair and render, plus opt-in numbered-section headings (6.2 → h2) across app, CLI and MCP. v4.8: image hosting (PicGo / SM.MS / S3 / GitHub) + quality-of-life fixes (select-all, trash-safe delete, unified line breaks). v4.7: Windows editor rewritten on native textareas — CJK IME finally reliable. v4.6: knowledge graph (typed relationships, saved views, properties inspector) + tldraw whiteboards. v4.0: the agent-native author release — Inline Agent Panel, Scheduled Recipes, Trace View, MCP Federation.",
+    title: "What's new in SoloMD {VERSION} — release notes v4.0 – v4.11",
+    description: "SoloMD {VERSION} release notes. v4.11: malformed tables from AI/PDF exports now auto-repair and render, plus opt-in numbered-section headings (6.2 → h2) across app, CLI and MCP. v4.8: image hosting (PicGo / SM.MS / S3 / GitHub) + quality-of-life fixes (select-all, trash-safe delete, unified line breaks). v4.7: Windows editor rewritten on native textareas — CJK IME finally reliable. v4.6: knowledge graph (typed relationships, saved views, properties inspector) + tldraw whiteboards. v4.0: the agent-native author release — Inline Agent Panel, Scheduled Recipes, Trace View, MCP Federation.",
   },
   breadcrumb: {
     home: "Home",

@@ -6,8 +6,8 @@ import type { WhatsNewData } from './types';
 const data: WhatsNewData = {
   version: "4.12.0",
   meta: {
-    title: "SoloMD ${VERSION} 更新 — v4.0 – v4.11 版本说明",
-    description: "SoloMD ${VERSION} 版本说明。v4.11:AI/PDF 导出的畸形表格自动修复并正常渲染,新增「编号章节自动转标题」（6.2 → h2,可选开启）,应用 / CLI / MCP 三端一致。v4.8:图床（PicGo / SM.MS / S3 / GitHub）+ 体验修复（全选、删除进回收站、换行统一）。v4.7:Windows 编辑器换用原生 textarea 重写,中文输入法终于稳定。v4.6:知识图谱（类型化关系、保存视图、属性面板）+ tldraw 白板。v4.0:agent-native author 大版本 —— 内置 Agent 面板、定时 Recipe、Trace View、MCP Federation。",
+    title: "SoloMD {VERSION} 更新 — v4.0 – v4.11 版本说明",
+    description: "SoloMD {VERSION} 版本说明。v4.11:AI/PDF 导出的畸形表格自动修复并正常渲染,新增「编号章节自动转标题」（6.2 → h2,可选开启）,应用 / CLI / MCP 三端一致。v4.8:图床（PicGo / SM.MS / S3 / GitHub）+ 体验修复（全选、删除进回收站、换行统一）。v4.7:Windows 编辑器换用原生 textarea 重写,中文输入法终于稳定。v4.6:知识图谱（类型化关系、保存视图、属性面板）+ tldraw 白板。v4.0:agent-native author 大版本 —— 内置 Agent 面板、定时 Recipe、Trace View、MCP Federation。",
   },
   breadcrumb: {
     home: "首页",
