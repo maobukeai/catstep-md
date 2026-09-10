@@ -580,390 +580,534 @@ function onSelectPdfFont(v: string) {
           </div>
           <p class="settings__category-desc">{{ currentCategoryMeta.desc }}</p>
         </div>
-        <section data-cat="basics">
-          <label>{{ t('settings.language') }}</label>
-          <select
-            :value="settings.language"
-            @change="settings.setLanguage(($event.target as HTMLSelectElement).value as 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it' | 'pl' | 'nl' | 'tr' | 'sv' | 'uk')"
-          >
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-            <option value="ja">日本語</option>
-            <option value="ko">한국어</option>
-            <option value="de">Deutsch</option>
-            <option value="fr">Français</option>
-            <option value="es">Español</option>
-            <option value="pt">Português</option>
-            <option value="it">Italiano</option>
-            <option value="pl">Polski</option>
-            <option value="nl">Nederlands</option>
-            <option value="tr">Türkçe</option>
-            <option value="sv">Svenska</option>
-            <option value="uk">Українська</option>
-          </select>
-        </section>
+        <!-- Group 1: 语言与外观 -->
+        <div class="settings-group" data-cat="basics">
+          <div class="settings-group__title">{{ t('settings.groupAppearance') }}</div>
+          <div class="settings-group__card">
+            <!-- Row: Language -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.language') }}</label>
+              </div>
+              <div class="setting-row__control">
+                <select
+                  :value="settings.language"
+                  @change="settings.setLanguage(($event.target as HTMLSelectElement).value as any)"
+                >
+                  <option value="en">English</option>
+                  <option value="zh">中文</option>
+                  <option value="ja">日本語</option>
+                  <option value="ko">한국어</option>
+                  <option value="de">Deutsch</option>
+                  <option value="fr">Français</option>
+                  <option value="es">Español</option>
+                  <option value="pt">Português</option>
+                  <option value="it">Italiano</option>
+                  <option value="pl">Polski</option>
+                  <option value="nl">Nederlands</option>
+                  <option value="tr">Türkçe</option>
+                  <option value="sv">Svenska</option>
+                  <option value="uk">Українська</option>
+                </select>
+              </div>
+            </div>
 
-        <section data-cat="basics">
-          <label>{{ t('settings.theme') }}</label>
-          <select
-            :value="settings.theme"
-            @change="settings.setTheme(($event.target as HTMLSelectElement).value as Theme)"
-          >
-            <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
-          </select>
-        </section>
+            <!-- Row: Theme -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.theme') }}</label>
+              </div>
+              <div class="setting-row__control">
+                <select
+                  :value="settings.theme"
+                  @change="settings.setTheme(($event.target as HTMLSelectElement).value as Theme)"
+                >
+                  <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
+                </select>
+              </div>
+            </div>
 
-        <section data-cat="basics">
-          <label>{{ t('settings.fontFamily') }}</label>
-          <select :value="fontFamilySelectValue" @change="onSelectFontFamily(($event.target as HTMLSelectElement).value)">
-            <option v-for="f in fontFamilies" :key="f.label" :value="f.value">{{ f.label }}</option>
-            <option value="__custom__">{{ t('settings.customFont') }}</option>
-          </select>
-          <input
-            v-if="fontFamilySelectValue === '__custom__'"
-            type="text"
-            :placeholder="t('settings.customFontPlaceholder')"
-            :value="customFontFamily"
-            @input="onCustomFontInput(($event.target as HTMLInputElement).value)"
-            style="margin-top: 6px; padding: 6px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 4px; font: inherit; width: 100%;"
-          />
-          <p class="setting-hint">{{ t('settings.fontFamilyHint') }}</p>
-        </section>
+            <!-- Row: Font Family -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.fontFamily') }}</label>
+                <p class="setting-row__hint">{{ t('settings.fontFamilyHint') }}</p>
+              </div>
+              <div class="setting-row__control setting-row__control--stack">
+                <select :value="fontFamilySelectValue" @change="onSelectFontFamily(($event.target as HTMLSelectElement).value)">
+                  <option v-for="f in fontFamilies" :key="f.label" :value="f.value">{{ f.label }}</option>
+                  <option value="__custom__">{{ t('settings.customFont') }}</option>
+                </select>
+                <input
+                  v-if="fontFamilySelectValue === '__custom__'"
+                  type="text"
+                  :placeholder="t('settings.customFontPlaceholder')"
+                  :value="customFontFamily"
+                  @input="onCustomFontInput(($event.target as HTMLInputElement).value)"
+                  class="setting-custom-font-input"
+                />
+              </div>
+            </div>
 
-        <section data-cat="basics">
-          <label>{{ t('settings.codeFontFamily') }}</label>
-          <input
-            type="text"
-            :placeholder="t('settings.codeFontFamilyPlaceholder')"
-            :value="settings.codeFontFamily"
-            @input="settings.setCodeFontFamily(($event.target as HTMLInputElement).value)"
-            style="padding: 6px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 4px; font: inherit; width: 100%;"
-          />
-          <p class="setting-hint">{{ t('settings.codeFontFamilyHint') }}</p>
-        </section>
-
-        <section data-cat="basics">
-          <div class="setting-row-header">
-            <label class="setting-title">{{ t('settings.fontSize') }}</label>
-            <span class="setting-val-badge">{{ settings.fontSize }}px</span>
-          </div>
-          <input
-            type="range"
-            min="10"
-            max="28"
-            :value="settings.fontSize"
-            @input="settings.setFontSize(+($event.target as HTMLInputElement).value)"
-          />
-        </section>
-
-        <section data-cat="basics">
-          <div class="setting-row-header">
-            <label class="setting-title">{{ t('settings.uiFontSize') }}</label>
-            <span class="setting-val-badge">{{ settings.uiFontSize }}px</span>
-          </div>
-          <input
-            type="range"
-            min="10"
-            max="20"
-            :value="settings.uiFontSize"
-            @input="settings.setUiFontSize(+($event.target as HTMLInputElement).value)"
-          />
-        </section>
-
-        <section data-cat="basics">
-          <div class="setting-row-header">
-            <label class="setting-title">{{ t('settings.globalZoom') }}</label>
-            <div class="setting-badge-group">
-              <span class="setting-val-badge">{{ Math.round((settings.globalZoom || 1) * 100) }}%</span>
-              <button
-                type="button"
-                class="link-button"
-                @click="settings.resetZoom()"
-              >
-                {{ t('settings.globalZoomReset') }}
-              </button>
+            <!-- Row: Code Font Family -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.codeFontFamily') }}</label>
+                <p class="setting-row__hint">{{ t('settings.codeFontFamilyHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="text"
+                  :placeholder="t('settings.codeFontFamilyPlaceholder')"
+                  :value="settings.codeFontFamily"
+                  @input="settings.setCodeFontFamily(($event.target as HTMLInputElement).value)"
+                />
+              </div>
             </div>
           </div>
-          <input
-            type="range"
-            min="0.75"
-            max="2.5"
-            step="0.05"
-            :value="settings.globalZoom"
-            @input="settings.setGlobalZoom(+($event.target as HTMLInputElement).value)"
-          />
-          <p class="setting-hint">{{ t('settings.globalZoomHint') }}</p>
-          <div class="setting-inner-toggle">
-            <label>
-              <input
-                type="checkbox"
-                :checked="settings.wheelZoomEnabled"
-                @change="settings.toggleWheelZoom()"
-              />
-              {{ t('settings.wheelZoom') }}
+        </div>
+
+        <!-- Group 2: 排版与字号 -->
+        <div class="settings-group" data-cat="basics">
+          <div class="settings-group__title">{{ t('settings.groupTypography') }}</div>
+          <div class="settings-group__card">
+            <!-- Row: Editor Font Size -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.fontSize') }}</label>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="10"
+                    max="28"
+                    :value="settings.fontSize"
+                    @input="settings.setFontSize(+($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="setting-val-badge">{{ settings.fontSize }}px</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: UI Font Size -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.uiFontSize') }}</label>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="10"
+                    max="20"
+                    :value="settings.uiFontSize"
+                    @input="settings.setUiFontSize(+($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="setting-val-badge">{{ settings.uiFontSize }}px</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Global Zoom -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.globalZoom') }}</label>
+                <p class="setting-row__hint">{{ t('settings.globalZoomHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="0.75"
+                    max="2.5"
+                    step="0.05"
+                    :value="settings.globalZoom"
+                    @input="settings.setGlobalZoom(+($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="setting-val-badge">{{ Math.round((settings.globalZoom || 1) * 100) }}%</span>
+                  <button
+                    type="button"
+                    class="link-button"
+                    @click="settings.resetZoom()"
+                  >
+                    {{ t('settings.globalZoomReset') }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Wheel Zoom -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.wheelZoom') }}</span>
+                <p class="setting-row__hint">{{ t('settings.wheelZoomHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.wheelZoomEnabled"
+                  @change="settings.toggleWheelZoom()"
+                />
+              </div>
             </label>
-            <p class="setting-hint">{{ t('settings.wheelZoomHint') }}</p>
           </div>
-        </section>
+        </div>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.wordWrap" @change="settings.toggleWordWrap()" />
-            {{ t('settings.wordWrap') }}
-          </label>
-        </section>
+        <!-- Group 3: 编辑器习惯 -->
+        <div class="settings-group" data-cat="basics">
+          <div class="settings-group__title">{{ t('settings.groupEditorHabits') }}</div>
+          <div class="settings-group__card">
+            <!-- Row: Word wrap -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.wordWrap') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.wordWrap" @change="settings.toggleWordWrap()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.showLineNumbers" @change="settings.toggleLineNumbers()" />
-            {{ t('settings.lineNumbers') }}
-          </label>
-        </section>
+            <!-- Row: Line numbers -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.lineNumbers') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.showLineNumbers" @change="settings.toggleLineNumbers()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.solidCursor" @change="settings.toggleSolidCursor()" />
-            {{ t('settings.solidCursor') }}
-          </label>
-        </section>
+            <!-- Row: Solid cursor -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.solidCursor') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.solidCursor" @change="settings.toggleSolidCursor()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.livePreview" @change="settings.toggleLivePreview()" />
-            {{ t('settings.livePreview') }}
-          </label>
-        </section>
+            <!-- Row: Live preview -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.livePreview') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.livePreview" @change="settings.toggleLivePreview()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.showOutline" @change="onToggleOutlineGlobal()" />
-            {{ t('settings.showOutline') }}
-          </label>
-        </section>
+            <!-- Row: Limit editor width -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.limitEditorWidth') || '限制编辑器宽度' }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.limitEditorWidth" @change="settings.toggleLimitEditorWidth()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>{{ t('settings.outlineSide') }}</label>
-          <select
-            :value="settings.outlineSide"
-            @change="settings.setOutlineSide(($event.target as HTMLSelectElement).value as 'left' | 'right')"
-          >
-            <option value="left">{{ t('settings.outlineSideLeft') }}</option>
-            <option value="right">{{ t('settings.outlineSideRight') }}</option>
-          </select>
-        </section>
+            <!-- Row: Code block line numbers -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.codeBlockLineNumbers') }}</span>
+                <p class="setting-row__hint">{{ t('settings.codeBlockLineNumbersHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.codeBlockLineNumbers"
+                  @change="settings.toggleCodeBlockLineNumbers()"
+                />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>{{ t('settings.outlineMarker') }}</label>
-          <select
-            :value="settings.outlineMarker"
-            @change="settings.setOutlineMarker(($event.target as HTMLSelectElement).value as 'jump' | 'number' | 'none')"
-          >
-            <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
-            <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
-            <option value="jump">{{ t('settings.outlineMarkerJump') }}</option>
-          </select>
-        </section>
+            <!-- Row: Folding -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.folding') }}</span>
+                <p class="setting-row__hint">{{ t('settings.foldingHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.foldingEnabled"
+                  @change="settings.toggleFolding()"
+                />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.previewFitWidth" @change="settings.togglePreviewFitWidth()" />
-            {{ t('settings.previewFitWidth') }}
-          </label>
-        </section>
-
-        <section data-cat="basics">
-          <div class="setting-row-header">
-            <label class="setting-title">{{ t('settings.previewMaxWidth') }}</label>
-            <span class="setting-val-badge">{{ settings.previewMaxWidth }}px</span>
+            <!-- Row: Code block wrap -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.codeBlockWrap') }}</span>
+                <p class="setting-row__hint">{{ t('settings.codeBlockWrapHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.codeBlockWrap"
+                  @change="settings.toggleCodeBlockWrap()"
+                />
+              </div>
+            </label>
           </div>
-          <input
-            type="range"
-            min="480"
-            max="1600"
-            step="20"
-            :value="settings.previewMaxWidth"
-            :disabled="settings.previewFitWidth"
-            @input="settings.setPreviewMaxWidth(+($event.target as HTMLInputElement).value)"
-          />
-          <p class="setting-hint">{{ t('settings.previewMaxWidthHint') }}</p>
-        </section>
+        </div>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.limitEditorWidth" @change="settings.toggleLimitEditorWidth()" />
-            {{ t('settings.limitEditorWidth') || 'Limit editor width (readable column)' }}
-          </label>
-        </section>
+        <!-- Group 4: 大纲与侧边栏 -->
+        <div class="settings-group" data-cat="basics">
+          <div class="settings-group__title">{{ t('settings.groupOutlineSidebars') }}</div>
+          <div class="settings-group__card">
+            <!-- Row: Show outline -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.showOutline') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.showOutline" @change="onToggleOutlineGlobal()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.codeBlockLineNumbers"
-              @change="settings.toggleCodeBlockLineNumbers()"
-            />
-            {{ t('settings.codeBlockLineNumbers') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.codeBlockLineNumbersHint') }}</p>
-        </section>
+            <!-- Row: Outline side -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.outlineSide') }}</label>
+              </div>
+              <div class="setting-row__control">
+                <select
+                  :value="settings.outlineSide"
+                  @change="settings.setOutlineSide(($event.target as HTMLSelectElement).value as 'left' | 'right')"
+                >
+                  <option value="left">{{ t('settings.outlineSideLeft') }}</option>
+                  <option value="right">{{ t('settings.outlineSideRight') }}</option>
+                </select>
+              </div>
+            </div>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.foldingEnabled"
-              @change="settings.toggleFolding()"
-            />
-            {{ t('settings.folding') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.foldingHint') }}</p>
-        </section>
+            <!-- Row: Outline marker -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.outlineMarker') }}</label>
+              </div>
+              <div class="setting-row__control">
+                <select
+                  :value="settings.outlineMarker"
+                  @change="settings.setOutlineMarker(($event.target as HTMLSelectElement).value as 'jump' | 'number' | 'none')"
+                >
+                  <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
+                  <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
+                  <option value="jump">{{ t('settings.outlineMarkerJump') }}</option>
+                </select>
+              </div>
+            </div>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.codeBlockWrap"
-              @change="settings.toggleCodeBlockWrap()"
-            />
-            {{ t('settings.codeBlockWrap') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.codeBlockWrapHint') }}</p>
-        </section>
+            <!-- Row: Explorer full names -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.explorerFullNames') }}</span>
+                <p class="setting-row__hint">{{ t('settings.explorerFullNamesHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.explorerFullNames"
+                  @change="settings.toggleExplorerFullNames()"
+                />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.explorerFullNames"
-              @change="settings.toggleExplorerFullNames()"
-            />
-            {{ t('settings.explorerFullNames') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.explorerFullNamesHint') }}</p>
-        </section>
+            <!-- Row: Show file tree -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.showFileTree') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.showFileTree" @change="settings.toggleFileTree()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.markdownHardBreaks"
-              @change="settings.toggleMarkdownHardBreaks()"
-            />
-            {{ t('settings.markdownHardBreaks') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.markdownHardBreaksHint') }}</p>
-        </section>
+            <!-- Row: Show backlinks -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.showBacklinks') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.showBacklinks" @change="settings.toggleBacklinks()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.smartQuotes"
-              @change="settings.toggleSmartQuotes()"
-            />
-            {{ t('settings.smartQuotes') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.smartQuotesHint') }}</p>
-        </section>
+            <!-- Row: Show tags panel -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.showTagsPanel') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.showTagsPanel" @change="settings.toggleTagsPanel()" />
+              </div>
+            </label>
+          </div>
+        </div>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.markdownAutoNumberHeadings"
-              @change="settings.toggleMarkdownAutoNumberHeadings()"
-            />
-            {{ t('settings.markdownAutoNumberHeadings') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.markdownAutoNumberHeadingsHint') }}</p>
-        </section>
+        <!-- Group 5: 页面排版与预览 -->
+        <div class="settings-group" data-cat="basics">
+          <div class="settings-group__title">{{ t('settings.groupPreviewMarkdown') }}</div>
+          <div class="settings-group__card">
+            <!-- Row: Preview fit width -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.previewFitWidth') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.previewFitWidth" @change="settings.togglePreviewFitWidth()" />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.plantumlEnabled"
-              @change="settings.togglePlantuml()"
-            />
-            {{ t('settings.plantuml') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.plantumlHint') }}</p>
-          <input
-            v-if="settings.plantumlEnabled"
-            type="text"
-            :value="settings.plantumlServer"
-            :placeholder="'https://www.plantuml.com/plantuml'"
-            spellcheck="false"
-            style="margin-top: 6px; width: 100%"
-            @change="settings.setPlantumlServer(($event.target as HTMLInputElement).value)"
-          />
-        </section>
+            <!-- Row: Preview max width -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ t('settings.previewMaxWidth') }}</label>
+                <p class="setting-row__hint">{{ t('settings.previewMaxWidthHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="480"
+                    max="1600"
+                    step="20"
+                    :value="settings.previewMaxWidth"
+                    :disabled="settings.previewFitWidth"
+                    @input="settings.setPreviewMaxWidth(+($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="setting-val-badge">{{ settings.previewMaxWidth }}px</span>
+                </div>
+              </div>
+            </div>
 
-        <section data-cat="basics">
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.readingByDefaultOnMobile"
-              @change="settings.toggleReadingByDefaultOnMobile()"
-            />
-            {{ t('reading.readingByDefaultOnMobile') }}
-          </label>
-          <p style="font-size: 11px; color: var(--text-faint); margin: 4px 0 0; line-height: 1.5;">{{ t('reading.readingByDefaultOnMobileHint') }}</p>
-        </section>
+            <!-- Row: Markdown hard breaks -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.markdownHardBreaks') }}</span>
+                <p class="setting-row__hint">{{ t('settings.markdownHardBreaksHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.markdownHardBreaks"
+                  @change="settings.toggleMarkdownHardBreaks()"
+                />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.showFileTree" @change="settings.toggleFileTree()" />
-            {{ t('settings.showFileTree') }}
-          </label>
-        </section>
+            <!-- Row: Smart quotes -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.smartQuotes') }}</span>
+                <p class="setting-row__hint">{{ t('settings.smartQuotesHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.smartQuotes"
+                  @change="settings.toggleSmartQuotes()"
+                />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.showBacklinks" @change="settings.toggleBacklinks()" />
-            {{ t('settings.showBacklinks') }}
-          </label>
-        </section>
+            <!-- Row: Heading auto numbering -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.markdownAutoNumberHeadings') }}</span>
+                <p class="setting-row__hint">{{ t('settings.markdownAutoNumberHeadingsHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.markdownAutoNumberHeadings"
+                  @change="settings.toggleMarkdownAutoNumberHeadings()"
+                />
+              </div>
+            </label>
 
-        <section data-cat="basics">
-          <label>
-            <input type="checkbox" :checked="settings.showTagsPanel" @change="settings.toggleTagsPanel()" />
-            {{ t('settings.showTagsPanel') }}
-          </label>
-        </section>
+            <!-- Row: PlantUML -->
+            <div class="setting-row setting-row--stack-mobile">
+              <div class="setting-row__info">
+                <label class="setting-row__title-wrap">
+                  <span class="setting-row__title">{{ t('settings.plantuml') }}</span>
+                  <input
+                    type="checkbox"
+                    :checked="settings.plantumlEnabled"
+                    @change="settings.togglePlantuml()"
+                  />
+                </label>
+                <p class="setting-row__hint">{{ t('settings.plantumlHint') }}</p>
+                <input
+                  v-if="settings.plantumlEnabled"
+                  type="text"
+                  :value="settings.plantumlServer"
+                  :placeholder="'https://www.plantuml.com/plantuml'"
+                  spellcheck="false"
+                  style="margin-top: 8px; width: 100%; max-width: 100%;"
+                  @change="settings.setPlantumlServer(($event.target as HTMLInputElement).value)"
+                />
+              </div>
+            </div>
 
-        <section data-cat="writing">
-          <h3 style="font-size: 13px; font-weight: 600; color: var(--text); margin: 18px 0 6px;">
-            {{ t('writingStats.settingsHeading') }}
-          </h3>
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.showWritingStats"
-              @change="settings.toggleWritingStats()"
-            />
-            {{ t('writingStats.showInStatusBar') }}
-          </label>
-          <label style="margin-top: 6px;">
-            <input
-              type="checkbox"
-              :checked="settings.showWorkspaceDailyTotal"
-              @change="settings.toggleWorkspaceDailyTotal()"
-              :disabled="!settings.showWritingStats"
-            />
-            {{ t('writingStats.showWorkspaceDailyTotal') }}
-          </label>
-          <p style="font-size: 11px; color: var(--text-faint); margin: 4px 0 0; line-height: 1.5;">
-            {{ t('writingStats.frontMatterHint') }}
-          </p>
-        </section>
+            <!-- Row: Reading default on mobile -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('reading.readingByDefaultOnMobile') }}</span>
+                <p class="setting-row__hint">{{ t('reading.readingByDefaultOnMobileHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.readingByDefaultOnMobile"
+                  @change="settings.toggleReadingByDefaultOnMobile()"
+                />
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-group" data-cat="writing">
+          <div class="settings-group__title">{{ t('settings.groupWritingStats') }}</div>
+          <div class="settings-group__card">
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('writingStats.showInStatusBar') }}</span>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.showWritingStats"
+                  @change="settings.toggleWritingStats()"
+                />
+              </div>
+            </label>
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('writingStats.showWorkspaceDailyTotal') }}</span>
+                <p class="setting-row__hint">{{ t('writingStats.frontMatterHint') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.showWorkspaceDailyTotal"
+                  @change="settings.toggleWorkspaceDailyTotal()"
+                  :disabled="!settings.showWritingStats"
+                />
+              </div>
+            </label>
+          </div>
+        </div>
 
         <!-- #230 — Android has no libgit2, so the whole Sync tab would be a
              row of buttons that answer "Command … not found". Say so plainly
              instead of shipping dead controls. -->
         <section v-if="!gitBackend" data-cat="sync">
-          <h3 style="font-size: 13px; font-weight: 600; color: var(--text); margin: 18px 0 6px;">
+          <h3 style="font-size: 13px; font-weight: 600; color: var(--text); margin: 0 0 6px;">
             {{ t('settings.catSync') }}
           </h3>
           <p style="font-size: 12px; color: var(--text-faint); margin: 0; line-height: 1.6;">
@@ -971,18 +1115,20 @@ function onSelectPdfFont(v: string) {
           </p>
         </section>
 
-        <section v-if="gitBackend" data-cat="sync">
-          <h3 style="font-size: 13px; font-weight: 600; color: var(--text); margin: 18px 0 6px;">
-            {{ t('settings.versionHistoryHeading') }}
-          </h3>
-          <label>
-            <input type="checkbox" :checked="settings.autoGitEnabled" @change="settings.toggleAutoGit()" />
-            {{ t('settings.autoGitEnabled') }}
-          </label>
-          <p style="font-size: 11px; color: var(--text-faint); margin: 4px 0 0; line-height: 1.5;">
-            {{ withChord('settings.autoGitHelp', 'file.save') }}
-          </p>
-        </section>
+        <div v-if="gitBackend" class="settings-group" data-cat="sync">
+          <div class="settings-group__title">{{ t('settings.groupSyncGit') }}</div>
+          <div class="settings-group__card">
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ t('settings.autoGitEnabled') }}</span>
+                <p class="setting-row__hint">{{ withChord('settings.autoGitHelp', 'file.save') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input type="checkbox" :checked="settings.autoGitEnabled" @change="settings.toggleAutoGit()" />
+              </div>
+            </label>
+          </div>
+        </div>
 
         <!-- v2.6.1 cloud-folder banner. Self-hides if the workspace isn't
              inside a known cloud-sync folder. -->
@@ -1887,24 +2033,24 @@ function onSelectPdfFont(v: string) {
   flex: 1;
   display: flex;
   min-height: 0;
-  height: min(620px, 82vh);
+  height: min(640px, 84vh);
 }
 .settings__nav {
-  width: 184px;
+  width: 196px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   display: flex;
   flex-direction: column;
-  padding: 12px 8px;
-  gap: 3px;
+  padding: 14px 10px;
+  gap: 4px;
   overflow-y: auto;
 }
 .settings__nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 9px 13px;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--text-muted);
@@ -1918,23 +2064,13 @@ function onSelectPdfFont(v: string) {
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .settings__nav-item:hover {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: var(--bg-hover);
   color: var(--text);
 }
 .settings__nav-item--active {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-weight: 600;
-}
-.settings__nav-item--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--accent);
 }
 .settings__nav-icon {
   font-size: 16px;
@@ -1961,23 +2097,21 @@ function onSelectPdfFont(v: string) {
 .settings__body[data-active-cat="advanced"] > [data-cat="advanced"] {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
 .settings__body {
   flex: 1;
-  padding: 20px 28px 48px 28px;
+  padding: 22px 32px 48px 32px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   background: var(--bg);
 }
 
 .settings__category-header {
-  margin-bottom: 6px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 .settings__category-title {
   display: flex;
@@ -1990,32 +2124,146 @@ function onSelectPdfFont(v: string) {
 }
 .settings__category-title h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
 }
 .settings__category-desc {
   margin: 4px 0 0 0;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-muted);
   line-height: 1.5;
 }
 
-/* Card-style sections */
+/* Settings Group & Group Title */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+.settings-group:last-child {
+  margin-bottom: 0;
+}
+.settings-group__title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 8px 4px;
+}
+.settings-group__card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+/* Horizontal Setting Row */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  transition: background-color 0.12s ease;
+  margin: 0;
+}
+.setting-row:last-child {
+  border-bottom: none;
+}
+.setting-row:hover {
+  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+}
+.setting-row--clickable {
+  cursor: pointer;
+}
+.setting-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.setting-row__title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  margin: 0;
+  user-select: none;
+}
+.setting-row__hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 3px 0 0 0;
+}
+.setting-row__hint a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.setting-row__title-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.setting-row--stack-mobile {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.setting-row__control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.setting-row__control--stack {
+  flex-direction: column;
+  align-items: flex-end;
+}
+.setting-row__control select,
+.setting-row__control input[type='text'],
+.setting-row__control input[type='password'] {
+  width: 220px;
+  max-width: 240px;
+}
+.setting-custom-font-input {
+  margin-top: 6px;
+  width: 220px;
+}
+.setting-slider-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 230px;
+}
+.setting-slider-ctrl input[type='range'] {
+  flex: 1;
+  margin: 0;
+}
+
+/* Standalone Card-style sections fallback */
 section[data-cat] {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 13px 16px;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
 }
 section[data-cat]:hover {
-  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 section > label {
@@ -2055,8 +2303,10 @@ section > label:not(:has(input)) {
 .setting-val-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 8px;
-  font-size: 11px;
+  justify-content: center;
+  min-width: 44px;
+  padding: 2px 8px;
+  font-size: 11.5px;
   font-family: var(--font-mono, monospace);
   font-weight: 600;
   color: var(--accent);

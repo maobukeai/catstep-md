@@ -192,6 +192,18 @@ export const en = {
     catExport: 'Export',
     catAdvanced: 'Advanced',
     catKeys: 'Shortcuts',
+    groupAppearance: 'Language & Appearance',
+    groupTypography: 'Typography & Sizing',
+    groupEditorHabits: 'Editor Behavior',
+    groupOutlineSidebars: 'Outline & Navigation',
+    groupPreviewMarkdown: 'Page & Preview',
+    groupWritingStats: 'Writing Statistics & Focus',
+    groupAttachments: 'Attachments & Assets',
+    groupImageUpload: 'Image Uploader',
+    groupSyncGit: 'Version History & Sync',
+    groupIntegrations: 'Extensions & Services',
+    groupExportPresets: 'Export Presets',
+    groupSystemAdvanced: 'System & Advanced',
     keysHint: 'Click Change, then press the chord you want. Esc cancels. Bindings apply immediately.',
     keysCatFile: 'File',
     keysCatEdit: 'Edit',
@@ -1826,4 +1838,8 @@ export const en = {
 // `views` (v4.6 F5) is now a REQUIRED section: all 14 locales ship a full
 // translation (v4.6.1). The runtime `t()` lookup still falls back to English
 // for any individual key that a locale happens to miss.
-export type I18n = typeof en;
+type RecursivePartial<T> = {
+  [P in keyof T]?: T[P] extends object ? RecursivePartial<T[P]> : T[P];
+};
+export type I18n = RecursivePartial<typeof en>;
+
