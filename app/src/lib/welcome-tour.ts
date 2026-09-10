@@ -11,11 +11,21 @@ import slideshowZh from '../assets/welcome/slideshow.zh.md?raw';
 import shortcutsZh from '../assets/welcome/shortcuts.zh.md?raw';
 import liveEditDemoZh from '../assets/welcome/live-edit-demo.zh.md?raw';
 
-export function openWelcomeTour(): void {
-  const settings = useSettingsStore();
-  const tabs = useTabsStore();
-  const zh = settings.language === 'zh';
-  const docs = zh
+export const TOUR_DOC_NAMES = new Set([
+  '欢迎.md',
+  'Markdown 语法.md',
+  '实时编辑.md',
+  '演讲模式.md',
+  '快捷键.md',
+  'Welcome.md',
+  'Markdown syntax.md',
+  'Live edit demo.md',
+  'Slideshow.md',
+  'Shortcuts.md',
+]);
+
+export function getWelcomeTourDocs(zh: boolean): { name: string; content: string }[] {
+  return zh
     ? [
         { name: '欢迎.md', content: welcomeZh },
         { name: 'Markdown 语法.md', content: syntaxZh },
@@ -30,12 +40,31 @@ export function openWelcomeTour(): void {
         { name: 'Slideshow.md', content: slideshowEn },
         { name: 'Shortcuts.md', content: shortcutsEn },
       ];
+}
+
+export function openWelcomeTour(): void {
+  const settings = useSettingsStore();
+  const tabs = useTabsStore();
+  const zh = settings.language === 'zh';
+  const docs = getWelcomeTourDocs(zh);
   let firstId: string | undefined;
+
   for (const d of docs) {
-    const tab = tabs.newTab({ fileName: d.name, language: 'markdown' });
-    tab.content = d.content;
-    tab.savedContent = d.content;
-    if (!firstId) firstId = tab.id;
+    // If a tab with this name is already open in memory (not a saved local file), update it in place
+    const existing = tabs.tabs.find(
+      (t) => !t.filePath && t.fileName === d.name,
+    );
+    if (existing) {
+      existing.content = d.content;
+      existing.savedContent = d.content;
+      if (!firstId) firstId = existing.id;
+    } else {
+      const tab = tabs.newTab({ fileName: d.name, language: 'markdown' });
+      tab.content = d.content;
+      tab.savedContent = d.content;
+      if (!firstId) firstId = tab.id;
+    }
   }
   if (firstId) tabs.activate(firstId);
 }
+

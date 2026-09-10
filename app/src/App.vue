@@ -79,7 +79,7 @@ import { quickCaptureError } from './lib/quick-capture-status';
 import { tableEditor, closeTableEditor } from './lib/table-editor-bus';
 import { formulaEditor, closeFormulaEditor } from './lib/formula-editor-bus';
 import { track } from './lib/telemetry';
-import { openWelcomeTour } from './lib/welcome-tour';
+import { openWelcomeTour, getWelcomeTourDocs } from './lib/welcome-tour';
 import { useWorkspaceStore } from './stores/workspace';
 import { useWorkspaceIndexStore } from './stores/workspaceIndex';
 import { useSavedViewsStore } from './stores/savedViews';
@@ -1357,6 +1357,23 @@ onMounted(async () => {
     settings.markWelcomeShown();
   } else if (tabs.tabs.length === 0) {
     tabs.newTab();
+  }
+
+  // Catstep MD v2: If existing in-memory tabs match tour documents from a previous run,
+  // refresh their content to the new Catstep MD tour docs once.
+  if (!settings.catstepTourV2Migrated) {
+    const zh = settings.language === 'zh';
+    const docs = getWelcomeTourDocs(zh);
+    for (const d of docs) {
+      const existing = tabs.tabs.find(
+        (t) => !t.filePath && t.fileName === d.name,
+      );
+      if (existing) {
+        existing.content = d.content;
+        existing.savedContent = d.content;
+      }
+    }
+    settings.catstepTourV2Migrated = true;
   }
 
   // v4.0 first-run agent setup wizard. Fires after the welcome tour on a

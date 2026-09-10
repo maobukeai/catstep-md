@@ -134,6 +134,8 @@ interface Settings {
   openLinkedFilesExternally: boolean;
   // First-launch welcome tour: opened automatically once. Don't reopen.
   welcomeShown: boolean;
+  // Catstep MD v2 welcome tour auto-refresh migration marker
+  catstepTourV2Migrated: boolean;
   // v4.0 first-run agent setup wizard. Shown once after the welcome tour to
   // route the user into BYOK or Ollama. Re-openable from Settings → AI.
   agentWizardSeen: boolean;
@@ -527,6 +529,7 @@ function defaults(): Settings {
     revealInFileTreeOnOpen: false,
     openLinkedFilesExternally: true,
     welcomeShown: false,
+    catstepTourV2Migrated: false,
     agentWizardSeen: false,
     showBacklinks: true,
     showRelationships: false,
@@ -745,6 +748,9 @@ function load(): Settings {
           merged.quickCaptureShortcut = 'CmdOrCtrl+Alt+C';
         }
         merged.quickCaptureConflictMigrated = true;
+      }
+      if (typeof parsed.catstepTourV2Migrated === 'boolean') {
+        merged.catstepTourV2Migrated = parsed.catstepTourV2Migrated;
       }
       return merged;
     }
