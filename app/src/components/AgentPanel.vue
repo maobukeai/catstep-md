@@ -184,7 +184,7 @@ const ACTIVE_NOTE_CHAR_LIMIT = 8192;
  * snippets + active note path) before the user's message.
  */
 const SYSTEM_PROMPT =
-  'You are a helpful writing and research assistant inside SoloMD, a local-first markdown editor. The user is chatting with you about their notes. Be concise and accurate. Use markdown formatting in replies when helpful. If the user asks about specific notes you have not been shown, ask which note they mean rather than fabricating content.';
+  'You are a thoughtful, intelligent assistant inside SoloMD, a local-first markdown editor.\n\n【思考与输出规范】\n在回答前，请务必先在 <think> 与 </think> 标签中展示你的思考与推演逻辑（包括：意图理解、核心要点梳理、推演步骤、行文结构规划）。\n思考推演完成后闭合 </think> 标签，并在其后输出正式且排版优雅的 Markdown 回答。如果用户询问某具体笔记而你未获得内容，请在思考后提示用户。';
 
 /**
  * Build a workspace-context system message describing where the user is.
@@ -357,6 +357,8 @@ async function send() {
   const prompt = draft.value.trim();
   if (!prompt || agent.isStreaming) return;
   errorMsg.value = null;
+  lastPrompt.value = prompt;
+  resetThinkingState();
 
   // Push user message + empty assistant placeholder. Chunks stream into the
   // placeholder via the `solomd://ai-chunk` listener below.
@@ -484,7 +486,13 @@ function cleanupListeners() {
 
 const reverts = ref<Record<string, { type: 'path' | 'content'; data: string }>>({});
 
+let isInsideThinkTag = false;
 let thoughtStartTime: number | null = null;
+
+function resetThinkingState() {
+  isInsideThinkTag = false;
+  thoughtStartTime = null;
+}
 
 function processChunkForThinking(chunk: string) {
   const last = agent.messages[agent.messages.length - 1];
@@ -494,28 +502,75 @@ function processChunkForThinking(chunk: string) {
     thoughtStartTime = Date.now();
   }
 
-  const full = (last.content || '') + chunk;
-  if (full.includes('<think>')) {
-    const thinkStart = full.indexOf('<think>');
-    const thinkEnd = full.indexOf('</think>');
-    if (thinkEnd !== -1) {
-      const thoughtText = full.slice(thinkStart + 7, thinkEnd).trim();
-      const restContent = full.slice(thinkEnd + 8).trimStart();
-      last.thought = (last.thought ? last.thought + '\n' : '') + thoughtText;
-      last.content = restContent;
+  // Case 1: Already inside <think> tag
+  if (isInsideThinkTag) {
+    if (chunk.includes('</think>')) {
+      const parts = chunk.split('</think>');
+      const thoughtPart = parts[0];
+      const restContent = parts.slice(1).join('</think>');
+      last.thought = (last.thought || '') + thoughtPart;
+      isInsideThinkTag = false;
       if (last.thoughtDurationMs === undefined && thoughtStartTime) {
         last.thoughtDurationMs = Date.now() - thoughtStartTime;
       }
+      if (restContent) {
+        last.content = (last.content || '') + restContent.trimStart();
+      }
     } else {
-      last.thought = (last.thought || '') + full.slice(thinkStart + 7);
-      last.content = '';
+      last.thought = (last.thought || '') + chunk;
     }
-  } else {
-    last.content = full;
-    if (last.thought && last.thoughtDurationMs === undefined && thoughtStartTime) {
-      last.thoughtDurationMs = Date.now() - thoughtStartTime;
-    }
+    return;
   }
+
+  // Case 2: Encountered <think> tag in chunk
+  if (chunk.includes('<think>')) {
+    const parts = chunk.split('<think>');
+    const preContent = parts[0];
+    const rest = parts.slice(1).join('<think>');
+    if (preContent) {
+      last.content = (last.content || '') + preContent;
+    }
+    isInsideThinkTag = true;
+
+    if (rest.includes('</think>')) {
+      const subParts = rest.split('</think>');
+      const thoughtPart = subParts[0];
+      const restContent = subParts.slice(1).join('</think>');
+      last.thought = (last.thought || '') + thoughtPart;
+      isInsideThinkTag = false;
+      if (last.thoughtDurationMs === undefined && thoughtStartTime) {
+        last.thoughtDurationMs = Date.now() - thoughtStartTime;
+      }
+      if (restContent) {
+        last.content = (last.content || '') + restContent.trimStart();
+      }
+    } else {
+      last.thought = (last.thought || '') + rest;
+    }
+    return;
+  }
+
+  // Case 3: Regular content streaming
+  last.content = (last.content || '') + chunk;
+  if (last.thought && last.thoughtDurationMs === undefined && thoughtStartTime) {
+    last.thoughtDurationMs = Date.now() - thoughtStartTime;
+  }
+}
+
+function isThoughtExpanded(msg: any): boolean {
+  if (typeof msg.thoughtExpanded === 'boolean') {
+    return msg.thoughtExpanded;
+  }
+  // While streaming and no main text content yet: keep expanded so user sees live thinking!
+  if (agent.isStreaming && !msg.content) {
+    return true;
+  }
+  // Once main content is generated: default to collapsed to prioritize answer reading
+  return false;
+}
+
+function toggleThoughtExpand(msg: any) {
+  msg.thoughtExpanded = !isThoughtExpanded(msg);
 }
 
 function isFileTool(name?: string): boolean {
@@ -1216,28 +1271,41 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <template v-else>
               <div class="agent-panel__assistant-msg">
                 <!-- Thinking Accordion -->
-                <div v-if="block.msg.thought" class="agent-panel__thought-card">
+                <div
+                  v-if="block.msg.thought || (agent.isStreaming && block.idx === agent.messages.length - 1 && !block.msg.content)"
+                  class="agent-panel__thought-card"
+                >
                   <button
                     class="agent-panel__thought-header"
                     type="button"
-                    @click="block.msg.thoughtExpanded = !block.msg.thoughtExpanded"
+                    @click="toggleThoughtExpand(block.msg)"
                   >
                     <span
                       class="agent-panel__thought-icon"
                       :class="{ 'agent-panel__thought-icon--spinning': agent.isStreaming && !block.msg.content }"
                     >💭</span>
                     <span class="agent-panel__thought-title">
-                      {{ agent.isStreaming && !block.msg.content ? '深度思考中…' : (block.msg.thoughtDurationMs ? `已深度思考 ${(block.msg.thoughtDurationMs / 1000).toFixed(1)} 秒` : '思考推演过程') }}
+                      <template v-if="agent.isStreaming && !block.msg.content">
+                        <span>{{ block.msg.thought ? '深度推演思考中…' : '正在深度思考与组织逻辑…' }}</span>
+                        <span class="agent-panel__thought-time-pill">{{ (stepElapsedMs / 1000).toFixed(1) }}s</span>
+                      </template>
+                      <template v-else>
+                        {{ block.msg.thoughtDurationMs ? `已深度思考 ${(block.msg.thoughtDurationMs / 1000).toFixed(1)} 秒` : '思考推演过程' }}
+                      </template>
                     </span>
-                    <span class="agent-panel__thought-caret">{{ block.msg.thoughtExpanded ? '收起 ▴' : '展开 ▾' }}</span>
+                    <span class="agent-panel__thought-caret">{{ isThoughtExpanded(block.msg) ? '收起 ▴' : '展开 ▾' }}</span>
                   </button>
-                  <div v-if="block.msg.thoughtExpanded" class="agent-panel__thought-body">
-                    <pre class="agent-panel__thought-text">{{ block.msg.thought }}</pre>
+                  <div v-if="isThoughtExpanded(block.msg)" class="agent-panel__thought-body">
+                    <pre v-if="block.msg.thought" class="agent-panel__thought-text">{{ block.msg.thought }}<span v-if="agent.isStreaming && !block.msg.content" class="agent-panel__cursor" aria-hidden="true">▋</span></pre>
+                    <div v-else class="agent-panel__thought-loading">
+                      <span class="agent-panel__thought-loading-dot"></span>
+                      <span>正在分析笔记内容与意图，组织思考推演…</span>
+                    </div>
                   </div>
                 </div>
 
                 <!-- Content Card -->
-                <div v-if="block.msg.content || (agent.isStreaming && block.idx === agent.messages.length - 1 && !block.msg.thought)" class="agent-panel__assistant-content-wrap">
+                <div v-if="block.msg.content" class="agent-panel__assistant-content-wrap">
                   <div class="agent-panel__assistant-head">
                     <div class="agent-panel__assistant-avatar">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -1249,7 +1317,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   </div>
 
                   <div
-                    v-if="block.msg.content"
                     class="agent-panel__msg-body agent-panel__markdown-body"
                     @click="onMessageBodyClick"
                     v-html="renderAssistantHtml(block.msg.content)"
@@ -2248,6 +2315,32 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   max-height: 220px;
   overflow-y: auto;
   margin: 0;
+}
+.agent-panel__thought-time-pill {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 10px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  font-weight: 600;
+}
+.agent-panel__thought-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.agent-panel__thought-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #6366f1);
+  animation: agent-thought-pulse 1s ease-in-out infinite;
 }
 
 /* --- Tool Group Aggregation (Codex/Cursor style) ----------------------- */
