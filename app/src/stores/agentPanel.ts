@@ -29,6 +29,13 @@ export interface AgentToolPayload {
   runId?: string;
 }
 
+export interface AgentReference {
+  type: 'note' | 'selection' | 'folder' | 'tag';
+  name: string;
+  path?: string;
+  preview?: string;
+}
+
 export interface AgentMessage {
   id: string;
   role: AgentMessageRole;
@@ -39,6 +46,10 @@ export interface AgentMessage {
   thoughtExpanded?: boolean;
   /** Populated when `role === 'tool'`. */
   tool?: AgentToolPayload;
+  /** Context references attached to this turn (e.g. @notes, selection). */
+  references?: AgentReference[];
+  /** Attached images (base64 data URL or asset URLs for vision models). */
+  images?: string[];
   createdAt: number;
 }
 
@@ -186,6 +197,15 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         } else {
           this.persistSessions();
         }
+      }
+    },
+    renameSession(id: string, newTitle: string) {
+      const s = this.sessions.find((item) => item.id === id);
+      const clean = newTitle.trim();
+      if (s && clean) {
+        s.title = clean;
+        s.updatedAt = Date.now();
+        this.persistSessions();
       }
     },
     setPhase(phase: AgentPhase, detail = '') {

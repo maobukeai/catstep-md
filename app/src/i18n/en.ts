@@ -1327,7 +1327,7 @@ export const en = {
     linkHint:
       'Pick an existing repo to sync to, or create a fresh private one for this workspace.',
     createNewTitle: 'Create a new private vault repo',
-    newRepoPlaceholder: 'e.g. my-notes',
+    newRepoPlaceholder: 'e.g. catstep-notes',
     privateRepo: 'Private (recommended)',
     createAndLinkBtn: 'Create and link',
     creatingRepo: 'Creating…',

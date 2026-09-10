@@ -1312,7 +1312,7 @@ export const zh: I18n = {
     openFolderFirst: '请先打开一个文件夹 —— 同步是把工作区绑定到一个仓库。',
     linkHint: '选择一个已有仓库，或为这个工作区新建一个全新私有仓库。',
     createNewTitle: '新建一个私有仓库',
-    newRepoPlaceholder: '例如 my-notes',
+    newRepoPlaceholder: '例如 catstep-notes',
     privateRepo: '私有（推荐）',
     createAndLinkBtn: '创建并绑定',
     creatingRepo: '创建中…',

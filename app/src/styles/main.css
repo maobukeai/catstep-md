@@ -1992,4 +1992,30 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
   background-size: 10px 10px;
 }
 
+/* Typora-grade Typography & Dynamic Spacing Controls */
+.cm-content,
+.cm-line {
+  line-height: var(--content-line-height, 1.75);
+}
+
+.cm-heading,
+.cm-header,
+.cm-h1, .cm-h2, .cm-h3, .cm-h4, .cm-h5, .cm-h6,
+.cm-line.cm-heading,
+.preview-content h1,
+.preview-content h2,
+.preview-content h3,
+.preview-content h4,
+.preview-content h5,
+.preview-content h6,
+.reading-view h1,
+.reading-view h2,
+.reading-view h3,
+.reading-view h4,
+.reading-view h5,
+.reading-view h6 {
+  font-family: var(--heading-font-family, inherit);
+}
+
+
 

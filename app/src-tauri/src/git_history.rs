@@ -100,12 +100,12 @@ fn build_signature(repo: &Repository) -> Result<Signature<'static>, String> {
         .get_string("user.name")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "SoloMD".to_string());
+        .unwrap_or_else(|| "Catstep MD".to_string());
     let email = cfg
         .get_string("user.email")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "solomd@local".to_string());
+        .unwrap_or_else(|| "catstep@local".to_string());
     Signature::now(&name, &email).map_err(|e| format!("signature: {}", e))
 }
 
@@ -385,7 +385,7 @@ pub fn git_init_workspace_inner(
 
     stage(&repo, None)?;
     let sig = build_signature(&repo)?;
-    let msg = initial_message.unwrap_or_else(|| "init: SoloMD workspace".to_string());
+    let msg = initial_message.unwrap_or_else(|| "init: 猫步 MD workspace".to_string());
 
     let _ = commit_staged(&repo, &sig, &msg)?;
     Ok(())

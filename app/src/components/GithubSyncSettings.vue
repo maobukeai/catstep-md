@@ -26,11 +26,11 @@ const toasts = useToastsStore();
 const { t } = useI18n();
 
 const PAT_HELP_URL =
-  'https://github.com/settings/tokens/new?scopes=repo&description=SoloMD%20sync';
+  'https://github.com/settings/tokens/new?scopes=repo&description=CatstepMD%20sync';
 
 const tokenInput = ref('');
 const tokenSaving = ref(false);
-const newRepoName = ref('');
+const newRepoName = ref('catstep-notes');
 const newRepoPrivate = ref(true);
 const creatingRepo = ref(false);
 const linking = ref(false);
@@ -52,7 +52,7 @@ const giteaUrlInput = ref('');
 const giteaUrlValidating = ref(false);
 const giteaTokenInput = ref('');
 const giteaTokenSaving = ref(false);
-const giteaRepoName = ref('');
+const giteaRepoName = ref('catstep-notes');
 const giteaRepoPrivate = ref(true);
 const giteaCreatingRepo = ref(false);
 const giteaLinking = ref(false);

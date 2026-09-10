@@ -391,7 +391,7 @@ function onThemeSelectChange(val: string) {
   }
 }
 
-async function pickWallpaper() {
+async function pickWallpaper(mode: 'light' | 'dark' = 'light') {
   const path = await openFileDialog({
     multiple: false,
     filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }],
@@ -399,21 +399,34 @@ async function pickWallpaper() {
   if (path && typeof path === 'string') {
     try {
       const savedPath = await themesStore.saveWallpaper(path);
-      settings.setBgImage(savedPath);
-      settings.setBgType('image');
-      toasts.success(isZh.value ? '已成功应用自定义背景壁纸' : 'Wallpaper applied successfully');
+      if (mode === 'dark') {
+        settings.setBgImageDark(savedPath);
+        toasts.success(isZh.value ? '已成功应用深色模式专属壁纸' : 'Dark wallpaper applied successfully');
+      } else {
+        settings.setBgImage(savedPath);
+        settings.setBgType('image');
+        toasts.success(isZh.value ? '已成功应用自定义背景壁纸' : 'Wallpaper applied successfully');
+      }
     } catch (e) {
       console.error('Failed to save wallpaper:', e);
-      settings.setBgImage(path);
-      settings.setBgType('image');
+      if (mode === 'dark') {
+        settings.setBgImageDark(path);
+      } else {
+        settings.setBgImage(path);
+        settings.setBgType('image');
+      }
     }
   }
 }
 
-function clearWallpaper() {
-  settings.setBgImage('');
-  if (settings.bgType === 'image') {
-    settings.setBgType('none');
+function clearWallpaper(mode: 'light' | 'dark' = 'light') {
+  if (mode === 'dark') {
+    settings.setBgImageDark('');
+  } else {
+    settings.setBgImage('');
+    if (settings.bgType === 'image' && !settings.bgImageDark) {
+      settings.setBgType('none');
+    }
   }
 }
 
@@ -728,6 +741,21 @@ function onSelectPdfFont(v: string) {
               </div>
             </div>
 
+            <!-- Row: Per-Note Frontmatter Theme Override -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ isZh ? '单篇文档专属主题 (Frontmatter)' : 'Per-Note Frontmatter Theme' }}</span>
+                <p class="setting-row__hint">{{ isZh ? '支持笔记在头部 YAML 中用 theme: newsprint 等声明单篇专属主题' : 'Allow documents to declare theme: newsprint in YAML frontmatter' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.perNoteThemeEnabled"
+                  @change="settings.togglePerNoteThemeEnabled()"
+                />
+              </div>
+            </label>
+
             <!-- Row: Canvas Background -->
             <div class="setting-row">
               <div class="setting-row__info">
@@ -765,24 +793,61 @@ function onSelectPdfFont(v: string) {
               </div>
             </div>
 
-            <!-- Row: Custom Wallpaper Picker -->
+            <!-- Row: Custom Wallpaper Picker (Default/Light) -->
             <div v-if="settings.bgType === 'image'" class="setting-row">
               <div class="setting-row__info">
-                <label class="setting-row__title">{{ isZh ? '壁纸图片' : 'Wallpaper Image' }}</label>
-                <p class="setting-row__hint">{{ settings.bgImage ? (isZh ? '已应用自定义壁纸' : 'Custom wallpaper active') : (isZh ? '支持 JPG、PNG、WebP、GIF 等常见格式' : 'Supports JPG, PNG, WebP, GIF') }}</p>
+                <label class="setting-row__title">{{ isZh ? '默认/浅色壁纸' : 'Default / Light Wallpaper' }}</label>
+                <p class="setting-row__hint">{{ settings.bgImage ? (isZh ? '已应用默认背景壁纸' : 'Default wallpaper active') : (isZh ? '支持 JPG、PNG、WebP、GIF 等常见格式' : 'Supports JPG, PNG, WebP, GIF') }}</p>
               </div>
               <div class="setting-row__control">
                 <div class="setting-actions-row">
-                  <button type="button" class="btn-setting" @click="pickWallpaper">
+                  <button type="button" class="btn-setting" @click="pickWallpaper('light')">
                     {{ isZh ? '选择图片…' : 'Pick Image…' }}
                   </button>
                   <button type="button" class="btn-setting" @click="themesStore.openWallpapersFolder()">
                     {{ isZh ? '壁纸目录' : 'Wallpapers Folder' }}
                   </button>
-                  <button v-if="settings.bgImage" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper">
+                  <button v-if="settings.bgImage" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper('light')">
                     {{ isZh ? '清除' : 'Clear' }}
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Row: Dark Wallpaper Picker (Optional) -->
+            <div v-if="settings.bgType === 'image'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '深色模式专属壁纸 (可选)' : 'Dark Mode Wallpaper (Optional)' }}</label>
+                <p class="setting-row__hint">{{ settings.bgImageDark ? (isZh ? '已配置深色专属壁纸（深色主题下自动激活）' : 'Dedicated dark wallpaper active (auto-switched in dark themes)') : (isZh ? '未设置时深色模式复用默认壁纸' : 'Reuses default wallpaper when not set') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-actions-row">
+                  <button type="button" class="btn-setting" @click="pickWallpaper('dark')">
+                    {{ isZh ? '选择深色图片…' : 'Pick Dark Image…' }}
+                  </button>
+                  <button v-if="settings.bgImageDark" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper('dark')">
+                    {{ isZh ? '清除' : 'Clear' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Wallpaper Display Mode (bgFit) -->
+            <div v-if="settings.bgType === 'image'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '壁纸展示模式' : 'Wallpaper Fit Mode' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '控制壁纸在窗口背景中的缩放与铺展方式' : 'Control how wallpaper fills the window background' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <select
+                  :value="settings.bgFit || 'cover'"
+                  @change="settings.setBgFit(($event.target as HTMLSelectElement).value as any)"
+                >
+                  <option value="cover">{{ isZh ? '居中铺满 (Cover)' : 'Cover (Fill Window)' }}</option>
+                  <option value="contain">{{ isZh ? '完整自适应 (Contain)' : 'Contain (Fit Window)' }}</option>
+                  <option value="stamp">{{ isZh ? '右下角印章水印 (Stamp)' : 'Stamp (Corner Watermark)' }}</option>
+                  <option value="tile">{{ isZh ? '无缝平铺微纹理 (Tile)' : 'Tile (Repeated Pattern)' }}</option>
+                </select>
               </div>
             </div>
 
@@ -949,6 +1014,63 @@ function onSelectPdfFont(v: string) {
                   type="checkbox"
                   :checked="settings.wheelZoomEnabled"
                   @change="settings.toggleWheelZoom()"
+                />
+              </div>
+            </label>
+
+            <!-- Row: Line Height -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '正文行高 (Line Height)' : 'Line Height' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '微调编辑器与阅读排版行间距（默认 1.75）' : 'Fine-tune line height for editor & preview (default 1.75)' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="1.3"
+                    max="2.4"
+                    step="0.05"
+                    :value="settings.lineHeight"
+                    @input="settings.setLineHeight(+($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="setting-val-badge">{{ settings.lineHeight }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Paragraph Spacing -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '段落间距 (Paragraph Spacing)' : 'Paragraph Spacing' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '微调段落上下边距（默认 1.0em）' : 'Spacing between paragraphs (default 1.0em)' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="0.4"
+                    max="2.0"
+                    step="0.1"
+                    :value="settings.paragraphSpacing"
+                    @input="settings.setParagraphSpacing(+($event.target as HTMLInputElement).value)"
+                  />
+                  <span class="setting-val-badge">{{ settings.paragraphSpacing }}em</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Heading Serif Toggle -->
+            <label class="setting-row setting-row--clickable">
+              <div class="setting-row__info">
+                <span class="setting-row__title">{{ isZh ? '标题衬线风 (Newsprint 质感宋体)' : 'Serif Headings (Literary Style)' }}</span>
+                <p class="setting-row__hint">{{ isZh ? '将 H1~H6 各级标题渲染为优雅思源宋体/Georgia，呈现报刊阅读质感' : 'Render H1~H6 headings in elegant Serif typography' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.headingFontSerif"
+                  @change="settings.toggleHeadingFontSerif()"
                 />
               </div>
             </label>

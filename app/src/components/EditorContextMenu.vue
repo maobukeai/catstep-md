@@ -83,16 +83,31 @@ function cancelCloseSubmenu() {
 
 function dispatch(act: string, payload?: any) {
   activeSubmenu.value = null;
-  emit('action', act, payload);
   emit('close');
+  emit('action', act, payload);
 }
 
 // Global click outside / keydown dismiss & keyboard navigation
-function onDocMouseDown(e: MouseEvent) {
+function onDocDismiss(e: Event) {
   const target = e.target as HTMLElement | null;
   if (!target?.closest('.editor-ctx-menu')) {
     emit('close');
   }
+}
+
+function onMenuContainerClick(e: MouseEvent) {
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  if (target === rootRef.value || target.classList.contains('ctx-sep') || target.closest('.ctx-item--disabled')) {
+    emit('close');
+  }
+}
+
+function toggleSubmenu(name: string, event?: MouseEvent) {
+  if (activeSubmenu.value === name) {
+    return;
+  }
+  openSubmenu(name, event);
 }
 
 function clearKeyboardFocus() {
@@ -106,12 +121,17 @@ function onDocMouseMove() {
 
 function onDocKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    emit('close');
+    if (activeSubmenu.value) {
+      e.preventDefault();
+      activeSubmenu.value = null;
+    } else {
+      emit('close');
+    }
     return;
   }
   if (!props.visible) return;
 
-  // Arrow keys navigation
+  // Arrow keys navigation and Enter confirmation
   if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
     const container = activeSubmenu.value
       ? (rootRef.value?.querySelector('.ctx-submenu') as HTMLElement | null)
@@ -153,10 +173,25 @@ function onDocKeyDown(e: KeyboardEvent) {
         activeSubmenu.value = null;
       }
     } else if (e.key === 'Enter') {
+      e.preventDefault();
+      // 1. If an item is focused via keyboard
       if (currentFocused >= 0 && items[currentFocused]) {
-        e.preventDefault();
         items[currentFocused].click();
+        return;
       }
+      // 2. If an item is hovered via mouse
+      const hovered = container.querySelector(':scope > .ctx-item:hover:not(.ctx-item--disabled)') as HTMLElement | null;
+      if (hovered) {
+        hovered.click();
+        return;
+      }
+      // 3. If in a submenu, execute the first actionable item
+      if (activeSubmenu.value && items[0]) {
+        items[0].click();
+        return;
+      }
+      // 4. Default dismiss
+      emit('close');
     }
   }
 }
@@ -166,16 +201,18 @@ function onDocScroll() {
 }
 
 onMounted(() => {
-  document.addEventListener('mousedown', onDocMouseDown, true);
-  window.addEventListener('keydown', onDocKeyDown);
+  document.addEventListener('pointerdown', onDocDismiss, true);
+  document.addEventListener('mousedown', onDocDismiss, true);
+  window.addEventListener('keydown', onDocKeyDown, true);
   window.addEventListener('scroll', onDocScroll, true);
   window.addEventListener('blur', onDocScroll);
   window.addEventListener('resize', onDocScroll);
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', onDocMouseDown, true);
-  window.removeEventListener('keydown', onDocKeyDown);
+  document.removeEventListener('pointerdown', onDocDismiss, true);
+  document.removeEventListener('mousedown', onDocDismiss, true);
+  window.removeEventListener('keydown', onDocKeyDown, true);
   window.removeEventListener('scroll', onDocScroll, true);
   window.removeEventListener('blur', onDocScroll);
   window.removeEventListener('resize', onDocScroll);
@@ -227,6 +264,14 @@ function getSubmenuStyle(name: string) {
 
 <template>
   <Teleport to="body">
+    <!-- Transparent backdrop for 100% reliable click-outside dismiss -->
+    <div
+      v-if="visible"
+      class="editor-ctx-backdrop"
+      @mousedown.stop="emit('close')"
+      @pointerdown.stop="emit('close')"
+      @contextmenu.stop.prevent="emit('close')"
+    />
     <Transition name="ctx-fade">
       <div
         v-if="visible"
@@ -236,7 +281,7 @@ function getSubmenuStyle(name: string) {
         role="menu"
         tabindex="-1"
         @contextmenu.prevent
-        @mousedown.stop
+        @click="onMenuContainerClick"
         @mousemove="onDocMouseMove"
       >
         <!-- ── 1. Basic Clipboard Actions (Clean Minimalist) ── -->
@@ -262,6 +307,7 @@ function getSubmenuStyle(name: string) {
         <div
           class="ctx-item ctx-item--has-sub"
           :class="{ 'ctx-item--disabled': !contextInfo.hasSelection, 'ctx-item--active': activeSubmenu === 'copyAs' }"
+          @click.stop="contextInfo.hasSelection && toggleSubmenu('copyAs', $event)"
           @mouseenter="contextInfo.hasSelection && openSubmenu('copyAs', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
@@ -310,6 +356,7 @@ function getSubmenuStyle(name: string) {
           <div
             class="ctx-item ctx-item--has-sub"
             :class="{ 'ctx-item--active': activeSubmenu === 'table' }"
+            @click.stop="toggleSubmenu('table', $event)"
             @mouseenter="openSubmenu('table', $event)"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -440,6 +487,7 @@ function getSubmenuStyle(name: string) {
           <div
             class="ctx-item ctx-item--has-sub"
             :class="{ 'ctx-item--active': activeSubmenu === 'ai' }"
+            @click.stop="toggleSubmenu('ai', $event)"
             @mouseenter="openSubmenu('ai', $event)"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -477,6 +525,7 @@ function getSubmenuStyle(name: string) {
           <div
             class="ctx-item ctx-item--has-sub"
             :class="{ 'ctx-item--active': activeSubmenu === 'case' }"
+            @click.stop="toggleSubmenu('case', $event)"
             @mouseenter="openSubmenu('case', $event)"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -515,6 +564,7 @@ function getSubmenuStyle(name: string) {
         <div
           class="ctx-item ctx-item--has-sub"
           :class="{ 'ctx-item--active': activeSubmenu === 'insert' }"
+          @click.stop="toggleSubmenu('insert', $event)"
           @mouseenter="openSubmenu('insert', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
@@ -581,6 +631,7 @@ function getSubmenuStyle(name: string) {
         <div
           class="ctx-item ctx-item--has-sub"
           :class="{ 'ctx-item--active': activeSubmenu === 'format' }"
+          @click.stop="toggleSubmenu('format', $event)"
           @mouseenter="openSubmenu('format', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
@@ -639,6 +690,7 @@ function getSubmenuStyle(name: string) {
         <div
           class="ctx-item ctx-item--has-sub"
           :class="{ 'ctx-item--active': activeSubmenu === 'paragraph' }"
+          @click.stop="toggleSubmenu('paragraph', $event)"
           @mouseenter="openSubmenu('paragraph', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
@@ -705,6 +757,7 @@ function getSubmenuStyle(name: string) {
         <div
           class="ctx-item ctx-item--has-sub"
           :class="{ 'ctx-item--active': activeSubmenu === 'select' }"
+          @click.stop="toggleSubmenu('select', $event)"
           @mouseenter="openSubmenu('select', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
@@ -752,10 +805,18 @@ function getSubmenuStyle(name: string) {
 </template>
 
 <style scoped>
+.editor-ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+  pointer-events: auto;
+}
+
 .editor-ctx-menu,
 .ctx-submenu {
   position: fixed;
-  z-index: 10000;
+  z-index: 9999;
   width: 218px;
   background: rgba(255, 255, 255, 0.90);
   backdrop-filter: blur(20px) saturate(180%);
@@ -775,7 +836,7 @@ function getSubmenuStyle(name: string) {
 
 .ctx-submenu {
   position: absolute;
-  z-index: 10001;
+  z-index: 10000;
   width: 208px;
 }
 

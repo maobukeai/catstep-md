@@ -37,6 +37,10 @@ interface Settings {
   solidCursor: boolean;
   // #190 — dedicated code font (code blocks / inline code / mono UI).
   codeFontFamily: string;
+  // Typora-grade typography controls: line-height (1.4~2.4), paragraph spacing (em), and heading serif
+  lineHeight: number;
+  paragraphSpacing: number;
+  headingFontSerif: boolean;
   showOutline: boolean;
   outlineSide: 'left' | 'right';
   // outline heading marker style. 'none' = clean Typora style (default);
@@ -101,8 +105,11 @@ interface Settings {
   customCssPath: string;
   // v5.0 — Catstep Visual & Theme Engine 2.0
   activeCustomThemeId: string;
+  perNoteThemeEnabled: boolean;
   bgType: 'none' | 'texture' | 'image';
   bgImage: string;
+  bgImageDark: string;
+  bgFit: 'cover' | 'contain' | 'stamp' | 'tile';
   bgTexture: 'paper' | 'grid' | 'dots' | 'linen' | '';
   bgBlur: number;
   bgOpacity: number;
@@ -479,6 +486,9 @@ function defaults(): Settings {
     showLineNumbers: true,
     solidCursor: false,
     codeFontFamily: '',
+    lineHeight: 1.75,
+    paragraphSpacing: 1.0,
+    headingFontSerif: false,
     showOutline: false,
     outlineSide: 'right',
     outlineMarker: 'none',
@@ -531,8 +541,11 @@ function defaults(): Settings {
     limitEditorWidth: false,
     customCssPath: '',
     activeCustomThemeId: '',
+    perNoteThemeEnabled: true,
     bgType: 'none',
     bgImage: '',
+    bgImageDark: '',
+    bgFit: 'cover',
     bgTexture: 'dots',
     bgBlur: 0,
     bgOpacity: 25,
@@ -1349,6 +1362,38 @@ export const useSettingsStore = defineStore('settings', {
     },
     setBgOpacity(val: number) {
       this.bgOpacity = Math.max(0, Math.min(100, Math.round(val)));
+      this.persist();
+    },
+    setBgImageDark(path: string) {
+      this.bgImageDark = path;
+      this.persist();
+    },
+    setBgFit(fit: 'cover' | 'contain' | 'stamp' | 'tile') {
+      this.bgFit = fit;
+      this.persist();
+    },
+    setLineHeight(val: number) {
+      this.lineHeight = Math.max(1.2, Math.min(2.8, val));
+      this.persist();
+    },
+    setParagraphSpacing(val: number) {
+      this.paragraphSpacing = Math.max(0.2, Math.min(2.5, val));
+      this.persist();
+    },
+    setHeadingFontSerif(val: boolean) {
+      this.headingFontSerif = val;
+      this.persist();
+    },
+    toggleHeadingFontSerif() {
+      this.headingFontSerif = !this.headingFontSerif;
+      this.persist();
+    },
+    setPerNoteThemeEnabled(val: boolean) {
+      this.perNoteThemeEnabled = val;
+      this.persist();
+    },
+    togglePerNoteThemeEnabled() {
+      this.perNoteThemeEnabled = !this.perNoteThemeEnabled;
       this.persist();
     },
     setBgFrostedCard(val: boolean) {

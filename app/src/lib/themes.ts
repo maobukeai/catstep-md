@@ -211,3 +211,10 @@ export const themeLabels: { value: Theme; label: string }[] = [
   { value: 'dark', label: 'One Dark (标准深灰)' },
 ];
 
+export function isValidTheme(theme: string): theme is Theme {
+  return (
+    themeLabels.some((th) => th.value === theme) ||
+    ['light', 'nord', 'solarized-light', 'solarized-dark', 'monokai'].includes(theme)
+  );
+}
+

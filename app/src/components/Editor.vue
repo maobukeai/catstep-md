@@ -22,7 +22,8 @@ import { yaml } from '@codemirror/lang-yaml';
 import { sql } from '@codemirror/lang-sql';
 import { xml } from '@codemirror/lang-xml';
 import { vim, Vim } from '@replit/codemirror-vim';
-import { cmThemeFor, isDarkTheme } from '../lib/themes';
+import { cmThemeFor, isDarkTheme, isValidTheme } from '../lib/themes';
+import type { Theme } from '../types';
 import { registerPlainSelectionGetter } from '../lib/plain-selection';
 import {
   applyCmInlineFormat,
@@ -2400,10 +2401,26 @@ function richExtensionsFor(tab: Tab) {
   return settings.livePreview ? livePreviewExtension() : richHighlightOnly();
 }
 
+const effectiveEditorTheme = computed<Theme>(() => {
+  if (settings.perNoteThemeEnabled && props.tab?.content) {
+    const match = props.tab.content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (match) {
+      const themeMatch = match[1].match(/^theme:\s*([a-zA-Z0-9_-]+)/m);
+      if (themeMatch) {
+        const candidate = themeMatch[1].trim();
+        if (isValidTheme(candidate)) {
+          return candidate as Theme;
+        }
+      }
+    }
+  }
+  return settings.theme;
+});
+
 const fontSizeTheme = (px: number, family: string) =>
   EditorView.theme({
     '&': { fontSize: `${px}px`, height: '100%' },
-    '.cm-scroller': { fontFamily: buildEditorFontStack(family), lineHeight: '1.6' },
+    '.cm-scroller': { fontFamily: buildEditorFontStack(family), lineHeight: 'var(--content-line-height, 1.75)' },
     '.cm-content': { padding: '12px 16px' },
     '.cm-gutters': {
       backgroundColor: 'transparent',
@@ -2577,7 +2594,7 @@ function buildExtensions() {
     richCompartment.of(
       windowsImeSafeMode ? [] : richExtensionsFor(props.tab),
     ),
-    themeCompartment.of(cmThemeFor(settings.theme)),
+    themeCompartment.of(cmThemeFor(effectiveEditorTheme.value)),
     vimCompartment.of(settings.vimMode ? vim() : []),
     fontSizeCompartment.of(fontSizeTheme(settings.fontSize, settings.fontFamily)),
     spellCheckCompartment.of(spellCheckExt(props.spellCheck)),
@@ -3299,11 +3316,16 @@ function onEditorContextMenu(e: MouseEvent) {
   };
 }
 
-async function onEditorContextMenuAction(action: string, payload?: any) {
+function closeEditorContextMenu() {
   editorContextMenuState.value.visible = false;
+}
+
+async function onEditorContextMenuAction(action: string, payload?: any) {
+  closeEditorContextMenu();
   const info = editorContextMenuState.value.info;
 
-  switch (action) {
+  try {
+    switch (action) {
     case 'cut': {
       if (info.selectedText) {
         try {
@@ -3540,6 +3562,11 @@ async function onEditorContextMenuAction(action: string, payload?: any) {
       }
       break;
     }
+    }
+  } catch (err) {
+    console.error('[Editor] Context menu action error:', err);
+  } finally {
+    closeEditorContextMenu();
   }
 }
 
@@ -4299,7 +4326,7 @@ watch(
 );
 
 watch(
-  () => settings.theme,
+  effectiveEditorTheme,
   (t) => {
     view?.dispatch({ effects: themeCompartment.reconfigure(cmThemeFor(t)) });
   }

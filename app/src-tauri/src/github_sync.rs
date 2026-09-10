@@ -345,7 +345,7 @@ pub async fn github_create_vault_repo(name: String, private: bool) -> Result<Git
         // remote, which simplifies the first push. Without it a brand-new
         // vault would have to push --set-upstream into nothing.
         auto_init: true,
-        description: "Notes vault — synced by SoloMD",
+        description: "Notes vault — synced by Catstep MD",
     };
     api_post("/user/repos", &token, &req).await
 }
@@ -1028,7 +1028,7 @@ pub async fn gitea_create_vault_repo(
         name: &name,
         private,
         auto_init: true,
-        description: "Notes vault — synced by SoloMD",
+        description: "Notes vault — synced by Catstep MD",
     };
     // Gitea uses the same POST /api/v1/user/repos endpoint.
     gitea_api_post(&base, "/api/v1/user/repos", &token, &req).await
@@ -1403,7 +1403,7 @@ fn signature(repo: &Repository) -> Result<Signature<'static>, String> {
     if let Ok(sig) = repo.signature() {
         return Ok(sig.to_owned());
     }
-    Signature::now("SoloMD", "solomd@local").map_err(|e| e.to_string())
+    Signature::now("Catstep MD", "catstep@local").map_err(|e| e.to_string())
 }
 
 #[tauri::command]

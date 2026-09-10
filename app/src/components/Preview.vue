@@ -800,7 +800,7 @@ defineExpose({ scrollToLine, openSearch });
   /* v4.3.0 PR #74 — preview-only font size; driven by settings.previewFontSize
      via the `--content-font-size` CSS custom property set in App.vue. */
   font-size: var(--content-font-size, 15px);
-  line-height: 1.7;
+  line-height: var(--content-line-height, 1.75);
 }
 .preview-content--fit {
   max-width: none;
@@ -809,7 +809,10 @@ defineExpose({ scrollToLine, openSearch });
 :where(.preview-content) h1,
 :where(.preview-content) h2,
 :where(.preview-content) h3,
-:where(.preview-content) h4 {
+:where(.preview-content) h4,
+:where(.preview-content) h5,
+:where(.preview-content) h6 {
+  font-family: var(--heading-font-family, inherit);
   font-weight: 700;
   line-height: 1.25;
   margin: 1.6em 0 0.5em;
@@ -825,7 +828,7 @@ defineExpose({ scrollToLine, openSearch });
   padding-bottom: 0.25em;
 }
 :where(.preview-content) h3 { font-size: 1.2em; }
-:where(.preview-content) p { margin: 0.8em 0; }
+:where(.preview-content) p { margin: var(--content-p-margin, 0.8em) 0; }
 :where(.preview-content) a {
   color: var(--accent);
   text-decoration: none;

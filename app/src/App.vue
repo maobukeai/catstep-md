@@ -473,7 +473,8 @@ function onOutlineGoto(line: number) {
   }));
 }
 
-import { dataThemeFor } from './lib/themes';
+import { dataThemeFor, isValidTheme, isDarkTheme } from './lib/themes';
+import type { Theme } from './types';
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let lastQuotaWarn = 0;
@@ -700,8 +701,44 @@ watchEffect(() => {
   invoke('save_language_preference', { lang: settings.language }).catch(() => {});
 });
 
+// Per-note Frontmatter Theme resolution
+const activeNoteFrontmatterTheme = computed<Theme | null>(() => {
+  if (!settings.perNoteThemeEnabled) return null;
+  const tab = tabs.activeTab;
+  if (!tab || !tab.content) return null;
+  const match = tab.content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return null;
+  const themeMatch = match[1].match(/^theme:\s*([a-zA-Z0-9_-]+)/m);
+  if (!themeMatch) return null;
+  const candidate = themeMatch[1].trim();
+  return isValidTheme(candidate) ? (candidate as Theme) : null;
+});
+
+const currentActiveTheme = computed<Theme>(() => {
+  return activeNoteFrontmatterTheme.value || settings.theme;
+});
+
 watchEffect(() => {
-  document.documentElement.setAttribute('data-theme', dataThemeFor(settings.theme));
+  document.documentElement.setAttribute('data-theme', dataThemeFor(currentActiveTheme.value));
+});
+
+// Typora-grade typography: line height, paragraph spacing, and heading serif styles
+watchEffect(() => {
+  const root = document.documentElement;
+  const lh = settings.lineHeight ?? 1.75;
+  root.style.setProperty('--content-line-height', String(lh));
+
+  const ps = settings.paragraphSpacing ?? 1.0;
+  root.style.setProperty('--content-p-margin', `${ps}em`);
+
+  if (settings.headingFontSerif) {
+    root.style.setProperty(
+      '--heading-font-family',
+      '"Source Han Serif SC", "Noto Serif CJK SC", "Songti SC", "SimSun", Georgia, "Times New Roman", serif',
+    );
+  } else {
+    root.style.removeProperty('--heading-font-family');
+  }
 });
 
 // v2.0: keep the Rust workspace index in sync with the active folder.
@@ -827,22 +864,31 @@ watch(
 );
 
 // ── Catstep MD Visual Canvas & Background Engine ─────────────────────────────
+const effectiveBgImage = computed(() => {
+  const isDark = isDarkTheme(currentActiveTheme.value);
+  if (isDark && settings.bgImageDark) {
+    return settings.bgImageDark;
+  }
+  return settings.bgImage;
+});
+
 const hasActiveBackground = computed(() => {
-  if (settings.bgType === 'image' && !!settings.bgImage) return true;
+  if (settings.bgType === 'image' && !!effectiveBgImage.value) return true;
   if (settings.bgType === 'texture') return true;
   return false;
 });
 
 const bgImageUrl = computed(() => {
-  if (!settings.bgImage) return '';
+  const img = effectiveBgImage.value;
+  if (!img) return '';
   if (
-    settings.bgImage.startsWith('http://') ||
-    settings.bgImage.startsWith('https://') ||
-    settings.bgImage.startsWith('data:')
+    img.startsWith('http://') ||
+    img.startsWith('https://') ||
+    img.startsWith('data:')
   ) {
-    return settings.bgImage;
+    return img;
   }
-  return convertFileSrc(settings.bgImage);
+  return convertFileSrc(img);
 });
 
 const bgTextureClass = computed(() => {
@@ -856,9 +902,24 @@ const bgCanvasStyle = computed(() => {
   const style: Record<string, string> = {};
   if (settings.bgType === 'image' && bgImageUrl.value) {
     style.backgroundImage = `url("${bgImageUrl.value}")`;
-    style.backgroundSize = 'cover';
-    style.backgroundPosition = 'center';
-    style.backgroundRepeat = 'no-repeat';
+    const fit = settings.bgFit || 'cover';
+    if (fit === 'contain') {
+      style.backgroundSize = 'contain';
+      style.backgroundPosition = 'center';
+      style.backgroundRepeat = 'no-repeat';
+    } else if (fit === 'stamp') {
+      style.backgroundSize = 'auto 260px';
+      style.backgroundPosition = 'right 24px bottom 36px';
+      style.backgroundRepeat = 'no-repeat';
+    } else if (fit === 'tile') {
+      style.backgroundSize = 'auto';
+      style.backgroundPosition = 'top left';
+      style.backgroundRepeat = 'repeat';
+    } else {
+      style.backgroundSize = 'cover';
+      style.backgroundPosition = 'center';
+      style.backgroundRepeat = 'no-repeat';
+    }
     const op = typeof settings.bgOpacity === 'number' ? settings.bgOpacity : 25;
     style.opacity = `${Math.max(0, Math.min(100, op)) / 100}`;
     if (settings.bgBlur > 0) {
