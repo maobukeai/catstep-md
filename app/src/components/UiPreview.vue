@@ -20,28 +20,27 @@ import {
 } from '../ui';
 
 const THEMES = [
-  'light',
-  'dark',
-  'nord',
-  'solarized-light',
-  'solarized-dark',
-  'monokai',
   'github-light',
-  'dracula',
   'newsprint',
+  'catppuccin-latte',
+  'sepia',
+  'vue',
   'night',
+  'catppuccin-mocha',
+  'forest',
+  'dracula',
+  'dark',
 ] as const;
 
-const theme = ref<(typeof THEMES)[number]>('light');
+const theme = ref<(typeof THEMES)[number]>('github-light');
 
 function applyTheme(name: string) {
   theme.value = name as (typeof THEMES)[number];
-  if (name === 'light') document.documentElement.removeAttribute('data-theme');
-  else document.documentElement.setAttribute('data-theme', name);
+  document.documentElement.setAttribute('data-theme', name);
 }
 
 function setMode(mode: 'light' | 'dark') {
-  applyTheme(mode);
+  applyTheme(mode === 'light' ? 'github-light' : 'night');
 }
 
 const inputVal = ref('Hello world');

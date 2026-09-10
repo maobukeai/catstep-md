@@ -22,7 +22,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { sql } from '@codemirror/lang-sql';
 import { xml } from '@codemirror/lang-xml';
 import { vim, Vim } from '@replit/codemirror-vim';
-import { cmThemeFor } from '../lib/themes';
+import { cmThemeFor, isDarkTheme } from '../lib/themes';
 import { registerPlainSelectionGetter } from '../lib/plain-selection';
 import {
   applyCmInlineFormat,
@@ -423,7 +423,7 @@ const plainRenderCache = new Map<string, string>();
 mermaid.initialize({
   startOnLoad: false,
   securityLevel: 'strict',
-  theme: settings.theme === 'dark' ? 'dark' : 'default',
+  theme: isDarkTheme(settings.theme) ? 'dark' : 'default',
 });
 
 const plainLiveEnabled = computed(
@@ -702,7 +702,7 @@ async function processPlainLiveRenderedBlocks() {
   const { boardToSvg } = await import('../lib/tldraw-runtime');
   const fences = findTldrawFences(plainText.value || '');
   const theme = {
-    colorScheme: (settings.theme === 'dark' ? 'dark' : 'light') as 'dark' | 'light',
+    colorScheme: (isDarkTheme(settings.theme) ? 'dark' : 'light') as 'dark' | 'light',
     locale: settings.language || 'en',
   };
   for (const block of Array.from(tldrawBlocks)) {
@@ -2369,7 +2369,7 @@ function richExtensionsFor(tab: Tab) {
         getFilePath: () => tab.filePath,
         // F7 — live tldraw whiteboard theme + writeback.
         getBoardTheme: () => ({
-          colorScheme: settings.theme === 'dark' ? 'dark' : 'light',
+          colorScheme: isDarkTheme(settings.theme) ? 'dark' : 'light',
           locale: settings.language || 'en',
         }),
         getTabId: () => tab.id,
@@ -4405,7 +4405,7 @@ watch(
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
-      theme: settings.theme === 'dark' ? 'dark' : 'default',
+      theme: isDarkTheme(settings.theme) ? 'dark' : 'default',
     });
     void processPlainLiveRenderedBlocks();
   },
@@ -5049,7 +5049,7 @@ defineExpose({ gotoLine, insertImageFromPath, insertImageUrl, uploadLocalImages,
 
 const cls = computed(() => ({
   'cm-host': true,
-  'cm-host--dark': settings.theme === 'dark',
+  'cm-host--dark': isDarkTheme(settings.theme),
   // #109 — constrain the editing column to a centered readable width.
   'cm-host--limit-width': settings.limitEditorWidth,
   // #211 — soft-wrap fenced code in the LIVE-rendered blocks too. Only

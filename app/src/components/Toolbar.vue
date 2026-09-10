@@ -13,7 +13,7 @@ import { useViewport } from '../composables/useViewport';
 import { shortcutLabel } from '../lib/keybindings';
 import { useExport } from '../composables/useExport';
 import { useToastsStore } from '../stores/toasts';
-import { cleanAIArtifacts } from '../lib/clean-ai';
+import { cleanAIArtifactsWithReport, formatCleanReport } from '../lib/clean-ai';
 import { useI18n } from '../i18n';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
@@ -22,7 +22,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { forceWinChromePreview, isIOS, isMacOS, isWindowsDesktop } from '../lib/platform';
 import { EditorView } from '@codemirror/view';
-import { themeLabels } from '../lib/themes';
+import { themeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
 import type { Theme } from '../types';
 
 const { t } = useI18n();
@@ -43,9 +43,7 @@ const exporter = useExport();
 const toasts = useToastsStore();
 
 const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
-const isDarkTheme = computed(() =>
-  ['dark', 'night', 'nord', 'solarized-dark', 'monokai', 'dracula'].includes(settings.theme)
-);
+const isDarkTheme = computed(() => checkIsDarkTheme(settings.theme));
 
 const { isNarrow } = useViewport();
 
@@ -113,13 +111,64 @@ function onCleanAI() {
     toasts.warning(t('toast.noActiveDoc'));
     return;
   }
-  const cleaned = cleanAIArtifacts(tab.content);
-  if (cleaned === tab.content) {
-    toasts.info(t('toast.noAi'));
+
+  // 1. Find active CodeMirror editor and check if user selected text
+  const editors = [
+    document.querySelector<HTMLElement>('.cm-editor.cm-focused'),
+    ...Array.from(document.querySelectorAll<HTMLElement>('.cm-editor')),
+  ].filter((e): e is HTMLElement => e != null);
+
+  let targetView: EditorView | null = null;
+  let range: { from: number; to: number; text: string } | null = null;
+
+  for (const el of editors) {
+    const view = EditorView.findFromDOM(el);
+    if (!view) continue;
+    const main = view.state.selection.main;
+    if (!main.empty) {
+      const text = view.state.sliceDoc(main.from, main.to);
+      if (text.trim()) {
+        targetView = view;
+        range = { from: main.from, to: main.to, text };
+        break;
+      }
+    } else if (!targetView) {
+      targetView = view;
+    }
+  }
+
+  const isSelection = !!range;
+  const originalText = range ? range.text : tab.content;
+  const report = cleanAIArtifactsWithReport(originalText);
+
+  if (report.count === 0 || report.text === originalText) {
+    toasts.info(
+      isZh.value
+        ? (isSelection ? '选中文本中未发现 AI 格式痕迹' : '未发现 AI 格式痕迹')
+        : t('toast.noAi'),
+    );
     return;
   }
-  tabs.setContent(tab.id, cleaned);
-  toasts.success(t('toast.aiCleaned'));
+
+  // 2. Dispatch changes through CodeMirror (preserves Ctrl+Z undo history)
+  if (targetView) {
+    if (range) {
+      targetView.dispatch({
+        changes: { from: range.from, to: range.to, insert: report.text },
+      });
+    } else {
+      targetView.dispatch({
+        changes: { from: 0, to: targetView.state.doc.length, insert: report.text },
+      });
+    }
+    targetView.focus();
+  } else {
+    tabs.setContent(tab.id, report.text);
+  }
+
+  // 3. User-facing feedback with precise cleanup summary
+  const reportMsg = formatCleanReport(report, isZh.value, isSelection);
+  toasts.success(reportMsg);
 }
 
 function onAIRewrite() {
@@ -264,7 +313,6 @@ function openImageUrlDialog() {
 }
 
 function closeAllDropdowns() {
-  pomoOpen.value = false;
   menubarOpen.value = null;
 }
 
@@ -372,6 +420,7 @@ function menuAction(id: string) {
   else if (id === 'tools.agent') toggleAiDrawer();
   else if (id === 'tools.cmdPalette') emit('open-palette');
   else if (id === 'tools.pomodoro') togglePomo();
+  else if (id === 'tools.pomodoroPip') void invoke('pip_timer_open');
   else if (id === 'view.settings') emit('open-settings');
   else if (id === 'help.markdown') emit('open-help');
   else if (id === 'help.about') emit('open-about');
@@ -503,7 +552,8 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'tools.cjkProofread', label: isZh ? '中英文排版规范校对' : 'CJK Proofread', shortcut: 'F6' },
       { id: 'tools.cleanAI', label: isZh ? '一键清理 AI 格式痕迹' : 'Clean AI Artifacts' },
       { id: 'tools.cmdPalette', label: isZh ? '命令面板' : 'Command Palette', shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) || 'Ctrl+Shift+P' },
-      { id: 'tools.pomodoro', label: isZh ? '番茄钟专注计时' : 'Pomodoro Timer' },
+      { id: 'tools.pomodoro', label: isZh ? '专注计时 (应用内浮窗)' : 'Focus Timer (In-App)' },
+      { id: 'tools.pomodoroPip', label: isZh ? '桌面画中画小窗 (全局置顶)' : 'Desktop Picture-in-Picture' },
     ],
     help: [
       { id: 'help.markdown', label: isZh ? 'Markdown 语法速查' : 'Markdown Reference', shortcut: shortcutLabel('help.markdown', settings.keybindings, macChord) || 'F1' },
@@ -597,15 +647,26 @@ function onScrollAnywhere(e: Event) {
   closeAllDropdowns();
 }
 
+function onTogglePomodoroEvent() {
+  togglePomo();
+}
+function onOpenPomodoroEvent() {
+  pomoOpen.value = true;
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocClick, true);
   window.addEventListener('resize', onViewportChange);
   window.addEventListener('scroll', onScrollAnywhere, true);
+  window.addEventListener('solomd:toggle-pomodoro', onTogglePomodoroEvent);
+  window.addEventListener('solomd:open-pomodoro', onOpenPomodoroEvent);
 });
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick, true);
   window.removeEventListener('resize', onViewportChange);
   window.removeEventListener('scroll', onScrollAnywhere, true);
+  window.removeEventListener('solomd:toggle-pomodoro', onTogglePomodoroEvent);
+  window.removeEventListener('solomd:open-pomodoro', onOpenPomodoroEvent);
 });
 </script>
 
@@ -1057,6 +1118,28 @@ onBeforeUnmount(() => {
 }
 .killer-capsule--ai.is-active .killer-capsule__svg {
   color: currentColor;
+}
+/* Pomodoro capsule: matches project theme blue when active */
+.killer-capsule--pomo.is-active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #2563eb;
+  font-weight: 600;
+}
+.killer-capsule--pomo.is-active:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+.killer-capsule--pomo.is-active.is-dark {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.6);
+  color: #60a5fa;
+}
+.killer-capsule--pomo.is-active.is-dark:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #60a5fa;
+  color: #60a5fa;
 }
 .killer-capsule__svg {
   display: block;

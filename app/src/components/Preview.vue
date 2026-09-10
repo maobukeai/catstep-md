@@ -27,6 +27,7 @@ import {
   type TableAlign,
 } from '../lib/markdown-table';
 import { openTableEditor } from '../lib/table-editor-bus';
+import { isDarkTheme } from '../lib/themes';
 
 const props = withDefaults(
   defineProps<{
@@ -146,7 +147,11 @@ function onMathKeydown(e: KeyboardEvent) {
 
 let mermaidIdSeq = 0;
 
-mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' });
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: 'strict',
+  theme: isDarkTheme(settings.theme) ? 'dark' : 'default',
+});
 
 const html = computed(() => {
   // #141 — establish a reactive dep on the hard-breaks toggle so flipping the
@@ -232,7 +237,7 @@ async function processWhiteboards() {
   const { findTldrawFences } = await import('../lib/tldraw-board');
   const fences = findTldrawFences(props.source || '');
   const theme = {
-    colorScheme: (settings.theme === 'dark' ? 'dark' : 'light') as 'dark' | 'light',
+    colorScheme: (isDarkTheme(settings.theme) ? 'dark' : 'light') as 'dark' | 'light',
     locale: settings.language || 'en',
   };
   const list = Array.from(blocks);
@@ -290,7 +295,7 @@ async function processWhiteboards() {
 watch(
   () => settings.theme,
   (t) => {
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: t === 'dark' ? 'dark' : 'default' });
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDarkTheme(t) ? 'dark' : 'default' });
   }
 );
 

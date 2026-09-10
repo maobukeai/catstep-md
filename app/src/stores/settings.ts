@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { Theme, ViewMode } from '../types';
 import { isIOS, isMobile } from '../lib/platform';
+import { isDarkTheme } from '../lib/themes';
 
 const LS_KEY = 'solomd.settings.v1';
 
@@ -575,7 +576,7 @@ function defaults(): Settings {
     showWorkspaceDailyTotal: false,
     pdfDefaults: defaultPdfDefaults(),
     pomodoroShowControls: true,
-    pomodoroAutoEngageFocus: true,
+    pomodoroAutoEngageFocus: false,
     pomodoroDefaultMinutes: 25,
     slashCommandsEnabled: true,
     imageExportBranding: true,
@@ -690,6 +691,12 @@ function load(): Settings {
         merged.showAgentPanel = true;
         merged.v4AgentPanelMigrated = true;
       }
+      if (merged.showAgentPanel && (!merged.sideSidebarWidth || merged.sideSidebarWidth <= 260)) {
+        merged.sideSidebarWidth = 440;
+      }
+      if (merged.fileTreeWidth && merged.fileTreeWidth < 220) {
+        merged.fileTreeWidth = 240;
+      }
       // v4.3.x — file tree default flipped to "on" for desktop. Existing
       // installs (where the saved blob has the key as `false`) get the
       // sidebar opened once on next launch; mobile is skipped so phones
@@ -752,6 +759,17 @@ function load(): Settings {
       if (typeof parsed.catstepTourV2Migrated === 'boolean') {
         merged.catstepTourV2Migrated = parsed.catstepTourV2Migrated;
       }
+      // Migrate legacy/removed themes to corresponding top-tier themes
+      const legacyThemeMap: Record<string, Theme> = {
+        light: 'github-light',
+        nord: 'catppuccin-mocha',
+        'solarized-light': 'sepia',
+        'solarized-dark': 'night',
+        monokai: 'catppuccin-mocha',
+      };
+      if (merged.theme && legacyThemeMap[merged.theme]) {
+        merged.theme = legacyThemeMap[merged.theme];
+      }
       return merged;
     }
   } catch {}
@@ -775,7 +793,7 @@ export const useSettingsStore = defineStore('settings', {
       this.persist();
     },
     toggleTheme() {
-      const isCurrentlyDark = ['dark', 'night', 'nord', 'solarized-dark', 'monokai', 'dracula'].includes(this.theme);
+      const isCurrentlyDark = isDarkTheme(this.theme);
       this.setTheme(isCurrentlyDark ? 'github-light' : 'night');
     },
     setStartupViewMode(mode: ViewMode | null) {
@@ -936,6 +954,10 @@ export const useSettingsStore = defineStore('settings', {
       this.rightSidebarHidden = false;
       if (tab === 'agent') {
         this.showAgentPanel = true;
+        this.showHistoryPanel = false;
+        if (this.sideSidebarWidth < 360) {
+          this.sideSidebarWidth = 440;
+        }
       } else if (tab === 'history') {
         this.showHistoryPanel = true;
         this.autoGitEnabled = true;
@@ -1169,6 +1191,9 @@ export const useSettingsStore = defineStore('settings', {
           }
         }
       }
+      if (this.showAgentPanel && this.sideSidebarWidth < 360) {
+        this.sideSidebarWidth = 440;
+      }
       this.persist();
     },
     toggleAgentAllowWrite() {
@@ -1181,16 +1206,16 @@ export const useSettingsStore = defineStore('settings', {
       this.persist();
     },
     setSideSidebarWidth(w: number) {
-      // Reasonable bounds — narrower than 220 hides text, wider than 800
+      // Reasonable bounds — narrower than 200 hides text, wider than 800
       // eats too much editor space.
-      const clean = Math.max(220, Math.min(800, Math.round(w) || 260));
+      const clean = Math.max(200, Math.min(800, Math.round(w) || 260));
       this.sideSidebarWidth = clean;
       this.persist();
     },
     setFileTreeWidth(w: number) {
-      // Reasonable bounds — narrower than 180 hides text, wider than 600
+      // Reasonable bounds — narrower than 220 wraps tab text, wider than 600
       // eats too much editor space.
-      const clean = Math.max(180, Math.min(600, Math.round(w) || 240));
+      const clean = Math.max(220, Math.min(600, Math.round(w) || 240));
       this.fileTreeWidth = clean;
       this.persist();
     },

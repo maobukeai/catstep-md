@@ -9,16 +9,22 @@ export type Language = 'markdown' | 'plaintext';
 // auto-applies on iOS when the `readingByDefaultOnMobile` setting is on.
 export type ViewMode = 'edit' | 'preview' | 'split' | 'liveEdit' | 'reading';
 export type Theme =
-  | 'light'
+  | 'github-light'
+  | 'newsprint'
+  | 'catppuccin-latte'
+  | 'sepia'
+  | 'vue'
+  | 'night'
+  | 'catppuccin-mocha'
+  | 'forest'
+  | 'dracula'
   | 'dark'
+  // Legacy aliases
+  | 'light'
   | 'nord'
   | 'solarized-light'
   | 'solarized-dark'
-  | 'monokai'
-  | 'github-light'
-  | 'dracula'
-  | 'newsprint'
-  | 'night';
+  | 'monokai';
 
 export interface Tab {
   id: string;
