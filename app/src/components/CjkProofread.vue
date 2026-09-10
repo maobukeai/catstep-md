@@ -121,6 +121,9 @@ watch(
       ignoredKeys.value.clear();
       isMinimized.value = false;
       isPeeking.value = false;
+      fixedCount.value = 0;
+      customSuggestions.value = {};
+      editingKey.value = null;
       resetPosition();
       await rescan();
       track('cjk_proofread_opened');
@@ -324,25 +327,103 @@ function jumpTo(issue: Issue, idx: number) {
   );
 }
 
+const customSuggestions = ref<Record<string, string>>({});
+const editingKey = ref<string | null>(null);
+const customInput = ref('');
+const fixedCount = ref(0);
+
+function startEditSuggestion(issue: Issue) {
+  editingKey.value = issueKey(issue);
+  customInput.value = customSuggestions.value[issueKey(issue)] ?? issue.suggestion;
+}
+
+function saveCustomSuggestion(issue: Issue) {
+  if (customInput.value.trim()) {
+    customSuggestions.value[issueKey(issue)] = customInput.value.trim();
+  }
+  editingKey.value = null;
+}
+
+function cancelCustom() {
+  editingKey.value = null;
+}
+
+function jumpAndMinimize(issue: Issue) {
+  const idx = issues.value.indexOf(issue);
+  jumpTo(issue, idx);
+  isMinimized.value = true;
+  toasts.info('已定位至正文并收起面板，可直接在正文中编辑；右下角悬浮胶囊随时展开');
+}
+
+function nextIssue() {
+  if (visibleIssues.value.length === 0) return;
+  const curIdx = visibleIssues.value.findIndex((i) => issues.value.indexOf(i) === selectedIdx.value);
+  const nextIdx = curIdx < visibleIssues.value.length - 1 ? curIdx + 1 : 0;
+  const target = visibleIssues.value[nextIdx];
+  jumpTo(target, issues.value.indexOf(target));
+}
+
+function prevIssue() {
+  if (visibleIssues.value.length === 0) return;
+  const curIdx = visibleIssues.value.findIndex((i) => issues.value.indexOf(i) === selectedIdx.value);
+  const prevIdx = curIdx > 0 ? curIdx - 1 : visibleIssues.value.length - 1;
+  const target = visibleIssues.value[prevIdx];
+  jumpTo(target, issues.value.indexOf(target));
+}
+
+function applyCurrent() {
+  if (visibleIssues.value.length === 0) return;
+  const target = visibleIssues.value.find((i) => issues.value.indexOf(i) === selectedIdx.value) || visibleIssues.value[0];
+  if (target) {
+    applyOne(target);
+  }
+}
+
+function ignoreCategory(cat: Issue['category']) {
+  let count = 0;
+  for (const i of issues.value) {
+    if (i.category === cat) {
+      ignoredKeys.value.add(issueKey(i));
+      count++;
+    }
+  }
+  toasts.info(`已忽略全部 ${count} 处「${categoryLabel(cat)}」规范建议`);
+}
+
 /** Apply ONE issue to the active tab content. */
 function applyOne(issue: Issue) {
   const tab = tabs.activeTab;
   if (!tab) return;
   const text = tab.content ?? '';
+  const replacement = customSuggestions.value[issueKey(issue)] ?? issue.suggestion;
+
+  // 1. Precise character-level replacement
+  const { from, to } = getIssueCharRange(issue, text);
+  if (from >= 0 && to >= from && text.slice(from, to) === issue.original) {
+    const next = text.slice(0, from) + replacement + text.slice(to);
+    tabs.setContent(tab.id, next);
+    fixedCount.value++;
+    toasts.success(t('proofread.appliedToast', { n: 1 }));
+    track('cjk_proofread_apply', { category: issue.category, severity: issue.severity });
+    return;
+  }
+
+  // 2. Byte offset fallback
   const enc = new TextEncoder();
   const dec = new TextDecoder();
   const bytes = enc.encode(text);
-  if (issue.col_start > bytes.length || issue.col_end > bytes.length) {
-    toasts.warning('Issue out of range — please rescan');
+  if (issue.col_start <= bytes.length && issue.col_end <= bytes.length) {
+    const before = dec.decode(bytes.slice(0, issue.col_start));
+    const after = dec.decode(bytes.slice(issue.col_end));
+    const next = before + replacement + after;
+    tabs.setContent(tab.id, next);
+    fixedCount.value++;
+    toasts.success(t('proofread.appliedToast', { n: 1 }));
+    track('cjk_proofread_apply', { category: issue.category, severity: issue.severity });
     return;
   }
-  const before = dec.decode(bytes.slice(0, issue.col_start));
-  const after = dec.decode(bytes.slice(issue.col_end));
-  const next = before + issue.suggestion + after;
-  tabs.setContent(tab.id, next);
-  toasts.success(t('proofread.appliedToast', { n: 1 }));
-  track('cjk_proofread_apply', { category: issue.category, severity: issue.severity });
-  // The watcher on `tab.content` will trigger a rescan automatically.
+
+  toasts.warning('文本已变动，请重新扫描');
 }
 
 /** Apply all issues at a given severity in one batch. We walk the
@@ -387,6 +468,7 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
   const next = dec.decode(bytes);
   if (next === tab.content) return;
   tabs.setContent(tab.id, next);
+  fixedCount.value += applied;
   toasts.success(t('proofread.appliedToast', { n: applied }));
   track('cjk_proofread_apply_all', { severity, count: applied });
 }
@@ -455,26 +537,83 @@ onBeforeUnmount(() => {
 // `lang` is referenced so the i18n re-renders when the user
 // flips language while the panel is open.
 void lang;
+void startEditSuggestion;
+void saveCustomSuggestion;
+void cancelCustom;
+void jumpAndMinimize;
+void nextIssue;
+void prevIssue;
+void applyCurrent;
+void ignoreCategory;
 </script>
 
 <template>
   <Teleport to="body">
-    <!-- Minimized floating capsule in bottom-right corner -->
+    <!-- Floating Minimized Pill Mode -->
     <div
       v-if="open && isMinimized"
       class="proof__pill"
-      @click="isMinimized = false"
-      title="点击展开排版校对弹窗"
+      :class="{ 'has-issues': visibleIssues.length > 0 }"
+      title="中文排版校对小胶囊"
     >
-      <div class="proof__pill-icon">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 20h9"></path>
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-        </svg>
+      <div class="proof__pill-main" @click="isMinimized = false" title="点击展开完整校对窗口">
+        <div class="proof__pill-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </div>
+        <span class="proof__pill-label">中文校对</span>
+        <span class="proof__pill-badge" v-if="visibleIssues.length">{{ visibleIssues.length }}</span>
+        <span class="proof__pill-clean" v-else>已清洁 ✨</span>
       </div>
-      <span class="proof__pill-label">中文校对</span>
-      <span class="proof__pill-badge" v-if="visibleIssues.length">{{ visibleIssues.length }}</span>
-      <button class="proof__pill-close" @click.stop="emit('close')" aria-label="关闭">×</button>
+
+      <div class="proof__pill-nav" v-if="visibleIssues.length > 0">
+        <button
+          class="proof__pill-btn"
+          @click.stop="prevIssue"
+          title="定位上一处错误 (↑ / k)"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <button
+          class="proof__pill-btn proof__pill-btn--apply"
+          @click.stop="applyCurrent"
+          title="修复当前项 (Enter)"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span>修复</span>
+        </button>
+        <button
+          class="proof__pill-btn"
+          @click.stop="nextIssue"
+          title="定位下一处错误 (↓ / j)"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <div class="proof__pill-controls">
+        <button
+          class="proof__pill-icon-btn"
+          @click.stop="isMinimized = false"
+          title="展开完整校对窗口"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+        <button class="proof__pill-close" @click.stop="emit('close')" aria-label="关闭" title="退出校对">×</button>
+      </div>
     </div>
 
     <!-- Full Centered Modal Dialog (The classic layout the user loves!) -->
@@ -698,6 +837,8 @@ void lang;
                 class="proof__card"
                 :class="{ 'proof__card--selected': selectedIdx === issues.indexOf(issue) }"
                 @click="jumpTo(issue, issues.indexOf(issue))"
+                @dblclick="jumpAndMinimize(issue)"
+                title="单击在正文中定位；双击定位并收起窗口进行编辑"
               >
                 <!-- Card Header: Meta Tags & Action Buttons -->
                 <div class="proof__card-top">
@@ -716,6 +857,24 @@ void lang;
                   </div>
 
                   <div class="proof__card-actions">
+                    <button
+                      class="btn btn--goto"
+                      @click.stop="jumpAndMinimize(issue)"
+                      title="定位至正文并收起面板，直接在正文中手打修改"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                      </svg>
+                      <span>前往编辑</span>
+                    </button>
+                    <button
+                      class="btn btn--ignore-cat"
+                      @click.stop="ignoreCategory(issue.category)"
+                      :title="`忽略本文档内全部「${categoryLabel(issue.category)}」建议`"
+                    >
+                      忽略同类
+                    </button>
                     <button
                       class="btn btn--ignore"
                       @click.stop="ignoreOne(issue)"
@@ -751,8 +910,36 @@ void lang;
                   </div>
 
                   <div class="proof__diff-pane proof__diff-pane--to">
-                    <span class="proof__diff-badge">规范建议</span>
-                    <span class="proof__diff-text">{{ issue.suggestion }}</span>
+                    <div class="proof__diff-to-head">
+                      <span class="proof__diff-badge">规范建议</span>
+                      <button
+                        class="proof__diff-edit-btn"
+                        @click.stop="editingKey === issueKey(issue) ? cancelCustom() : startEditSuggestion(issue)"
+                        :title="editingKey === issueKey(issue) ? '取消自定义' : '自定义修改建议词'"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M12 20h9"></path>
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        <span>{{ editingKey === issueKey(issue) ? '取消' : '自定义' }}</span>
+                      </button>
+                    </div>
+
+                    <div v-if="editingKey === issueKey(issue)" class="proof__diff-edit-box" @click.stop>
+                      <input
+                        v-model="customInput"
+                        class="proof__diff-input"
+                        @keydown.enter.stop="saveCustomSuggestion(issue)"
+                        @keydown.esc.stop="cancelCustom"
+                        autofocus
+                        placeholder="输入自定义替换词..."
+                      />
+                      <button class="btn btn--primary btn--micro" @click.stop="saveCustomSuggestion(issue)">保存</button>
+                    </div>
+                    <span v-else class="proof__diff-text">
+                      {{ customSuggestions[issueKey(issue)] ?? issue.suggestion }}
+                      <span v-if="customSuggestions[issueKey(issue)]" class="proof__custom-tag">(自定义)</span>
+                    </span>
                   </div>
                 </div>
 
@@ -792,9 +979,12 @@ void lang;
             <span class="proof__kbd-label">忽略</span>
             <span class="proof__kbd">Esc</span>
             <span class="proof__kbd-label">退出</span>
+            <span class="proof__foot-hint">· 双击卡片快速定位正文编辑</span>
           </div>
-          <div class="proof__foot-stats" v-if="visibleIssues.length">
-            <span>当前余 {{ visibleIssues.length }} 处</span>
+          <div class="proof__foot-stats">
+            <span v-if="fixedCount > 0" class="proof__fixed-badge">已修复 {{ fixedCount }} 处</span>
+            <span v-if="visibleIssues.length">当前余 {{ visibleIssues.length }} 处</span>
+            <span v-else class="proof__clean-badge">全部处理完成 ✨</span>
           </div>
         </footer>
       </div>
@@ -1670,6 +1860,195 @@ void lang;
   background: var(--bg-hover);
   color: var(--text);
   border-color: var(--accent);
+}
+
+/* Enhanced Pill Navigation & Controls */
+.proof__pill-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.proof__pill-clean {
+  font-size: 11.5px;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.proof__pill-nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.proof__pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.proof__pill-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.proof__pill-btn--apply {
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  color: var(--accent, #6366f1);
+  font-weight: 600;
+}
+
+.proof__pill-btn--apply:hover {
+  background: var(--accent, #6366f1);
+  color: #ffffff;
+}
+
+.proof__pill-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
+.proof__pill-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.proof__pill-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Card Goto & Ignore-Cat Buttons */
+.btn--goto {
+  background: color-mix(in srgb, #3b82f6 10%, transparent);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #3b82f6;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-weight: 500;
+}
+
+.btn--goto:hover {
+  background: color-mix(in srgb, #3b82f6 20%, transparent);
+  border-color: #3b82f6;
+}
+
+.btn--ignore-cat {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+
+.btn--ignore-cat:hover {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+/* Inline Custom Suggestion Editing */
+.proof__diff-to-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.proof__diff-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.proof__diff-edit-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.proof__diff-edit-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.proof__diff-input {
+  flex: 1;
+  padding: 3px 8px;
+  font-size: 12.5px;
+  font-family: inherit;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+
+.btn--micro {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+.proof__custom-tag {
+  font-size: 10.5px;
+  color: var(--accent);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+/* Footer stats & hints */
+.proof__fixed-badge {
+  font-size: 11px;
+  color: #10b981;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.proof__clean-badge {
+  font-size: 11.5px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.proof__foot-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: 4px;
 }
 
 .spin {

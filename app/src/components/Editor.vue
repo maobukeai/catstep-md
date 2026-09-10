@@ -4429,6 +4429,7 @@ function gotoLine(line: number, from?: number, to?: number) {
       effects: EditorView.scrollIntoView(safeFrom, { y: 'center', yMargin: 60 }),
     });
     view.focus();
+    triggerJumpPulse();
     return;
   }
   const safe = Math.max(1, Math.min(line, view.state.doc.lines));
@@ -4438,6 +4439,17 @@ function gotoLine(line: number, from?: number, to?: number) {
     effects: EditorView.scrollIntoView(lineObj.from, { y: 'start', yMargin: 40 }),
   });
   view.focus();
+  triggerJumpPulse();
+}
+
+let pulseTimer: any = null;
+function triggerJumpPulse() {
+  if (!view) return;
+  view.dom.classList.add('cm-jump-pulse');
+  if (pulseTimer) clearTimeout(pulseTimer);
+  pulseTimer = setTimeout(() => {
+    view?.dom.classList.remove('cm-jump-pulse');
+  }, 1200);
 }
 
 async function insertImageFromPath(srcPath: string): Promise<void> {
@@ -5471,5 +5483,34 @@ const cls = computed(() => ({
 .plain-block__render :deep(.plain-block__broken) {
   color: var(--danger);
   white-space: pre-wrap;
+}
+
+:deep(.cm-editor.cm-jump-pulse .cm-activeLine) {
+  animation: cmLineGlow 1.2s ease-out;
+}
+:deep(.cm-editor.cm-jump-pulse .cm-selectionBackground) {
+  animation: cmSelGlow 1.2s ease-out;
+}
+@keyframes cmLineGlow {
+  0% {
+    background-color: color-mix(in srgb, var(--accent, #6366f1) 25%, transparent) !important;
+  }
+  50% {
+    background-color: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent) !important;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+@keyframes cmSelGlow {
+  0% {
+    box-shadow: 0 0 0 2px var(--accent, #6366f1), 0 0 12px rgba(99, 102, 241, 0.5);
+  }
+  60% {
+    box-shadow: 0 0 0 1px var(--accent, #6366f1), 0 0 6px rgba(99, 102, 241, 0.25);
+  }
+  100% {
+    box-shadow: none;
+  }
 }
 </style>
