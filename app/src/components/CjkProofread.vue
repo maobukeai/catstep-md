@@ -65,22 +65,48 @@ const activeFilter = ref<'all' | 'high' | 'medium' | 'low'>('all');
 const activeCategory = ref<string | null>(null);
 const ignoredKeys = ref<Set<string>>(new Set());
 
-// Layout mode: 'docked' (sleek right inspector float) vs 'center' (centered dialog)
-const layoutMode = ref<'docked' | 'center'>(
-  (localStorage.getItem('solomd:proofread-layout') as 'docked' | 'center') || 'docked',
-);
+// User-experience enhancements: Drag, Peek, Minimize
+const isMinimized = ref(false);
+const isPeeking = ref(false);
+const offsetX = ref(0);
+const offsetY = ref(0);
+let isDragging = false;
+let startPointerX = 0;
+let startPointerY = 0;
+let initialOffsetX = 0;
+let initialOffsetY = 0;
 
-function toggleLayout() {
-  layoutMode.value = layoutMode.value === 'docked' ? 'center' : 'docked';
-  try {
-    localStorage.setItem('solomd:proofread-layout', layoutMode.value);
-  } catch {}
+function onHeaderPointerDown(e: PointerEvent) {
+  if ((e.target as HTMLElement).closest('button, input, a, .proof__tab')) return;
+  isDragging = true;
+  startPointerX = e.clientX;
+  startPointerY = e.clientY;
+  initialOffsetX = offsetX.value;
+  initialOffsetY = offsetY.value;
+  (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
+  window.addEventListener('pointermove', onHeaderPointerMove);
+  window.addEventListener('pointerup', onHeaderPointerUp);
 }
 
-function onBackdropClick() {
-  if (layoutMode.value === 'center') {
-    emit('close');
-  }
+function onHeaderPointerMove(e: PointerEvent) {
+  if (!isDragging) return;
+  offsetX.value = initialOffsetX + (e.clientX - startPointerX);
+  offsetY.value = initialOffsetY + (e.clientY - startPointerY);
+}
+
+function onHeaderPointerUp(e: PointerEvent) {
+  if (!isDragging) return;
+  isDragging = false;
+  try {
+    (e.currentTarget as HTMLElement)?.releasePointerCapture?.(e.pointerId);
+  } catch {}
+  window.removeEventListener('pointermove', onHeaderPointerMove);
+  window.removeEventListener('pointerup', onHeaderPointerUp);
+}
+
+function resetPosition() {
+  offsetX.value = 0;
+  offsetY.value = 0;
 }
 
 const issueKey = (i: Issue) => `${i.line}:${i.col_start}:${i.col_end}:${i.original}`;
@@ -93,6 +119,9 @@ watch(
       activeFilter.value = 'all';
       activeCategory.value = null;
       ignoredKeys.value.clear();
+      isMinimized.value = false;
+      isPeeking.value = false;
+      resetPosition();
       await rescan();
       track('cjk_proofread_opened');
     }
@@ -371,26 +400,44 @@ void lang;
 
 <template>
   <Teleport to="body">
+    <!-- Minimized floating capsule in bottom-right corner -->
     <div
-      v-if="open"
+      v-if="open && isMinimized"
+      class="proof__pill"
+      @click="isMinimized = false"
+      title="点击展开排版校对弹窗"
+    >
+      <div class="proof__pill-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"></path>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+        </svg>
+      </div>
+      <span class="proof__pill-label">中文校对</span>
+      <span class="proof__pill-badge" v-if="visibleIssues.length">{{ visibleIssues.length }}</span>
+      <button class="proof__pill-close" @click.stop="emit('close')" aria-label="关闭">×</button>
+    </div>
+
+    <!-- Full Centered Modal Dialog (The classic layout the user loves!) -->
+    <div
+      v-else-if="open"
       class="proof__backdrop"
-      :class="{
-        'proof__backdrop--docked': layoutMode === 'docked',
-        'proof__backdrop--center': layoutMode === 'center',
-      }"
-      @click.self="onBackdropClick"
+      :class="{ 'is-peeking': isPeeking }"
+      @click.self="emit('close')"
     >
       <div
         class="proof"
-        :class="{
-          'proof--docked': layoutMode === 'docked',
-          'proof--center': layoutMode === 'center',
-        }"
+        :class="{ 'is-peeking': isPeeking }"
+        :style="{ transform: `translate(${offsetX}px, ${offsetY}px)` }"
         role="dialog"
         aria-label="中文排版校对"
       >
-        <!-- Modern Header -->
-        <header class="proof__head">
+        <!-- Modern Header (Draggable) -->
+        <header
+          class="proof__head"
+          @pointerdown="onHeaderPointerDown"
+          title="按住此处可拖动弹窗位置"
+        >
           <div class="proof__head-main">
             <div class="proof__icon-badge">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -402,7 +449,7 @@ void lang;
               <div class="proof__title-row">
                 <h2 class="proof__title">{{ t('proofread.heading') }}</h2>
                 <span class="proof__count-badge" v-if="visibleIssues.length">
-                  共 {{ visibleIssues.length }} 处
+                  共 {{ visibleIssues.length }} 处规范建议
                 </span>
               </div>
               <p class="proof__subtitle">
@@ -412,21 +459,32 @@ void lang;
           </div>
 
           <div class="proof__head-actions">
-            <!-- Layout Switch: Docked Inspector vs Center Modal -->
+            <!-- Peek button: hold down to see right through the modal to the text beneath -->
             <button
-              class="btn btn--ghost proof__layout-btn"
-              @click="toggleLayout"
-              :title="layoutMode === 'docked' ? '切换为居中弹窗' : '切换为靠右侧检查器'"
+              class="proof__icon-btn"
+              :class="{ 'is-active': isPeeking }"
+              @mousedown="isPeeking = true"
+              @mouseup="isPeeking = false"
+              @mouseleave="isPeeking = false"
+              @touchstart.prevent="isPeeking = true"
+              @touchend.prevent="isPeeking = false"
+              title="按住透视背景正文（松开恢复）"
             >
-              <svg v-if="layoutMode === 'docked'" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                <rect x="7" y="7" width="10" height="10" rx="1"></rect>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
               </svg>
-              <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
+            </button>
+
+            <!-- Minimize button: collapse to floating pill -->
+            <button
+              class="proof__icon-btn"
+              @click="isMinimized = true"
+              title="最小化为悬浮胶囊，方便查看正文"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-              <span class="proof__btn-text">{{ layoutMode === 'docked' ? '居中' : '靠右' }}</span>
             </button>
 
             <button class="btn btn--ghost" @click="rescan" :disabled="loading" title="重新扫描当前文档">
@@ -435,8 +493,9 @@ void lang;
                 <polyline points="1 20 1 14 7 14"></polyline>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
               </svg>
-              <span class="proof__btn-text">{{ t('proofread.rescan') }}</span>
+              <span>{{ t('proofread.rescan') }}</span>
             </button>
+
             <button
               class="btn btn--primary"
               :disabled="visibleIssues.length === 0"
@@ -446,8 +505,9 @@ void lang;
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
-              <span class="proof__btn-text">{{ t('proofread.applyAll') }}</span>
+              <span>{{ t('proofread.applyAll') }}</span>
             </button>
+
             <button class="proof__close-btn" @click="emit('close')" aria-label="关闭">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -688,57 +748,24 @@ void lang;
 .proof__backdrop {
   position: fixed;
   inset: 0;
+  background: rgba(0, 0, 0, 0.12);
+  backdrop-filter: none; /* NO BLUR! Document text behind is 100% crisp and readable */
   z-index: var(--z-modal);
-  transition: background 0.2s ease;
-}
-
-/* Docked Right Inspector Mode (Clean, unblurred, transparent so editor is 100% visible) */
-.proof__backdrop--docked {
-  background: transparent;
-  backdrop-filter: none;
-  pointer-events: none;
-  display: flex;
-  justify-content: flex-end;
-  align-items: stretch;
-  padding-top: calc(var(--titlebar-h, 36px) + 8px);
-  padding-bottom: calc(var(--statusbar-h, 24px) + 8px);
-  padding-right: 16px;
-  box-sizing: border-box;
-}
-
-.proof--docked {
-  pointer-events: auto;
-  width: 440px;
-  max-width: calc(100vw - 32px);
-  height: 100%;
-  max-height: 100%;
-  border-radius: 12px;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.16), 0 2px 10px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--border);
-  animation: proofSlideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes proofSlideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Center Modal Mode (Subtle tint, NO blur so document is clear) */
-.proof__backdrop--center {
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: none;
-  pointer-events: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 6vh;
-  animation: proofFadeIn 0.16s ease-out;
+  padding-top: 7vh;
+  animation: proofFadeIn 0.18s ease-out;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+:root[data-theme='dark'] .proof__backdrop {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.proof__backdrop.is-peeking {
+  background: transparent !important;
+  pointer-events: none !important;
 }
 
 @keyframes proofFadeIn {
@@ -746,14 +773,25 @@ void lang;
   to { opacity: 1; }
 }
 
-.proof--center {
-  pointer-events: auto;
+/* Modal Dialog (The classic centered layout the user loves) */
+.proof {
+  background: var(--bg-elev);
+  color: var(--text);
   width: min(780px, 94vw);
   max-height: 84vh;
+  border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.08);
-  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: proofScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.15s ease;
+}
+
+.proof.is-peeking {
+  opacity: 0.08 !important;
+  pointer-events: none !important;
 }
 
 @keyframes proofScaleIn {
@@ -761,45 +799,106 @@ void lang;
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.proof {
+/* Floating Minimized Pill in Bottom Right */
+.proof__pill {
+  position: fixed;
+  bottom: 34px;
+  right: 28px;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
   background: var(--bg-elev);
   color: var(--text);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  user-select: none;
+  animation: proofPillPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-/* Compact docked adjustments */
-.proof--docked .proof__subtitle {
-  display: none;
+.proof__pill:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
 }
-.proof--docked .proof__head {
-  padding: 10px 14px;
+
+@keyframes proofPillPop {
+  from { opacity: 0; transform: scale(0.9) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
-.proof--docked .proof__head-actions {
-  gap: 5px;
+
+.proof__pill-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-.proof--docked .proof__head-actions .btn {
-  padding: 4px 7px;
-  font-size: 11.5px;
+
+.proof__pill-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
-.proof--docked .proof__substrip {
-  padding: 6px 12px;
-  gap: 8px;
+
+.proof__pill-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent, #6366f1);
+  color: #fff;
+  line-height: 1.2;
 }
-.proof--docked .proof__body {
-  padding: 10px 12px 16px;
-  gap: 12px;
+
+.proof__pill-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  margin-left: 2px;
+  cursor: pointer;
+  border-radius: 50%;
 }
-.proof--docked .proof__card {
-  padding: 10px 12px;
+.proof__pill-close:hover {
+  color: var(--text);
 }
-.proof--docked .proof__foot {
-  padding: 8px 12px;
+
+/* Icon button for peek and minimize */
+.proof__icon-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-.proof--docked .proof__diff {
-  flex-wrap: wrap;
-  gap: 6px;
+
+.proof__icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.proof__icon-btn.is-active {
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  border-color: var(--accent);
 }
 
 /* Header */

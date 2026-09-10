@@ -19,7 +19,7 @@ const tiles = useTilesStore();
 const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
 const files = useFiles();
-const { t } = useI18n();
+const { t: tr } = useI18n();
 
 function formatTabName(name: string): string {
   if (!name) return '';
@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
         @pointerdown="onTabPointerDown($event, t.id)"
         @mousedown.middle="onMiddlePointerDown($event, t.id)"
         @contextmenu="onContextMenu($event, t.id)"
-        :title="(t.filePath || t.fileName) + (tabs.isDirty(t.id) ? (settings.language?.startsWith('zh') ? ' (未保存)' : ' (Unsaved)') : '')"
+        :title="(t.filePath || t.fileName) + (tabs.isDirty(t.id) ? ` (${tr('tabMenu.unsaved')})` : '')"
       >
         <span class="tab__name">{{ formatTabName(t.fileName) }}</span>
         
@@ -473,32 +473,32 @@ onBeforeUnmount(() => {
           @click.stop
         >
           <button class="ctx-item" @click="onTabAction('close')">
-            <span>{{ t('tabMenu.close') }}</span>
+            <span>{{ tr('tabMenu.close') }}</span>
             <span class="ctx-shortcut">Ctrl+W</span>
           </button>
           <div class="ctx-sep" />
           <button class="ctx-item" :disabled="!ctxFlags?.hasLeft"   @click="onTabAction('closeLeft')">
-            <span>{{ t('tabMenu.closeLeft') }}</span>
+            <span>{{ tr('tabMenu.closeLeft') }}</span>
           </button>
           <button class="ctx-item" :disabled="!ctxFlags?.hasRight"  @click="onTabAction('closeRight')">
-            <span>{{ t('tabMenu.closeRight') }}</span>
+            <span>{{ tr('tabMenu.closeRight') }}</span>
           </button>
           <button class="ctx-item" :disabled="!ctxFlags?.hasOthers" @click="onTabAction('closeOthers')">
-            <span>{{ t('tabMenu.closeOthers') }}</span>
+            <span>{{ tr('tabMenu.closeOthers') }}</span>
           </button>
           <div class="ctx-sep" />
           <button class="ctx-item" :disabled="!ctxFlags?.hasSaved" @click="onTabAction('closeSaved')">
-            <span>{{ t('tabMenu.closeSaved') }}</span>
+            <span>{{ tr('tabMenu.closeSaved') }}</span>
           </button>
           <button class="ctx-item" :disabled="!ctxFlags?.hasAny"   @click="onTabAction('closeAll')">
-            <span>{{ t('tabMenu.closeAll') }}</span>
+            <span>{{ tr('tabMenu.closeAll') }}</span>
           </button>
           <div class="ctx-sep" />
           <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFolder')">
-            <span>{{ t('tabMenu.revealInFolder') }}</span>
+            <span>{{ tr('tabMenu.revealInFolder') }}</span>
           </button>
           <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFileTree')">
-            <span>{{ t('tabMenu.revealInFileTree') }}</span>
+            <span>{{ tr('tabMenu.revealInFileTree') }}</span>
           </button>
           <div class="ctx-sep" />
           <button class="ctx-item" @click="splitPane('horizontal')">

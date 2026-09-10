@@ -32,6 +32,7 @@ const emit = defineEmits<{
   (e: 'open-settings'): void;
   (e: 'open-help'): void;
   (e: 'open-search'): void;
+  (e: 'open-about'): void;
 }>();
 
 const tabs = useTabsStore();
@@ -40,6 +41,11 @@ const tiles = useTilesStore();
 const files = useFiles();
 const exporter = useExport();
 const toasts = useToastsStore();
+
+const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
+const isDarkTheme = computed(() =>
+  ['dark', 'night', 'nord', 'solarized-dark', 'monokai', 'dracula'].includes(settings.theme)
+);
 
 const { isNarrow } = useViewport();
 
@@ -104,26 +110,26 @@ function onOpenCjkProofread() {
 function onCleanAI() {
   const tab = tabs.activeTab;
   if (!tab) {
-    toasts.warning('No active document');
+    toasts.warning(t('toast.noActiveDoc'));
     return;
   }
   const cleaned = cleanAIArtifacts(tab.content);
   if (cleaned === tab.content) {
-    toasts.info('No AI artifacts found');
+    toasts.info(t('toast.noAi'));
     return;
   }
   tabs.setContent(tab.id, cleaned);
-  toasts.success('AI artifacts cleaned');
+  toasts.success(t('toast.aiCleaned'));
 }
 
 function onAIRewrite() {
   const tab = tabs.activeTab;
   if (!tab) {
-    toasts.warning('No active document');
+    toasts.warning(t('toast.noActiveDoc'));
     return;
   }
   if (!settings.aiEnabled) {
-    toasts.info(tab === undefined ? '' : 'Enable AI rewrite in Settings first (⌘,)');
+    toasts.info(isZh.value ? '请先在设置中启用 AI 润色 (Ctrl/⌘+,)' : 'Enable AI rewrite in Settings first (⌘,)');
     window.dispatchEvent(
       new CustomEvent('solomd:open-settings', { detail: { section: 'integrations' } }),
     );
@@ -150,7 +156,7 @@ function onAIRewrite() {
   }
   if (!picked) {
     const jChord = shortcutLabel('editor.aiRewrite', settings.keybindings, isMacOS()) || '—';
-    toasts.info(`Select some text first, then click AI rewrite (or press ${jChord}).`);
+    toasts.info(isZh.value ? `请先选中文本，然后再点击 AI 润色（或按 ${jChord}）。` : `Select some text first, then click AI rewrite (or press ${jChord}).`);
     return;
   }
   window.dispatchEvent(
@@ -279,11 +285,6 @@ function onSelectSourceMode() {
   settings.setTripleMode('source');
 }
 
-const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
-const isDarkTheme = computed(() =>
-  ['dark', 'night', 'nord', 'solarized-dark', 'monokai', 'dracula'].includes(settings.theme)
-);
-
 function toggleDayNight() {
   settings.toggleTheme();
   track('theme_changed', { theme: settings.theme });
@@ -326,6 +327,25 @@ function menubarHover(name: MenubarName, e: MouseEvent) {
 
 const isDirty = computed(() => !!tabs.activeTab && tabs.activeTab.content !== tabs.activeTab.savedContent);
 
+const isAiDrawerActive = computed(() => {
+  return !settings.rightSidebarHidden && settings.showAgentPanel;
+});
+
+function toggleAiDrawer() {
+  if (isAiDrawerActive.value) {
+    settings.rightSidebarHidden = true;
+  } else {
+    settings.rightSidebarHidden = false;
+    settings.showAgentPanel = true;
+    settings.showHistoryPanel = false;
+    settings.rightDrawerTab = 'agent';
+    if (settings.sideSidebarWidth < 360) {
+      settings.sideSidebarWidth = 420;
+    }
+  }
+  settings.persist();
+}
+
 function menuAction(id: string) {
   menubarOpen.value = null;
   if (id === 'file.new') files.newFile();
@@ -349,11 +369,12 @@ function menuAction(id: string) {
   else if (id === 'format.image') void pickAndInsertImage();
   else if (id === 'format.imageNetwork') openImageUrlDialog();
   else if (id === 'tools.cjkProofread') onOpenCjkProofread();
-  else if (id === 'tools.agent') settings.toggleRightDrawer();
+  else if (id === 'tools.agent') toggleAiDrawer();
   else if (id === 'tools.cmdPalette') emit('open-palette');
   else if (id === 'tools.pomodoro') togglePomo();
   else if (id === 'view.settings') emit('open-settings');
   else if (id === 'help.markdown') emit('open-help');
+  else if (id === 'help.about') emit('open-about');
   else if (id === 'insert.quote') dispatchInsert('> $|$');
   else if (id === 'insert.divider') dispatchInsert('\n---\n');
   else if (id === 'view.limitEditorWidth') {
@@ -612,7 +633,15 @@ onBeforeUnmount(() => {
       >
         <Icon name="sidebar" :size="15" />
       </button>
-      <BrandMark class="toolbar__brand" :size="19" />
+      <button
+        class="toolbar__brand-btn"
+        type="button"
+        @click="emit('open-about')"
+        :title="isZh ? '关于 猫步 MD (检查更新与版本)' : 'About Catstep MD (Updates & Version)'"
+        :aria-label="isZh ? '关于 猫步 MD' : 'About Catstep MD'"
+      >
+        <BrandMark class="toolbar__brand" :size="19" />
+      </button>
 
       <!-- In-app Typora Menubar (Windows/Linux/Dev) -->
       <nav v-if="showInAppMenubar" class="menubar" data-no-drag>
@@ -703,42 +732,15 @@ onBeforeUnmount(() => {
       <!-- 1. [猫步 AI 助手] -->
       <button
         class="killer-capsule killer-capsule--ai"
-        :class="{ 'is-active': !settings.rightSidebarHidden && settings.rightDrawerTab === 'agent' && settings.showAgentPanel }"
-        @click="() => {
-          if (!settings.rightSidebarHidden && settings.rightDrawerTab === 'agent' && settings.showAgentPanel) {
-            settings.toggleRightDrawer();
-          } else {
-            settings.setRightDrawerTab('agent');
-          }
-        }"
-        title="猫步 AI 助手 (Ctrl+J / Ctrl+Shift+A)"
+        :class="{ 'is-active': isAiDrawerActive, 'is-dark': isDarkTheme }"
+        @click="toggleAiDrawer"
+        :title="(isZh ? '猫步 AI 助手' : 'CatStep AI') + ' (Ctrl+J / Ctrl+Shift+A)'"
       >
         <svg class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M10 2L12.5 8.5L19 11L12.5 13.5L10 20L7.5 13.5L1 11L7.5 8.5L10 2Z" />
           <path d="M19 16L20.2 19L23 20L20.2 21L19 24L17.8 21L15 20L17.8 19L19 16Z" opacity="0.85" />
         </svg>
-        <span class="killer-capsule__label">猫步 AI</span>
-      </button>
-
-      <!-- 2. [版本时光机] -->
-      <button
-        class="killer-capsule killer-capsule--history"
-        :class="{ 'is-active': !settings.rightSidebarHidden && settings.rightDrawerTab === 'history' && settings.showHistoryPanel }"
-        @click="() => {
-          if (!settings.rightSidebarHidden && settings.rightDrawerTab === 'history' && settings.showHistoryPanel) {
-            settings.toggleRightDrawer();
-          } else {
-            settings.setRightDrawerTab('history');
-          }
-        }"
-        title="版本时光机 (快照历史与回滚)"
-      >
-        <svg class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-          <path d="M3 3v5h5"/>
-          <path d="M12 7v5l4 2"/>
-        </svg>
-        <span class="killer-capsule__label">时光机</span>
+        <span class="killer-capsule__label">{{ isZh ? '猫步 AI' : 'AI' }}</span>
       </button>
 
       <!-- 3. [快捷键] Keybindings & Shortcuts Panel Button -->
@@ -853,12 +855,37 @@ onBeforeUnmount(() => {
 .toolbar__sidebar-btn {
   margin-right: 2px;
 }
+.toolbar__brand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  margin-right: 2px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  line-height: 1;
+}
+.toolbar__brand-btn:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  border-color: var(--border, rgba(0, 0, 0, 0.08));
+  transform: scale(1.08);
+}
+.toolbar__brand-btn:active {
+  transform: scale(0.95);
+  background: var(--bg-active, rgba(0, 0, 0, 0.1));
+}
+.toolbar__brand-btn:focus-visible {
+  outline: 2px solid var(--accent, #ff9f40);
+  outline-offset: 1px;
+}
 .toolbar__brand {
   width: 19px;
   height: 19px;
   border-radius: 4px;
   flex: 0 0 19px;
-  margin-right: 2px;
   pointer-events: none;
 }
 
@@ -1001,10 +1028,35 @@ onBeforeUnmount(() => {
   transform: translateY(0.5px);
 }
 .killer-capsule.is-active {
-  background: color-mix(in srgb, var(--accent, #ff9f40) 14%, transparent);
-  border-color: var(--accent, #ff9f40);
-  color: var(--accent, #ff9f40);
+  background: var(--bg-active, rgba(128, 128, 128, 0.16));
+  border-color: var(--border-hover, var(--text-faint));
+  color: var(--text);
   font-weight: 600;
+}
+/* AI capsule: turns elegant blue when clicked / active */
+.killer-capsule--ai.is-active {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #2563eb;
+  font-weight: 600;
+}
+.killer-capsule--ai.is-active:hover {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+.killer-capsule--ai.is-active.is-dark {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.6);
+  color: #60a5fa;
+}
+.killer-capsule--ai.is-active.is-dark:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+.killer-capsule--ai.is-active .killer-capsule__svg {
+  color: currentColor;
 }
 .killer-capsule__svg {
   display: block;
@@ -1013,12 +1065,6 @@ onBeforeUnmount(() => {
 }
 .killer-capsule:hover .killer-capsule__svg {
   color: var(--text);
-}
-.killer-capsule.is-active .killer-capsule__svg {
-  color: var(--accent, #ff9f40);
-}
-.killer-capsule--ai:hover .killer-capsule__svg {
-  color: #ffaa40;
 }
 .killer-capsule--theme:hover .killer-capsule__svg {
   color: #f59e0b;
