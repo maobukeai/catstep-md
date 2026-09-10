@@ -346,6 +346,28 @@ function syncEditorContentSoon(text: string) {
 }
 
 const plainEditor = ref<HTMLTextAreaElement | null>(null);
+let lastKnownCaret = 0;
+
+function setPlainEditor(el: HTMLTextAreaElement | null) {
+  plainEditor.value = el;
+  if (!el) return;
+  const content = plainText.value || props.tab?.content || '';
+  if (el.value !== content) {
+    el.value = content;
+  }
+  const safeCaret = Math.max(0, Math.min(lastKnownCaret, el.value.length));
+  try {
+    el.setSelectionRange(safeCaret, safeCaret);
+  } catch {}
+  nextTick(() => {
+    if (!plainLiveEnabled.value && document.activeElement !== el) {
+      el.focus();
+    }
+    emitPlainCursorAndSelection();
+    schedulePlainGutter();
+  });
+}
+
 const plainLiveHost = ref<HTMLDivElement | null>(null);
 const plainBlockEditors = ref<Record<number, HTMLTextAreaElement | null>>({});
 const plainText = ref(props.tab.content || '');
@@ -901,6 +923,7 @@ function plainSelectionText(): string {
 }
 
 function emitPlainCursorAndSelection() {
+  lastKnownCaret = plainAbsoluteCaret();
   if (plainLiveEnabled.value) {
     // Select-all mode ends the moment the user collapses the selection
     // (click into the text, arrow key); this is the single choke point all
@@ -1124,20 +1147,32 @@ function syncPlainEditorFromStore(text: string, preserveCaret = false) {
 
 function syncPlainEditorAfterModeSwitch() {
   if (!usePlainWindowsEditor) return;
+  const targetCaret = lastKnownCaret;
   nextTick(() => {
     if (plainLiveEnabled.value) {
-      const block = plainBlocks.value[plainActiveBlock.value];
-      const el = plainBlockEditors.value[plainActiveBlock.value];
-      if (block && el && el.value !== block.text) el.value = block.text;
-      if (el) autoSizePlainBlock(el);
-      emitPlainCursorAndSelection();
+      plainSetCaret(targetCaret);
+      nextTick(() => {
+        const el = plainBlockEditors.value[plainActiveBlock.value];
+        if (el) {
+          autoSizePlainBlock(el);
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+        emitPlainCursorAndSelection();
+      });
       return;
     }
     const el = plainEditor.value;
     if (!el) return;
-    if (el.value !== plainText.value) el.value = plainText.value;
+    const content = plainText.value || props.tab?.content || '';
+    if (el.value !== content) el.value = content;
+    const safeCaret = Math.max(0, Math.min(targetCaret, el.value.length));
+    el.focus();
+    try {
+      el.setSelectionRange(safeCaret, safeCaret);
+    } catch {}
     emitPlainCursorAndSelection();
     syncPlainLiveScroll();
+    schedulePlainGutter();
   });
 }
 
@@ -1147,6 +1182,7 @@ function handlePlainInput(event: Event) {
   if (!plainComposing) recordPlainHistory();
   plainText.value = el.value;
   tabs.setContent(props.tab.id, el.value);
+  lastKnownCaret = el.selectionStart ?? el.value.length;
   emitPlainCursorAndSelection();
   // Gitee IK6JCC — the / ⁠[[ # @ autocomplete used to be wired only to the
   // live-edit *block* editor, so on Windows (which is on this plain-textarea
@@ -3594,6 +3630,7 @@ watch(
   () => settings.livePreview,
   () => {
     view?.dispatch({ effects: richCompartment.reconfigure(richExtensionsFor(props.tab)) });
+    syncPlainEditorAfterModeSwitch();
   }
 );
 
@@ -3614,6 +3651,7 @@ watch(
 watch(plainLiveEnabled, () => {
   plainSelectAll.value = false;
   plainSelectAllPending = false;
+  syncPlainEditorAfterModeSwitch();
 });
 
 watch(
@@ -4119,7 +4157,7 @@ const cls = computed(() => ({
         </div>
       </div>
       <textarea
-        ref="plainEditor"
+        :ref="(el) => setPlainEditor(el as HTMLTextAreaElement | null)"
         class="plain-editor"
         :class="{ 'plain-textarea--wrap': settings.wordWrap }"
         :spellcheck="props.spellCheck"

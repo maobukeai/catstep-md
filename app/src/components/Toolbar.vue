@@ -262,19 +262,21 @@ function closeAllDropdowns() {
   menubarOpen.value = null;
 }
 
-// ── Dual Mode Switcher (Edit vs Reading) ──────────────────────────────────
+// ── Triple Mode Switcher (Edit vs Reading vs Source) ─────────────────────
+const isEditing = computed(() => settings.viewMode === 'edit' && settings.livePreview);
 const isReading = computed(() => settings.viewMode === 'reading');
+const isSource = computed(() => settings.viewMode === 'edit' && !settings.livePreview);
 
 function onSelectEditMode() {
-  if (settings.viewMode === 'reading') {
-    settings.exitReadingMode();
-  }
+  settings.setTripleMode('edit');
 }
 
 function onSelectReadingMode() {
-  if (settings.viewMode !== 'reading') {
-    settings.setTripleMode('reading');
-  }
+  settings.setTripleMode('reading');
+}
+
+function onSelectSourceMode() {
+  settings.setTripleMode('source');
 }
 
 const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
@@ -643,31 +645,43 @@ onBeforeUnmount(() => {
 
     <!-- Center Section: Mode Switcher Capsule + Active Document Title -->
     <div class="toolbar__center" data-tauri-drag-region>
-      <!-- Top Bar Dual Mode Switcher: [ 编辑 | 阅读 ] -->
+      <!-- Top Bar Triple Mode Switcher: [ 编辑 | 阅读 | 源码 ] -->
       <div v-if="isMarkdown" class="segmented-control" data-no-drag>
         <button
           class="segmented-btn"
-          :class="{ 'is-active': !isReading }"
+          :class="{ 'is-active': isEditing }"
           @click="onSelectEditMode"
-          title="编辑模式 (所见即所得书写)"
+          :title="isZh ? '编辑模式 (所见即所得书写)' : 'Edit Mode (Live Preview)'"
         >
           <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9" />
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
           </svg>
-          <span class="segmented-text">编辑</span>
+          <span class="segmented-text">{{ isZh ? '编辑' : 'Edit' }}</span>
         </button>
         <button
           class="segmented-btn"
           :class="{ 'is-active': isReading }"
           @click="onSelectReadingMode"
-          title="阅读模式 (纯净只读沉浸，双击段落回跳编辑)"
+          :title="isZh ? '阅读模式 (纯净只读沉浸，双击段落回跳编辑)' : 'Reading Mode (Zen Reader)'"
         >
           <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
           </svg>
-          <span class="segmented-text">阅读</span>
+          <span class="segmented-text">{{ isZh ? '阅读' : 'Read' }}</span>
+        </button>
+        <button
+          class="segmented-btn"
+          :class="{ 'is-active': isSource }"
+          @click="onSelectSourceMode"
+          :title="isZh ? '源码模式 (纯 Markdown 源码 / Ctrl+/)' : 'Source Mode (Raw Markdown / Ctrl+/)'"
+        >
+          <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+          <span class="segmented-text">{{ isZh ? '源码' : 'Source' }}</span>
         </button>
       </div>
 

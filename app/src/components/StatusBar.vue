@@ -26,9 +26,9 @@ const { t } = useI18n();
 // #180 — the chord in this sentence comes from the user's bindings, not from
 // a literal baked into the translation.
 const macChord = isMacOS();
-const kbSettings = useSettingsStore();
+const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
 function withChord(key: string, actionId: string): string {
-  return t(key, { key: shortcutLabel(actionId, kbSettings.keybindings, macChord) || '—' });
+  return t(key, { key: shortcutLabel(actionId, settings.keybindings, macChord) || '—' });
 }
 
 const stats = computed(() => {
@@ -97,10 +97,10 @@ function onPillClick() {
       v-if="tabs.activeTab?.language === 'markdown'"
       class="seg seg--mode-pill"
       :class="{ 'seg--mode-pill-live': settings.livePreview }"
-      :title="settings.livePreview ? '切换到源码模式 (Ctrl+/)' : '切换到实时预览 (Ctrl+/)'"
+      :title="settings.livePreview ? (isZh ? '切换到源码模式 (Ctrl+/)' : 'Switch to Source Mode (Ctrl+/)') : (isZh ? '切换到实时预览 (Ctrl+/)' : 'Switch to Live Preview (Ctrl+/)')"
       @click="settings.toggleLivePreview()"
     >
-      {{ settings.livePreview ? 'Live' : '</> Source' }}
+      {{ settings.livePreview ? (isZh ? '实时' : 'Live') : (isZh ? '</> 源码' : '</> Source') }}
     </button>
     <span v-if="settings.focusMode" class="seg seg--badge" title="Focus Mode (F8)">🎯 Focus</span>
     <span v-if="settings.typewriterMode" class="seg seg--badge" title="Typewriter Mode (F9)">⌨️ Typewriter</span>
