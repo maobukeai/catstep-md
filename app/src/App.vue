@@ -1484,6 +1484,14 @@ onMounted(async () => {
         );
       }
     } catch { /* silent */ }
+
+    // Ensure desktop window is displayed and focused once the view has fully mounted
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const win = getCurrentWindow();
+      await win.show();
+      await win.setFocus();
+    } catch {}
   }
 });
 
