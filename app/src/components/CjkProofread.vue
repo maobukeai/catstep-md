@@ -62,6 +62,10 @@ const issues = ref<Issue[]>([]);
 const loading = ref(false);
 const selectedIdx = ref(-1);
 const activeFilter = ref<'all' | 'high' | 'medium' | 'low'>('all');
+const activeCategory = ref<string | null>(null);
+const ignoredKeys = ref<Set<string>>(new Set());
+
+const issueKey = (i: Issue) => `${i.line}:${i.col_start}:${i.col_end}:${i.original}`;
 
 watch(
   () => props.open,
@@ -69,6 +73,8 @@ watch(
     if (v) {
       await nextTick();
       activeFilter.value = 'all';
+      activeCategory.value = null;
+      ignoredKeys.value.clear();
       await rescan();
       track('cjk_proofread_opened');
     }
@@ -104,11 +110,19 @@ async function rescan() {
   }
 }
 
+const visibleIssues = computed(() => {
+  return issues.value.filter((i) => {
+    if (ignoredKeys.value.has(issueKey(i))) return false;
+    if (activeCategory.value && i.category !== activeCategory.value) return false;
+    return true;
+  });
+});
+
 const counts = computed(() => {
   let high = 0,
     medium = 0,
     low = 0;
-  for (const i of issues.value) {
+  for (const i of visibleIssues.value) {
     if (i.severity === 'high') high++;
     else if (i.severity === 'medium') medium++;
     else low++;
@@ -120,7 +134,7 @@ const grouped = computed(() => {
   const high: Issue[] = [];
   const medium: Issue[] = [];
   const low: Issue[] = [];
-  for (const i of issues.value) {
+  for (const i of visibleIssues.value) {
     if (i.severity === 'high') high.push(i);
     else if (i.severity === 'medium') medium.push(i);
     else low.push(i);
@@ -135,6 +149,16 @@ const activeBuckets = computed(() => {
   }
   return [activeFilter.value].filter((b) => grouped.value[b].length > 0);
 });
+
+function ignoreOne(issue: Issue) {
+  ignoredKeys.value.add(issueKey(issue));
+  toasts.info('已忽略此项建议');
+}
+
+function restoreIgnored() {
+  ignoredKeys.value.clear();
+  toasts.info('已恢复全部已忽略项');
+}
 
 function categoryLabel(cat: Issue['category']): string {
   switch (cat) {
@@ -262,9 +286,44 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
 }
 
 function onKey(e: KeyboardEvent) {
+  if (!props.open) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     emit('close');
+    return;
+  }
+
+  // Collect currently visible issues in display order
+  const currentList: Issue[] = [];
+  for (const bucket of activeBuckets.value) {
+    currentList.push(...grouped.value[bucket]);
+  }
+  if (currentList.length === 0) return;
+
+  if (e.key === 'ArrowDown' || e.key === 'j') {
+    e.preventDefault();
+    const curIdx = currentList.findIndex((i) => issues.value.indexOf(i) === selectedIdx.value);
+    const nextIdx = curIdx < currentList.length - 1 ? curIdx + 1 : 0;
+    const target = currentList[nextIdx];
+    jumpTo(target, issues.value.indexOf(target));
+  } else if (e.key === 'ArrowUp' || e.key === 'k') {
+    e.preventDefault();
+    const curIdx = currentList.findIndex((i) => issues.value.indexOf(i) === selectedIdx.value);
+    const prevIdx = curIdx > 0 ? curIdx - 1 : currentList.length - 1;
+    const target = currentList[prevIdx];
+    jumpTo(target, issues.value.indexOf(target));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const target = currentList.find((i) => issues.value.indexOf(i) === selectedIdx.value) || currentList[0];
+    if (target) {
+      applyOne(target);
+    }
+  } else if (e.key === 'Delete' || e.key === 'x') {
+    const target = currentList.find((i) => issues.value.indexOf(i) === selectedIdx.value);
+    if (target) {
+      e.preventDefault();
+      ignoreOne(target);
+    }
   }
 }
 
@@ -297,8 +356,8 @@ void lang;
             <div class="proof__head-text">
               <div class="proof__title-row">
                 <h2 class="proof__title">{{ t('proofread.heading') }}</h2>
-                <span class="proof__count-badge" v-if="issues.length">
-                  共 {{ issues.length }} 处规范建议
+                <span class="proof__count-badge" v-if="visibleIssues.length">
+                  共 {{ visibleIssues.length }} 处规范建议
                 </span>
               </div>
               <p class="proof__subtitle">
@@ -318,9 +377,9 @@ void lang;
             </button>
             <button
               class="btn btn--primary"
-              :disabled="issues.length === 0"
+              :disabled="visibleIssues.length === 0"
               @click="applyAll('all')"
-              :title="issues.length ? '一键修复全部问题' : ''"
+              :title="visibleIssues.length ? '一键修复全部 ' + visibleIssues.length + ' 处问题' : ''"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
@@ -336,15 +395,15 @@ void lang;
           </div>
         </header>
 
-        <!-- Filter Tab Strip & Inline Hint -->
+        <!-- Filter Tab Strip & Inline Actions -->
         <div class="proof__substrip" v-if="issues.length">
           <div class="proof__filters">
             <button
               class="proof__tab"
-              :class="{ 'proof__tab--active': activeFilter === 'all' }"
-              @click="activeFilter = 'all'"
+              :class="{ 'proof__tab--active': activeFilter === 'all' && !activeCategory }"
+              @click="activeFilter = 'all'; activeCategory = null"
             >
-              全部 ({{ issues.length }})
+              全部 ({{ visibleIssues.length }})
             </button>
             <button
               v-if="counts.high > 0"
@@ -373,15 +432,31 @@ void lang;
               <span class="proof__dot proof__dot--low"></span>
               优化建议 ({{ counts.low }})
             </button>
+
+            <!-- Category filter pill -->
+            <span v-if="activeCategory" class="proof__active-cat">
+              类别: {{ categoryLabel(activeCategory as any) }}
+              <button class="proof__cat-clear" @click="activeCategory = null" title="清除分类筛选">×</button>
+            </span>
           </div>
 
-          <div class="proof__tip">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="16" x2="12" y2="12"></line>
-              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-            </svg>
-            <span>点击卡片定位到行 · 点击「修复」自动替换</span>
+          <div class="proof__substrip-right">
+            <button
+              v-if="ignoredKeys.size > 0"
+              class="proof__restore-btn"
+              @click="restoreIgnored"
+              title="恢复本次已忽略的项"
+            >
+              已忽略 {{ ignoredKeys.size }} 项 (恢复)
+            </button>
+            <div class="proof__tip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <span>↑/↓ 键切换 · Enter 键修复</span>
+            </div>
           </div>
         </div>
 
@@ -393,7 +468,7 @@ void lang;
           <div class="proof__spinner"></div>
           <p>正在扫描中文排版规范...</p>
         </div>
-        <div v-else-if="issues.length === 0" class="proof__empty-state">
+        <div v-else-if="visibleIssues.length === 0" class="proof__empty-state">
           <div class="proof__empty-icon">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -402,6 +477,13 @@ void lang;
           </div>
           <h3 class="proof__empty-title">{{ t('proofread.noIssues') }}</h3>
           <p class="proof__empty-desc">未发现全半角标点、错别字或中西文空格排版问题，文本非常整洁 ✨</p>
+          <button
+            v-if="ignoredKeys.size > 0"
+            class="proof__restore-link"
+            @click="restoreIgnored"
+          >
+            已忽略 {{ ignoredKeys.size }} 处建议，点击可全部恢复查看
+          </button>
         </div>
 
         <div v-else class="proof__body">
@@ -427,36 +509,50 @@ void lang;
               </button>
             </div>
 
-            <!-- Card List -->
-            <div class="proof__list">
+            <!-- Card List with smooth enter/leave transitions -->
+            <TransitionGroup name="proof-card" tag="div" class="proof__list">
               <div
-                v-for="(issue, i) in grouped[bucket]"
-                :key="`${issue.col_start}-${issue.col_end}-${i}`"
+                v-for="issue in grouped[bucket]"
+                :key="issueKey(issue)"
                 class="proof__card"
                 :class="{ 'proof__card--selected': selectedIdx === issues.indexOf(issue) }"
                 @click="jumpTo(issue, issues.indexOf(issue))"
               >
-                <!-- Card Header: Meta Tags & Apply Button -->
+                <!-- Card Header: Meta Tags & Action Buttons -->
                 <div class="proof__card-top">
                   <div class="proof__card-meta">
                     <span class="proof__lineno">
                       第 {{ issue.line }} 行
                     </span>
-                    <span class="proof__category" :class="`proof__category--${issue.severity}`">
+                    <span
+                      class="proof__category"
+                      :class="`proof__category--${issue.severity}`"
+                      @click.stop="activeCategory = (activeCategory === issue.category ? null : issue.category)"
+                      :title="'点击按分类筛选: ' + categoryLabel(issue.category)"
+                    >
                       {{ categoryLabel(issue.category) }}
                     </span>
                   </div>
 
-                  <button
-                    class="btn btn--apply"
-                    @click.stop="applyOne(issue)"
-                    :title="issue.explanation || t('proofread.apply')"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    <span>{{ t('proofread.apply') }}</span>
-                  </button>
+                  <div class="proof__card-actions">
+                    <button
+                      class="btn btn--ignore"
+                      @click.stop="ignoreOne(issue)"
+                      title="本次忽略此项 (Del)"
+                    >
+                      忽略
+                    </button>
+                    <button
+                      class="btn btn--apply"
+                      @click.stop="applyOne(issue)"
+                      :title="issue.explanation || t('proofread.apply')"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      <span>{{ t('proofread.apply') }}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Clean Diff Box -->
@@ -499,9 +595,27 @@ void lang;
                   <span>{{ issue.explanation }}</span>
                 </div>
               </div>
-            </div>
+            </TransitionGroup>
           </section>
         </div>
+
+        <!-- Sleek Shortcuts Footer -->
+        <footer class="proof__foot">
+          <div class="proof__foot-shortcuts">
+            <span class="proof__kbd">↑</span>
+            <span class="proof__kbd">↓</span>
+            <span class="proof__kbd-label">选择条目</span>
+            <span class="proof__kbd">Enter</span>
+            <span class="proof__kbd-label">确认修复</span>
+            <span class="proof__kbd">Del</span>
+            <span class="proof__kbd-label">忽略</span>
+            <span class="proof__kbd">Esc</span>
+            <span class="proof__kbd-label">退出</span>
+          </div>
+          <div class="proof__foot-stats" v-if="visibleIssues.length">
+            <span>当前余 {{ visibleIssues.length }} 处</span>
+          </div>
+        </footer>
       </div>
     </div>
   </Teleport>
@@ -652,6 +766,7 @@ void lang;
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .proof__tab {
@@ -679,6 +794,66 @@ void lang;
   color: var(--text);
   border-color: var(--border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.proof__active-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  color: var(--accent, #6366f1);
+  border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 25%, transparent);
+}
+
+.proof__cat-clear {
+  background: transparent;
+  border: none;
+  color: var(--accent, #6366f1);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+.proof__cat-clear:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.proof__substrip-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.proof__restore-btn {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--accent, #6366f1);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.proof__restore-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.proof__restore-link {
+  margin-top: 10px;
+  background: transparent;
+  border: none;
+  color: var(--accent, #6366f1);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .proof__dot {
@@ -804,11 +979,27 @@ void lang;
   border-radius: 4px;
 }
 
-/* Card List */
+/* Card List & Transitions */
 .proof__list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.proof-card-enter-active,
+.proof-card-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.proof-card-enter-from {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.proof-card-leave-to {
+  opacity: 0;
+  transform: translateX(18px) scale(0.97);
+}
+.proof-card-move {
+  transition: transform 0.2s ease;
 }
 
 .proof__card {
@@ -850,6 +1041,12 @@ void lang;
   gap: 8px;
 }
 
+.proof__card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .proof__lineno {
   font-size: 11px;
   font-weight: 500;
@@ -870,6 +1067,12 @@ void lang;
   background: var(--bg-soft);
   color: var(--text-muted);
   border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.proof__category:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .proof__category--high {
@@ -1032,6 +1235,52 @@ void lang;
   color: var(--accent);
 }
 
+/* Footer Shortcuts */
+.proof__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft, var(--bg));
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.proof__foot-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.proof__kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+}
+
+.proof__kbd-label {
+  color: var(--text-faint);
+  margin-right: 6px;
+  font-size: 11px;
+}
+
+.proof__foot-stats {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;
@@ -1092,6 +1341,19 @@ void lang;
   border-color: var(--accent, #6366f1);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.btn--ignore {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 5px;
+}
+.btn--ignore:hover {
+  background: var(--bg-hover);
+  color: var(--text-muted);
 }
 
 .btn--subtle {
