@@ -681,9 +681,8 @@ const liveEditHighlightStyle = HighlightStyle.define([
   { tag: t.strikethrough, textDecoration: 'line-through', color: 'var(--text-muted)' },
   { tag: t.link, color: 'var(--md-link)' },
   { tag: t.url, color: 'var(--md-url)' },
-  { tag: t.monospace, fontFamily: 'var(--font-mono)', color: 'var(--md-code)' },
+  { tag: t.monospace, fontFamily: 'var(--font-mono)' },
   { tag: t.quote, color: 'var(--md-quote)', fontStyle: 'italic' },
-  { tag: t.list, color: 'var(--md-list)' },
   { tag: t.contentSeparator, color: 'var(--md-hr)' },
   { tag: t.processingInstruction, color: 'var(--text-faint)' },
   // Code-block syntax (nested languages)
@@ -811,6 +810,7 @@ const liveEditTheme = EditorView.theme({
   '.cm-md-fenced-line': {
     backgroundColor: 'var(--md-code-bg)',
     fontFamily: 'var(--font-mono)',
+    color: 'var(--text)',
     // Containing block for the copy button that rides the block's first line.
     position: 'relative',
   },
