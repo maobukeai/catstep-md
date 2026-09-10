@@ -65,6 +65,17 @@ const isSelectionDismissed = ref(false);
 const ollamaStatus = ref<{ online: boolean; models: string[] }>({ online: false, models: [] });
 let ollamaTimer: ReturnType<typeof setInterval> | null = null;
 
+// --- Stage 2: Message Edit, Recall, Regenerate, Delete & Quote Selection ---
+const editingMsgId = ref<string | null>(null);
+const editingMsgContent = ref('');
+const quoteTooltip = ref<{ visible: boolean; x: number; y: number; text: string }>({
+  visible: false,
+  x: 0,
+  y: 0,
+  text: '',
+});
+const hasPastUserMessage = computed(() => agent.messages.some((m) => m.role === 'user'));
+
 watch(
   () => agent.isStreaming,
   (streaming) => {
@@ -162,13 +173,154 @@ function retryLastPrompt() {
   void send();
 }
 
-function onWindowClick() {
+function onWindowClick(e?: MouseEvent) {
   if (showHistoryDropdown.value) {
     showHistoryDropdown.value = false;
   }
   if (showMentionMenu.value) {
     showMentionMenu.value = false;
   }
+  if (quoteTooltip.value.visible) {
+    if (!e || !(e.target as HTMLElement)?.closest?.('.agent-panel__quote-tooltip')) {
+      quoteTooltip.value.visible = false;
+    }
+  }
+}
+
+// --- Granular Turn & Message Actions (Stage 2) ---
+function recallLastTurn() {
+  if (agent.isStreaming) return;
+  const recalled = agent.recallLastTurn();
+  if (recalled) {
+    draft.value = recalled.content;
+    if (recalled.references && recalled.references.length) {
+      activeReferences.value = [...recalled.references];
+    }
+    if (recalled.images && recalled.images.length) {
+      activeImages.value = [...recalled.images];
+    }
+    toasts.success(t('agent.msgRecallTitle'));
+    nextTick(() => {
+      inputRef.value?.focus();
+    });
+  }
+}
+
+function recallMessage(msg: any) {
+  if (agent.isStreaming) return;
+  const content = msg.content;
+  const refs = msg.references ? [...msg.references] : [];
+  const imgs = msg.images ? [...msg.images] : [];
+  agent.truncateFrom(msg.id);
+  draft.value = content;
+  activeReferences.value = refs;
+  activeImages.value = imgs;
+  toasts.success(t('agent.msgRecallTitle'));
+  nextTick(() => {
+    inputRef.value?.focus();
+  });
+}
+
+function startEditUserMessage(msg: any) {
+  editingMsgId.value = msg.id;
+  editingMsgContent.value = msg.content;
+}
+
+function cancelEditUserMessage() {
+  editingMsgId.value = null;
+  editingMsgContent.value = '';
+}
+
+async function saveAndResendUserMessage(msg: any) {
+  const newContent = editingMsgContent.value.trim();
+  if (!newContent || agent.isStreaming) return;
+  const refs = msg.references ? [...msg.references] : [];
+  const imgs = msg.images ? [...msg.images] : [];
+  agent.truncateFrom(msg.id);
+  editingMsgId.value = null;
+  editingMsgContent.value = '';
+  draft.value = newContent;
+  activeReferences.value = refs;
+  activeImages.value = imgs;
+  await send();
+}
+
+async function regenerateAssistant(msg: any) {
+  if (agent.isStreaming) return;
+  const msgIdx = agent.messages.findIndex((m) => m.id === msg.id);
+  if (msgIdx === -1) return;
+  let prevUserIdx = -1;
+  for (let i = msgIdx - 1; i >= 0; i--) {
+    if (agent.messages[i].role === 'user') {
+      prevUserIdx = i;
+      break;
+    }
+  }
+  if (prevUserIdx === -1) return;
+  const userMsg = agent.messages[prevUserIdx];
+  const prompt = userMsg.content;
+  const refs = userMsg.references ? [...userMsg.references] : [];
+  const imgs = userMsg.images ? [...userMsg.images] : [];
+
+  // Truncate from the message immediately following the user message
+  agent.messages.splice(prevUserIdx + 1);
+  agent.syncCurrentSession();
+
+  draft.value = prompt;
+  activeReferences.value = refs;
+  activeImages.value = imgs;
+  await send();
+}
+
+function deleteTurn(msg: any) {
+  agent.deleteTurn(msg.id);
+  toasts.success(t('agent.msgDeleteTurnTitle'));
+}
+
+function deleteAssistantMessage(msg: any) {
+  agent.deleteMessage(msg.id);
+  toasts.success(t('agent.msgDeleteMsgTitle'));
+}
+
+function onAssistantMouseUp(e: MouseEvent) {
+  const sel = window.getSelection();
+  const text = sel ? sel.toString().trim() : '';
+  if (text && text.length > 0 && text.length < 5000) {
+    const target = e.target as HTMLElement | null;
+    if (target && target.closest('.agent-panel__markdown-body')) {
+      const range = sel?.getRangeAt(0);
+      const rect = range?.getBoundingClientRect();
+      if (rect) {
+        quoteTooltip.value = {
+          visible: true,
+          x: Math.max(10, rect.left + rect.width / 2 - 36),
+          y: Math.max(10, rect.top - 36),
+          text,
+        };
+        return;
+      }
+    }
+  }
+  if (!(e.target as HTMLElement)?.closest?.('.agent-panel__quote-tooltip')) {
+    quoteTooltip.value.visible = false;
+  }
+}
+
+function insertQuote(text: string) {
+  const quoteLines = text.split('\n').map((l) => `> ${l}`).join('\n') + '\n\n';
+  if (draft.value) {
+    draft.value = draft.value.trimEnd() + '\n\n' + quoteLines;
+  } else {
+    draft.value = quoteLines;
+  }
+  quoteTooltip.value.visible = false;
+  nextTick(() => {
+    inputRef.value?.focus();
+    if (inputRef.value) {
+      inputRef.value.selectionStart = inputRef.value.value.length;
+      inputRef.value.selectionEnd = inputRef.value.value.length;
+    }
+  });
 }
 
 // Check selection in active editor
@@ -745,10 +897,10 @@ function onKeydown(e: KeyboardEvent) {
     }
   }
 
-  // History recall with ArrowUp when draft is empty
-  if (e.key === 'ArrowUp' && !draft.value && lastPrompt.value) {
+  // History recall with ArrowUp or Cmd/Ctrl+Z when draft is empty
+  if ((e.key === 'ArrowUp' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z')) && !draft.value && agent.messages.some((m) => m.role === 'user')) {
     e.preventDefault();
-    draft.value = lastPrompt.value;
+    recallLastTurn();
     return;
   }
 
@@ -1623,33 +1775,97 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <!-- User message bubble -->
             <template v-if="block.msg.role === 'user'">
               <div class="agent-panel__user-msg-row">
-                <div class="agent-panel__user-bubble">
-                  <!-- Referenced Notes Chips (Click to open) -->
-                  <div v-if="block.msg.references && block.msg.references.length" class="agent-panel__msg-refs">
-                    <button
-                      v-for="r in block.msg.references"
-                      :key="r.path"
-                      class="agent-panel__msg-ref-pill"
-                      type="button"
-                      :title="`在编辑器中打开 ${r.name}`"
-                      @click="openReferencedNote(r.path)"
-                    >
-                      📄 {{ r.name }}
-                    </button>
+                <div class="agent-panel__user-bubble-container">
+                  <!-- Normal display -->
+                  <div v-if="editingMsgId !== block.msg.id" class="agent-panel__user-bubble">
+                    <!-- Referenced Notes Chips (Click to open) -->
+                    <div v-if="block.msg.references && block.msg.references.length" class="agent-panel__msg-refs">
+                      <button
+                        v-for="r in block.msg.references"
+                        :key="r.path"
+                        class="agent-panel__msg-ref-pill"
+                        type="button"
+                        :title="`在编辑器中打开 ${r.name}`"
+                        @click="openReferencedNote(r.path)"
+                      >
+                        📄 {{ r.name }}
+                      </button>
+                    </div>
+
+                    <!-- Attached Images -->
+                    <div v-if="block.msg.images && block.msg.images.length" class="agent-panel__msg-images">
+                      <img
+                        v-for="(img, imgIdx) in block.msg.images"
+                        :key="imgIdx"
+                        :src="img"
+                        class="agent-panel__msg-img"
+                        alt="attachment"
+                      />
+                    </div>
+
+                    <div class="agent-panel__user-text">{{ block.msg.content }}</div>
+
+                    <!-- User Message Hover Action Bar -->
+                    <div class="agent-panel__user-actions">
+                      <button
+                        class="agent-panel__bubble-action-btn"
+                        type="button"
+                        :title="t('agent.msgEditTitle')"
+                        @click="startEditUserMessage(block.msg)"
+                      >
+                        ✏️ {{ t('agent.msgEdit') }}
+                      </button>
+                      <button
+                        class="agent-panel__bubble-action-btn"
+                        type="button"
+                        :title="t('agent.msgRecallTitle')"
+                        @click="recallMessage(block.msg)"
+                      >
+                        ↩ {{ t('agent.msgRecall') }}
+                      </button>
+                      <button
+                        class="agent-panel__bubble-action-btn agent-panel__bubble-action-btn--del"
+                        type="button"
+                        :title="t('agent.msgDeleteTurnTitle')"
+                        @click="deleteTurn(block.msg)"
+                      >
+                        🗑️ {{ t('agent.msgDeleteTurn') }}
+                      </button>
+                    </div>
                   </div>
 
-                  <!-- Attached Images -->
-                  <div v-if="block.msg.images && block.msg.images.length" class="agent-panel__msg-images">
-                    <img
-                      v-for="(img, imgIdx) in block.msg.images"
-                      :key="imgIdx"
-                      :src="img"
-                      class="agent-panel__msg-img"
-                      alt="attachment"
-                    />
+                  <!-- Inline Edit Mode -->
+                  <div v-else class="agent-panel__user-bubble agent-panel__user-bubble--editing">
+                    <textarea
+                      v-model="editingMsgContent"
+                      class="agent-panel__edit-input"
+                      :placeholder="t('agent.editInputPlaceholder')"
+                      rows="3"
+                      @keydown.ctrl.enter.prevent="saveAndResendUserMessage(block.msg)"
+                      @keydown.meta.enter.prevent="saveAndResendUserMessage(block.msg)"
+                      @keydown.esc.prevent="cancelEditUserMessage"
+                    ></textarea>
+                    <div class="agent-panel__edit-actions">
+                      <span class="agent-panel__edit-hint">Esc 取消 · ⌘/Ctrl+Enter 发送</span>
+                      <div class="agent-panel__edit-btns">
+                        <button
+                          class="agent-panel__edit-btn agent-panel__edit-btn--cancel"
+                          type="button"
+                          @click="cancelEditUserMessage"
+                        >
+                          {{ t('agent.cancelEdit') }}
+                        </button>
+                        <button
+                          class="agent-panel__edit-btn agent-panel__edit-btn--save"
+                          type="button"
+                          :disabled="!editingMsgContent.trim() || agent.isStreaming"
+                          @click="saveAndResendUserMessage(block.msg)"
+                        >
+                          {{ t('agent.saveAndResend') }}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-
-                  <div class="agent-panel__user-text">{{ block.msg.content }}</div>
                 </div>
               </div>
             </template>
@@ -1706,6 +1922,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   <div
                     class="agent-panel__msg-body agent-panel__markdown-body"
                     @click="onMessageBodyClick"
+                    @mouseup="onAssistantMouseUp"
                     v-html="renderAssistantHtml(block.msg.content)"
                   ></div>
                   <span
@@ -1719,6 +1936,19 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     v-if="block.msg.content && !(agent.isStreaming && block.idx === agent.messages.length - 1)"
                     class="agent-panel__msg-actions"
                   >
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      type="button"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgRegenerateTitle')"
+                      @click="regenerateAssistant(block.msg)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M2.5 8a5.5 5.5 0 0 1 9.4-3.9L13.5 2V6H9.5"/>
+                        <path d="M13.5 8a5.5 5.5 0 0 1-9.4 3.9L2.5 14V10H6.5"/>
+                      </svg>
+                      <span>{{ t('agent.msgRegenerate') }}</span>
+                    </button>
                     <button
                       class="agent-panel__msg-action-btn"
                       :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
@@ -1759,6 +1989,20 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         <line x1="8" y1="1" x2="8" y2="10" />
                       </svg>
                       <span>{{ t('agent.msgSaveAsNote') }}</span>
+                    </button>
+                    <button
+                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--del"
+                      type="button"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgDeleteMsgTitle')"
+                      @click="deleteAssistantMessage(block.msg)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <polyline points="3 5 5 5 13 5"/>
+                        <path d="M6 5V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/>
+                        <path d="M12 5v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5"/>
+                      </svg>
+                      <span>{{ t('agent.msgDelete') }}</span>
                     </button>
                   </div>
                 </div>
@@ -1948,6 +2192,17 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             @ 引用
           </button>
 
+          <!-- Quick Recall Button -->
+          <button
+            v-if="hasPastUserMessage && !agent.isStreaming"
+            type="button"
+            class="agent-panel__recall-btn"
+            :title="t('agent.msgRecallTitle')"
+            @click.stop="recallLastTurn"
+          >
+            ↩ {{ t('agent.msgRecall') }}
+          </button>
+
           <!-- Ollama local status pill -->
           <div
             v-if="ollamaStatus.online"
@@ -1984,6 +2239,22 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       </footer>
     </template>
     </div>
+
+    <!-- Floating Quote Tooltip -->
+    <Teleport to="body">
+      <div
+        v-if="quoteTooltip.visible"
+        class="agent-panel__quote-tooltip"
+        :style="{
+          top: `${quoteTooltip.y}px`,
+          left: `${quoteTooltip.x}px`,
+        }"
+        @click.stop="insertQuote(quoteTooltip.text)"
+      >
+        <span class="agent-panel__quote-icon">💬</span>
+        <span>{{ t('agent.msgQuote') }}</span>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -2357,13 +2628,24 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   justify-content: flex-end;
   width: 100%;
 }
+.agent-panel__user-bubble-container {
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  position: relative;
+}
 .agent-panel__user-bubble {
-  max-width: 86%;
+  position: relative;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 12px 12px 2px 12px;
   padding: 8px 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+.agent-panel__user-bubble:hover {
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 40%, var(--border));
 }
 .agent-panel__user-text {
   font-size: 13px;
@@ -2371,6 +2653,116 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.55;
+}
+.agent-panel__user-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.agent-panel__user-bubble:hover .agent-panel__user-actions {
+  opacity: 1;
+}
+.agent-panel__bubble-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1.5;
+  transition: all 0.12s ease;
+}
+.agent-panel__bubble-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--accent, #ff9f40);
+}
+.agent-panel__bubble-action-btn--del:hover {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.agent-panel__user-bubble--editing {
+  width: 100%;
+  min-width: 260px;
+  background: var(--bg-elev);
+  border: 1px solid var(--accent, #ff9f40);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 10px;
+}
+.agent-panel__edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+.agent-panel__edit-input:focus {
+  border-color: var(--accent, #ff9f40);
+}
+.agent-panel__edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  gap: 8px;
+}
+.agent-panel__edit-hint {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+.agent-panel__edit-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.agent-panel__edit-btn {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.agent-panel__edit-btn--cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.agent-panel__edit-btn--cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.agent-panel__edit-btn--save {
+  background: var(--accent, #ff9f40);
+  border: 1px solid var(--accent, #ff9f40);
+  color: #fff;
+  font-weight: 500;
+}
+.agent-panel__edit-btn--save:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.agent-panel__edit-btn--save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* --- Assistant Message Card -------------------------------------------- */
@@ -3493,5 +3885,70 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__retry-btn:hover {
   background: #dc2626;
   color: #fff;
+}
+
+.agent-panel__msg-action-btn--del:hover:not(:disabled) {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.agent-panel__recall-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 7px;
+  font: inherit;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.agent-panel__recall-btn:hover {
+  color: var(--accent, #ff9f40);
+  border-color: var(--accent, #ff9f40);
+  background: var(--bg-hover);
+}
+
+/* Floating Quote Tooltip */
+.agent-panel__quote-tooltip {
+  position: fixed;
+  z-index: 99999;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-elev, #202020);
+  color: var(--text, #f0f0f0);
+  border: 1px solid var(--accent, #ff9f40);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  animation: agent-panel-pop 0.12s ease-out;
+  transition: transform 0.08s ease, background 0.12s ease;
+}
+.agent-panel__quote-tooltip:hover {
+  background: var(--accent, #ff9f40);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.agent-panel__quote-icon {
+  font-size: 12px;
+}
+@keyframes agent-panel-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 </style>

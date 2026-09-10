@@ -291,6 +291,73 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         }
       }
     },
+    /**
+     * Recall the last user turn: truncates the message history from the
+     * last user message, returning its text, references, and images so the UI
+     * can restore them into the composer.
+     */
+    recallLastTurn(): { content: string; references?: AgentReference[]; images?: string[] } | null {
+      for (let i = this.messages.length - 1; i >= 0; i--) {
+        const m = this.messages[i];
+        if (m.role === 'user') {
+          const content = m.content;
+          const references = m.references ? [...m.references] : undefined;
+          const images = m.images ? [...m.images] : undefined;
+          this.messages.splice(i);
+          this.isStreaming = false;
+          this.agentPhase = 'idle';
+          this.agentPhaseDetail = '';
+          this.currentRunId = null;
+          this.syncCurrentSession();
+          return { content, references, images };
+        }
+      }
+      return null;
+    },
+    /**
+     * Truncate the conversation starting from `messageId` (inclusive).
+     * Used for branching / in-place message edit & resend.
+     */
+    truncateFrom(messageId: string): AgentMessage | null {
+      const idx = this.messages.findIndex((m) => m.id === messageId);
+      if (idx !== -1) {
+        const removed = this.messages[idx];
+        this.messages.splice(idx);
+        this.isStreaming = false;
+        this.agentPhase = 'idle';
+        this.agentPhaseDetail = '';
+        this.currentRunId = null;
+        this.syncCurrentSession();
+        return removed;
+      }
+      return null;
+    },
+    /** Remove a single message from the active conversation. */
+    deleteMessage(messageId: string) {
+      const idx = this.messages.findIndex((m) => m.id === messageId);
+      if (idx !== -1) {
+        this.messages.splice(idx, 1);
+        this.syncCurrentSession();
+      }
+    },
+    /**
+     * Delete an entire conversational turn starting with the given user message
+     * up to the next user message (including any intermediate tool calls / assistant replies).
+     */
+    deleteTurn(messageId: string) {
+      const idx = this.messages.findIndex((m) => m.id === messageId);
+      if (idx === -1) return;
+      if (this.messages[idx].role === 'user') {
+        let count = 1;
+        while (idx + count < this.messages.length && this.messages[idx + count].role !== 'user') {
+          count++;
+        }
+        this.messages.splice(idx, count);
+      } else {
+        this.messages.splice(idx, 1);
+      }
+      this.syncCurrentSession();
+    },
     clear() {
       this.messages = [];
       this.currentRunId = null;
