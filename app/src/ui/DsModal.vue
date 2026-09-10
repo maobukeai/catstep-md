@@ -15,6 +15,7 @@ const props = withDefaults(
      * a redundant nested teleport.
      */
     teleport?: boolean;
+    zIndex?: number | string;
   }>(),
   { closeOnBackdrop: true, width: '480px', teleport: true },
 );
@@ -93,7 +94,12 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body" :disabled="!teleport">
-    <div v-if="modelValue" class="ds-modal" role="presentation">
+    <div
+      v-if="modelValue"
+      class="ds-modal"
+      role="presentation"
+      :style="zIndex ? { zIndex } : undefined"
+    >
       <div class="ds-modal__backdrop" @click="onBackdrop" />
       <div
         ref="panelRef"

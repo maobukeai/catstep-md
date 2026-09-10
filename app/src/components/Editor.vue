@@ -2377,8 +2377,11 @@ const fontSizeTheme = (px: number, family: string) =>
     },
     '.cm-activeLine': { backgroundColor: 'transparent' },
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)' },
-    '.cm-cursor': { borderLeftColor: 'var(--accent)', borderLeftWidth: '2px' },
-    '.cm-selectionBackground, ::selection': { backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important' },
+    '.cm-selectionLayer': { pointerEvents: 'none !important' },
+    '.cm-selectionBackground, ::selection': {
+      backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+      pointerEvents: 'none !important',
+    },
     '.cm-content :focus::selection, .cm-content :focus ::selection': {
       backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
       color: 'inherit !important',
@@ -2395,6 +2398,22 @@ const fontSizeTheme = (px: number, family: string) =>
       outline: '1px solid var(--accent, #ff9f40)',
     },
   });
+
+function getEditorPhrases() {
+  return EditorState.phrases.of({
+    Find: t('find.find') || '查找',
+    Replace: t('find.replace') || '替换',
+    next: t('find.next') || '下一个',
+    previous: t('find.previous') || '上一个',
+    all: t('find.all') || '全部匹配',
+    'match case': t('find.matchCase') || '区分大小写',
+    'by word': t('find.byWord') || '全字匹配',
+    regexp: t('find.regexp') || '正则表达式',
+    replace: t('find.replaceBtn') || '替换',
+    'replace all': t('find.replaceAll') || '全部替换',
+    close: t('find.close') || '关闭',
+  });
+}
 
 function buildExtensions() {
   if (usePlainWindowsEditor) return [];
@@ -2422,6 +2441,7 @@ function buildExtensions() {
           indentOnInput(),
           bracketMatching(),
           highlightActiveLine(),
+          getEditorPhrases(),
           search({ top: true }),
           incrementalFindScroll,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
@@ -2491,6 +2511,17 @@ function buildExtensions() {
           return true;
         },
       },
+      {
+        key: 'Escape',
+        run: (cmView: EditorView) => {
+          if (!cmView.state.selection.main.empty) {
+            const head = cmView.state.selection.main.head;
+            cmView.dispatch({ selection: { anchor: head, head } });
+            return true;
+          }
+          return false;
+        },
+      },
       ...defaultKeymap.filter(
         (b) => b.key !== 'Mod-/' && b.key !== 'Mod-i' && b.key !== 'Shift-Mod-k' && b.key !== 'Mod-Shift-k'
       ),
@@ -2550,6 +2581,17 @@ function buildExtensions() {
     // turn into phantom multi-line selections when the layout shifts.
     stableClickSelection(),
     EditorView.domEventHandlers({
+      mousedown: (ev, cmView) => {
+        if (ev.button === 0 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
+          const target = ev.target as HTMLElement | null;
+          if (target && !target.closest('.cm-content') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
+            const pos = cmView.posAtCoords({ x: ev.clientX, y: ev.clientY }, false) ?? cmView.state.doc.length;
+            cmView.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: false });
+            cmView.focus();
+          }
+        }
+        return false;
+      },
       pointerdown: () => {
         isDraggingSelection = true;
         return false;
@@ -2658,9 +2700,22 @@ onMounted(() => {
   const onRelayout = () => view?.requestMeasure();
   window.addEventListener('solomd:relayout', onRelayout);
   window.addEventListener('solomd:flush-content-sync', flushContentSync);
+  const onEditorDomMouseDown = (ev: MouseEvent) => {
+    if (ev.button === 0 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey && view) {
+      const target = ev.target as HTMLElement | null;
+      if (target && !target.closest('.cm-content') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
+        const pos = view.posAtCoords({ x: ev.clientX, y: ev.clientY }, false) ?? view.state.doc.length;
+        view.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: false });
+        view.focus();
+      }
+    }
+  };
+  view.dom.addEventListener('mousedown', onEditorDomMouseDown);
+
   cleanupRelayout = () => {
     window.removeEventListener('solomd:relayout', onRelayout);
     window.removeEventListener('solomd:flush-content-sync', flushContentSync);
+    view?.dom.removeEventListener('mousedown', onEditorDomMouseDown);
   };
 });
 
@@ -3367,6 +3422,88 @@ async function onEditorContextMenuAction(action: string, payload?: any) {
       applyFormat(payload);
       break;
     }
+    case 'find': {
+      openFind();
+      break;
+    }
+    case 'selectAction': {
+      if (payload === 'word') {
+        if (!usePlainWindowsEditor && view) {
+          const caret = view.state.selection.main.head;
+          const word = view.state.wordAt(caret);
+          if (word) {
+            view.dispatch({ selection: { anchor: word.from, head: word.to } });
+            view.focus();
+          }
+        } else if (plainEditor.value) {
+          const el = plainEditor.value;
+          const text = el.value;
+          const caret = el.selectionStart;
+          let start = caret;
+          let end = caret;
+          while (start > 0 && /[\w\u4e00-\u9fa5]/.test(text[start - 1])) start--;
+          while (end < text.length && /[\w\u4e00-\u9fa5]/.test(text[end])) end++;
+          if (start < end) {
+            el.setSelectionRange(start, end);
+            el.focus();
+          }
+        }
+      } else if (payload === 'line') {
+        if (!usePlainWindowsEditor && view) {
+          const caret = view.state.selection.main.head;
+          const line = view.state.doc.lineAt(caret);
+          view.dispatch({ selection: { anchor: line.from, head: line.to } });
+          view.focus();
+        } else if (plainEditor.value) {
+          const el = plainEditor.value;
+          const text = el.value;
+          const caret = el.selectionStart;
+          const start = text.lastIndexOf('\n', caret - 1) + 1;
+          let end = text.indexOf('\n', caret);
+          if (end === -1) end = text.length;
+          el.setSelectionRange(start, end);
+          el.focus();
+        }
+      } else if (payload === 'paragraph') {
+        if (!usePlainWindowsEditor && view) {
+          const caret = view.state.selection.main.head;
+          const doc = view.state.doc;
+          const curLine = doc.lineAt(caret);
+          let startLine = curLine.number;
+          let endLine = curLine.number;
+          while (startLine > 1 && doc.line(startLine - 1).text.trim() !== '') startLine--;
+          while (endLine < doc.lines && doc.line(endLine + 1).text.trim() !== '') endLine++;
+          view.dispatch({ selection: { anchor: doc.line(startLine).from, head: doc.line(endLine).to } });
+          view.focus();
+        } else if (plainEditor.value) {
+          const el = plainEditor.value;
+          const text = el.value;
+          const caret = el.selectionStart;
+          const lines = text.split('\n');
+          let charCount = 0;
+          let curLineIdx = 0;
+          for (let i = 0; i < lines.length; i++) {
+            const nextCount = charCount + lines[i].length + 1;
+            if (caret >= charCount && caret <= nextCount) {
+              curLineIdx = i;
+              break;
+            }
+            charCount = nextCount;
+          }
+          let startLine = curLineIdx;
+          let endLine = curLineIdx;
+          while (startLine > 0 && lines[startLine - 1].trim() !== '') startLine--;
+          while (endLine < lines.length - 1 && lines[endLine + 1].trim() !== '') endLine++;
+          let startPos = 0;
+          for (let i = 0; i < startLine; i++) startPos += lines[i].length + 1;
+          let endPos = startPos;
+          for (let i = startLine; i <= endLine; i++) endPos += lines[i].length + (i < lines.length - 1 ? 1 : 0);
+          el.setSelectionRange(startPos, endPos);
+          el.focus();
+        }
+      }
+      break;
+    }
   }
 }
 
@@ -3873,9 +4010,26 @@ function onGlobalKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (editorContextMenuState.value.visible) {
       editorContextMenuState.value.visible = false;
+      return;
     }
     if (selectionBubbleState.value.visible) {
       selectionBubbleState.value.visible = false;
+    }
+    if (!usePlainWindowsEditor && view) {
+      const sel = view.state.selection.main;
+      if (!sel.empty) {
+        view.dispatch({ selection: { anchor: sel.to, head: sel.to } });
+        e.preventDefault();
+        return;
+      }
+    } else if (usePlainWindowsEditor) {
+      const el = plainEditor.value;
+      if (el && el.selectionStart !== el.selectionEnd) {
+        el.selectionEnd = el.selectionStart;
+        emitPlainCursorAndSelection();
+        e.preventDefault();
+        return;
+      }
     }
   }
 }
@@ -4743,31 +4897,31 @@ const cls = computed(() => ({
           ref="plainFindInput"
           class="plain-find__input"
           :value="plainFindQuery"
-          placeholder="Find"
+          :placeholder="t('find.findPlaceholder') || '查找内容...'"
           @input="(e) => { plainFindQuery = (e.target as HTMLInputElement).value; runPlainSearch(); }"
           @keydown.enter.prevent="gotoPlainMatch(1)"
         />
         <span class="plain-find__count">{{ plainMatches.length ? (plainMatchIndex + 1) + '/' + plainMatches.length : '0/0' }}</span>
-        <button class="plain-find__btn" title="Previous (Shift+Enter)" @click="gotoPlainMatch(-1)">‹</button>
-        <button class="plain-find__btn" title="Next (Enter)" @click="gotoPlainMatch(1)">›</button>
+        <button class="plain-find__btn" :title="t('find.previous') || '上一个 (Shift+Enter)'" @click="gotoPlainMatch(-1)">‹</button>
+        <button class="plain-find__btn" :title="t('find.next') || '下一个 (Enter)'" @click="gotoPlainMatch(1)">›</button>
         <button
           class="plain-find__btn"
           :class="{ 'plain-find__btn--on': plainFindCaseSensitive }"
-          title="Match case"
+          :title="t('find.matchCase') || '区分大小写'"
           @click="plainFindCaseSensitive = !plainFindCaseSensitive; runPlainSearch()"
         >Aa</button>
-        <button class="plain-find__btn" title="Close (Esc)" @click="closePlainFind">✕</button>
+        <button class="plain-find__btn" :title="t('find.close') || '关闭 (Esc)'" @click="closePlainFind">✕</button>
       </div>
       <div class="plain-find__row">
         <input
           class="plain-find__input"
           :value="plainReplaceValue"
-          placeholder="Replace"
+          :placeholder="t('find.replacePlaceholder') || '替换为...'"
           @input="(e) => plainReplaceValue = (e.target as HTMLInputElement).value"
           @keydown.enter.prevent="replacePlainCurrent"
         />
-        <button class="plain-find__btn plain-find__btn--text" @click="replacePlainCurrent">Replace</button>
-        <button class="plain-find__btn plain-find__btn--text" @click="replacePlainAll">All</button>
+        <button class="plain-find__btn plain-find__btn--text" @click="replacePlainCurrent">{{ t('find.replaceBtn') || '替换' }}</button>
+        <button class="plain-find__btn plain-find__btn--text" @click="replacePlainAll">{{ t('find.replaceAll') || '全部替换' }}</button>
       </div>
     </div>
 

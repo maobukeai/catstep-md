@@ -203,9 +203,10 @@ const liveTheme = EditorView.theme({
   // `.cm-selectionLayer`, parking selection beneath the per-char
   // backgrounds painted by `t.monospace`. Need `!important` to beat
   // the inline style; 45% alpha keeps glyphs readable underneath.
-  '.cm-selectionLayer': { zIndex: '2 !important' },
+  '.cm-selectionLayer': { zIndex: '2 !important', pointerEvents: 'none !important' },
   '.cm-selectionBackground': {
     backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+    pointerEvents: 'none !important',
   },
 });
 

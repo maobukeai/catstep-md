@@ -55,6 +55,7 @@ import RagSearch from './components/RagSearch.vue';
 import CjkProofread from './components/CjkProofread.vue';
 import ReadingView from './components/ReadingView.vue';
 import AboutDialog from './components/AboutDialog.vue';
+import SponsorModal from './components/SponsorModal.vue';
 import AgentSetupWizard from './components/AgentSetupWizard.vue';
 import UnsavedDialog from './components/UnsavedDialog.vue';
 import FileChangedDialog from './components/FileChangedDialog.vue';
@@ -279,6 +280,7 @@ function openGlobalSearchPane() {
 const ragSearchOpen = ref(false);
 const cjkProofreadOpen = ref(false);
 const aboutOpen = ref(false);
+const sponsorOpen = ref(false);
 const wizardOpen = ref(false);
 
 // Unsaved-changes dialog state
@@ -437,6 +439,7 @@ function onEsc(e: KeyboardEvent) {
   if (onZoomShortcut(e)) return;
   if (e.key !== 'Escape') return;
   if (sidebarCtx.value) sidebarCtx.value = null;
+  else if (sponsorOpen.value) sponsorOpen.value = false;
   else if (aboutOpen.value) aboutOpen.value = false;
   else if (cjkProofreadOpen.value) cjkProofreadOpen.value = false;
   else if (ragSearchOpen.value) ragSearchOpen.value = false;
@@ -966,6 +969,9 @@ function dispatchMenuAction(id: string) {
       break;
     case 'help.about':
       aboutOpen.value = true;
+      break;
+    case 'help.sponsor':
+      sponsorOpen.value = true;
       break;
     // Windows unified title bar — the in-app Edit menu (Toolbar.vue). The
     // native menu used PredefinedMenuItems here; in-app we drive the focused
@@ -2243,7 +2249,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       @open-settings="(section?: string) => { ragSearchOpen = false; openSettingsAt(section ?? 'writing'); }"
     />
     <CjkProofread :open="cjkProofreadOpen" @close="cjkProofreadOpen = false" />
-    <AboutDialog :open="aboutOpen" @close="aboutOpen = false" />
+    <AboutDialog
+      :open="aboutOpen"
+      @close="aboutOpen = false"
+      @open-sponsor="aboutOpen = false; sponsorOpen = true"
+    />
+    <SponsorModal v-model="sponsorOpen" />
     <AgentSetupWizard v-if="!IS_APP_STORE_BUILD" :open="wizardOpen" @close="wizardOpen = false" />
     <UnsavedDialog
       :open="unsavedOpen"

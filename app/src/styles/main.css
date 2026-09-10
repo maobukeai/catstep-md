@@ -1163,3 +1163,250 @@ body.solomd-printing--dark {
   color: inherit !important;
 }
 
+.cm-selectionLayer,
+.cm-selectionBackground {
+  pointer-events: none !important;
+}
+
+/* ── CodeMirror 6 Search / Replace Panel Modern Redesign ────────── */
+.cm-panels.cm-panels-top {
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08)) !important;
+  background: var(--bg-elev, #fcfbf9) !important;
+  z-index: 50 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+
+.cm-panel.cm-search {
+  display: grid !important;
+  grid-template-columns: 150px auto auto auto auto auto !important;
+  align-items: center !important;
+  gap: 5px 6px !important;
+  padding: 6px 36px 6px 12px !important;
+  background: transparent !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif !important;
+  font-size: 12px !important;
+  color: var(--text, #1f2937) !important;
+  border: none !important;
+  position: relative !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+}
+
+/* Row 1: Search input and query navigation */
+.cm-panel.cm-search input[name="search"] {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  width: 150px !important;
+}
+.cm-panel.cm-search button[name="next"] {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+}
+.cm-panel.cm-search button[name="prev"] {
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+}
+.cm-panel.cm-search button[name="select"] {
+  grid-column: 4 !important;
+  grid-row: 1 !important;
+}
+
+/* Row 2: Replace input, replace buttons, and search options */
+.cm-panel.cm-search br {
+  display: none !important;
+}
+.cm-panel.cm-search input[name="replace"] {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  width: 150px !important;
+}
+.cm-panel.cm-search button[name="replace"] {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+}
+.cm-panel.cm-search button[name="replaceAll"] {
+  grid-column: 3 !important;
+  grid-row: 2 !important;
+}
+.cm-panel.cm-search label:has(input[name="case"]) {
+  grid-column: 4 !important;
+  grid-row: 2 !important;
+}
+.cm-panel.cm-search label:has(input[name="re"]) {
+  grid-column: 5 !important;
+  grid-row: 2 !important;
+}
+.cm-panel.cm-search label:has(input[name="word"]) {
+  grid-column: 6 !important;
+  grid-row: 2 !important;
+}
+
+.cm-panel.cm-search input.cm-textfield {
+  height: 26px !important;
+  padding: 2px 8px !important;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.12)) !important;
+  border-radius: 5px !important;
+  background: var(--bg, #ffffff) !important;
+  color: var(--text, #1f2937) !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+  outline: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+  box-sizing: border-box !important;
+}
+
+.cm-panel.cm-search input.cm-textfield:focus {
+  border-color: var(--accent, #ff9f40) !important;
+  box-shadow: 0 0 0 2px var(--accent-ring, rgba(255, 159, 64, 0.25)) !important;
+}
+
+.cm-panel.cm-search input.cm-textfield::placeholder {
+  color: var(--text-muted, #9ca3af) !important;
+  opacity: 0.65;
+}
+
+.cm-panel.cm-search button.cm-button {
+  height: 26px !important;
+  padding: 0 8px !important;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1)) !important;
+  border-radius: 5px !important;
+  background: var(--bg, #ffffff) !important;
+  color: var(--text, #374151) !important;
+  font-family: inherit !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  transition: background-color 0.1s ease, border-color 0.1s ease, color 0.1s ease, transform 0.08s ease !important;
+  user-select: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  box-sizing: border-box !important;
+}
+
+.cm-panel.cm-search button.cm-button:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05)) !important;
+  border-color: var(--border, rgba(0, 0, 0, 0.18)) !important;
+  color: var(--text, #111827) !important;
+}
+
+.cm-panel.cm-search button.cm-button:active {
+  transform: translateY(0.5px) !important;
+}
+
+.cm-panel.cm-search label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  font-size: 11.5px !important;
+  color: var(--text-muted, #6b7280) !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  transition: color 0.1s ease, background-color 0.1s ease !important;
+}
+
+.cm-panel.cm-search label:hover {
+  color: var(--text, #111827) !important;
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04)) !important;
+}
+
+.cm-panel.cm-search label input[type="checkbox"] {
+  accent-color: var(--accent, #ff9f40) !important;
+  cursor: pointer !important;
+  width: 13px !important;
+  height: 13px !important;
+  margin: 0 !important;
+}
+
+.cm-panel.cm-search button[name="close"] {
+  position: absolute !important;
+  right: 8px !important;
+  top: 7px !important;
+  width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: var(--text-muted, #6b7280) !important;
+  font-size: 15px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  transition: background-color 0.1s ease, color 0.1s ease !important;
+  box-sizing: border-box !important;
+}
+
+.cm-panel.cm-search button[name="close"]:hover {
+  background: rgba(0, 0, 0, 0.07) !important;
+  color: var(--text, #111827) !important;
+}
+
+/* Dark Theme overrides for search panel */
+:root[data-theme="dark"] .cm-panels.cm-panels-top,
+body.dark .cm-panels.cm-panels-top {
+  background: var(--bg-elev, #23221f) !important;
+  border-bottom-color: var(--border, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search,
+body.dark .cm-panel.cm-search {
+  color: var(--text, #e6e1d8) !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search input.cm-textfield,
+body.dark .cm-panel.cm-search input.cm-textfield {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #f3f4f6 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search input.cm-textfield:focus,
+body.dark .cm-panel.cm-search input.cm-textfield:focus {
+  border-color: var(--accent, #ffa54d) !important;
+  box-shadow: 0 0 0 2px var(--accent-ring, rgba(255, 165, 77, 0.35)) !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search button.cm-button,
+body.dark .cm-panel.cm-search button.cm-button {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--text, #e6e1d8) !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search button.cm-button:hover,
+body.dark .cm-panel.cm-search button.cm-button:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search label,
+body.dark .cm-panel.cm-search label {
+  color: var(--text-muted, #b8b1a6) !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search label:hover,
+body.dark .cm-panel.cm-search label:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+:root[data-theme="dark"] .cm-panel.cm-search button[name="close"]:hover,
+body.dark .cm-panel.cm-search button[name="close"]:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+

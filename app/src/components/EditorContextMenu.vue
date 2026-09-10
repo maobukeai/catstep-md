@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useI18n } from '../i18n';
 
 export interface EditorContextInfo {
@@ -59,7 +59,7 @@ function openSubmenu(name: string, event?: MouseEvent) {
   if (event?.currentTarget) {
     const el = event.currentTarget as HTMLElement;
     const rect = el.getBoundingClientRect();
-    const estWidth = 220;
+    const estWidth = 212;
     const estHeight = 320;
     const flipX = rect.right + estWidth > window.innerWidth;
     const flipY = rect.top + estHeight > window.innerHeight;
@@ -87,7 +87,7 @@ function dispatch(act: string, payload?: any) {
   emit('close');
 }
 
-// Global click outside / keydown dismiss
+// Global click outside / keydown dismiss & keyboard navigation
 function onDocMouseDown(e: MouseEvent) {
   const target = e.target as HTMLElement | null;
   if (!target?.closest('.editor-ctx-menu')) {
@@ -95,9 +95,69 @@ function onDocMouseDown(e: MouseEvent) {
   }
 }
 
+function clearKeyboardFocus() {
+  if (!rootRef.value) return;
+  rootRef.value.querySelectorAll('.ctx-item--focused').forEach((el) => el.classList.remove('ctx-item--focused'));
+}
+
+function onDocMouseMove() {
+  clearKeyboardFocus();
+}
+
 function onDocKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     emit('close');
+    return;
+  }
+  if (!props.visible) return;
+
+  // Arrow keys navigation
+  if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
+    const container = activeSubmenu.value
+      ? (rootRef.value?.querySelector('.ctx-submenu') as HTMLElement | null)
+      : rootRef.value;
+    if (!container) return;
+
+    const items = Array.from(container.querySelectorAll(':scope > .ctx-item:not(.ctx-item--disabled)')) as HTMLElement[];
+    if (!items.length) return;
+
+    let currentFocused = items.findIndex((el) => el.classList.contains('ctx-item--focused'));
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = currentFocused < items.length - 1 ? currentFocused + 1 : 0;
+      items.forEach((el, idx) => el.classList.toggle('ctx-item--focused', idx === next));
+      items[next]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = currentFocused > 0 ? currentFocused - 1 : items.length - 1;
+      items.forEach((el, idx) => el.classList.toggle('ctx-item--focused', idx === prev));
+      items[prev]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowRight') {
+      if (currentFocused >= 0 && items[currentFocused]?.classList.contains('ctx-item--has-sub')) {
+        e.preventDefault();
+        items[currentFocused].dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+        nextTick(() => {
+          const sub = rootRef.value?.querySelector('.ctx-submenu') as HTMLElement | null;
+          if (sub) {
+            const subItems = Array.from(sub.querySelectorAll(':scope > .ctx-item:not(.ctx-item--disabled)')) as HTMLElement[];
+            if (subItems[0]) {
+              subItems.forEach((el, idx) => el.classList.toggle('ctx-item--focused', idx === 0));
+            }
+          }
+        });
+      }
+    } else if (e.key === 'ArrowLeft') {
+      if (activeSubmenu.value) {
+        e.preventDefault();
+        activeSubmenu.value = null;
+      }
+    } else if (e.key === 'Enter') {
+      if (currentFocused >= 0 && items[currentFocused]) {
+        e.preventDefault();
+        items[currentFocused].click();
+      }
+    }
   }
 }
 
@@ -110,6 +170,7 @@ onMounted(() => {
   window.addEventListener('keydown', onDocKeyDown);
   window.addEventListener('scroll', onDocScroll, true);
   window.addEventListener('blur', onDocScroll);
+  window.addEventListener('resize', onDocScroll);
 });
 
 onBeforeUnmount(() => {
@@ -117,13 +178,14 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onDocKeyDown);
   window.removeEventListener('scroll', onDocScroll, true);
   window.removeEventListener('blur', onDocScroll);
+  window.removeEventListener('resize', onDocScroll);
   if (submenuTimer) clearTimeout(submenuTimer);
 });
 
 // Viewport-aware clamped positioning of the main menu
 const menuStyle = computed(() => {
-  const menuWidth = 230;
-  const menuHeight = 460;
+  const menuWidth = 218;
+  const menuHeight = 490;
   let posX = props.x;
   let posY = props.y;
 
@@ -175,14 +237,14 @@ function getSubmenuStyle(name: string) {
         tabindex="-1"
         @contextmenu.prevent
         @mousedown.stop
+        @mousemove="onDocMouseMove"
       >
-        <!-- ── 1. Basic Clipboard & Undo/Redo ────────────────── -->
+        <!-- ── 1. Basic Clipboard Actions (Clean Minimalist) ── -->
         <div
           class="ctx-item"
           :class="{ 'ctx-item--disabled': !contextInfo.hasSelection }"
           @click="contextInfo.hasSelection && dispatch('cut')"
         >
-          <span class="ctx-item__icon">✂</span>
           <span class="ctx-item__label">{{ t('editorCtx.cut') || '剪切' }}</span>
           <span class="ctx-item__kbd">Ctrl+X</span>
         </div>
@@ -192,7 +254,6 @@ function getSubmenuStyle(name: string) {
           :class="{ 'ctx-item--disabled': !contextInfo.hasSelection }"
           @click="contextInfo.hasSelection && dispatch('copy')"
         >
-          <span class="ctx-item__icon">📋</span>
           <span class="ctx-item__label">{{ t('editorCtx.copy') || '复制' }}</span>
           <span class="ctx-item__kbd">Ctrl+C</span>
         </div>
@@ -204,15 +265,19 @@ function getSubmenuStyle(name: string) {
           @mouseenter="contextInfo.hasSelection && openSubmenu('copyAs', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
-          <span class="ctx-item__icon">📑</span>
           <span class="ctx-item__label">{{ t('editorCtx.copyAs') || '复制为' }}</span>
-          <span class="ctx-item__arrow">›</span>
+          <span class="ctx-item__arrow">
+            <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+              <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
 
           <!-- Submenu: Copy As -->
           <div
             v-if="activeSubmenu === 'copyAs' && contextInfo.hasSelection"
             class="ctx-submenu"
             :style="getSubmenuStyle('copyAs')"
+            :data-flip-x="submenuDirections['copyAs']?.flipX"
             @mouseenter="cancelCloseSubmenu"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -229,13 +294,11 @@ function getSubmenuStyle(name: string) {
         </div>
 
         <div class="ctx-item" @click="dispatch('paste')">
-          <span class="ctx-item__icon">📋</span>
           <span class="ctx-item__label">{{ t('editorCtx.paste') || '粘贴' }}</span>
           <span class="ctx-item__kbd">Ctrl+V</span>
         </div>
 
         <div class="ctx-item" @click="dispatch('pasteAsPlainText')">
-          <span class="ctx-item__icon">📄</span>
           <span class="ctx-item__label">{{ t('editorCtx.pasteAsPlainText') || '粘贴为纯文本' }}</span>
           <span class="ctx-item__kbd">Ctrl+Shift+V</span>
         </div>
@@ -250,15 +313,19 @@ function getSubmenuStyle(name: string) {
             @mouseenter="openSubmenu('table', $event)"
             @mouseleave="scheduleCloseSubmenu"
           >
-            <span class="ctx-item__icon">⊞</span>
             <span class="ctx-item__label">{{ t('editorCtx.table') || '表格' }}</span>
-            <span class="ctx-item__arrow">›</span>
+            <span class="ctx-item__arrow">
+              <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+                <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
 
             <!-- Submenu: Table Operations -->
             <div
               v-if="activeSubmenu === 'table'"
               class="ctx-submenu"
               :style="getSubmenuStyle('table')"
+              :data-flip-x="submenuDirections['table']?.flipX"
               @mouseenter="cancelCloseSubmenu"
               @mouseleave="scheduleCloseSubmenu"
             >
@@ -292,15 +359,27 @@ function getSubmenuStyle(name: string) {
               <div class="ctx-sep"></div>
               <div class="ctx-item" @click="dispatch('tableAction', 'alignLeft')">
                 <span class="ctx-item__label">{{ t('editorCtx.alignLeft') || '左对齐' }}</span>
-                <span v-if="contextInfo.tableInfo?.align === 'left'" class="ctx-item__check">✓</span>
+                <span v-if="contextInfo.tableInfo?.align === 'left'" class="ctx-item__check">
+                  <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                    <path d="M2 6.5L4.5 9L10 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
               </div>
               <div class="ctx-item" @click="dispatch('tableAction', 'alignCenter')">
                 <span class="ctx-item__label">{{ t('editorCtx.alignCenter') || '居中对齐' }}</span>
-                <span v-if="contextInfo.tableInfo?.align === 'center'" class="ctx-item__check">✓</span>
+                <span v-if="contextInfo.tableInfo?.align === 'center'" class="ctx-item__check">
+                  <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                    <path d="M2 6.5L4.5 9L10 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
               </div>
               <div class="ctx-item" @click="dispatch('tableAction', 'alignRight')">
                 <span class="ctx-item__label">{{ t('editorCtx.alignRight') || '右对齐' }}</span>
-                <span v-if="contextInfo.tableInfo?.align === 'right'" class="ctx-item__check">✓</span>
+                <span v-if="contextInfo.tableInfo?.align === 'right'" class="ctx-item__check">
+                  <svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                    <path d="M2 6.5L4.5 9L10 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
               </div>
               <div class="ctx-sep"></div>
               <div class="ctx-item" @click="dispatch('tableAction', 'openTableEditor')">
@@ -317,15 +396,12 @@ function getSubmenuStyle(name: string) {
         <template v-if="contextInfo.linkInfo">
           <div class="ctx-sep"></div>
           <div class="ctx-item" @click="dispatch('linkAction', 'openLink')">
-            <span class="ctx-item__icon">🔗</span>
             <span class="ctx-item__label">{{ t('editorCtx.openLink') || '打开链接' }}</span>
           </div>
           <div class="ctx-item" @click="dispatch('linkAction', 'copyLinkAddress')">
-            <span class="ctx-item__icon">📋</span>
             <span class="ctx-item__label">{{ t('editorCtx.copyLinkAddress') || '复制链接地址' }}</span>
           </div>
           <div class="ctx-item" @click="dispatch('linkAction', 'editLink')">
-            <span class="ctx-item__icon">✏</span>
             <span class="ctx-item__label">{{ t('editorCtx.editLink') || '编辑链接' }}</span>
           </div>
         </template>
@@ -334,7 +410,6 @@ function getSubmenuStyle(name: string) {
         <template v-if="contextInfo.imageInfo">
           <div class="ctx-sep"></div>
           <div class="ctx-item" @click="dispatch('imageAction', 'copyImagePath')">
-            <span class="ctx-item__icon">🖼</span>
             <span class="ctx-item__label">{{ t('editorCtx.copyImagePath') || '复制图片路径' }}</span>
           </div>
         </template>
@@ -343,11 +418,9 @@ function getSubmenuStyle(name: string) {
         <template v-if="contextInfo.mathInfo">
           <div class="ctx-sep"></div>
           <div class="ctx-item" @click="dispatch('mathAction', 'copyLatex')">
-            <span class="ctx-item__icon">∑</span>
             <span class="ctx-item__label">{{ t('editorCtx.copyLatex') || '复制 LaTeX 源码' }}</span>
           </div>
           <div class="ctx-item" @click="dispatch('mathAction', 'editFormula')">
-            <span class="ctx-item__icon">✏</span>
             <span class="ctx-item__label">{{ t('editorCtx.editFormula') || '在公式编辑器中编辑' }}</span>
           </div>
         </template>
@@ -356,7 +429,6 @@ function getSubmenuStyle(name: string) {
         <template v-if="contextInfo.isCodeBlock">
           <div class="ctx-sep"></div>
           <div class="ctx-item" @click="dispatch('codeAction', 'copyCode')">
-            <span class="ctx-item__icon">💻</span>
             <span class="ctx-item__label">{{ t('editorCtx.copyCodeContent') || '复制代码块内容' }}</span>
           </div>
         </template>
@@ -371,14 +443,18 @@ function getSubmenuStyle(name: string) {
             @mouseenter="openSubmenu('ai', $event)"
             @mouseleave="scheduleCloseSubmenu"
           >
-            <span class="ctx-item__icon">✨</span>
             <span class="ctx-item__label">{{ t('editorCtx.aiAssistant') || 'AI 智能写作助手' }}</span>
-            <span class="ctx-item__arrow">›</span>
+            <span class="ctx-item__arrow">
+              <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+                <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
 
             <div
               v-if="activeSubmenu === 'ai'"
               class="ctx-submenu"
               :style="getSubmenuStyle('ai')"
+              :data-flip-x="submenuDirections['ai']?.flipX"
               @mouseenter="cancelCloseSubmenu"
               @mouseleave="scheduleCloseSubmenu"
             >
@@ -404,14 +480,18 @@ function getSubmenuStyle(name: string) {
             @mouseenter="openSubmenu('case', $event)"
             @mouseleave="scheduleCloseSubmenu"
           >
-            <span class="ctx-item__icon">Aa</span>
             <span class="ctx-item__label">{{ t('editorCtx.transformCase') || '英文大小写转换' }}</span>
-            <span class="ctx-item__arrow">›</span>
+            <span class="ctx-item__arrow">
+              <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+                <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
 
             <div
               v-if="activeSubmenu === 'case'"
               class="ctx-submenu"
               :style="getSubmenuStyle('case')"
+              :data-flip-x="submenuDirections['case']?.flipX"
               @mouseenter="cancelCloseSubmenu"
               @mouseleave="scheduleCloseSubmenu"
             >
@@ -438,14 +518,18 @@ function getSubmenuStyle(name: string) {
           @mouseenter="openSubmenu('insert', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
-          <span class="ctx-item__icon">➕</span>
           <span class="ctx-item__label">{{ t('editorCtx.insert') || '插入' }}</span>
-          <span class="ctx-item__arrow">›</span>
+          <span class="ctx-item__arrow">
+            <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+              <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
 
           <div
             v-if="activeSubmenu === 'insert'"
             class="ctx-submenu"
             :style="getSubmenuStyle('insert')"
+            :data-flip-x="submenuDirections['insert']?.flipX"
             @mouseenter="cancelCloseSubmenu"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -500,14 +584,18 @@ function getSubmenuStyle(name: string) {
           @mouseenter="openSubmenu('format', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
-          <span class="ctx-item__icon">🎨</span>
           <span class="ctx-item__label">{{ t('editorCtx.format') || '格式' }}</span>
-          <span class="ctx-item__arrow">›</span>
+          <span class="ctx-item__arrow">
+            <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+              <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
 
           <div
             v-if="activeSubmenu === 'format'"
             class="ctx-submenu"
             :style="getSubmenuStyle('format')"
+            :data-flip-x="submenuDirections['format']?.flipX"
             @mouseenter="cancelCloseSubmenu"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -554,14 +642,18 @@ function getSubmenuStyle(name: string) {
           @mouseenter="openSubmenu('paragraph', $event)"
           @mouseleave="scheduleCloseSubmenu"
         >
-          <span class="ctx-item__icon">¶</span>
           <span class="ctx-item__label">{{ t('editorCtx.paragraph') || '段落' }}</span>
-          <span class="ctx-item__arrow">›</span>
+          <span class="ctx-item__arrow">
+            <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+              <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
 
           <div
             v-if="activeSubmenu === 'paragraph'"
             class="ctx-submenu"
             :style="getSubmenuStyle('paragraph')"
+            :data-flip-x="submenuDirections['paragraph']?.flipX"
             @mouseenter="cancelCloseSubmenu"
             @mouseleave="scheduleCloseSubmenu"
           >
@@ -606,12 +698,53 @@ function getSubmenuStyle(name: string) {
           </div>
         </div>
 
-        <!-- ── 4. Select All ─────────────────────────────────── -->
+        <!-- ── 4. Select & Find (Typora Standard) ─────────────── -->
         <div class="ctx-sep"></div>
+
+        <!-- Select Submenu -->
+        <div
+          class="ctx-item ctx-item--has-sub"
+          :class="{ 'ctx-item--active': activeSubmenu === 'select' }"
+          @mouseenter="openSubmenu('select', $event)"
+          @mouseleave="scheduleCloseSubmenu"
+        >
+          <span class="ctx-item__label">{{ t('editorCtx.select') || '选择' }}</span>
+          <span class="ctx-item__arrow">
+            <svg viewBox="0 0 6 10" width="6" height="10" aria-hidden="true">
+              <path d="M1 1.5L4.5 5L1 8.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+
+          <div
+            v-if="activeSubmenu === 'select'"
+            class="ctx-submenu"
+            :style="getSubmenuStyle('select')"
+            :data-flip-x="submenuDirections['select']?.flipX"
+            @mouseenter="cancelCloseSubmenu"
+            @mouseleave="scheduleCloseSubmenu"
+          >
+            <div class="ctx-item" @click="dispatch('selectAction', 'word')">
+              <span class="ctx-item__label">{{ t('editorCtx.selectWord') || '选择当前词' }}</span>
+            </div>
+            <div class="ctx-item" @click="dispatch('selectAction', 'line')">
+              <span class="ctx-item__label">{{ t('editorCtx.selectLine') || '选择当前行' }}</span>
+            </div>
+            <div class="ctx-item" @click="dispatch('selectAction', 'paragraph')">
+              <span class="ctx-item__label">{{ t('editorCtx.selectParagraph') || '选择当前段落' }}</span>
+            </div>
+          </div>
+        </div>
+
         <div class="ctx-item" @click="dispatch('selectAll')">
-          <span class="ctx-item__icon">☑</span>
           <span class="ctx-item__label">{{ t('editorCtx.selectAll') || '全选' }}</span>
           <span class="ctx-item__kbd">Ctrl+A</span>
+        </div>
+
+        <div class="ctx-sep"></div>
+
+        <div class="ctx-item" @click="dispatch('find')">
+          <span class="ctx-item__label">{{ t('editorCtx.findAndReplace') || '查找和替换...' }}</span>
+          <span class="ctx-item__kbd">Ctrl+F</span>
         </div>
       </div>
     </Transition>
@@ -619,76 +752,112 @@ function getSubmenuStyle(name: string) {
 </template>
 
 <style scoped>
-.editor-ctx-menu {
+.editor-ctx-menu,
+.ctx-submenu {
   position: fixed;
   z-index: 10000;
-  width: 228px;
-  background: var(--bg-elev, #ffffff);
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+  width: 218px;
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 9px;
-  padding: 5px 0;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
-  font-family: inherit;
+  padding: 4px;
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.13),
+    0 3px 8px rgba(0, 0, 0, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 12.5px;
   user-select: none;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  outline: none;
 }
 
 .ctx-submenu {
   position: absolute;
   z-index: 10001;
-  width: 218px;
-  background: var(--bg-elev, #ffffff);
-  border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
-  border-radius: 9px;
-  padding: 5px 0;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  width: 208px;
+}
+
+/* Mouse Safe-Path Bridge for Submenus: prevents cursor from dropping hover */
+.ctx-submenu::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 14px;
+  left: -10px;
+  pointer-events: auto;
+}
+.ctx-submenu[data-flip-x='true']::before {
+  left: auto;
+  right: -10px;
+}
+
+/* Dark Mode Appearance */
+:root[data-theme="dark"] .editor-ctx-menu,
+:root[data-theme="dark"] .ctx-submenu,
+body.dark .editor-ctx-menu,
+body.dark .ctx-submenu {
+  background: rgba(30, 29, 27, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 20px 42px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .ctx-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
-  color: var(--text, #2c3e50);
+  justify-content: space-between;
+  min-height: 27px;
+  padding: 4.5px 9px;
+  border-radius: 6px;
+  color: var(--text, #262626);
   cursor: pointer;
-  line-height: 1.4;
-  transition: background-color 0.1s ease, color 0.1s ease;
+  line-height: 1.35;
+  font-weight: 450;
+  transition: background-color 0.06s ease, color 0.06s ease;
 }
 
 .ctx-item:hover,
-.ctx-item--active {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.06));
-  color: var(--text, #111);
+.ctx-item--active,
+.ctx-item--focused {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.055));
+  color: var(--text, #111827);
+}
+
+:root[data-theme="dark"] .ctx-item,
+body.dark .ctx-item {
+  color: var(--text, #e4e2de);
+}
+
+:root[data-theme="dark"] .ctx-item:hover,
+:root[data-theme="dark"] .ctx-item--active,
+:root[data-theme="dark"] .ctx-item--focused,
+body.dark .ctx-item:hover,
+body.dark .ctx-item--active,
+body.dark .ctx-item--focused {
+  background: rgba(255, 255, 255, 0.085);
+  color: #ffffff;
 }
 
 .ctx-item--disabled {
-  opacity: 0.42;
+  opacity: 0.38;
   cursor: default;
   pointer-events: none;
 }
 
 .ctx-item--danger {
-  color: var(--danger, #ef4444);
+  color: var(--danger, #e53e3e);
 }
 
-.ctx-item--danger:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger, #ef4444);
-}
-
-.ctx-item__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  font-size: 13px;
-  opacity: 0.85;
-  flex-shrink: 0;
+.ctx-item--danger:hover,
+.ctx-item--danger.ctx-item--focused {
+  background: rgba(229, 62, 62, 0.1);
+  color: var(--danger, #dc2626);
 }
 
 .ctx-item__label {
@@ -700,43 +869,75 @@ function getSubmenuStyle(name: string) {
 
 .ctx-item__kbd {
   font-size: 11px;
-  color: var(--text-muted, #888);
-  font-family: var(--font-mono, monospace);
-  letter-spacing: -0.2px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted, #787774);
+  opacity: 0.55;
+  letter-spacing: 0.15px;
+  margin-left: auto;
+  padding-left: 12px;
   flex-shrink: 0;
-  opacity: 0.85;
+  user-select: none;
+  transition: opacity 0.06s ease;
+}
+
+.ctx-item:hover .ctx-item__kbd,
+.ctx-item--active .ctx-item__kbd,
+.ctx-item--focused .ctx-item__kbd {
+  opacity: 0.82;
 }
 
 .ctx-item__arrow {
-  font-size: 14px;
-  color: var(--text-muted, #888);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #787774);
+  opacity: 0.5;
   margin-left: auto;
-  line-height: 1;
-  opacity: 0.8;
+  padding-left: 10px;
+  flex-shrink: 0;
+  transition: opacity 0.06s ease;
+}
+
+.ctx-item:hover .ctx-item__arrow,
+.ctx-item--active .ctx-item__arrow,
+.ctx-item--focused .ctx-item__arrow {
+  opacity: 0.85;
 }
 
 .ctx-item__check {
-  font-size: 12px;
-  color: var(--accent, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #ff9f40);
   margin-left: auto;
-  font-weight: bold;
+  padding-left: 8px;
+  flex-shrink: 0;
 }
 
 .ctx-sep {
   height: 1px;
-  background: var(--border, rgba(0, 0, 0, 0.08));
-  margin: 4px 0;
+  background: var(--border, rgba(0, 0, 0, 0.06));
+  margin: 3.5px 4px;
+}
+
+:root[data-theme="dark"] .ctx-sep,
+body.dark .ctx-sep {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 /* Transitions */
-.ctx-fade-enter-active,
-.ctx-fade-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
+.ctx-fade-enter-active {
+  transition: opacity 0.09s ease-out, transform 0.09s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.ctx-fade-enter-from,
-.ctx-fade-leave-to {
+.ctx-fade-leave-active {
+  transition: opacity 0.06s ease-in;
+}
+.ctx-fade-enter-from {
   opacity: 0;
   transform: scale(0.97);
+}
+.ctx-fade-leave-to {
+  opacity: 0;
 }
 </style>

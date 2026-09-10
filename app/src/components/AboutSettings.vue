@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import BrandMark from './BrandMark.vue';
+import SponsorModal from './SponsorModal.vue';
 import { copyPlainText } from '../lib/code-copy';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
@@ -15,6 +16,7 @@ const toasts = useToastsStore();
 
 const appVersion = ref('…');
 const copied = ref(false);
+const showSponsor = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
 const checkingUpdate = ref(false);
 
@@ -283,8 +285,8 @@ async function manualCheckUpdate() {
         <button
           class="about-link-card"
           type="button"
-          title="https://github.com/sponsors/maobukeai"
-          @click="visit(links.sponsor)"
+          title="赞助支持 · 微信赞赏码与 GitHub"
+          @click="showSponsor = true"
         >
           <div class="about-link-card__icon about-link-card__icon--sponsor">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
@@ -317,6 +319,9 @@ async function manualCheckUpdate() {
         © 2026 maobukeai · Open Source under MIT License
       </div>
     </div>
+
+    <!-- Sponsor & Contact Modal -->
+    <SponsorModal v-model="showSponsor" />
   </div>
 </template>
 

@@ -1078,7 +1078,10 @@ onBeforeUnmount(() => {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  min-width: 250px;
+  width: max-content;
+  min-width: 150px;
+  max-width: min(360px, calc(100vw - 16px));
+  box-sizing: border-box;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--r-md, 6px);
@@ -1092,12 +1095,14 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 6px 10px;
+  box-sizing: border-box;
+  padding: 5px 10px;
   font-size: 12px;
   text-align: left;
   border-radius: 4px;
   color: var(--text);
   cursor: pointer;
+  white-space: nowrap;
 }
 .dropdown__item:hover {
   background: var(--bg-active);
@@ -1105,12 +1110,15 @@ onBeforeUnmount(() => {
 .dropdown__name {
   color: var(--text);
   font-weight: 500;
+  white-space: nowrap;
 }
 .dropdown__shortcut {
   margin-left: auto;
+  padding-left: 20px;
   color: var(--text-faint);
   font-size: 10.5px;
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
 .dropdown__sep {
   height: 1px;

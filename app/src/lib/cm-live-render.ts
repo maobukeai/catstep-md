@@ -855,9 +855,10 @@ const liveEditTheme = EditorView.theme({
   // readable through the highlight. (The same fix already lives in
   // cm-live-preview.ts — the earlier patches only covered that mode, not
   // this one, which is the WYSIWYG "live edit" the reporters actually use.)
-  '.cm-selectionLayer': { zIndex: '2 !important' },
+  '.cm-selectionLayer': { zIndex: '2 !important', pointerEvents: 'none !important' },
   '.cm-selectionBackground': {
     backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
+    pointerEvents: 'none !important',
   },
 });
 

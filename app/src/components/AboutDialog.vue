@@ -7,11 +7,19 @@ import BrandMark from './BrandMark.vue';
 import { copyPlainText } from '../lib/code-copy';
 
 defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: 'close'): void }>();
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'open-sponsor'): void;
+}>();
 
 const VERSION = ref('…');
 const copied = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+function openSponsor() {
+  emit('close');
+  emit('open-sponsor');
+}
 
 onMounted(async () => {
   try {
@@ -225,8 +233,8 @@ async function copyVersion() {
         <button
           class="about__card"
           type="button"
-          title="https://github.com/sponsors/maobukeai"
-          @click="visit(links.sponsor)"
+          title="赞助支持 · 微信赞赏码与 GitHub"
+          @click="openSponsor"
         >
           <div class="about__card-icon-wrap about__card-icon--sponsor">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
