@@ -301,6 +301,60 @@ const HEADING_LEVELS: Record<string, number> = {
   SetextHeading1: 1, SetextHeading2: 2,
 };
 
+/**
+ * Check if the selection/caret intersects with an inline formatting element.
+ * In Typora-style live editing, inline markers (**, *, ~~, `, [], ()) only
+ * expand when the user moves the cursor directly onto or inside that specific
+ * token, NOT just because the cursor is somewhere on the same line.
+ */
+export function caretTouchesInline(
+  cFrom: number,
+  cTo: number,
+  selFrom: number,
+  selTo: number,
+  lineFrom?: number,
+  lineTo?: number,
+): boolean {
+  if (selFrom !== selTo) {
+    // Non-empty selection: touches if it overlaps with the inline container
+    return selFrom < cTo && selTo > cFrom;
+  }
+  // Collapsed cursor: strictly inside the container
+  if (selFrom > cFrom && selFrom < cTo) return true;
+  // If at the very boundary:
+  // At the start of the line, allow caret at cFrom to touch
+  if (lineFrom !== undefined && selFrom === cFrom && cFrom === lineFrom) return true;
+  // At the very end of the line, allow caret at cTo to touch
+  if (lineTo !== undefined && selFrom === cTo && cTo === lineTo) return true;
+  return false;
+}
+
+/**
+ * Find the enclosing inline syntax container for an inline marker.
+ * Climbs up the Lezer syntax tree for StrongEmphasis, Emphasis, Strikethrough,
+ * InlineCode, and Link.
+ */
+export function getInlineContainer(node: { name: string; node: { parent: any } }): { from: number; to: number } | null {
+  let curr = node.node.parent;
+  let inlineContainer: { from: number; to: number } | null = null;
+  while (curr) {
+    const pName = curr.name;
+    if (
+      pName === 'StrongEmphasis' ||
+      pName === 'Emphasis' ||
+      pName === 'Strikethrough' ||
+      pName === 'InlineCode' ||
+      pName === 'Link'
+    ) {
+      inlineContainer = { from: curr.from, to: curr.to };
+      curr = curr.parent;
+    } else {
+      break;
+    }
+  }
+  return inlineContainer;
+}
+
 function buildDecorations(view: EditorView): DecorationSet {
   const sel = view.state.selection.main;
   const fromLine = view.state.doc.lineAt(sel.from).number;
@@ -328,15 +382,29 @@ function buildDecorations(view: EditorView): DecorationSet {
         const name = node.name;
         const nFrom = node.from;
         const nTo = node.to;
-        const lineAtNode = view.state.doc.lineAt(nFrom).number;
+        const lineObj = view.state.doc.lineAt(nFrom);
+        const lineAtNode = lineObj.number;
         const lineEndAtNode = view.state.doc.lineAt(
           Math.min(nTo, view.state.doc.length),
         ).number;
-        const caretTouches = lineEndAtNode >= fromLine && lineAtNode <= toLine;
+        const caretTouchesLine = lineEndAtNode >= fromLine && lineAtNode <= toLine;
+        const caretTouches = caretTouchesLine;
 
-        // ---- Marker hiding (off-line only) ----
+        // ---- Marker hiding (inline-specific off-caret, block-specific off-line) ----
         if (HIDDEN_MARK_NODES.has(name)) {
-          if (!caretTouches && nTo > nFrom) {
+          const inlineContainer = getInlineContainer(node);
+          const touches = inlineContainer
+            ? caretTouchesInline(
+                inlineContainer.from,
+                inlineContainer.to,
+                sel.from,
+                sel.to,
+                lineObj.from,
+                lineObj.to,
+              )
+            : caretTouchesLine;
+
+          if (!touches && nTo > nFrom) {
             // v4.3.5 #83 — for ATX heading marks (`#`, `##`, …) also hide
             // the single trailing space that separates the marker from
             // the heading text. Without this, the space character remains
@@ -345,10 +413,9 @@ function buildDecorations(view: EditorView): DecorationSet {
             // Headings end up looking left-staggered instead of aligned.
             let hideTo = nTo;
             if (name === 'HeaderMark') {
-              const line = view.state.doc.lineAt(nFrom);
               // Setext headings put `HeaderMark` on the underline (---/===)
               // line, with no following space to eat. Only widen for ATX.
-              if (line.from === nFrom && nTo - nFrom <= 6) {
+              if (lineObj.from === nFrom && nTo - nFrom <= 6) {
                 const after = view.state.doc.sliceString(nTo, Math.min(nTo + 1, view.state.doc.length));
                 if (after === ' ') hideTo = nTo + 1;
               }
@@ -364,8 +431,18 @@ function buildDecorations(view: EditorView): DecorationSet {
         if (name === 'URL') {
           const parent = node.node.parent;
           const inLabeledLink = parent && parent.name === 'Link';
-          if (inLabeledLink && !caretTouches && nTo > nFrom) {
-            ranges.push(hideDeco.range(nFrom, nTo));
+          if (inLabeledLink && nTo > nFrom) {
+            const touches = caretTouchesInline(
+              parent.from,
+              parent.to,
+              sel.from,
+              sel.to,
+              lineObj.from,
+              lineObj.to,
+            );
+            if (!touches) {
+              ranges.push(hideDeco.range(nFrom, nTo));
+            }
           }
           return;
         }
@@ -516,12 +593,16 @@ function buildDecorations(view: EditorView): DecorationSet {
     for (let lineNo = firstVisibleLine; lineNo <= lastVisibleLine; lineNo += 1) {
       if (seenInlineHtmlLines.has(lineNo)) continue;
       seenInlineHtmlLines.add(lineNo);
-      if (lineNo >= fromLine && lineNo <= toLine) continue;
       const line = view.state.doc.line(lineNo);
       if (seenFencedLines.has(line.from)) continue;
       const base = line.from;
       const scanText = maskInlineCode(line.text);
       for (const span of findInlineHtmlSpans(scanText)) {
+        const spanFrom = base + span.openFrom;
+        const spanTo = base + span.closeTo;
+        if (caretTouchesInline(spanFrom, spanTo, sel.from, sel.to, line.from, line.to)) {
+          continue;
+        }
         ranges.push(hideDeco.range(base + span.openFrom, base + span.openTo));
         if (span.contentTo > span.contentFrom) {
           ranges.push(
@@ -534,6 +615,11 @@ function buildDecorations(view: EditorView): DecorationSet {
         ranges.push(hideDeco.range(base + span.closeFrom, base + span.closeTo));
       }
       for (const span of findMarkSpans(scanText)) {
+        const spanFrom = base + span.openFrom;
+        const spanTo = base + span.closeTo;
+        if (caretTouchesInline(spanFrom, spanTo, sel.from, sel.to, line.from, line.to)) {
+          continue;
+        }
         ranges.push(hideDeco.range(base + span.openFrom, base + span.openTo));
         ranges.push(
           htmlMarkMark.range(base + span.contentFrom, base + span.contentTo),

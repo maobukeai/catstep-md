@@ -25,7 +25,7 @@ import {
 import { frozenDuringComposition, isImeSafeFlushTransaction } from './cm-ime-guard';
 import { tags as t } from '@lezer/highlight';
 import { isDragging, isDragEndTransaction } from './cm-drag-aware';
-import { bulletDeco, hrDeco, listItemHasTask, type MdSyntaxNode } from './cm-live-render';
+import { bulletDeco, hrDeco, listItemHasTask, caretTouchesInline, getInlineContainer, type MdSyntaxNode } from './cm-live-render';
 
 // Marker node names (from @lezer/markdown) we want to hide off-line.
 // LinkMark (brackets) and CodeMark (backticks) intentionally kept visible —
@@ -82,12 +82,25 @@ const liveMarkdownPlugin = ViewPlugin.fromClass(
           to,
           enter: (node) => {
             const name = node.name;
-            const line = view.state.doc.lineAt(node.from).number;
+            const lineObj = view.state.doc.lineAt(node.from);
+            const line = lineObj.number;
             // Keep everything raw on the line(s) the cursor / selection touches.
             const onCaretLine = line >= fromLine && line <= toLine;
 
             if (HIDDEN_MARK_NODES.has(name)) {
-              if (onCaretLine) return;
+              const inlineContainer = getInlineContainer(node);
+              const touches = inlineContainer
+                ? caretTouchesInline(
+                    inlineContainer.from,
+                    inlineContainer.to,
+                    sel.from,
+                    sel.to,
+                    lineObj.from,
+                    lineObj.to,
+                  )
+                : onCaretLine;
+
+              if (touches) return;
               // v4.3.5 #83 — gulp the single trailing space after the ATX
               // marker so H1..H6 text aligns at the same visual column. Each
               // heading line has its own font-size; a leftover " " character
@@ -95,7 +108,6 @@ const liveMarkdownPlugin = ViewPlugin.fromClass(
               // the headings look staggered.
               let to_ = node.to;
               if (name === 'HeaderMark') {
-                const lineObj = view.state.doc.lineAt(node.from);
                 if (lineObj.from === node.from && node.to - node.from <= 6) {
                   const after = view.state.doc.sliceString(node.to, Math.min(node.to + 1, view.state.doc.length));
                   if (after === ' ') to_ = node.to + 1;

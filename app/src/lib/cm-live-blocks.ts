@@ -45,6 +45,7 @@ import {
 } from './image-resolve';
 import { renderMarkdown, renderInlineMarkdown, extractImageRoot } from './markdown';
 import { findHtmlBlockEnd } from './html-live-render';
+import { caretTouchesInline } from './cm-live-render';
 import {
   parseTable,
   serializeTable,
@@ -1253,14 +1254,25 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
           // pay for the inline-math regex + code-span mask. Plain prose lines
           // — the overwhelming majority in a large doc — short-circuit here, so
           // this whole-doc pass doesn't get measurably slower (#5 perf).
-          const inlineCursorHere = i >= cursorLine && i <= cursorLineEnd;
-          if (!inlineCursorHere && line.text.indexOf('$') !== -1) {
+          if (line.text.indexOf('$') !== -1) {
             for (const span of inlineMathSpans(line.text)) {
-              builder.add(
-                line.from + span.start,
-                line.from + span.end,
-                Decoration.replace({ widget: new InlineMathWidget(span.tex) }),
+              const spanFrom = line.from + span.start;
+              const spanTo = line.from + span.end;
+              const caretInSpan = caretTouchesInline(
+                spanFrom,
+                spanTo,
+                sel.from,
+                sel.to,
+                line.from,
+                line.to,
               );
+              if (!caretInSpan) {
+                builder.add(
+                  spanFrom,
+                  spanTo,
+                  Decoration.replace({ widget: new InlineMathWidget(span.tex) }),
+                );
+              }
             }
           }
 
