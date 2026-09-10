@@ -255,6 +255,45 @@ const categories: { id: SettingsCategory; icon: string; labelKey: string }[] = [
   { id: 'advanced', icon: '🛠️', labelKey: 'settings.catAdvanced' },
 ];
 
+const currentCategoryMeta = computed(() => {
+  const cat = categories.find((c) => c.id === activeCategory.value) || categories[0];
+  const isZh = (kbSettings.language || 'zh').startsWith('zh');
+  const descs: Record<SettingsCategory, { zh: string; en: string }> = {
+    basics: {
+      zh: '系统语言、外观主题、显示字体与界面缩放比例',
+      en: 'System language, theme appearance, fonts, and display scale',
+    },
+    writing: {
+      zh: '编辑排版、光标风格、自动换行、大纲与实时渲染习惯',
+      en: 'Editor typography, line numbers, outline markers, and live edit behavior',
+    },
+    sync: {
+      zh: 'GitHub 自动同步、版本时光机与多端云端存储',
+      en: 'GitHub sync, commit history time-machine, and cloud storage',
+    },
+    integrations: {
+      zh: 'AI 助手模型、图床上传服务、MCP 工具与自动化配方',
+      en: 'AI models, image uploaders, MCP tools, and recipes',
+    },
+    export: {
+      zh: 'PDF 打印规格、页面边距与文档转换输出选项',
+      en: 'PDF page size, margins, font styling, and print presets',
+    },
+    keys: {
+      zh: '查看并自定义全部菜单与编辑快捷键绑定',
+      en: 'Browse and customize keyboard shortcut bindings',
+    },
+    advanced: {
+      zh: '自定义 CSS 样式、文件格式关联与高级系统选项',
+      en: 'Custom CSS stylesheets, default app associations, and advanced options',
+    },
+  };
+  return {
+    ...cat,
+    desc: isZh ? descs[cat.id]?.zh : descs[cat.id]?.en,
+  };
+});
+
 const checkingUpdate = ref(false);
 async function manualCheckUpdate() {
   checkingUpdate.value = true;
@@ -514,7 +553,7 @@ function onSelectPdfFont(v: string) {
   <DsModal
     :model-value="open"
     :title="t('settings.title')"
-    width="820px"
+    width="860px"
     class="settings-modal"
     @update:model-value="emit('close')"
   >
@@ -534,6 +573,13 @@ function onSelectPdfFont(v: string) {
           </button>
         </nav>
       <div ref="bodyEl" class="settings__body" :data-active-cat="activeCategory">
+        <div class="settings__category-header">
+          <div class="settings__category-title">
+            <span class="settings__category-icon">{{ currentCategoryMeta.icon }}</span>
+            <h2>{{ t(currentCategoryMeta.labelKey) }}</h2>
+          </div>
+          <p class="settings__category-desc">{{ currentCategoryMeta.desc }}</p>
+        </div>
         <section data-cat="basics">
           <label>{{ t('settings.language') }}</label>
           <select
@@ -597,7 +643,10 @@ function onSelectPdfFont(v: string) {
         </section>
 
         <section data-cat="basics">
-          <label>{{ t('settings.fontSize') }}: {{ settings.fontSize }}px</label>
+          <div class="setting-row-header">
+            <label class="setting-title">{{ t('settings.fontSize') }}</label>
+            <span class="setting-val-badge">{{ settings.fontSize }}px</span>
+          </div>
           <input
             type="range"
             min="10"
@@ -608,7 +657,10 @@ function onSelectPdfFont(v: string) {
         </section>
 
         <section data-cat="basics">
-          <label>{{ t('settings.uiFontSize') }}: {{ settings.uiFontSize }}px</label>
+          <div class="setting-row-header">
+            <label class="setting-title">{{ t('settings.uiFontSize') }}</label>
+            <span class="setting-val-badge">{{ settings.uiFontSize }}px</span>
+          </div>
           <input
             type="range"
             min="10"
@@ -619,10 +671,19 @@ function onSelectPdfFont(v: string) {
         </section>
 
         <section data-cat="basics">
-          <label>
-            {{ t('settings.globalZoom') }}:
-            {{ Math.round((settings.globalZoom || 1) * 100) }}%
-          </label>
+          <div class="setting-row-header">
+            <label class="setting-title">{{ t('settings.globalZoom') }}</label>
+            <div class="setting-badge-group">
+              <span class="setting-val-badge">{{ Math.round((settings.globalZoom || 1) * 100) }}%</span>
+              <button
+                type="button"
+                class="link-button"
+                @click="settings.resetZoom()"
+              >
+                {{ t('settings.globalZoomReset') }}
+              </button>
+            </div>
+          </div>
           <input
             type="range"
             min="0.75"
@@ -631,26 +692,18 @@ function onSelectPdfFont(v: string) {
             :value="settings.globalZoom"
             @input="settings.setGlobalZoom(+($event.target as HTMLInputElement).value)"
           />
-          <p class="setting-hint">
-            {{ t('settings.globalZoomHint') }}
-            <button
-              type="button"
-              class="link-button"
-              style="margin-left: 8px;"
-              @click="settings.resetZoom()"
-            >
-              {{ t('settings.globalZoomReset') }}
-            </button>
-          </p>
-          <label>
-            <input
-              type="checkbox"
-              :checked="settings.wheelZoomEnabled"
-              @change="settings.toggleWheelZoom()"
-            />
-            {{ t('settings.wheelZoom') }}
-          </label>
-          <p class="setting-hint">{{ t('settings.wheelZoomHint') }}</p>
+          <p class="setting-hint">{{ t('settings.globalZoomHint') }}</p>
+          <div class="setting-inner-toggle">
+            <label>
+              <input
+                type="checkbox"
+                :checked="settings.wheelZoomEnabled"
+                @change="settings.toggleWheelZoom()"
+              />
+              {{ t('settings.wheelZoom') }}
+            </label>
+            <p class="setting-hint">{{ t('settings.wheelZoomHint') }}</p>
+          </div>
         </section>
 
         <section data-cat="basics">
@@ -719,7 +772,10 @@ function onSelectPdfFont(v: string) {
         </section>
 
         <section data-cat="basics">
-          <label>{{ t('settings.previewMaxWidth') }}: {{ settings.previewMaxWidth }}px</label>
+          <div class="setting-row-header">
+            <label class="setting-title">{{ t('settings.previewMaxWidth') }}</label>
+            <span class="setting-val-badge">{{ settings.previewMaxWidth }}px</span>
+          </div>
           <input
             type="range"
             min="480"
@@ -1163,7 +1219,10 @@ function onSelectPdfFont(v: string) {
         </section>
 
         <section data-cat="export">
-          <label>{{ t('settings.pdfDefaults.fontSize') }}: {{ settings.pdfDefaults.fontSize }}pt</label>
+          <div class="setting-row-header">
+            <label class="setting-title">{{ t('settings.pdfDefaults.fontSize') }}</label>
+            <span class="setting-val-badge">{{ settings.pdfDefaults.fontSize }}pt</span>
+          </div>
           <input
             type="range"
             min="9"
@@ -1813,62 +1872,83 @@ function onSelectPdfFont(v: string) {
   display: flex;
   flex-direction: column;
 }
+.settings-modal :deep(.ds-modal__head) {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.settings-modal :deep(.ds-modal__title) {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
 .settings__layout {
   flex: 1;
   display: flex;
   min-height: 0;
-  height: min(560px, 78vh);
+  height: min(620px, 82vh);
 }
 .settings__nav {
-  width: 160px;
+  width: 184px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
-  background: var(--bg-soft, var(--bg));
+  background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   display: flex;
   flex-direction: column;
-  padding: 10px 6px;
-  gap: 1px;
+  padding: 12px 8px;
+  gap: 3px;
   overflow-y: auto;
 }
 .settings__nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-weight: 500;
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   text-align: left;
   font: inherit;
-  transition: all 0.12s;
+  position: relative;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .settings__nav-item:hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text);
 }
 .settings__nav-item--active {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
   font-weight: 600;
+}
+.settings__nav-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 .settings__nav-icon {
   font-size: 16px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
 }
 .settings__nav-label {
   flex: 1;
 }
-/* v3.0 — single-source-of-truth visibility: each section/component
-   gets data-cat="basics|writing|sync|integrations|export|keys|advanced",
-   the body's data-active-cat determines which subset renders. Saves
-   wrapping every section in v-if.
 
-   Every id in the `categories` array above needs a line in the show-list
-   below, or its page renders blank — the hide rule catches it and nothing
-   brings it back. That is how #180's `keys` page shipped empty. */
+/* Category visibility */
 .settings__body[data-active-cat] > [data-cat] {
   display: none;
 }
@@ -1881,47 +1961,144 @@ function onSelectPdfFont(v: string) {
 .settings__body[data-active-cat="advanced"] > [data-cat="advanced"] {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
+
 .settings__body {
   flex: 1;
-  padding: 16px 22px;
+  padding: 20px 28px 48px 28px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
+  background: var(--bg);
 }
-section {
+
+.settings__category-header {
+  margin-bottom: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.settings__category-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings__category-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.settings__category-title h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.settings__category-desc {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Card-style sections */
+section[data-cat] {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 13px 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+section[data-cat]:hover {
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+}
+
 section > label {
   font-size: 13px;
+  font-weight: 500;
   color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 section > label:has(input[type='checkbox']) {
-  display: inline-flex;
-  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-direction: row-reverse;
   cursor: pointer;
+  padding: 2px 0;
+  width: 100%;
 }
 section > label:not(:has(input)) {
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
 }
+
+.setting-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.setting-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.setting-val-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: 10px;
+}
+.setting-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.setting-inner-toggle {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
+}
+
 .setting-hint {
   margin: 0;
-  font-size: 11px;
-  color: var(--text-faint, #888);
-  line-height: 1.5;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
 }
 .setting-hint a {
   color: var(--accent);
   text-decoration: underline;
 }
+
+.link-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 11.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-button:hover {
+  opacity: 0.8;
+}
+
 .css-path-row {
   display: flex;
   align-items: center;
@@ -1956,48 +2133,170 @@ section > label:not(:has(input)) {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-/* Image-upload (图床) text/password fields — match the inline-styled inputs
-   used elsewhere in this panel. */
+
+/* Text and password inputs */
+input[type='text'],
+input[type='password'],
 .img-field {
-  padding: 6px 8px;
-  border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
-  border-radius: 4px;
-  font: inherit;
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1.4;
   width: 100%;
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+input[type='text']:focus,
+input[type='password']:focus,
+.img-field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 .row {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 .row button {
   border: 1px solid var(--border);
   padding: 6px 14px;
   font-size: 12px;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.row button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .row button.active {
   background: var(--bg-active);
   color: var(--accent);
   border-color: var(--accent);
 }
-select,
-input[type='range'] {
-  width: 100%;
-}
+
+/* Custom Select Dropdown */
 select {
-  background: var(--bg);
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
   color: var(--text);
   border: 1px solid var(--border);
-  padding: 6px 8px;
-  border-radius: 4px;
-  font: inherit;
+  padding: 8px 36px 8px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
-input[type='range'] {
-  accent-color: var(--accent);
+select:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
 }
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* Modern iOS/macOS Toggle Switch */
 input[type='checkbox'] {
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--text-faint) 32%, transparent);
+  cursor: pointer;
+  position: relative;
+  outline: none;
+  border: none;
+  flex-shrink: 0;
+  margin: 0;
+  transition: background-color 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type='checkbox']:checked {
+  background: var(--accent);
+}
+input[type='checkbox']:checked::after {
+  transform: translateX(16px);
+}
+input[type='checkbox']:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent);
+}
+
+/* Smooth Slider */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: color-mix(in srgb, var(--text-faint) 22%, transparent);
+  border-radius: 3px;
+  outline: none;
+  margin: 8px 0 4px 0;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2.5px solid var(--bg-elev, #fff);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.32);
+}
+input[type='range']::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+
+/* Modern sleek scrollbars */
+.settings__body::-webkit-scrollbar,
+.settings__nav::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.settings__body::-webkit-scrollbar-track,
+.settings__nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings__body::-webkit-scrollbar-thumb,
+.settings__nav::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 3px;
+}
+.settings__body::-webkit-scrollbar-thumb:hover,
+.settings__nav::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
 }
 </style>

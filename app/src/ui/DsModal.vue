@@ -74,7 +74,10 @@ watch(
       lastFocused = document.activeElement as HTMLElement;
       document.addEventListener('keydown', onKeydown, true);
       await nextTick();
-      (focusables()[0] ?? panelRef.value)?.focus();
+      const bodyFocusable = panelRef.value?.querySelector<HTMLElement>(
+        '.ds-modal__body .settings__nav-item--active, .ds-modal__body a[href], .ds-modal__body button:not([disabled]):not(.ds-modal__close), .ds-modal__body textarea, .ds-modal__body input, .ds-modal__body select'
+      );
+      (bodyFocusable ?? panelRef.value)?.focus({ preventScroll: true });
     } else {
       document.removeEventListener('keydown', onKeydown, true);
       lastFocused?.focus?.();
@@ -110,7 +113,12 @@ onBeforeUnmount(() => {
             type="button"
             aria-label="Close"
             @click="close"
-          >×</button>
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </header>
         <div class="ds-modal__body">
           <slot />
@@ -172,20 +180,25 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 20px;
-  line-height: 1;
   cursor: pointer;
   border-radius: var(--r-sm);
   width: 28px;
   height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 .ds-modal__close:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
+.ds-modal__close:focus {
+  outline: none;
+}
 .ds-modal__close:focus-visible {
   outline: none;
-  box-shadow: var(--ring);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 .ds-modal__body {
   padding: var(--sp-5);
