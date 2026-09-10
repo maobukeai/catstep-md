@@ -1,70 +1,81 @@
-# Slideshow mode
+# Slideshow Mode — Elegant & Distraction-Free Fullscreen Presentations 🚀
 
-SoloMD turns any Markdown document into a **fullscreen presentation** — no Keynote, no PowerPoint, no export step.
-
----
-
-## How to start
-
-Press **`Ctrl+Alt+P`** (or `Cmd+Alt+P` on Mac) — the active document opens in a new fullscreen window.
-
-You can also run **"Present Slideshow"** from the command palette (`Ctrl+K`).
+Catstep MD turns any Markdown document into a **fullscreen presentation** in seconds — say goodbye to clunky presentation software, with zero export steps or external dependencies.
 
 ---
 
-## How slides are split
+## 1. How to Start the Presentation
 
-Lines containing only `---` divide the document into slides:
+- **Keyboard Shortcut**: Press **`Ctrl+Alt+P`** (or `Cmd+Alt+P` on macOS) — the active document instantly opens in a fullscreen presentation window.
+- **Command Palette**: Press **`Ctrl+Shift+P`** to open the Command Palette, type **"Present Slideshow"**, and press Enter.
+
+---
+
+## 2. How Slides Are Split
+
+Simply use a line containing only three hyphens **`---`** between paragraphs as a slide break:
 
 ```markdown
-# Slide one
+# Slide 1: The Spark of Inspiration
 
-Hello.
+Minimalist and lightweight. Make writing a true pleasure.
 
 ---
 
-# Slide two
+# Slide 2: Core Architecture
 
-Goodbye.
+- Tauri 2 + Rust native high-performance engine
+- Deep Typora keybinding compatibility
+- Live edit, in-place tables, and Catstep AI
+
+---
+
+# Slide 3: Shipped to Perfection
+
+Silent steps. Fluid thoughts. Just write.
 ```
 
-Front matter (`--- ... ---` at the very top) is ignored — it doesn't become a blank slide.
+> 💡 **Smart Detection**: YAML Front Matter at the top of the document (`--- ... ---`) is automatically parsed and skipped — it will never create an unwanted blank slide.
 
 ---
 
-## Navigation
+## 3. Slide Navigation & Controls
 
 | Key | Action |
-| --- | --- |
-| → ↓ Space PageDown | Next slide |
-| ← ↑ PageUp | Previous slide |
-| Home / End | First / last slide |
-| F | Toggle fullscreen |
-| ? | Show shortcuts |
-| Esc | Exit |
-| Click | Next slide |
-
-Vim users: `h j k l` works too.
+| :--- | :--- |
+| `→` / `↓` / `Space` / `PageDown` | Next slide |
+| `←` / `↑` / `PageUp` | Previous slide |
+| `Home` / `End` | First / last slide |
+| `F` | Toggle fullscreen / windowed presentation |
+| `?` | Show presentation shortcuts helper card |
+| `Esc` | Exit presentation and return to editor |
+| Left Click | Next slide |
+| Vim keys | `h` `j` `k` `l` navigation supported |
 
 ---
 
-## What renders
+## 4. Rich Content Rendering Support
 
-Everything the normal preview supports — code blocks with syntax highlighting, math, tables, footnotes, even Mermaid diagrams. Images load from disk relative to the source file.
+The presentation engine inherits Catstep MD's complete rendering stack: syntax-highlighted code blocks, KaTeX math formulas, in-place tables, alert callouts, task checklists, and Mermaid diagrams all render natively!
 
 ```mermaid
 flowchart LR
-  A[Edit] --> B[Press Ctrl+Alt+P]
-  B --> C[Present]
+  A[✍️ Draft Outline] --> B[🐾 Edit in Catstep MD]
+  B --> C[⌨️ Press Ctrl+Alt+P]
+  C --> D[🚀 Present Fullscreen]
 ```
 
 ---
 
-## Tips
+## 5. Presentation & Layout Tips
 
-- **Title slide**: a single `# Heading` with one or two lines under it looks great.
-- **Bullets**: keep to ~5 items per slide; the font size auto-scales to viewport.
-- **Code**: fenced code blocks render with syntax highlighting. Big blocks may overflow — split them across slides.
-- **Speaker mode** isn't built yet. Use a second monitor with the SoloMD edit window for now.
+- **Concise Headings**: A single `# Heading` paired with 2 to 4 concise bullet points delivers the cleanest look on large projection screens.
+- **Auto-Scaling Typography**: The slide engine dynamically scales font sizes to match your screen and projector resolution.
+- **Code Snippets**: Highlight core logic per slide. For larger blocks, break them across consecutive slides for readability.
+- **Dual-Monitor Setup**: Present fullscreen on your main projector while keeping the Catstep MD editor open on your laptop screen as speaker notes.
 
-That's the whole feature. Try it on this document — press `Ctrl+Alt+P` right now.
+---
+
+## 6. Try It Now
+
+That's all there is to it! Try it right on this document — press **`Ctrl+Alt+P`** (or `Cmd+Alt+P` on macOS) right now to begin your first presentation!

@@ -1,80 +1,120 @@
-# Live edit mode — try every supported syntax
+# Live Edit Mode — Typora-Grade Immersive Writing ✍️
 
-> Press `Ctrl+Shift+P` (or click the pen-on-paper icon in the toolbar) to cycle into **Live edit**. Markdown formatting renders inline as you type — like Typora or Obsidian Live Preview — and the source comes back when your cursor lands on a line.
+> 💡 **Three-State View Switcher**: Press **`Ctrl+/`** (or click the segmented mode pill centered in the top toolbar) to effortlessly switch between **✍️ Edit (Live Preview) ⇄ 📖 Reader (Zen Mode) ⇄ 💻 Source (Raw Markdown)**. In Live Edit mode, Markdown tags render inline as you type, and raw markers automatically expand whenever your cursor rests on a line.
 
-## Headings
+---
 
-# H1 — biggest heading
-## H2 — second level
-### H3 — third level
-#### H4 (smaller)
-##### H5
-###### H6
+## 1. Headings & Structural Hierarchy
 
-## Inline emphasis
+Press `Ctrl+1` through `Ctrl+6` to instantly set heading levels, or press `Ctrl+0` to return to regular body text:
 
-**bold text**, *italic text*, ***bold italic***, ~~strikethrough~~, and `inline code`.
+# Heading 1 (H1) — High-Level Outline
+## Heading 2 (H2) — Core Chapter
+### Heading 3 (H3) — Key Arguments
+#### Heading 4 (H4) — Detailed Points
+##### Heading 5 (H5)
+###### Heading 6 (H6)
 
-CJK works too: **粗体**, *斜体*, **粗 体 加 空 格**.
+---
 
-## Links
+## 2. Inline Formatting & Selection Bubble Bar
 
-A link to [SoloMD's website](https://solomd.app) and an autolink: <https://github.com/lixd/solomd>.
+Select any text and the **Selection Bubble Bar** will smoothly float into view, offering one-click styling and Catstep AI polishing:
 
-Move the caret onto the link line — the raw `[label](url)` markup reappears so you can edit either side, then leaves again when you click away.
+- **Bold text** (`Ctrl+B`)
+- *Italic text* (`Ctrl+I`)
+- ***Bold and italic combined***
+- <u>Underline styling</u> (`Ctrl+U`)
+- ~~Strikethrough~~ (`Ctrl+Shift+X` or `Alt+Shift+5`)
+- `Inline code` (`Ctrl+Shift+` `)
+- ==Highlight accent==
+- Hyperlinks: [Catstep MD GitHub Repository](https://github.com/maobukeai/catstep-md) (`Ctrl+K`)
 
-## Lists
+---
 
-- Unordered item
-- Another item
-  - Nested item
-  - Nested item with **bold** in it
-- Final item
+## 3. In-Place Interactive Tables
 
-1. Ordered item
-2. Second item
-3. Third item
+Press **`Ctrl+T`** to insert a table. Move your cursor into the table below to experience the **in-place floating table toolbar**:
 
-- [ ] Task: write the spec
-- [x] Task: ship the prototype
+| Shortcut Action | Trigger Key | Result |
+| :--- | :---: | :--- |
+| **Next Cell** | `Tab` | Moves right smoothly; press Tab on the last cell to auto-add a new row |
+| **Previous Cell** | `Shift+Tab` | Moves left smoothly |
+| **Insert / Delete Rows & Columns** | Floating Toolbar | Click [Row Above/Below], [Col Left/Right], or [Delete] |
+| **Column Alignment** | Floating Toolbar | Align Left, Center, or Right with a single click |
 
-## Inline code & fenced code blocks
+---
 
-The shell command `pnpm tauri dev` starts the app.
+## 4. Standalone Math Blocks (KaTeX)
 
-```ts
-// Fenced code block — has a grey background and keeps its syntax color.
-function greet(name: string): string {
-  return `Hello, ${name}!`;
+Press **`Ctrl+Shift+M`** to insert a math block. Catstep MD renders math formulas with live, in-place preview and editing:
+
+$$
+f(x) = \int_{-\infty}^{\infty} \hat{f}(\xi)\,e^{2 \pi i \xi x}\,d\xi
+$$
+
+Inline formulas are equally seamless: mass-energy equivalence $E = mc^2$, or Euler's identity $e^{i\pi} + 1 = 0$.
+
+---
+
+## 5. Code Blocks & Syntax Highlighting
+
+Press **`Ctrl+Shift+K`** to insert a fenced code block with full syntax highlighting across dozens of languages:
+
+```typescript
+// Catstep MD: Minimalist on the surface, powerhouse underneath
+interface NoteDocument {
+  id: string;
+  title: string;
+  mode: 'liveEdit' | 'read' | 'source';
+  autoGitEnabled: boolean;
+}
+
+function createCatstepNote(title: string): NoteDocument {
+  return {
+    id: crypto.randomUUID(),
+    title,
+    mode: 'liveEdit',
+    autoGitEnabled: true,
+  };
 }
 ```
 
 ```python
-# Python is also recognized — the language tag drives the highlight.
-def greet(name: str) -> str:
-    return f"Hello, {name}!"
+# Python syntax is natively highlighted as well
+def fibonacci(n: int) -> list[int]:
+    sequence = [0, 1]
+    while len(sequence) < n:
+        sequence.append(sequence[-1] + sequence[-2])
+    return sequence
 ```
-
-## Blockquote
-
-> A blockquote gets a left bar and an indent.
-> Even when it spans multiple lines.
-
-## Horizontal rule
 
 ---
 
-## Caret reveal — the magic part
+## 6. Task Lists & Nested Items
 
-Place your cursor on the heading line right above this paragraph. The `##` characters reappear so you can edit them. Click somewhere else and the markers melt back into the rendered heading.
+- [x] Full Typora keyboard shortcut parity
+- [x] In-place table floating toolbar and fluid Tab navigation
+- [x] Top three-state switcher and Zen Reader mode
+- [x] Selection bubble bar with instant actions
+- [ ] Enjoy peaceful, frictionless writing
 
-The same pattern works for every supported marker: `**bold**`, `*italic*`, `` `code` ``, and `[label](url)`. Off the line, you see the rendered output. On the line, you see the raw markdown.
+---
 
-## What's NOT live-rendered yet
+## 7. Flowcharts & Diagrams (Mermaid)
 
-- Tables (rendered in Preview pane only — coming in v2.4)
-- Footnotes
-- Math blocks (`$$ … $$`)
-- Mermaid diagrams
+```mermaid
+flowchart LR
+  A[💡 Sudden Inspiration] --> B[🐾 Write in Catstep MD]
+  B --> C{Satisfied?}
+  C -- Needs Polish --> D[✨ One-Click AI Polish]
+  D --> B
+  C -- Looks Great --> E[⏱️ AutoGit Version Snapshot]
+  E --> F[🚀 Fullscreen Slideshow / Export]
+```
 
-For these, switch to **Preview** or **Split** mode — both still work exactly as before.
+---
+
+## 8. Smart Cursor Reveal Experience
+
+Place your cursor on any styled line (such as the headings, bold text, or link above) — the raw Markdown delimiters appear instantly for precise editing. Move your cursor away, and the tags melt away into clean, beautiful typography.
