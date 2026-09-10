@@ -172,6 +172,9 @@ const spotlightField = StateField.define<DecorationSet>({
     return Decoration.none;
   },
   update(underlines, tr) {
+    if (tr.docChanged) {
+      return Decoration.none;
+    }
     underlines = underlines.map(tr.changes);
     for (const e of tr.effects) {
       if (e.is(setSpotlightEffect)) {
@@ -4456,7 +4459,7 @@ watch(
   },
 );
 
-function gotoLine(line: number, from?: number, to?: number, original?: string) {
+function gotoLine(line: number, from?: number, to?: number, original?: string, isProofread = false) {
   if (usePlainWindowsEditor) {
     if (plainLiveEnabled.value) {
       if (from != null) {
@@ -4546,23 +4549,36 @@ function gotoLine(line: number, from?: number, to?: number, original?: string) {
   const finalFrom = targetFrom ?? 0;
   const finalTo = targetTo ?? finalFrom;
 
+  const effects: any[] = [
+    EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
+  ];
+
+  if (isProofread) {
+    effects.push(setSpotlightEffect.of({ from: finalFrom, to: finalTo }));
+    // If target falls within a rendered table widget, highlight and focus the cell directly
+    findAndHighlightTableCellWithRetry(line, original, finalFrom);
+
+    if (spotlightTimer) clearTimeout(spotlightTimer);
+    spotlightTimer = setTimeout(() => {
+      view?.dispatch({ effects: setSpotlightEffect.of(null) });
+    }, 4000);
+  } else {
+    // Regular navigation (Outline / Chapter jump, Search, Backlinks):
+    // Dismiss any existing proofread spotlight so it never falsely labels chapters
+    effects.push(setSpotlightEffect.of(null));
+    if (tableSpotlightTimer) {
+      clearTimeout(tableSpotlightTimer);
+      const existing = view.dom.querySelectorAll('.cm-table-cell-spotlight');
+      existing.forEach((el) => el.classList.remove('cm-table-cell-spotlight'));
+    }
+  }
+
   view.dispatch({
     selection: { anchor: finalFrom, head: finalTo },
-    effects: [
-      EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
-      setSpotlightEffect.of({ from: finalFrom, to: finalTo }),
-    ],
+    effects,
   });
   view.focus();
   triggerJumpPulse();
-
-  // If target falls within a rendered table widget, highlight and focus the cell directly
-  findAndHighlightTableCellWithRetry(line, original, finalFrom);
-
-  if (spotlightTimer) clearTimeout(spotlightTimer);
-  spotlightTimer = setTimeout(() => {
-    view?.dispatch({ effects: setSpotlightEffect.of(null) });
-  }, 4000);
 }
 
 let spotlightTimer: any = null;

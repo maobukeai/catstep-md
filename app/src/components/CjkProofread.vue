@@ -350,6 +350,7 @@ function jumpTo(issue: Issue, idx: number) {
         to,
         original: issue.original,
         paneId: tiles.focusedPaneId || undefined,
+        isProofread: true,
       },
     }),
   );
