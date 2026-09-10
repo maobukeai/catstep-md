@@ -9,7 +9,7 @@
  *
  * Reuses `Preview.vue`'s renderer via the `skin: 'reading'` prop.
  */
-import { computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { computed, onMounted, onBeforeUnmount, nextTick, ref } from 'vue';
 import Preview from './Preview.vue';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
@@ -22,6 +22,16 @@ const tiles = useTilesStore();
 const { t } = useI18n();
 
 const tab = computed(() => tabs.activeTab);
+const previewRef = ref<InstanceType<typeof Preview> | null>(null);
+
+function onOutlineGoto(e: Event) {
+  const detail = (e as CustomEvent).detail;
+  if (!detail) return;
+  const line = detail.line;
+  if (line && previewRef.value) {
+    previewRef.value.scrollToLine(line);
+  }
+}
 
 function exit() {
   settings.exitReadingMode();
@@ -86,10 +96,12 @@ function onDocKeyDown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onDocKeyDown);
+  window.addEventListener('solomd:outline-goto', onOutlineGoto);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onDocKeyDown);
+  window.removeEventListener('solomd:outline-goto', onOutlineGoto);
 });
 </script>
 
@@ -110,6 +122,7 @@ onBeforeUnmount(() => {
 
     <div v-if="tab" class="reading-view__doc">
       <Preview
+        ref="previewRef"
         :source="tab.content"
         :file-path="tab.filePath"
         :tab-id="tab.id"

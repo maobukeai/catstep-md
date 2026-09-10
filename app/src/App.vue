@@ -1861,25 +1861,19 @@ function paneStyle(id: string) {
   return {};
 }
 
-// Side sidebar width — user-resizable via drag handle. Defaults to 260
-// for the read-only panes (outline/backlinks/tags/history), but auto-
-// bumps to 440 when the agent panel is on (chat needs real estate).
-// User resizes above the auto-bump are honored.
 const sideSidebarStyle = computed(() => {
-  const w =
-    showAgentPane.value && settings.sideSidebarWidth <= 260
-      ? 440
-      : settings.sideSidebarWidth;
+  if (isNarrow.value) return undefined;
+  const w = settings.sideSidebarWidth || (showAgentPane.value ? 440 : 260);
   return { width: `${w}px`, flexBasis: `${w}px` };
 });
 
+const isSideSidebarResizing = ref(false);
+
 function onSidebarResize(side: 'left' | 'right', ev: MouseEvent) {
   ev.preventDefault();
+  isSideSidebarResizing.value = true;
   const startX = ev.clientX;
-  const startW = parseInt(
-    (sideSidebarStyle.value.width as string).replace('px', ''),
-    10,
-  );
+  const startW = settings.sideSidebarWidth || (showAgentPane.value ? 440 : 260);
   const onMove = (m: MouseEvent) => {
     const dx = m.clientX - startX;
     // Right sidebar: drag left = wider. Left sidebar: drag right = wider.
@@ -1891,6 +1885,37 @@ function onSidebarResize(side: 'left' | 'right', ev: MouseEvent) {
     document.removeEventListener('mouseup', onUp);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
+    isSideSidebarResizing.value = false;
+  };
+  document.body.style.cursor = 'ew-resize';
+  document.body.style.userSelect = 'none';
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+const typoraSidebarStyle = computed(() => {
+  if (isNarrow.value) return undefined;
+  const w = Math.max(220, settings.fileTreeWidth || 240);
+  return { width: `${w}px`, flexBasis: `${w}px` };
+});
+
+const isTyporaSidebarResizing = ref(false);
+
+function onTyporaSidebarResize(ev: MouseEvent) {
+  ev.preventDefault();
+  isTyporaSidebarResizing.value = true;
+  const startX = ev.clientX;
+  const startW = settings.fileTreeWidth || 240;
+  const onMove = (m: MouseEvent) => {
+    const dx = m.clientX - startX;
+    settings.setFileTreeWidth(startW + dx);
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    isTyporaSidebarResizing.value = false;
   };
   document.body.style.cursor = 'ew-resize';
   document.body.style.userSelect = 'none';
@@ -1957,13 +1982,10 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       @open-settings="openSettingsAt()"
       @open-help="helpOpen = true"
       @open-search="toggleGlobalSearch()"
+      @open-about="aboutOpen = true"
     />
-    <template v-if="settings.viewMode === 'reading'">
-      <ReadingView />
-    </template>
-    <template v-else>
-      <TelemetryBanner />
-      <div class="workspace">
+    <TelemetryBanner />
+    <div class="workspace">
         <!-- #168 — on a phone the side panes float over the editor instead of
              stealing its width; this catches the tap that dismisses them. -->
         <div
@@ -1972,7 +1994,16 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           aria-hidden="true"
           @click="closeNarrowDrawer"
         />
-        <div v-if="settings.showFileTree || settings.showViewsPanel" class="left-stack typora-sidebar">
+        <div
+          v-if="settings.showFileTree || settings.showViewsPanel"
+          class="left-stack typora-sidebar"
+          :style="typoraSidebarStyle"
+        >
+          <div
+            class="typora-sidebar__resize"
+            :class="{ 'is-resizing': isTyporaSidebarResizing }"
+            @mousedown="onTyporaSidebarResize"
+          />
           <div class="typora-sidebar__tabs">
             <button
               class="typora-sidebar__tab"
@@ -2026,7 +2057,11 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           :style="sideSidebarStyle"
           @contextmenu.prevent="openSidebarCtx"
         >
-          <div class="side-sidebar__resize side-sidebar__resize--right" @mousedown="onSidebarResize('left', $event)" />
+          <div
+            class="side-sidebar__resize side-sidebar__resize--right"
+            :class="{ 'is-resizing': isSideSidebarResizing }"
+            @mousedown="onSidebarResize('left', $event)"
+          />
           <template v-for="(p, idx) in visibleRsPanes" :key="p.id">
             <RsSplitter v-if="idx > 0" :above="visibleRsPanes[idx-1].id" :below="p.id" />
             <div
@@ -2080,7 +2115,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           </template>
         </aside>
         <div class="content">
-          <BasesView v-if="basesOpen" />
+          <ReadingView v-if="settings.viewMode === 'reading'" />
+          <BasesView v-else-if="basesOpen" />
           <InboxView v-else-if="inboxViewOpen" />
           <TypeLensView v-else-if="typeLensOpen" :type-name="typeLensName" />
           <ViewNoteList v-else-if="viewPaneVisible" />
@@ -2092,7 +2128,11 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           :style="sideSidebarStyle"
           @contextmenu.prevent="openSidebarCtx"
         >
-          <div class="side-sidebar__resize side-sidebar__resize--left" @mousedown="onSidebarResize('right', $event)" />
+          <div
+            class="side-sidebar__resize side-sidebar__resize--left"
+            :class="{ 'is-resizing': isSideSidebarResizing }"
+            @mousedown="onSidebarResize('right', $event)"
+          />
           <div class="right-drawer-bar">
             <span class="right-drawer-bar__title">✨ {{ settings.language?.startsWith('zh') ? 'SoloMD 工具箱' : 'SoloMD Tools' }}</span>
             <button
@@ -2224,7 +2264,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         </div>
         <div v-if="sidebarCtx" class="sidebar-ctx__backdrop" @click="closeSidebarCtx" />
       </Teleport>
-    </template>
 
     <AIRewriteOverlay
       v-if="!IS_APP_STORE_BUILD"
@@ -2253,6 +2292,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       :open="aboutOpen"
       @close="aboutOpen = false"
       @open-sponsor="aboutOpen = false; sponsorOpen = true"
+      @open-settings="aboutOpen = false; openSettingsAt('about')"
     />
     <SponsorModal v-model="sponsorOpen" />
     <AgentSetupWizard v-if="!IS_APP_STORE_BUILD" :open="wizardOpen" @close="wizardOpen = false" />
@@ -2414,7 +2454,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   left: 0;
 }
 /* The drag-to-resize handles are a mouse affordance and a 8px touch trap. */
-.app--narrow .side-sidebar__resize {
+.app--narrow .side-sidebar__resize,
+.app--narrow .typora-sidebar__resize {
   display: none;
 }
 .workspace__scrim {
@@ -2442,6 +2483,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .typora-sidebar__body :deep(.outline) {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   height: 100%;
   width: 100%;
   border-right: none;
@@ -2460,7 +2502,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   flex-direction: column;
   width: 260px;
   flex: 0 0 260px;
-  min-width: 240px;
+  min-width: 200px;
   background: var(--bg-soft, var(--bg));
 }
 .side-sidebar--left {
@@ -2488,9 +2530,24 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .side-sidebar__resize--left {
   left: -4px;
 }
-.side-sidebar__resize:hover {
-  background: var(--accent, #6366f1);
-  opacity: 0.5;
+.side-sidebar__resize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+.side-sidebar__resize:hover::after {
+  background: rgba(99, 102, 241, 0.35);
+  background: color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+}
+.side-sidebar__resize.is-resizing::after {
+  background: rgba(99, 102, 241, 0.55);
+  background: color-mix(in srgb, var(--accent, #6366f1) 55%, transparent);
 }
 /* v4.3.0 PR #75 — right-click context menu floats over the workspace via
    <Teleport to="body">. Toolbar's master-toggle is the canonical hide
@@ -2628,13 +2685,43 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 
 /* Typora-style 3-in-1 Left Sidebar */
 .typora-sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
   background: var(--bg-elev);
-  overflow: hidden;
-  min-width: 240px;
-  max-width: 320px;
+  min-width: 220px;
+  max-width: 600px;
+  flex-shrink: 0;
+}
+.typora-sidebar__resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 20;
+  background: transparent;
+}
+.typora-sidebar__resize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+.typora-sidebar__resize:hover::after {
+  background: rgba(99, 102, 241, 0.35);
+  background: color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+}
+.typora-sidebar__resize.is-resizing::after {
+  background: rgba(99, 102, 241, 0.55);
+  background: color-mix(in srgb, var(--accent, #6366f1) 55%, transparent);
 }
 .typora-sidebar__tabs {
   display: flex;
@@ -2643,20 +2730,32 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   padding: 4px 6px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+  white-space: nowrap;
 }
 .typora-sidebar__tab {
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 4px 6px;
+  gap: 4px;
+  padding: 4px 5px;
   font-size: 11px;
   color: var(--text-muted);
   border-radius: 4px;
   cursor: pointer;
   background: transparent;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
   transition: all 0.12s ease;
+}
+.typora-sidebar__tab span {
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .typora-sidebar__tab:hover {
   background: var(--bg-hover);
