@@ -194,17 +194,23 @@ function onPillClick() {
           @mouseleave="onStatsMouseLeave"
         >
           <div class="stats-popover__header">
-            <span class="stats-popover__title">{{ isZh ? '📝 文档字数统计' : '📝 Document Statistics' }}</span>
+            <div class="stats-popover__title-wrap">
+              <svg class="stats-popover__icon" viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+                <path d="M2 3.75C2 2.784 2.784 2 3.75 2h8.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM4.5 5.5h7v1.25h-7Zm0 2.5h7v1.25h-7Zm0 2.5h4.5v1.25H4.5Z"/>
+              </svg>
+              <span class="stats-popover__title">{{ isZh ? '字数与文档统计' : 'Document Statistics' }}</span>
+            </div>
+            <button class="stats-popover__close" :title="isZh ? '关闭' : 'Close'" @click="showStatsPopover = false">×</button>
           </div>
 
           <div class="stats-popover__grid">
             <div class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '总词数 (Words)' : 'Total Words' }}</span>
+              <span class="stats-popover__label">{{ isZh ? '总词数' : 'Total Words' }}</span>
               <span class="stats-popover__val">{{ wordCount.toLocaleString() }}</span>
             </div>
             <div v-if="cjkCount > 0" class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '中文字数 (CJK)' : 'CJK Characters' }}</span>
-              <span class="stats-popover__val">{{ cjkCount.toLocaleString() }}</span>
+              <span class="stats-popover__label">{{ isZh ? '中文字数' : 'CJK Characters' }}</span>
+              <span class="stats-popover__val stats-popover__val--accent">{{ cjkCount.toLocaleString() }}</span>
             </div>
             <div class="stats-popover__row">
               <span class="stats-popover__label">{{ isZh ? '字符数 (不计空格)' : 'Characters (no spaces)' }}</span>
@@ -222,10 +228,25 @@ function onPillClick() {
               <span class="stats-popover__label">{{ isZh ? '预计阅读时间' : 'Reading Time' }}</span>
               <span class="stats-popover__val">~{{ readingTime }} {{ isZh ? '分钟' : 'min' }}</span>
             </div>
+
+            <!-- Selection stats if active -->
+            <div v-if="selStats" class="stats-popover__selection-box">
+              <div class="stats-popover__selection-title">{{ isZh ? '当前选中文本' : 'Selected Text' }}</div>
+              <div class="stats-popover__row">
+                <span class="stats-popover__label">{{ isZh ? '选中字词' : 'Selected Words' }}</span>
+                <span class="stats-popover__val stats-popover__val--accent">
+                  {{ (selStats.cjk > 0 ? `${selStats.cjk} 字` : `${selStats.total} 词`) }}
+                </span>
+              </div>
+              <div class="stats-popover__row">
+                <span class="stats-popover__label">{{ isZh ? '选中字符数' : 'Selected Chars' }}</span>
+                <span class="stats-popover__val">{{ selStats.chars.toLocaleString() }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="stats-popover__hint">
-            {{ isZh ? '💡 点击状态栏可切换词数/字符/行数显示' : '💡 Click status item to toggle metric unit' }}
+            {{ isZh ? '点击底栏数值可切换常驻显示单位' : 'Click status number to cycle metric units' }}
           </div>
         </div>
       </Transition>
@@ -392,13 +413,13 @@ function onPillClick() {
 /* Typora-style Popover */
 .stats-popover {
   position: absolute;
-  bottom: calc(var(--statusbar-h, 24px) + 6px);
+  bottom: calc(var(--statusbar-h, 24px) + 7px);
   left: 0;
-  min-width: 220px;
+  min-width: 232px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
   backdrop-filter: blur(20px);
   padding: 10px 12px;
   z-index: 2500;
@@ -409,49 +430,132 @@ function onPillClick() {
   color: var(--text);
   user-select: none;
 }
-.stats-popover__header {
-  padding-bottom: 5px;
+
+/* Downward anchor beak pointing to trigger button */
+.stats-popover::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 20px;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.stats-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.stats-popover__title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.stats-popover__icon {
+  color: var(--accent, #3b82f6);
+  opacity: 0.9;
+  flex-shrink: 0;
 }
 .stats-popover__title {
   font-weight: 600;
   font-size: 11.5px;
   color: var(--text);
+  letter-spacing: 0.02em;
 }
+.stats-popover__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.12s ease;
+}
+.stats-popover__close:hover {
+  background: var(--bg-hover, rgba(128, 128, 128, 0.12));
+  color: var(--text);
+}
+
 .stats-popover__grid {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .stats-popover__row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 3px 6px;
+  border-radius: 4px;
   font-size: 11px;
+  line-height: 1.4;
+  transition: background 0.12s ease;
+}
+.stats-popover__row:hover {
+  background: var(--bg-hover, rgba(128, 128, 128, 0.08));
 }
 .stats-popover__label {
   color: var(--text-muted);
+  font-size: 11px;
 }
 .stats-popover__val {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: var(--text);
+  letter-spacing: 0.02em;
+}
+.stats-popover__val--accent {
+  color: var(--accent, #3b82f6);
 }
 .stats-popover__row--footer {
   margin-top: 3px;
-  padding-top: 5px;
-  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
+
+.stats-popover__selection-box {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: var(--accent-soft, rgba(56, 139, 253, 0.06));
+  border: 1px solid var(--border-soft, rgba(56, 139, 253, 0.15));
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stats-popover__selection-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent, #3b82f6);
+  margin-bottom: 2px;
+  letter-spacing: 0.02em;
+}
+
 .stats-popover__hint {
   font-size: 9.5px;
   color: var(--text-faint);
-  margin-top: 4px;
-  line-height: 1.3;
+  line-height: 1.35;
+  text-align: center;
+  padding: 4px 6px 0;
+  border-top: 1px solid var(--border-soft, rgba(128, 128, 128, 0.1));
 }
 
 .stats-pop-fade-enter-active,
 .stats-pop-fade-leave-active {
-  transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .stats-pop-fade-enter-from,
 .stats-pop-fade-leave-to {
