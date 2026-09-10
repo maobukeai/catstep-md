@@ -60,11 +60,25 @@ function onSelection(text: string) {
       @cursor="onCursor"
       @selection="onSelection"
     />
-    <!-- Drop zone overlay indicators -->
-    <div class="drop-zone drop-zone--left" v-if="dropZone === 'horizontal'" />
-    <div class="drop-zone drop-zone--right" v-if="dropZone === 'horizontal'" />
-    <div class="drop-zone drop-zone--top" v-if="dropZone === 'vertical'" />
-    <div class="drop-zone drop-zone--bottom" v-if="dropZone === 'vertical'" />
+    <!-- Drop zone overlay indicator: elegant subtle preview area below tab bar -->
+    <div class="drop-zone drop-zone--horizontal" v-if="dropZone === 'horizontal'">
+      <div class="drop-zone__badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="12" y1="3" x2="12" y2="21" />
+        </svg>
+        <span>释放以向右分屏</span>
+      </div>
+    </div>
+    <div class="drop-zone drop-zone--vertical" v-if="dropZone === 'vertical'">
+      <div class="drop-zone__badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+        </svg>
+        <span>释放以向下分屏</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -85,24 +99,52 @@ function onSelection(text: string) {
 
 .drop-zone {
   position: absolute;
-  background: rgba(255, 159, 64, 0.15);
   pointer-events: none;
-  z-index: 10;
+  z-index: 100;
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  background: rgba(99, 102, 241, 0.1);
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  border: 2px dashed var(--accent, #6366f1);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: dropZoneFade 0.2s ease-out;
 }
-.drop-zone--left {
-  left: 0; top: 0; bottom: 0; width: 50px;
-  border-right: 2px solid var(--accent);
+
+@keyframes dropZoneFade {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
-.drop-zone--right {
-  right: 0; top: 0; bottom: 0; width: 50px;
-  border-left: 2px solid var(--accent);
+
+.drop-zone__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-elev, #ffffff);
+  color: var(--accent, #6366f1);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(99, 102, 241, 0.2);
+  pointer-events: none;
+  user-select: none;
 }
-.drop-zone--top {
-  top: 0; left: 0; right: 0; height: 50px;
-  border-bottom: 2px solid var(--accent);
+
+.drop-zone--horizontal {
+  top: calc(var(--tabbar-h, 34px) + 6px);
+  right: 6px;
+  bottom: 6px;
+  width: calc(50% - 9px);
 }
-.drop-zone--bottom {
-  bottom: 0; left: 0; right: 0; height: 50px;
-  border-top: 2px solid var(--accent);
+
+.drop-zone--vertical {
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  height: calc(50% - var(--tabbar-h, 34px) / 2 - 9px);
 }
 </style>

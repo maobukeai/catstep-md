@@ -160,14 +160,17 @@ async function onTabAction(action: 'close' | 'closeLeft' | 'closeRight' | 'close
 // makes WebView2 swallow every in-page `draggable` drag at the OS level: the
 // cursor shows 🚫 and tabs won't move. Pointer events bypass that interception
 // and behave identically on macOS, Windows, and Linux.
-const SPLIT_EDGE = 50; // px from a pane edge that arms drag-to-split
 const DRAG_THRESHOLD = 4; // px of movement before a press counts as a drag
+const TAB_REORDER_BUFFER_Y = 84; // px below pane top where dragging is treated as tab reorder, never split
 
 let pointerStart: { x: number; y: number; tabId: string } | null = null;
 let dragging = false;
 // Set briefly after a real drag so the trailing synthetic `click` doesn't
 // re-activate the tab the user just dropped.
 let suppressClick = false;
+
+const dragDropOverId = ref<string | null>(null);
+const dragDropAfter = ref<boolean>(false);
 
 function onTabPointerDown(e: PointerEvent, tabId: string) {
   // Left button only — middle closes the tab, right opens the context menu.
@@ -179,8 +182,12 @@ function onTabPointerDown(e: PointerEvent, tabId: string) {
   window.addEventListener('pointercancel', onPointerCancel);
 }
 
-// Hit-test the element under the pointer for a drag-to-split target: a pane
-// edge that is NOT over the tab bar (positions over a tab bar are reorders).
+// Hit-test the element under the pointer for a drag-to-split target.
+// To avoid accidental splits when reordering tabs horizontally, we enforce:
+// 1. Deadzone: Any pointer within 84px of pane top is considered tab strip territory
+//    or slight downward drift during tab reordering. Never trigger split.
+// 2. Vertical split: User must deliberately drag deeply into the lower half of the editor.
+// 3. Horizontal split: User must deliberately drag into the far right 35% of the editor.
 function paneSplitAt(x: number, y: number): { paneId: string; direction: SplitDirection } | null {
   const el = document.elementFromPoint(x, y) as HTMLElement | null;
   if (!el || el.closest('.pane-tabbar')) return null;
@@ -190,14 +197,37 @@ function paneSplitAt(x: number, y: number): { paneId: string; direction: SplitDi
   const r = pane.getBoundingClientRect();
   const lx = x - r.left;
   const ly = y - r.top;
-  if (lx < SPLIT_EDGE || lx > r.width - SPLIT_EDGE) return { paneId, direction: 'horizontal' };
-  if (ly < SPLIT_EDGE || ly > r.height - SPLIT_EDGE) return { paneId, direction: 'vertical' };
+
+  // Buffer zone: within TAB_REORDER_BUFFER_Y below pane top, treat as tab reorder buffer, never split
+  if (ly < TAB_REORDER_BUFFER_Y) return null;
+
+  // Split Down: user deliberately dragged into bottom 45% of editor
+  if (ly > Math.max(150, r.height * 0.55)) {
+    return { paneId, direction: 'vertical' };
+  }
+
+  // Split Right: user deliberately dragged into right 35% of editor
+  if (lx > Math.max(120, r.width * 0.65)) {
+    return { paneId, direction: 'horizontal' };
+  }
+
   return null;
 }
 
 function tabIdAt(x: number, y: number): string | null {
   const el = document.elementFromPoint(x, y) as HTMLElement | null;
-  return (el?.closest('[data-tab-id]') as HTMLElement | null)?.getAttribute('data-tab-id') ?? null;
+  const directId = (el?.closest('[data-tab-id]') as HTMLElement | null)?.getAttribute('data-tab-id');
+  if (directId) return directId;
+
+  // If pointer is within a vertical tolerance of the tab strip (+/- 35px), project into tab strip center
+  if (tabsEl.value) {
+    const barRect = tabsEl.value.getBoundingClientRect();
+    if (y >= barRect.top - 15 && y <= barRect.bottom + 45 && x >= barRect.left && x <= barRect.right) {
+      const projEl = document.elementFromPoint(x, barRect.top + barRect.height / 2) as HTMLElement | null;
+      return (projEl?.closest('[data-tab-id]') as HTMLElement | null)?.getAttribute('data-tab-id') ?? null;
+    }
+  }
+  return null;
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -208,13 +238,28 @@ function onPointerMove(e: PointerEvent) {
     dragging = true;
     tiles.beginTabDrag(pointerStart.tabId);
   }
-  tiles.setDragSplit(paneSplitAt(e.clientX, e.clientY));
+  const splitTarget = paneSplitAt(e.clientX, e.clientY);
+  tiles.setDragSplit(splitTarget);
+
+  // Visual drop insertion line for tab reordering (only when not splitting)
+  if (dragging) {
+    const overId = splitTarget ? null : tabIdAt(e.clientX, e.clientY);
+    if (overId && overId !== pointerStart.tabId) {
+      dragDropOverId.value = overId;
+      const overEl = tabsEl.value?.querySelector<HTMLElement>(`[data-tab-id="${overId}"]`);
+      const rect = overEl?.getBoundingClientRect();
+      dragDropAfter.value = rect ? e.clientX > rect.left + rect.width / 2 : false;
+    } else {
+      dragDropOverId.value = null;
+    }
+  }
 }
 
 function teardownPointer() {
   window.removeEventListener('pointermove', onPointerMove);
   window.removeEventListener('pointerup', onPointerUp);
   window.removeEventListener('pointercancel', onPointerCancel);
+  dragDropOverId.value = null;
 }
 
 function onPointerCancel() {
@@ -273,6 +318,7 @@ function onTabsWheel(e: WheelEvent) {
   if (!el) return;
   const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
   el.scrollLeft += delta;
+  updateScrollIndicators();
 }
 
 // ---- Middle-button: drag-to-pan, or close on a clean click (#106) ----
@@ -297,7 +343,10 @@ function onMiddleMove(e: MouseEvent) {
   if (!middleDragging && Math.abs(dx) < DRAG_THRESHOLD) return;
   middleDragging = true;
   // Drag right reveals tabs to the right: pulling the strip with the cursor.
-  if (tabsEl.value) tabsEl.value.scrollLeft = middleStart.scrollLeft - dx;
+  if (tabsEl.value) {
+    tabsEl.value.scrollLeft = middleStart.scrollLeft - dx;
+    updateScrollIndicators();
+  }
 }
 
 function onMiddleUp() {
@@ -315,10 +364,20 @@ function onDocClick() {
   if (ctxMenu.value) closeCtxMenu();
 }
 
-import { onMounted, onBeforeUnmount } from 'vue';
-onMounted(() => document.addEventListener('click', onDocClick));
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+  document.addEventListener('click', onDocClick);
+  updateScrollIndicators();
+  if (tabsEl.value && typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver(() => updateScrollIndicators());
+    resizeObserver.observe(tabsEl.value);
+  }
+});
+
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick);
+  resizeObserver?.disconnect();
   // Drop any drag listeners still attached if the bar unmounts mid-drag.
   teardownPointer();
   window.removeEventListener('mousemove', onMiddleMove);
@@ -327,8 +386,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="pane-tabbar">
-    <div class="tabs" ref="tabsEl" @wheel.prevent="onTabsWheel">
+  <div
+    class="pane-tabbar"
+    :class="{
+      'pane-tabbar--scroll-left': canScrollLeft,
+      'pane-tabbar--scroll-right': canScrollRight,
+    }"
+    @dblclick.self="files.newFile"
+  >
+    <div
+      class="tabs"
+      ref="tabsEl"
+      @scroll="updateScrollIndicators"
+      @wheel.prevent="onTabsWheel"
+      @dblclick.self="files.newFile"
+    >
       <div
         v-for="t in tabs.tabs"
         :key="t.id"
@@ -338,12 +410,14 @@ onBeforeUnmount(() => {
           'tab--active': t.id === activeTabId,
           'tab--dirty': tabs.isDirty(t.id),
           'tab--dragging': tiles.dragTabId === t.id,
+          'tab--drop-before': dragDropOverId === t.id && !dragDropAfter,
+          'tab--drop-after': dragDropOverId === t.id && dragDropAfter,
         }"
         @click="onTabClick(t.id)"
         @pointerdown="onTabPointerDown($event, t.id)"
         @mousedown.middle="onMiddlePointerDown($event, t.id)"
         @contextmenu="onContextMenu($event, t.id)"
-        :title="t.filePath || t.fileName"
+        :title="(t.filePath || t.fileName) + (tabs.isDirty(t.id) ? (settings.language?.startsWith('zh') ? ' (未保存)' : ' (Unsaved)') : '')"
       >
         <span class="tab__name">{{ formatTabName(t.fileName) }}</span>
         
@@ -361,54 +435,87 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
+
+      <!-- New Tab button directly next to tabs -->
+      <button
+        class="tabbar__new"
+        @click="files.newFile"
+        :title="(settings.language?.startsWith('zh') ? '新建标签页' : 'New tab') + ' (Ctrl+N)'"
+        aria-label="New tab"
+      >
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M8 3.5v9M3.5 8h9" />
+        </svg>
+      </button>
     </div>
-    <button
-      class="tabbar__new"
-      @click="files.newFile"
-      :title="(settings.language?.startsWith('zh') ? '新建标签页' : 'New tab') + ' (Ctrl+N)'"
-      aria-label="New tab"
-    >
-      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <path d="M8 3.5v9M3.5 8h9" />
-      </svg>
-    </button>
-    <button
-      v-if="tiles.allLeaves.length > 1"
-      class="tabbar__close-pane"
-      @click="closePane"
-      :title="(settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane') + ' (Ctrl+Alt+W)'"
-      aria-label="Close Pane"
-    >
-      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-        <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
-      </svg>
-    </button>
+
+    <!-- Trailing pane actions -->
+    <div v-if="tiles.allLeaves.length > 1" class="tabbar__trailing">
+      <button
+        class="tabbar__close-pane"
+        @click="closePane"
+        :title="(settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane') + ' (Ctrl+Alt+W)'"
+        aria-label="Close Pane"
+      >
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+        </svg>
+      </button>
+    </div>
 
     <!-- Context menu -->
     <Teleport to="body">
-      <div
-        v-if="ctxMenu"
-        class="ctx-menu"
-        :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
-        @click.stop
-      >
-        <button class="ctx-item" @click="onTabAction('close')">{{ t('tabMenu.close') }}</button>
-        <div class="ctx-sep" />
-        <button class="ctx-item" :disabled="!ctxFlags?.hasLeft"   @click="onTabAction('closeLeft')">{{ t('tabMenu.closeLeft') }}</button>
-        <button class="ctx-item" :disabled="!ctxFlags?.hasRight"  @click="onTabAction('closeRight')">{{ t('tabMenu.closeRight') }}</button>
-        <button class="ctx-item" :disabled="!ctxFlags?.hasOthers" @click="onTabAction('closeOthers')">{{ t('tabMenu.closeOthers') }}</button>
-        <div class="ctx-sep" />
-        <button class="ctx-item" :disabled="!ctxFlags?.hasSaved" @click="onTabAction('closeSaved')">{{ t('tabMenu.closeSaved') }}</button>
-        <button class="ctx-item" :disabled="!ctxFlags?.hasAny"   @click="onTabAction('closeAll')">{{ t('tabMenu.closeAll') }}</button>
-        <div class="ctx-sep" />
-        <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFolder')">{{ t('tabMenu.revealInFolder') }}</button>
-        <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFileTree')">{{ t('tabMenu.revealInFileTree') }}</button>
-        <div class="ctx-sep" />
-        <button class="ctx-item" @click="splitPane('horizontal')">{{ settings.language?.startsWith('zh') ? '向右拆分分栏' : 'Split Right' }}</button>
-        <button class="ctx-item" @click="splitPane('vertical')">{{ settings.language?.startsWith('zh') ? '向下拆分分栏' : 'Split Down' }}</button>
-        <div class="ctx-sep" v-if="tiles.allLeaves.length > 1" />
-        <button class="ctx-item" v-if="tiles.allLeaves.length > 1" @click="closePane">{{ settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane' }}</button>
-      </div>
+      <Transition name="ctx-fade">
+        <div
+          v-if="ctxMenu"
+          class="ctx-menu"
+          :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
+          @click.stop
+        >
+          <button class="ctx-item" @click="onTabAction('close')">
+            <span>{{ t('tabMenu.close') }}</span>
+            <span class="ctx-shortcut">Ctrl+W</span>
+          </button>
+          <div class="ctx-sep" />
+          <button class="ctx-item" :disabled="!ctxFlags?.hasLeft"   @click="onTabAction('closeLeft')">
+            <span>{{ t('tabMenu.closeLeft') }}</span>
+          </button>
+          <button class="ctx-item" :disabled="!ctxFlags?.hasRight"  @click="onTabAction('closeRight')">
+            <span>{{ t('tabMenu.closeRight') }}</span>
+          </button>
+          <button class="ctx-item" :disabled="!ctxFlags?.hasOthers" @click="onTabAction('closeOthers')">
+            <span>{{ t('tabMenu.closeOthers') }}</span>
+          </button>
+          <div class="ctx-sep" />
+          <button class="ctx-item" :disabled="!ctxFlags?.hasSaved" @click="onTabAction('closeSaved')">
+            <span>{{ t('tabMenu.closeSaved') }}</span>
+          </button>
+          <button class="ctx-item" :disabled="!ctxFlags?.hasAny"   @click="onTabAction('closeAll')">
+            <span>{{ t('tabMenu.closeAll') }}</span>
+          </button>
+          <div class="ctx-sep" />
+          <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFolder')">
+            <span>{{ t('tabMenu.revealInFolder') }}</span>
+          </button>
+          <button class="ctx-item" :disabled="!ctxFlags?.hasFilePath" @click="onTabAction('revealInFileTree')">
+            <span>{{ t('tabMenu.revealInFileTree') }}</span>
+          </button>
+          <div class="ctx-sep" />
+          <button class="ctx-item" @click="splitPane('horizontal')">
+            <span>{{ settings.language?.startsWith('zh') ? '向右拆分分栏' : 'Split Right' }}</span>
+          </button>
+          <button class="ctx-item" @click="splitPane('vertical')">
+            <span>{{ settings.language?.startsWith('zh') ? '向下拆分分栏' : 'Split Down' }}</span>
+          </button>
+          <template v-if="tiles.allLeaves.length > 1">
+            <div class="ctx-sep" />
+            <button class="ctx-item ctx-item--danger" @click="closePane">
+              <span>{{ settings.language?.startsWith('zh') ? '关闭当前分栏' : 'Close Pane' }}</span>
+              <span class="ctx-shortcut">Ctrl+Alt+W</span>
+            </button>
+          </template>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -424,7 +531,33 @@ onBeforeUnmount(() => {
   overflow: hidden;
   flex-shrink: 0;
   padding: 0 4px;
+  position: relative;
 }
+
+/* Edge gradient shadows on overflow */
+.pane-tabbar--scroll-left::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(to right, var(--bg-elev), transparent);
+  pointer-events: none;
+  z-index: 4;
+}
+.pane-tabbar--scroll-right::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to left, var(--bg-elev), transparent);
+  pointer-events: none;
+  z-index: 4;
+}
+
 .tabs {
   display: flex;
   align-items: center;
@@ -433,10 +566,9 @@ onBeforeUnmount(() => {
   gap: 2px;
   overflow-x: auto;
   scrollbar-width: none;
-  /* Momentum + horizontal touch panning for the overflowing strip on iOS. */
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
-  padding: 3px 0;
+  padding: 0 2px;
 }
 .tabs::-webkit-scrollbar { display: none; }
 
@@ -445,53 +577,85 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   max-width: 190px;
-  min-width: 76px;
-  height: 26px;
-  padding: 0 6px 0 12px;
+  min-width: 74px;
+  height: 27px;
+  padding: 0 6px 0 11px;
   border-radius: 6px;
-  border: none;
+  border: 1px solid transparent;
   cursor: pointer;
   font-size: 12px;
   color: var(--text-muted);
   white-space: nowrap;
   position: relative;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   touch-action: pan-x;
 }
 
-/* Subtle vertical separator line between consecutive inactive tabs */
-.tab:not(.tab--active) + .tab:not(.tab--active)::before {
+/* Subtle separator between inactive non-hovered tabs */
+.tab:not(.tab--active):not(:hover) + .tab:not(.tab--active):not(:hover)::before {
   content: '';
   position: absolute;
-  left: -1px;
+  left: -2px;
   top: 50%;
   transform: translateY(-50%);
   width: 1px;
-  height: 12px;
+  height: 10px;
   background: var(--border);
-  opacity: 0.6;
+  opacity: 0.45;
+  border-radius: 1px;
+  transition: opacity 0.15s ease;
 }
 
-.tab:hover {
+.tab:hover:not(.tab--active) {
   background: var(--bg-hover);
   color: var(--text);
 }
 
 .tab--dragging {
-  opacity: 0.4;
+  opacity: 0.35;
   transform: scale(0.98);
+}
+
+/* Drop indicator insertion lines */
+.tab--drop-before::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  box-shadow: 0 0 6px var(--accent);
+  z-index: 10;
+  pointer-events: none;
+}
+.tab--drop-after::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  box-shadow: 0 0 6px var(--accent);
+  z-index: 10;
+  pointer-events: none;
 }
 
 .tab--active {
   background: var(--bg);
   color: var(--text);
   font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.07);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 1px rgba(0, 0, 0, 0.03);
 }
 
 :root[data-theme='dark'] .tab--active {
   background: var(--bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .tab__name {
@@ -501,11 +665,11 @@ onBeforeUnmount(() => {
   letter-spacing: 0.01em;
 }
 
-/* Action area: houses the dirty dot & close button with smooth hover morphing */
+/* Action area: dirty dot & close button with smooth hover morphing */
 .tab__action {
   position: relative;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -530,23 +694,23 @@ onBeforeUnmount(() => {
   justify-content: center;
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 50%;
   color: var(--text-faint);
   cursor: pointer;
   padding: 0;
   opacity: 0;
-  transform: scale(0.85);
+  transform: scale(0.8);
   transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
-/* Active tab or hovered tab shows close button */
+/* Active tab or hovered tab reveals close button */
 .tab:hover .tab__close-btn,
 .tab--active .tab__close-btn {
   opacity: 1;
   transform: scale(1);
 }
 
-/* When dirty, hide the dot when the tab is hovered so close button takes over */
+/* When dirty, hide the dot on hover so close button takes over */
 .tab:hover .tab__dirty-dot {
   opacity: 0;
   transform: scale(0.5);
@@ -560,29 +724,46 @@ onBeforeUnmount(() => {
 }
 
 .tab__close-btn:hover {
-  background: var(--bg-hover);
+  background: rgba(0, 0, 0, 0.08);
   color: var(--text);
 }
 
+:root[data-theme='dark'] .tab__close-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+}
+
+/* New tab button attached directly to tabs */
 .tabbar__new {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 5px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  margin: 0 2px 0 4px;
+  margin-left: 2px;
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
 }
 
 .tabbar__new:hover {
   background: var(--bg-hover);
   color: var(--text);
+}
+
+.tabbar__new:active {
+  transform: scale(0.92);
+}
+
+.tabbar__trailing {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .tabbar__close-pane {
@@ -596,7 +777,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  margin: 0 4px 0 2px;
+  margin: 0 2px;
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -606,26 +787,32 @@ onBeforeUnmount(() => {
   color: #ef4444;
 }
 
+/* Context menu */
 .ctx-menu {
   position: fixed;
   z-index: var(--z-pop);
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 4px 0;
-  min-width: 140px;
-  box-shadow: var(--sh-pop);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 175px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14), 0 1px 4px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(12px);
 }
 .ctx-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  padding: 6px 14px;
+  padding: 6px 10px;
   text-align: left;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text);
   background: none;
   border: none;
+  border-radius: 5px;
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 .ctx-item:hover:not(:disabled) {
   background: var(--bg-hover);
@@ -634,9 +821,30 @@ onBeforeUnmount(() => {
   color: var(--text-faint);
   cursor: default;
 }
+.ctx-shortcut {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-left: 12px;
+}
+.ctx-item--danger:hover:not(:disabled) {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
 .ctx-sep {
   height: 1px;
-  margin: 4px 8px;
+  margin: 4px 6px;
   background: var(--border);
+  opacity: 0.6;
+}
+
+/* Context menu animation */
+.ctx-fade-enter-active,
+.ctx-fade-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ctx-fade-enter-from,
+.ctx-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.96) translateY(-2px);
 }
 </style>
