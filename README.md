@@ -2,19 +2,20 @@
 
 > Silent steps. Fluid thoughts. The lightweight Typora-grade Markdown editor where agents live.
 
-[![Latest release](https://img.shields.io/github/v/release/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/maobukeai/catstep-md?color=orange)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)
+[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
+[![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
-🌐 **[中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)** · 🪞 **[Gitee mirror →](https://gitee.com/zhitong45/solomd)** (faster downloads from China)
+🌐 **[中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)** · 🪞 **[Gitee mirror →](https://gitee.com/maobukeai/catstep-md)**
 
-[**Download the latest release**](https://github.com/zhitongblog/solomd/releases/latest) · [**Launch post**](https://solomd.app/blog/v4-0-0-agent-native-author/) · [**How we built it**](https://solomd.app/blog/v4-0-0-how-we-built-it/) · [**Website**](https://solomd.app) · [**Security**](https://solomd.app/security)
+[**Download Releases**](https://github.com/maobukeai/catstep-md/releases) · [**Roadmap**](docs/roadmap.md) · [**Privacy & Security**](#privacy--security)
 
-![SoloMD editor](web/public/demo/solomd-demo.svg)
+![Catstep MD - Typora-grade Lightweight Markdown Editor](web/public/demo/solomd-demo.svg)
 
-Your notes live in a folder. **SoloMD is the editor on top — with a first-class agent surface inside the editor, and the MCP endpoint Claude Code / Cursor can drive from outside.** Same `.md` files. Chat with your vault. Schedule recipes that run when you're not at the keyboard. Hand the same vault to any MCP client.
+Your notes live in a folder. **Catstep MD is the lightweight Typora-grade Markdown editor on top — with a first-class AI Agent surface, seamless AutoGit time machine, and an MCP endpoint Claude Code / Cursor can drive from outside.** Same `.md` files. Focus on distraction-free writing, chat with your knowledge vault, and hand the same vault to any MCP client.
 
-Built on Tauri 2 + Vue 3 + CodeMirror 6. Universal macOS dmg ~32 MB. Free, MIT, no subscription, no SoloMD-hosted servers. Your notes, AI keys, embeddings index, and git history all stay on your machine.
+Built on Tauri 2 + Vue 3 + CodeMirror 6. Ultra-fast, minimal memory footprint. Free, open-source MIT, no subscription, no private cloud servers. Your notes, AI keys, embeddings index, and AutoGit history all stay securely on your machine.
 
 ## New in 4.6 — the knowledge-graph layer
 
@@ -97,52 +98,17 @@ solomd agent "rewrite this week of dailies into a weekly review and commit it"
 
 Path-traversal guarded. No network port. The LLM only sees what you point the workspace at.
 
-## Install
+## Download & Installation
 
-Latest release: [**v4.0.0**](https://github.com/zhitongblog/solomd/releases/latest).
+Get the latest release for your platform from GitHub Releases: [**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases).
 
-**System requirements:** Windows 10+, macOS 10.15+, current mainstream Linux, iOS 15+, Android 7+ (API 24).
-Windows 7/8/8.1 cannot be supported — the Rust toolchain requires Windows 10 (since Rust 1.78) and Microsoft froze WebView2 (SoloMD's rendering engine) at version 109 on Windows 7 with no security updates — and no legacy build exists.
+**System requirements:** Windows 10+, macOS 10.15+, mainstream Linux distributions.
 
-### macOS — universal dmg (Apple Silicon + Intel, signed + notarized)
+### Desktop Downloads
 
-```bash
-brew install --cask zhitongblog/solomd/solomd
-```
-
-Or download the dmg directly:
-
-```
-https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_universal.dmg
-```
-
-Or one-line shell install:
-
-```bash
-curl -fsSL https://solomd.app/install.sh | bash
-```
-
-### Windows — x64
-
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-portable.zip) — no installer
-
-```powershell
-irm https://solomd.app/install.ps1 | iex
-```
-
-```powershell
-winget install solomd
-```
-
-### Linux — x86_64 + aarch64
-
-- `.AppImage` (universal), `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) — both architectures from [the releases page](https://github.com/zhitongblog/solomd/releases/latest).
-- Arch users: [`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin) on AUR.
-
-### iPad
-
-[App Store](https://apps.apple.com/app/solomd/id6762498874) — same engine, native iPad UI.
+- **Windows (x64)**: Download the `.msi` installer or portable `.zip` from [Releases](https://github.com/maobukeai/catstep-md/releases).
+- **macOS (Universal / Apple Silicon & Intel)**: Download the signed `.dmg` from [Releases](https://github.com/maobukeai/catstep-md/releases).
+- **Linux (x86_64 / aarch64)**: `.AppImage`, `.deb`, and `.rpm` packages available on [Releases](https://github.com/maobukeai/catstep-md/releases).
 
 ## Marketplaces & integrations
 
@@ -218,19 +184,13 @@ The MCP server is a separate crate at `mcp-server/`; the dev MCP harness used fo
 
 ## Contributing
 
-Issues and PRs welcome — [open one](https://github.com/zhitongblog/solomd/issues). For a sense of direction, see [`docs/roadmap.md`](docs/roadmap.md). The v4.0 build log is at [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) — start there if you want to understand the engineering principles before sending a PR.
+Issues and PRs welcome — [open one on GitHub](https://github.com/maobukeai/catstep-md/issues). For our development plan, see [`docs/roadmap.md`](docs/roadmap.md).
 
-## Contact / 联系
+## Community & Discussions
 
-One maintainer, two front doors. Async on [GitHub Discussions](https://github.com/zhitongblog/solomd/discussions). Real-time chat:
-
-- **Telegram (international):** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — release announcements + chat
-- **WeChat (中文):** scan to add me — note "SoloMD" 注明 SoloMD 直接通过
-
-<a href="https://solomd.app/#contact"><img src="web/public/contact/wechat.jpg" alt="WeChat — 智通" width="180" /></a>
-&nbsp;&nbsp;
-<a href="https://t.me/SOLOMDAPP"><img src="web/public/contact/telegram.jpg" alt="Telegram @SOLOMDAPP" width="180" /></a>
+- **GitHub Discussions:** [Join discussions](https://github.com/maobukeai/catstep-md/discussions)
+- **Issues & Bug Reports:** [File an issue](https://github.com/maobukeai/catstep-md/issues)
 
 ## License & credits
 
-[MIT](LICENSE) © 2026 maobukeai / xiangdong li. Catstep MD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Repository: [GitHub](https://github.com/maobukeai/catstep-md).
+[MIT](LICENSE) © 2026 maobukeai / xiangdong li. Catstep MD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Repository: [GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md).

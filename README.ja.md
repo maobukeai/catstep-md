@@ -1,17 +1,17 @@
-# SoloMD
+# 猫步 MD (Catstep MD)
 
 > Agent が住みつくエディタ。
 
-[![Latest release](https://img.shields.io/github/v/release/zhitongblog/solomd)](https://github.com/zhitongblog/solomd/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/zhitongblog/solomd?color=orange)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/zhitongblog/solomd/total)](https://github.com/zhitongblog/solomd/releases)
-[![Website](https://img.shields.io/badge/website-solomd.app-ff9f40.svg)](https://solomd.app)
+[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
+[![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
 🌐 **[English](README.md) · [中文](README.zh.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
 
-[**v4.0 をダウンロード**](https://github.com/zhitongblog/solomd/releases/latest) · [**ローンチ記事**](https://solomd.app/ja/blog/) · [**ウェブサイト**](https://solomd.app/ja/) · [**セキュリティ**](https://solomd.app/ja/security/)
+[**v4.0 をダウンロード**](https://github.com/maobukeai/catstep-md/releases) · [**ローンチ記事**](https://solomd.app/ja/blog/) · [**ウェブサイト**](https://solomd.app/ja/) · [**セキュリティ**](https://solomd.app/ja/security/)
 
-![SoloMD エディタ](web/public/demo/solomd-demo.svg)
+![Catstep MD エディタ](web/public/demo/solomd-demo.svg)
 
 あなたのメモはひとつのフォルダ。**SoloMD はその上のエディタ — エディタ内に一等公民の Agent サーフェス、外部からは Claude Code / Cursor が呼び出せる MCP エンドポイント。** 同じ `.md` ファイル。vault と対話。キーボード前にいない時に走る Recipe。同じ vault を任意の MCP クライアントに渡せる。
 
@@ -86,18 +86,18 @@ solomd agent "今週の日報を週次レビューに書き直してコミット
 
 ## インストール
 
-最新リリース: [**v4.0.0**](https://github.com/zhitongblog/solomd/releases/latest).
+最新リリース: [**v4.0.0**](https://github.com/maobukeai/catstep-md/releases).
 
 ### macOS — universal dmg（Apple Silicon + Intel、署名 + notarize 済み）
 
 ```bash
-brew install --cask zhitongblog/solomd/solomd
+brew install --cask maobukeai/catstep-md/solomd
 ```
 
 または dmg を直接ダウンロード:
 
 ```
-https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_universal.dmg
+https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal.dmg
 ```
 
 または 1 行シェルインストール:
@@ -108,9 +108,9 @@ curl -fsSL https://solomd.app/install.sh | bash
 
 ### Windows — x64
 
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-portable.zip) — インストーラなし
+- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64_en-US.msi)
+- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
+- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — インストーラなし
 
 ```powershell
 irm https://solomd.app/install.ps1 | iex
@@ -122,7 +122,7 @@ winget install solomd
 
 ### Linux — x86_64 + aarch64
 
-- `.AppImage`（ユニバーサル）、`.deb`（Debian/Ubuntu）、`.rpm`（Fedora/RHEL） — 両アーキテクチャを [リリースページ](https://github.com/zhitongblog/solomd/releases/latest) から。
+- `.AppImage`（ユニバーサル）、`.deb`（Debian/Ubuntu）、`.rpm`（Fedora/RHEL） — 両アーキテクチャを [リリースページ](https://github.com/maobukeai/catstep-md/releases) から。
 - Arch ユーザー: AUR の [`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin)。
 
 ### iPad
@@ -144,7 +144,7 @@ E2EE 同期は Argon2id（RFC9106 デフォルトパラメータ） → XChaCha2
 前提: Rust（stable）、Node 18+、pnpm。
 
 ```bash
-git clone https://github.com/zhitongblog/solomd.git
+git clone https://github.com/maobukeai/catstep-md.git
 cd solomd/app
 pnpm install
 pnpm tauri dev      # ホットリロード付き dev
@@ -157,15 +157,15 @@ MCP サーバーは `mcp-server/` の別 crate; エンドツーエンドテス�
 
 ## コントリビュート
 
-Issue や PR を歓迎 — [開いてください](https://github.com/zhitongblog/solomd/issues)。方向性は [`docs/roadmap.md`](docs/roadmap.md) を参照。v4.0 のビルドログは [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) に — PR を送る前にエンジニアリング原則を理解したいならそこから。
+Issue や PR を歓迎 — [開いてください](https://github.com/maobukeai/catstep-md/issues)。方向性は [`docs/roadmap.md`](docs/roadmap.md) を参照。v4.0 のビルドログは [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) に — PR を送る前にエンジニアリング原則を理解したいならそこから。
 
 ## お問い合わせ
 
-メンテナは 1 人、入り口は 2 つ。非同期は [GitHub Discussions](https://github.com/zhitongblog/solomd/discussions)。リアルタイムチャット:
+メンテナは 1 人、入り口は 2 つ。非同期は [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions)。リアルタイムチャット:
 
 - **Telegram（国際）:** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — リリース告知 + チャット
 - **WeChat（中文）:** スキャンで友達追加 — 「SoloMD」と書いてください
 
 ## ライセンス & クレジット
 
-[MIT](LICENSE) © 2026 xiangdong li。SoloMD は Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs`、`rmcp` の上に立っています。[GitHub Sponsors](https://github.com/sponsors/zhitongblog) または [solomd.app/#sponsor](https://solomd.app/#sponsor) で後援を。
+[MIT](LICENSE) © 2026 xiangdong li。SoloMD は Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs`、`rmcp` の上に立っています。[GitHub Sponsors](https://github.com/maobukeai/catstep-md) または [solomd.app/#sponsor](https://solomd.app/#sponsor) で後援を。

@@ -1,17 +1,17 @@
-# SoloMD
+# 猫步 MD (Catstep MD)
 
 > L'editor dove vivono gli agent.
 
-[![Latest release](https://img.shields.io/github/v/release/zhitongblog/solomd)](https://github.com/zhitongblog/solomd/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/zhitongblog/solomd?color=orange)](LICENSE)
-[![Downloads](https://img.shields.io/github/downloads/zhitongblog/solomd/total)](https://github.com/zhitongblog/solomd/releases)
-[![Website](https://img.shields.io/badge/website-solomd.app-ff9f40.svg)](https://solomd.app)
+[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
+[![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
 🌐 **[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
 
-[**Scarica v4.0**](https://github.com/zhitongblog/solomd/releases/latest) · [**Post di lancio**](https://solomd.app/blog/v4-0-0-agent-native-author/) · [**Sito web**](https://solomd.app) · [**Sicurezza**](https://solomd.app/security)
+[**Scarica v4.0**](https://github.com/maobukeai/catstep-md/releases) · [**Post di lancio**](https://solomd.app/blog/v4-0-0-agent-native-author/) · [**Sito web**](https://solomd.app) · [**Sicurezza**](https://solomd.app/security)
 
-![Editor SoloMD](web/public/demo/solomd-demo.svg)
+![Catstep MD Editor](web/public/demo/solomd-demo.svg)
 
 Le tue note vivono in una cartella. **SoloMD è l'editor sopra — con una superficie agent di prima classe dentro l'editor e l'endpoint MCP che Claude Code / Cursor possono pilotare dall'esterno.** Stessi file `.md`. Chatta con il tuo vault. Pianifica recipes che girano quando non sei alla tastiera. Consegna lo stesso vault a qualsiasi client MCP.
 
@@ -86,18 +86,18 @@ Path-traversal protetto. Nessuna porta di rete. L'LLM vede solo dove punti il wo
 
 ## Installazione
 
-Release più recente: [**v4.0.0**](https://github.com/zhitongblog/solomd/releases/latest).
+Release più recente: [**v4.0.0**](https://github.com/maobukeai/catstep-md/releases).
 
 ### macOS — universal dmg (Apple Silicon + Intel, firmato + notarizzato)
 
 ```bash
-brew install --cask zhitongblog/solomd/solomd
+brew install --cask maobukeai/catstep-md/solomd
 ```
 
 O scarica il dmg direttamente:
 
 ```
-https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_universal.dmg
+https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal.dmg
 ```
 
 O installazione shell in una riga:
@@ -108,9 +108,9 @@ curl -fsSL https://solomd.app/install.sh | bash
 
 ### Windows — x64
 
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-portable.zip) — senza installer
+- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64_en-US.msi)
+- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
+- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — senza installer
 
 ```powershell
 irm https://solomd.app/install.ps1 | iex
@@ -122,7 +122,7 @@ winget install solomd
 
 ### Linux — x86_64 + aarch64
 
-- `.AppImage` (universale), `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) — entrambe le architetture dalla [pagina releases](https://github.com/zhitongblog/solomd/releases/latest).
+- `.AppImage` (universale), `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) — entrambe le architetture dalla [pagina releases](https://github.com/maobukeai/catstep-md/releases).
 - Utenti Arch: [`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin) su AUR.
 
 ### iPad
@@ -144,7 +144,7 @@ Writeup completo: <https://solomd.app/security>.
 Prerequisiti: Rust (stable), Node 18+, pnpm.
 
 ```bash
-git clone https://github.com/zhitongblog/solomd.git
+git clone https://github.com/maobukeai/catstep-md.git
 cd solomd/app
 pnpm install
 pnpm tauri dev      # dev con hot reload
@@ -157,15 +157,15 @@ Il server MCP è un crate separato in `mcp-server/`; il dev MCP harness usato pe
 
 ## Contribuire
 
-Issue e PR benvenuti — [aprine uno](https://github.com/zhitongblog/solomd/issues). Per un senso della direzione, vedi [`docs/roadmap.md`](docs/roadmap.md). Il log di build v4.0 è su [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) — inizia da lì se vuoi capire i principi di ingegneria prima di inviare un PR.
+Issue e PR benvenuti — [aprine uno](https://github.com/maobukeai/catstep-md/issues). Per un senso della direzione, vedi [`docs/roadmap.md`](docs/roadmap.md). Il log di build v4.0 è su [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) — inizia da lì se vuoi capire i principi di ingegneria prima di inviare un PR.
 
 ## Contatto
 
-Un manutentore, due porte d'ingresso. Asincrono su [GitHub Discussions](https://github.com/zhitongblog/solomd/discussions). Chat in tempo reale:
+Un manutentore, due porte d'ingresso. Asincrono su [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions). Chat in tempo reale:
 
 - **Telegram (internazionale):** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — annunci release + chat
 - **WeChat (中文):** scansiona per aggiungermi — nota "SoloMD"
 
 ## Licenza e crediti
 
-[MIT](LICENSE) © 2026 xiangdong li. SoloMD si appoggia su Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` e `rmcp`. Sponsorizza su [GitHub Sponsors](https://github.com/sponsors/zhitongblog) o via [solomd.app/#sponsor](https://solomd.app/#sponsor).
+[MIT](LICENSE) © 2026 xiangdong li. SoloMD si appoggia su Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` e `rmcp`. Sponsorizza su [GitHub Sponsors](https://github.com/maobukeai/catstep-md) o via [solomd.app/#sponsor](https://solomd.app/#sponsor).

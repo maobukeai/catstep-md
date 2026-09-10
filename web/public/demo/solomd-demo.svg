@@ -1,23 +1,283 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" preserveAspectRatio="xMidYMid slice">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 820" width="1280" height="820">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1f2227"/>
-      <stop offset="1" stop-color="#0f1115"/>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="50%" stop-color="#161b22"/>
+      <stop offset="100%" stop-color="#0a0c10"/>
     </linearGradient>
+
+    <!-- Window Surface Gradient -->
+    <linearGradient id="winGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c2128"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+
+    <!-- Accent Gradient for Buttons & Badges -->
+    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#238636"/>
+      <stop offset="100%" stop-color="#2ea043"/>
+    </linearGradient>
+
+    <linearGradient id="aiGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8a2be2"/>
+      <stop offset="100%" stop-color="#da70d6"/>
+    </linearGradient>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="winShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="24" stdDeviation="32" flood-color="#000000" flood-opacity="0.65"/>
+    </filter>
+    <filter id="barShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
   </defs>
-  <rect width="1280" height="800" fill="url(#bg)"/>
-  <g font-family="ui-monospace,Menlo,Consolas,monospace" fill="#a8b2c1">
-    <text x="60" y="100" font-size="22" fill="#5b6273">SoloMD — Welcome.md</text>
-    <text x="60" y="180" font-size="64" font-weight="700" fill="#ff9f40"># Welcome to SoloMD ✏️</text>
-    <text x="60" y="260" font-size="24" fill="#cfd6df">A fast, native Markdown editor. Live preview,</text>
-    <text x="60" y="296" font-size="24" fill="#cfd6df">split view, and a slideshow mode that turns</text>
-    <text x="60" y="332" font-size="24" fill="#cfd6df">any doc into fullscreen slides.</text>
-    <text x="60" y="420" font-size="20" fill="#7c8595">Press</text>
-    <rect x="120" y="402" width="92" height="30" rx="4" fill="#2d3340" stroke="#4a5260"/>
-    <text x="166" y="423" font-size="16" text-anchor="middle" fill="#cfd6df">Ctrl+K</text>
-    <text x="225" y="420" font-size="20" fill="#7c8595">to see every command.</text>
-  </g>
-  <g font-family="-apple-system,sans-serif" fill="#5b6273">
-    <text x="640" y="720" font-size="14" text-anchor="middle">Real demo coming soon — see web/public/demo/README.md</text>
+
+  <style>
+    .font-sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; }
+    .font-mono { font-family: "JetBrains Mono", Consolas, "Fira Code", monospace; }
+  </style>
+
+  <!-- Outer Background Canvas -->
+  <rect width="1280" height="820" fill="url(#bgGrad)"/>
+
+  <!-- Subtle Ambient Glow -->
+  <circle cx="640" cy="200" r="380" fill="#238636" opacity="0.06" filter="blur(80px)"/>
+  <circle cx="1080" cy="300" r="280" fill="#8a2be2" opacity="0.05" filter="blur(80px)"/>
+
+  <!-- Main Window Container -->
+  <g transform="translate(40, 30)" filter="url(#winShadow)">
+    <!-- Window Frame -->
+    <rect width="1200" height="760" rx="14" fill="url(#winGrad)" stroke="#30363d" stroke-width="1.5"/>
+
+    <!-- ── 1. Unified Title Bar / Header (Height: 48px) ── -->
+    <rect width="1200" height="48" rx="14" fill="#161b22"/>
+    <!-- Overlap bottom rounded corners of titlebar -->
+    <rect y="36" width="1200" height="12" fill="#161b22"/>
+    <line x1="0" y1="48" x2="1200" y2="48" stroke="#30363d" stroke-width="1"/>
+
+    <!-- macOS Traffic Light Window Controls -->
+    <circle cx="24" cy="24" r="6.5" fill="#ff5f56" stroke="#e0443e" stroke-width="0.5"/>
+    <circle cx="44" cy="24" r="6.5" fill="#ffbd2e" stroke="#dea123" stroke-width="0.5"/>
+    <circle cx="64" cy="24" r="6.5" fill="#27c93f" stroke="#1aab29" stroke-width="0.5"/>
+
+    <!-- App Brand & Title -->
+    <text x="96" y="29" class="font-sans" font-size="14" font-weight="700" fill="#f0f6fc">🐾 猫步 MD</text>
+    <rect x="168" y="16" width="56" height="18" rx="9" fill="#21262d" stroke="#30363d"/>
+    <text x="196" y="29" class="font-sans" font-size="10" font-weight="600" fill="#7ee787" text-anchor="middle">v4.12</text>
+
+    <!-- Top Center: 3-State Mode Switcher Capsule -->
+    <g transform="translate(470, 10)">
+      <rect width="260" height="28" rx="14" fill="#0d1117" stroke="#30363d"/>
+      <!-- Active Segment: ✍️ 编辑 -->
+      <rect x="2" y="2" width="86" height="24" rx="12" fill="#238636"/>
+      <text x="45" y="18" class="font-sans" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">✍️ 编辑</text>
+      <!-- Inactive Segment: 📖 阅读 -->
+      <text x="130" y="18" class="font-sans" font-size="12" font-weight="500" fill="#8b949e" text-anchor="middle">📖 阅读</text>
+      <!-- Inactive Segment: 💻 源码 -->
+      <text x="215" y="18" class="font-sans" font-size="12" font-weight="500" fill="#8b949e" text-anchor="middle">💻 源码</text>
+    </g>
+
+    <!-- Top Right: Action Capsules -->
+    <g transform="translate(860, 11)">
+      <!-- AI Assistant Button -->
+      <rect x="0" y="0" width="112" height="26" rx="13" fill="url(#aiGrad)"/>
+      <text x="56" y="17" class="font-sans" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">✨ 猫步 AI 助手</text>
+
+      <!-- AutoGit History Capsule -->
+      <rect x="122" y="0" width="100" height="26" rx="13" fill="#21262d" stroke="#30363d"/>
+      <text x="172" y="17" class="font-sans" font-size="11" font-weight="500" fill="#c9d1d9" text-anchor="middle">⏱️ 版本时光机</text>
+
+      <!-- Settings Icon Button -->
+      <rect x="232" y="0" width="56" height="26" rx="13" fill="#21262d" stroke="#30363d"/>
+      <text x="260" y="17" class="font-sans" font-size="11" font-weight="500" fill="#c9d1d9" text-anchor="middle">⚙️ 设置</text>
+    </g>
+
+    <!-- ── 2. Left 3-in-1 Sidebar (Width: 240px, Height: 682px) ── -->
+    <g transform="translate(0, 48)">
+      <rect width="240" height="682" fill="#13161c"/>
+      <line x1="240" y1="0" x2="240" y2="682" stroke="#30363d" stroke-width="1"/>
+
+      <!-- Sidebar Tabs -->
+      <rect width="240" height="36" fill="#161b22"/>
+      <line x1="0" y1="36" x2="240" y2="36" stroke="#30363d" stroke-width="1"/>
+      <!-- Tab 1: 文件 (Active) -->
+      <text x="40" y="23" class="font-sans" font-size="12" font-weight="600" fill="#58a6ff" text-anchor="middle">📁 文件</text>
+      <rect x="16" y="34" width="48" height="2" fill="#58a6ff"/>
+      <!-- Tab 2: 大纲 -->
+      <text x="120" y="23" class="font-sans" font-size="12" font-weight="500" fill="#8b949e" text-anchor="middle">📑 大纲</text>
+      <!-- Tab 3: 搜索 -->
+      <text x="195" y="23" class="font-sans" font-size="12" font-weight="500" fill="#8b949e" text-anchor="middle">🔍 搜索</text>
+
+      <!-- File Tree Items -->
+      <g transform="translate(16, 52)">
+        <text x="0" y="12" class="font-sans" font-size="11" font-weight="600" fill="#8b949e">▾ 我的文集 (VAULT)</text>
+
+        <!-- Active Item: 欢迎.md -->
+        <rect x="-6" y="24" width="220" height="28" rx="6" fill="#1f242c" stroke="#388bfd" stroke-width="1" stroke-opacity="0.4"/>
+        <text x="6" y="42" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc">📄 欢迎使用猫步 MD.md</text>
+
+        <text x="6" y="74" class="font-sans" font-size="12" font-weight="400" fill="#8b949e">📄 01-快速上手指南.md</text>
+        <text x="6" y="104" class="font-sans" font-size="12" font-weight="400" fill="#8b949e">📄 02-就地交互式表格.md</text>
+        <text x="6" y="134" class="font-sans" font-size="12" font-weight="400" fill="#8b949e">📄 03-沉浸阅读与三大模式.md</text>
+        <text x="6" y="164" class="font-sans" font-size="12" font-weight="400" fill="#8b949e">📄 04-版本时光机AutoGit.md</text>
+        <text x="6" y="194" class="font-sans" font-size="12" font-weight="400" fill="#8b949e">📄 05-AI伴写与MCP连接.md</text>
+
+        <!-- Folder 2 -->
+        <text x="0" y="234" class="font-sans" font-size="11" font-weight="600" fill="#8b949e">▸ 创意灵感与草稿</text>
+        <text x="0" y="260" class="font-sans" font-size="11" font-weight="600" fill="#8b949e">▸ 每日随笔 (Daily)</text>
+      </g>
+    </g>
+
+    <!-- ── 3. Main Editor Writing Area (Width: 960px, Height: 682px) ── -->
+    <g transform="translate(240, 48)">
+      <rect width="960" height="682" fill="#0d1117"/>
+
+      <!-- Editor Tab Bar (Height: 36px) -->
+      <rect width="960" height="36" fill="#161b22"/>
+      <line x1="0" y1="36" x2="960" y2="36" stroke="#30363d" stroke-width="1"/>
+      <!-- Active Tab: 欢迎使用猫步 MD.md -->
+      <rect x="0" y="0" width="190" height="36" fill="#0d1117"/>
+      <line x1="0" y1="0" x2="190" y2="0" stroke="#f0883e" stroke-width="2"/>
+      <line x1="190" y1="0" x2="190" y2="36" stroke="#30363d" stroke-width="1"/>
+      <text x="20" y="23" class="font-sans" font-size="12" font-weight="500" fill="#f0f6fc">欢迎使用猫步 MD.md</text>
+      <text x="170" y="22" class="font-sans" font-size="11" fill="#8b949e">✕</text>
+
+      <!-- Second Tab (Inactive) -->
+      <text x="210" y="23" class="font-sans" font-size="12" font-weight="400" fill="#8b949e">02-就地交互式表格.md</text>
+
+      <!-- ── Editor Document Canvas (Typora Aesthetics) ── -->
+      <g transform="translate(70, 60)">
+        <!-- Document H1 -->
+        <text x="0" y="32" class="font-sans" font-size="28" font-weight="700" fill="#f0f6fc">🐾 欢迎使用 猫步 MD (Catstep MD)</text>
+
+        <!-- Blockquote -->
+        <rect x="0" y="52" width="3.5" height="38" rx="1.5" fill="#f0883e"/>
+        <text x="16" y="68" class="font-sans" font-size="13" font-style="italic" fill="#c9d1d9">步履轻盈，文思泉涌。Typora 级极简所见即所得 + AI Agent 桌面写作环境。</text>
+        <text x="16" y="86" class="font-sans" font-size="12" fill="#8b949e">Silent steps, fluid thoughts. The lightweight Typora-grade Markdown editor where agents live.</text>
+
+        <!-- Paragraph -->
+        <text x="0" y="120" class="font-sans" font-size="14" fill="#c9d1d9">猫步 MD 专注于提供极致纯粹的 Markdown 写作体验。无感自动保存、每秒版本时光机、全套 Typora 快捷键支持。</text>
+
+        <!-- ── Interactive Table Section (With Floating Toolbar) ── -->
+        <g transform="translate(0, 150)">
+          <!-- Floating In-Place Table Toolbar -->
+          <g transform="translate(0, 0)" filter="url(#barShadow)">
+            <rect width="450" height="32" rx="6" fill="#1f242c" stroke="#388bfd" stroke-width="1.2"/>
+            <!-- Row Tools -->
+            <text x="12" y="20" class="font-sans" font-size="11" font-weight="600" fill="#58a6ff">↑+行</text>
+            <text x="44" y="20" class="font-sans" font-size="11" font-weight="600" fill="#58a6ff">↓+行</text>
+            <text x="76" y="20" class="font-sans" font-size="11" font-weight="600" fill="#f85149">⌫行</text>
+            <line x1="104" y1="6" x2="104" y2="26" stroke="#30363d"/>
+            <!-- Col Tools -->
+            <text x="114" y="20" class="font-sans" font-size="11" font-weight="600" fill="#58a6ff">+←列</text>
+            <text x="148" y="20" class="font-sans" font-size="11" font-weight="600" fill="#58a6ff">+→列</text>
+            <text x="182" y="20" class="font-sans" font-size="11" font-weight="600" fill="#f85149">⌫列</text>
+            <line x1="210" y1="6" x2="210" y2="26" stroke="#30363d"/>
+            <!-- Align Tools -->
+            <text x="222" y="20" class="font-sans" font-size="11" font-weight="500" fill="#8b949e">⟵</text>
+            <rect x="240" y="4" width="22" height="24" rx="4" fill="#388bfd" opacity="0.2"/>
+            <text x="246" y="20" class="font-sans" font-size="11" font-weight="600" fill="#58a6ff">↔</text>
+            <text x="272" y="20" class="font-sans" font-size="11" font-weight="500" fill="#8b949e">⟶</text>
+            <line x1="292" y1="6" x2="292" y2="26" stroke="#30363d"/>
+            <!-- Full Editor & Delete -->
+            <text x="304" y="20" class="font-sans" font-size="12" fill="#c9d1d9">▦ 完整编辑</text>
+            <line x1="384" y1="6" x2="384" y2="26" stroke="#30363d"/>
+            <text x="402" y="20" class="font-sans" font-size="12" fill="#f85149">🗑 删表</text>
+          </g>
+
+          <!-- Rendered Table Grid -->
+          <g transform="translate(0, 42)">
+            <!-- Table Border Container -->
+            <rect width="820" height="195" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+
+            <!-- Header Row -->
+            <rect width="820" height="38" rx="6" fill="#1f242c"/>
+            <rect y="32" width="820" height="6" fill="#1f242c"/>
+            <line x1="0" y1="38" x2="820" y2="38" stroke="#30363d"/>
+            <text x="24" y="24" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc">核心功能模块</text>
+            <text x="220" y="24" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc">功能描述与体验</text>
+            <text x="560" y="24" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc">快捷键</text>
+            <text x="730" y="24" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc">就地状态</text>
+
+            <!-- Vertical Separator Lines -->
+            <line x1="200" y1="0" x2="200" y2="195" stroke="#30363d"/>
+            <line x1="540" y1="0" x2="540" y2="195" stroke="#30363d"/>
+            <line x1="700" y1="0" x2="700" y2="195" stroke="#30363d"/>
+
+            <!-- Row 1: 实时预览 -->
+            <line x1="0" y1="77" x2="820" y2="77" stroke="#30363d"/>
+            <text x="24" y="62" class="font-sans" font-size="12" font-weight="500" fill="#c9d1d9">✍️ 实时预览 (Live Edit)</text>
+            <text x="220" y="62" class="font-sans" font-size="12" fill="#8b949e">Typora 级所见即所得，排版与打字一体化</text>
+            <!-- Code Pill -->
+            <rect x="560" y="48" width="80" height="20" rx="4" fill="#21262d" stroke="#30363d"/>
+            <text x="600" y="62" class="font-mono" font-size="11" fill="#79c0ff" text-anchor="middle">Ctrl+1 ~ 6</text>
+            <text x="730" y="62" class="font-sans" font-size="12" fill="#7ee787">✓ 极速</text>
+
+            <!-- Row 2: 就地表格 (Active Cell Highlighted) -->
+            <line x1="0" y1="116" x2="820" y2="116" stroke="#30363d"/>
+            <!-- Active Cell Highlight -->
+            <rect x="201" y="78" width="338" height="37" fill="#388bfd" opacity="0.12"/>
+            <rect x="201" y="78" width="338" height="37" stroke="#58a6ff" stroke-width="1.5" fill="none"/>
+            <text x="24" y="101" class="font-sans" font-size="12" font-weight="500" fill="#c9d1d9">▦ 交互式就地表格</text>
+            <text x="220" y="101" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc">单元格就地直接编辑，Tab/Enter键穿梭</text>
+            <!-- Blinking cursor simulation in active cell -->
+            <line x1="454" y1="88" x2="454" y2="104" stroke="#58a6ff" stroke-width="2"/>
+            <rect x="560" y="87" width="56" height="20" rx="4" fill="#21262d" stroke="#30363d"/>
+            <text x="588" y="101" class="font-mono" font-size="11" fill="#79c0ff" text-anchor="middle">Ctrl+T</text>
+            <text x="730" y="101" class="font-sans" font-size="12" font-weight="600" fill="#58a6ff">● 正在编辑</text>
+
+            <!-- Row 3: 沉浸式阅读 -->
+            <line x1="0" y1="155" x2="820" y2="155" stroke="#30363d"/>
+            <text x="24" y="140" class="font-sans" font-size="12" font-weight="500" fill="#c9d1d9">📖 沉浸阅读模式</text>
+            <text x="220" y="140" class="font-sans" font-size="12" fill="#8b949e">纯净排版，双击任一段落即刻无缝切回编辑</text>
+            <rect x="560" y="126" width="56" height="20" rx="4" fill="#21262d" stroke="#30363d"/>
+            <text x="588" y="140" class="font-mono" font-size="11" fill="#79c0ff" text-anchor="middle">Ctrl+/</text>
+            <text x="730" y="140" class="font-sans" font-size="12" fill="#7ee787">✓ 纯净</text>
+
+            <!-- Row 4: 猫步 AI 伴写 -->
+            <text x="24" y="179" class="font-sans" font-size="12" font-weight="500" fill="#c9d1d9">🤖 猫步 AI 助手</text>
+            <text x="220" y="179" class="font-sans" font-size="12" fill="#8b949e">选中文本灵动润色、一键去AI味、14+大模型直连</text>
+            <rect x="560" y="165" width="56" height="20" rx="4" fill="#21262d" stroke="#30363d"/>
+            <text x="588" y="179" class="font-mono" font-size="11" fill="#79c0ff" text-anchor="middle">Ctrl+J</text>
+            <text x="730" y="179" class="font-sans" font-size="12" fill="#da70d6">✨ 智能</text>
+          </g>
+        </g>
+
+        <!-- Selection Bubble Bar Demo (Floating Action Capsule) -->
+        <g transform="translate(180, 420)" filter="url(#barShadow)">
+          <rect width="360" height="34" rx="17" fill="#1c2128" stroke="#388bfd" stroke-width="1.2"/>
+          <text x="24" y="22" class="font-sans" font-size="12" font-weight="700" fill="#f0f6fc">B</text>
+          <text x="52" y="22" class="font-sans" font-size="12" font-style="italic" font-weight="600" fill="#f0f6fc">I</text>
+          <text x="80" y="22" class="font-sans" font-size="12" font-weight="600" fill="#f0f6fc" text-decoration="underline">U</text>
+          <text x="108" y="22" class="font-mono" font-size="11" fill="#79c0ff">&lt;/&gt;</text>
+          <text x="140" y="22" class="font-sans" font-size="11" fill="#f0f6fc">🔗 链接</text>
+          <line x1="190" y1="8" x2="190" y2="26" stroke="#30363d"/>
+          <!-- Catstep AI Quick Action -->
+          <rect x="200" y="4" width="148" height="26" rx="13" fill="url(#aiGrad)"/>
+          <text x="274" y="21" class="font-sans" font-size="11" font-weight="600" fill="#ffffff" text-anchor="middle">✨ 猫步润色 · 去AI味</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- ── 4. Bottom Status Bar (Height: 30px) ── -->
+    <g transform="translate(0, 730)">
+      <rect width="1200" height="30" rx="14" fill="#13161c"/>
+      <rect width="1200" height="15" fill="#13161c"/>
+      <line x1="0" y1="0" x2="1200" y2="0" stroke="#30363d" stroke-width="1"/>
+
+      <!-- Stats -->
+      <text x="24" y="19" class="font-sans" font-size="11" fill="#8b949e">字数: 2,480 字</text>
+      <text x="120" y="19" class="font-sans" font-size="11" fill="#8b949e">行数: 56 行</text>
+      <text x="210" y="19" class="font-sans" font-size="11" fill="#8b949e">编码: UTF-8</text>
+
+      <!-- Center Feature Note -->
+      <text x="600" y="19" class="font-sans" font-size="11" fill="#58a6ff" text-anchor="middle">🐾 猫步 MD — 步履轻盈，文思泉涌</text>
+
+      <!-- Right Mode Indicator -->
+      <circle cx="1070" cy="15" r="4" fill="#238636"/>
+      <text x="1082" y="19" class="font-sans" font-size="11" fill="#c9d1d9">已自动保存</text>
+      <text x="1160" y="19" class="font-sans" font-size="11" font-weight="600" fill="#7ee787">✍️ 编辑</text>
+    </g>
   </g>
 </svg>

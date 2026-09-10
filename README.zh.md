@@ -2,19 +2,20 @@
 
 > 步履轻盈，文思泉涌。让 Agent 住进来的 Typora 风格轻量 Markdown 编辑器。
 
-[![最新版本](https://img.shields.io/github/v/release/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md/releases/latest)
-[![License: MIT](https://img.shields.io/github/license/maobukeai/catstep-md?color=orange)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)
+[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
+[![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
 🌐 **[English](README.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
 
-[**下载 v4.0**](https://github.com/zhitongblog/solomd/releases/latest) · [**Gitee 镜像下载**](https://gitee.com/zhitong45/solomd/releases) · [**v4.0 发布说明**](https://solomd.app/zh/blog/v4-0-0-agent-native-author/) · [**官网**](https://solomd.app/zh) · [**安全说明**](https://solomd.app/zh/security)
+[**下载最新正式版 (Releases)**](https://github.com/maobukeai/catstep-md/releases) · [**Gitee 镜像**](https://gitee.com/maobukeai/catstep-md) · [**功能路线图**](docs/roadmap.md) · [**安全与隐私**](#隐私与安全)
 
-![SoloMD 编辑器](web/public/demo/solomd-demo.svg)
+![猫步 MD (Catstep MD) - Typora 风格轻量 Markdown 编辑器](web/public/demo/solomd-demo.svg)
 
-你的笔记是一个文件夹。**SoloMD 既是上面的编辑器、内置一等公民的 Agent 面板，也是 Claude Code / Cursor 直接能从外部驱动的 MCP 端点。** 同样的 `.md` 文件。在编辑器里跟你的 vault 对话；定时跑 recipe 不用守在键盘前；同一个 vault 还能交给任何 MCP 客户端。
+你的笔记是一个文件夹。**猫步 MD (Catstep MD) 既是极致纯粹的 Typora 风格所见即所得编辑器、内置一等公民的 AI Agent 助手与版本时光机，也是 Claude Code / Cursor 直接能从外部驱动的 MCP 端点。** 同样的 `.md` 文件。在编辑器里专注写作，也可随时跟你的知识库对话；同一个知识库还能无缝交给任何 MCP 客户端。
 
-基于 Tauri 2 + Vue 3 + CodeMirror 6 构建。Mac universal dmg ~32 MB。免费 / MIT / 无订阅 / 无 SoloMD 服务器。笔记、AI key、嵌入索引、git 历史，全部留在你自己的机器上。
+基于 Tauri 2 + Vue 3 + CodeMirror 6 构建。极速轻巧，内存占用极低。免费 / 开源 MIT / 无强制订阅 / 无私有云端。笔记、AI Key、向量索引、AutoGit 本地版本历史，全部安全留在你自己的电脑上。
 
 ## 同一份产品的三半
 
@@ -82,53 +83,17 @@ solomd agent "把这周的 daily 整理成 weekly review，提交并推送"
 
 路径穿越保护已加。不开网络端口。LLM 只能看到你指给它的工作区。
 
-## 安装
+## 安装与下载
 
-最新版本:[**v4.0.0**](https://github.com/zhitongblog/solomd/releases/latest)。
+最新正式版本可在 GitHub Releases 下载：[**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases)。
 
-**系统要求:**Windows 10+、macOS 10.15+、主流 Linux 发行版、iOS 15+、Android 7+(API 24)。
-Windows 7/8/8.1 无法支持——编译 SoloMD 的 Rust 工具链自 1.78 起要求 Windows 10,且微软已将 Windows 7 上的 WebView2(SoloMD 的渲染引擎)冻结在 109 版并停止安全更新——也不存在可用的历史版本。
+**系统要求:** Windows 10+、macOS 10.15+、主流 Linux 发行版。
 
-### macOS — universal dmg(Apple Silicon + Intel,已签名 + 公证)
+### 桌面版安装
 
-```bash
-brew install --cask zhitongblog/solomd/solomd
-```
-
-或直接下 dmg:
-
-```
-https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_universal.dmg
-```
-
-或 curl 一键安装:
-
-```bash
-curl -fsSL https://solomd.app/install.sh | bash
-```
-
-### Windows — x64
-
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-setup.exe)(NSIS)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.0.0_x64-portable.zip) — 免安装版
-
-```powershell
-irm https://solomd.app/install.ps1 | iex
-```
-
-```powershell
-winget install solomd
-```
-
-### Linux — x86_64 + aarch64
-
-- `.AppImage`(通用)、`.deb`(Debian/Ubuntu)、`.rpm`(Fedora/RHEL)—— 两种架构都在 [发布页](https://github.com/zhitongblog/solomd/releases/latest)。
-- Arch 用户:[`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin)(AUR)。
-
-### iPad
-
-[App Store](https://apps.apple.com/app/solomd/id6762498874) —— 同一引擎,原生 iPad UI。
+- **Windows (x64)**: 前往 [Releases 发布页](https://github.com/maobukeai/catstep-md/releases) 下载 `.msi` 安装包或绿色便携免安装版。
+- **macOS (Universal / Apple Silicon & Intel)**: 前往 [Releases 发布页](https://github.com/maobukeai/catstep-md/releases) 下载 `.dmg` 镜像安装包。
+- **Linux (x86_64 / aarch64)**: 提供 `.AppImage`、`.deb`、`.rpm` 格式安装包。
 
 ## 横向对比
 
@@ -182,21 +147,13 @@ MCP server 是独立 crate,在 `mcp-server/` 目录;端到端测试用的 dev MC
 
 ## 贡献
 
-欢迎 Issue / PR —— [开一个](https://github.com/zhitongblog/solomd/issues)。方向参考 [`docs/roadmap.md`](docs/roadmap.md)。v4.0 的工程笔记在 [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) —— 想理解工程原则后再 PR,从这里开始。
+欢迎提交 Issue 与 Pull Request —— [前往 GitHub Issues](https://github.com/maobukeai/catstep-md/issues)。开发路线参考 [`docs/roadmap.md`](docs/roadmap.md)。
 
-## 联系
+## 社区与交流
 
-一个维护者,两个入口。异步:[GitHub Discussions](https://github.com/zhitongblog/solomd/discussions)。即时:
+- **GitHub Discussions:** [参与讨论与交流](https://github.com/maobukeai/catstep-md/discussions)
+- **Issues 反馈:** [提交 Bug 或需求建议](https://github.com/maobukeai/catstep-md/issues)
 
-- **Telegram(国际):** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — 发版通知 + 闲聊
-- **微信(中文):** 扫码加我,备注 "SoloMD"
+## 开源协议与致谢
 
-<a href="https://solomd.app/#contact"><img src="web/public/contact/wechat.jpg" alt="微信 — 智通" width="180" /></a>
-&nbsp;&nbsp;
-<a href="https://t.me/SOLOMDAPP"><img src="web/public/contact/telegram.jpg" alt="Telegram @SOLOMDAPP" width="180" /></a>
-
-## License & 致谢
-
-[MIT](LICENSE) © 2026 maobukeai / xiangdong li。猫步 MD (Catstep MD) 站在 Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs` 和 `rmcp` 的肩膀上。开源仓库：[GitHub](https://github.com/maobukeai/catstep-md)。
-</content>
-</invoke>
+[MIT](LICENSE) © 2026 maobukeai / xiangdong li。猫步 MD (Catstep MD) 站在 Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs` 和 `rmcp` 的肩膀上。开源仓库：[GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)。
