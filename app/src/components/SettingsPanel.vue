@@ -37,6 +37,7 @@ import GithubSyncSettings from './GithubSyncSettings.vue';
 import CloudFolderBanner from './CloudFolderBanner.vue';
 import ProxySettings from './ProxySettings.vue';
 import ThemeMarketplace from './ThemeMarketplace.vue';
+import BrandMark from './BrandMark.vue';
 import { isIOS, isMobile, hasGitBackend } from '../lib/platform';
 import { loadCustomTheme } from '../lib/custom-theme';
 import { openPath } from '@tauri-apps/plugin-opener';
@@ -557,6 +558,12 @@ function onSelectPdfFont(v: string) {
     class="settings-modal"
     @update:model-value="emit('close')"
   >
+    <template #header>
+      <div class="settings-modal__title-wrap">
+        <BrandMark :size="20" class="settings-modal__brand" />
+        <h2 class="ds-modal__title">{{ t('settings.title') }}</h2>
+      </div>
+    </template>
       <div class="settings__layout">
         <!-- v3.0 — left-side category nav. Click switches the right-side
              content panel; only one category visible at a time. -->
@@ -2019,10 +2026,24 @@ function onSelectPdfFont(v: string) {
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
 }
-.settings-modal :deep(.ds-modal__title) {
+.settings-modal__title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+.settings-modal__brand {
+  flex-shrink: 0;
+  border-radius: 5px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.settings-modal :deep(.ds-modal__title),
+.settings-modal__title-wrap .ds-modal__title {
+  margin: 0;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .settings__layout {
