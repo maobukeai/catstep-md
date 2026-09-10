@@ -39,7 +39,8 @@ function mkTheme(
     { tag: [t.comment, t.lineComment, t.blockComment], color: highlights.comment, fontStyle: 'italic' },
     { tag: t.meta, color: highlights.meta || highlights.comment },
     { tag: t.link, color: highlights.link || highlights.string, textDecoration: 'underline' },
-    { tag: t.heading, color: highlights.heading || highlights.keyword, fontWeight: 'bold' },
+    { tag: t.heading, color: highlights.heading || fg, fontWeight: 'bold' },
+    { tag: t.monospace, color: 'inherit' },
     { tag: [t.atom, t.special(t.variableName)], color: highlights.atom || highlights.function },
     { tag: t.invalid, color: highlights.invalid || '#ff0000' },
     { tag: t.strikethrough, textDecoration: 'line-through' },
@@ -69,7 +70,7 @@ export const nordTheme = mkTheme(
   {
     keyword: '#81a1c1', string: '#a3be8c', number: '#b48ead', comment: '#616e88',
     function: '#88c0d0', variable: '#d8dee9', type: '#8fbcbb', property: '#88c0d0',
-    heading: '#81a1c1', operator: '#81a1c1', punctuation: '#eceff4',
+    heading: '#d8dee9', operator: '#81a1c1', punctuation: '#eceff4',
   },
 );
 
@@ -78,7 +79,7 @@ export const solarizedLightTheme = mkTheme(
   {
     keyword: '#859900', string: '#2aa198', number: '#d33682', comment: '#93a1a1',
     function: '#268bd2', variable: '#657b83', type: '#b58900', property: '#268bd2',
-    heading: '#cb4b16', operator: '#657b83', punctuation: '#586e75',
+    heading: '#657b83', operator: '#657b83', punctuation: '#586e75',
   },
 );
 
@@ -87,7 +88,7 @@ export const solarizedDarkTheme = mkTheme(
   {
     keyword: '#859900', string: '#2aa198', number: '#d33682', comment: '#586e75',
     function: '#268bd2', variable: '#839496', type: '#b58900', property: '#268bd2',
-    heading: '#cb4b16', operator: '#839496', punctuation: '#93a1a1',
+    heading: '#839496', operator: '#839496', punctuation: '#93a1a1',
   },
 );
 
@@ -96,7 +97,7 @@ export const monokaiTheme = mkTheme(
   {
     keyword: '#f92672', string: '#e6db74', number: '#ae81ff', comment: '#75715e',
     function: '#a6e22e', variable: '#f8f8f2', type: '#66d9ef', property: '#a6e22e',
-    heading: '#f92672', operator: '#f92672', punctuation: '#f8f8f2',
+    heading: '#f8f8f2', operator: '#f92672', punctuation: '#f8f8f2',
     constant: '#ae81ff',
   },
 );
@@ -106,7 +107,7 @@ export const githubLightTheme = mkTheme(
   {
     keyword: '#d73a49', string: '#032f62', number: '#005cc5', comment: '#6a737d',
     function: '#6f42c1', variable: '#24292e', type: '#e36209', property: '#005cc5',
-    heading: '#005cc5', operator: '#d73a49', punctuation: '#24292e',
+    heading: '#24292e', operator: '#d73a49', punctuation: '#24292e',
   },
 );
 
@@ -115,7 +116,7 @@ export const draculaTheme = mkTheme(
   {
     keyword: '#ff79c6', string: '#f1fa8c', number: '#bd93f9', comment: '#6272a4',
     function: '#50fa7b', variable: '#f8f8f2', type: '#8be9fd', property: '#50fa7b',
-    heading: '#ff79c6', operator: '#ff79c6', punctuation: '#f8f8f2',
+    heading: '#f8f8f2', operator: '#ff79c6', punctuation: '#f8f8f2',
     constant: '#bd93f9',
   },
 );

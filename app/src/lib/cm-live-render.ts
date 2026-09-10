@@ -742,17 +742,14 @@ const liveEditTheme = EditorView.theme({
   '.cm-md-heading-line-6': { fontWeight: '700', color: 'var(--text-muted)' },
 
   // Heading text color (from the heading mark). The line decoration sets
-  // size; this paints the color so emphasis/strong inside a heading
-  // inherit cleanly.
-  '.cm-md-h1': { color: 'var(--md-h1)' },
-  '.cm-md-h2': { color: 'var(--md-h2)' },
-  '.cm-md-h3': { color: 'var(--md-h3)' },
-  '.cm-md-h4': { color: 'var(--md-h4)' },
-  '.cm-md-h5': { color: 'var(--md-h5)' },
-  '.cm-md-h6': { color: 'var(--md-h6)' },
+  // Heading text color (from the heading mark). Inherits clean body text color
+  // identical to reading mode.
+  '.cm-md-h1, .cm-md-h2, .cm-md-h3, .cm-md-h4, .cm-md-h5, .cm-md-h6': {
+    color: 'inherit',
+  },
 
-  '.cm-md-strong': { fontWeight: '700', color: 'var(--md-strong)' },
-  '.cm-md-em': { fontStyle: 'italic', color: 'var(--md-em)' },
+  '.cm-md-strong': { fontWeight: '700', color: 'inherit' },
+  '.cm-md-em': { fontStyle: 'italic', color: 'inherit' },
   '.cm-md-strike': { textDecoration: 'line-through', color: 'var(--text-muted)' },
   '.cm-md-html-u': { textDecoration: 'underline' },
   '.cm-md-html-mark': {
@@ -764,29 +761,33 @@ const liveEditTheme = EditorView.theme({
   '.cm-md-html-kbd': {
     fontFamily: 'var(--font-mono)',
     fontSize: '0.82em',
-    backgroundColor: 'var(--md-code-bg)',
+    backgroundColor: 'var(--bg-hover)',
     border: '1px solid var(--border)',
     borderRadius: '4px',
     padding: '0.05em 0.3em',
   },
 
+  // Inline code: matches Preview.vue / Reading mode exactly — inherits prose text color,
+  // uses subtle var(--bg-hover) backdrop, no red/pink tint.
   '.cm-md-code': {
     fontFamily: 'var(--font-mono)',
-    color: 'var(--md-code)',
-    backgroundColor: 'var(--md-code-bg)',
-    padding: '0.1em 0.35em',
+    color: 'inherit',
+    backgroundColor: 'var(--bg-hover)',
+    padding: '0.15em 0.4em',
     borderRadius: '4px',
+    fontSize: '0.9em',
   },
 
   '.cm-md-link': {
-    color: 'var(--md-link)',
+    color: 'var(--accent)',
     textDecoration: 'underline',
     textUnderlineOffset: '2px',
   },
 
   // v4.7.1 — bullet glyph that replaces a `-`/`*`/`+` list marker off-line.
+  // Matches reading mode default list bullet color (inherits body text color).
   '.cm-md-bullet': {
-    color: 'var(--md-list)',
+    color: 'inherit',
     fontWeight: '700',
   },
 
@@ -803,10 +804,9 @@ const liveEditTheme = EditorView.theme({
   },
 
   '.cm-md-quote-line': {
-    borderLeft: '3px solid var(--border)',
+    borderLeft: '3px solid var(--accent)',
     paddingLeft: '12px',
-    color: 'var(--md-quote)',
-    fontStyle: 'italic',
+    color: 'var(--text-muted)',
     backgroundColor: 'var(--bg-elev, transparent)',
   },
 
