@@ -680,13 +680,13 @@ function onSelectPdfFont(v: string) {
               </div>
             </div>
 
-            <!-- Row: Theme & Typora CSS Engine -->
+            <!-- Row: Theme -->
             <div class="setting-row">
               <div class="setting-row__info">
                 <label class="setting-row__title">{{ t('settings.theme') }}</label>
-                <p class="setting-row__hint">{{ isZh ? '内置经典主题及本地 Typora 自定义 CSS 主题' : 'Built-in themes and local custom Typora CSS themes' }}</p>
+                <p class="setting-row__hint">{{ isZh ? '选择界面与正文排版视觉风格' : 'Select interface and document visual style' }}</p>
               </div>
-              <div class="setting-row__control setting-row__control--stack setting-row__control--wide">
+              <div class="setting-row__control">
                 <select
                   :value="currentThemeSelectValue"
                   @change="onThemeSelectChange(($event.target as HTMLSelectElement).value)"
@@ -704,99 +704,142 @@ function onSelectPdfFont(v: string) {
                     </option>
                   </optgroup>
                 </select>
+              </div>
+            </div>
 
-                <div class="theme-actions-row">
-                  <button type="button" class="btn-subtle" @click="themesStore.openThemeFolder()" :title="isZh ? '打开本地 themes 文件夹，可直接放入 Typora .css 文件' : 'Open local themes folder'">
-                    📂 {{ isZh ? '打开主题文件夹' : 'Themes Folder' }}
+            <!-- Row: Theme Folder & user.css -->
+            <div class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '主题文件夹与扩展' : 'Themes Folder & Extensions' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '支持直接放入 Typora .css 主题文件，或编辑全局 user.css' : 'Add Typora .css files to directory or edit user.css' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-actions-row">
+                  <button type="button" class="btn-setting" @click="themesStore.openThemeFolder()">
+                    {{ isZh ? '打开主题文件夹' : 'Themes Folder' }}
                   </button>
-                  <button type="button" class="btn-subtle" @click="themesStore.openUserCss()" :title="isZh ? '编辑 user.css 全局自定义样式' : 'Edit global user.css'">
-                    📝 {{ isZh ? '编辑 user.css' : 'user.css' }}
+                  <button type="button" class="btn-setting" @click="themesStore.openUserCss()">
+                    {{ isZh ? '编辑 user.css' : 'user.css' }}
                   </button>
-                  <button type="button" class="btn-subtle" @click="refreshCustomThemes()" :title="isZh ? '重新扫描主题文件夹与重新加载样式' : 'Refresh installed themes'">
-                    🔄 {{ isZh ? '刷新' : 'Refresh' }}
+                  <button type="button" class="btn-setting" @click="refreshCustomThemes()">
+                    {{ isZh ? '刷新' : 'Refresh' }}
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- Row: Visual Canvas & Background -->
+            <!-- Row: Canvas Background -->
             <div class="setting-row">
               <div class="setting-row__info">
                 <label class="setting-row__title">{{ isZh ? '写作背景画布' : 'Canvas Background' }}</label>
-                <p class="setting-row__hint">{{ isZh ? '为编辑与预览画卷衬托质感纹理或自定义壁纸' : 'Decorate your writing canvas with textures or wallpapers' }}</p>
+                <p class="setting-row__hint">{{ isZh ? '为编辑与预览画卷衬托质感微纹理或自定义壁纸' : 'Decorate writing canvas with texture or custom wallpaper' }}</p>
               </div>
-              <div class="setting-row__control setting-row__control--stack setting-row__control--wide">
+              <div class="setting-row__control">
                 <select
                   :value="settings.bgType"
                   @change="settings.setBgType(($event.target as HTMLSelectElement).value as any)"
                 >
-                  <option value="none">{{ isZh ? '无（经典纯净）' : 'None (Clean)' }}</option>
+                  <option value="none">{{ isZh ? '无（纯净经典）' : 'None (Classic)' }}</option>
                   <option value="texture">{{ isZh ? '质感平铺纹理' : 'Subtle Texture' }}</option>
                   <option value="image">{{ isZh ? '自定义图片壁纸' : 'Custom Image Wallpaper' }}</option>
                 </select>
+              </div>
+            </div>
 
-                <!-- Texture Preset Selection -->
-                <div v-if="settings.bgType === 'texture'" class="bg-option-row">
-                  <label class="bg-option-label">{{ isZh ? '纹理样式：' : 'Texture:' }}</label>
-                  <select
-                    :value="settings.bgTexture"
-                    @change="settings.setBgTexture(($event.target as HTMLSelectElement).value as any)"
-                  >
-                    <option value="paper">{{ isZh ? '📜 羊皮宣纸 (Paper)' : 'Paper' }}</option>
-                    <option value="grid">{{ isZh ? '📐 工程网格 (Grid)' : 'Grid' }}</option>
-                    <option value="dots">{{ isZh ? '◽ 点阵笔记 (Dots)' : 'Dots' }}</option>
-                    <option value="linen">{{ isZh ? '🧶 细织亚麻 (Linen)' : 'Linen' }}</option>
-                  </select>
-                </div>
+            <!-- Row: Texture Style Preset -->
+            <div v-if="settings.bgType === 'texture'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '纹理样式' : 'Texture Style' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '无缝高清矢量微质感背景' : 'Seamless vector texture preset' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <select
+                  :value="settings.bgTexture"
+                  @change="settings.setBgTexture(($event.target as HTMLSelectElement).value as any)"
+                >
+                  <option value="paper">{{ isZh ? '羊皮宣纸 (Paper)' : 'Paper' }}</option>
+                  <option value="grid">{{ isZh ? '工程网格 (Grid)' : 'Grid' }}</option>
+                  <option value="dots">{{ isZh ? '点阵笔记 (Dots)' : 'Dots' }}</option>
+                  <option value="linen">{{ isZh ? '细织亚麻 (Linen)' : 'Linen' }}</option>
+                </select>
+              </div>
+            </div>
 
-                <!-- Custom Wallpaper Selection -->
-                <div v-if="settings.bgType === 'image'" class="bg-option-row">
-                  <button type="button" class="btn-subtle" @click="pickWallpaper">
-                    🖼️ {{ isZh ? '选择壁纸图片…' : 'Pick Image…' }}
+            <!-- Row: Custom Wallpaper Picker -->
+            <div v-if="settings.bgType === 'image'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '壁纸图片' : 'Wallpaper Image' }}</label>
+                <p class="setting-row__hint">{{ settings.bgImage ? (isZh ? '已应用自定义壁纸' : 'Custom wallpaper active') : (isZh ? '支持 JPG、PNG、WebP、GIF 等常见格式' : 'Supports JPG, PNG, WebP, GIF') }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-actions-row">
+                  <button type="button" class="btn-setting" @click="pickWallpaper">
+                    {{ isZh ? '选择图片…' : 'Pick Image…' }}
                   </button>
-                  <button type="button" class="btn-subtle" @click="themesStore.openWallpapersFolder()" :title="isZh ? '打开壁纸存放目录' : 'Open wallpapers folder'">
-                    📂 {{ isZh ? '壁纸目录' : 'Folder' }}
+                  <button type="button" class="btn-setting" @click="themesStore.openWallpapersFolder()">
+                    {{ isZh ? '壁纸目录' : 'Wallpapers Folder' }}
                   </button>
-                  <button v-if="settings.bgImage" type="button" class="btn-subtle btn-subtle--danger" @click="clearWallpaper">
-                    ❌ {{ isZh ? '清除' : 'Clear' }}
+                  <button v-if="settings.bgImage" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper">
+                    {{ isZh ? '清除' : 'Clear' }}
                   </button>
                 </div>
+              </div>
+            </div>
 
-                <!-- Shared Visual Tuning Sliders when background is active -->
-                <div v-if="settings.bgType !== 'none'" class="bg-tuning-panel">
-                  <div class="bg-tuning-slider">
-                    <span class="tuning-slider-title">{{ isZh ? '暗/亮蒙层不透明度' : 'Overlay Opacity' }} ({{ settings.bgOpacity }}%)</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="95"
-                      step="5"
-                      :value="settings.bgOpacity"
-                      @input="settings.setBgOpacity(Number(($event.target as HTMLInputElement).value))"
-                    />
-                  </div>
-
-                  <div class="bg-tuning-slider">
-                    <span class="tuning-slider-title">{{ isZh ? '背景模糊度' : 'Background Blur' }} ({{ settings.bgBlur }}px)</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="30"
-                      step="1"
-                      :value="settings.bgBlur"
-                      @input="settings.setBgBlur(Number(($event.target as HTMLInputElement).value))"
-                    />
-                  </div>
-
-                  <label class="bg-card-checkbox">
-                    <input
-                      type="checkbox"
-                      :checked="settings.bgFrostedCard"
-                      @change="settings.toggleBgFrostedCard()"
-                    />
-                    <span>{{ isZh ? '毛玻璃悬浮卡片模式 (突出写作主体)' : 'Frosted Glass Card' }}</span>
-                  </label>
+            <!-- Row: Overlay Opacity -->
+            <div v-if="settings.bgType !== 'none'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '暗/亮蒙层浓度' : 'Overlay Opacity' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '自适应环境遮罩，调节正文字体阅读对比度' : 'Adjust overlay depth to keep text crisp' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="0"
+                    max="95"
+                    step="5"
+                    :value="settings.bgOpacity"
+                    @input="settings.setBgOpacity(Number(($event.target as HTMLInputElement).value))"
+                  />
+                  <span class="setting-val-badge">{{ settings.bgOpacity }}%</span>
                 </div>
+              </div>
+            </div>
+
+            <!-- Row: Background Blur -->
+            <div v-if="settings.bgType !== 'none'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '背景模糊度' : 'Background Blur' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '高斯模糊柔化壁纸细节，降低视觉干扰' : 'Gaussian blur to soften background details' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <div class="setting-slider-ctrl">
+                  <input
+                    type="range"
+                    min="0"
+                    max="30"
+                    step="1"
+                    :value="settings.bgBlur"
+                    @input="settings.setBgBlur(Number(($event.target as HTMLInputElement).value))"
+                  />
+                  <span class="setting-val-badge">{{ settings.bgBlur }}px</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row: Frosted Glass Card -->
+            <div v-if="settings.bgType !== 'none'" class="setting-row">
+              <div class="setting-row__info">
+                <label class="setting-row__title">{{ isZh ? '毛玻璃悬浮卡片' : 'Frosted Glass Card' }}</label>
+                <p class="setting-row__hint">{{ isZh ? '以半透明磨砂卡片承载正文排版，突出写作主体' : 'Render text in a frosted glass floating card' }}</p>
+              </div>
+              <div class="setting-row__control">
+                <input
+                  type="checkbox"
+                  :checked="settings.bgFrostedCard"
+                  @change="settings.toggleBgFrostedCard()"
+                />
               </div>
             </div>
 
@@ -2413,106 +2456,36 @@ function onSelectPdfFont(v: string) {
   margin: 0;
 }
 
-.setting-row__control--wide {
-  width: 320px;
-  max-width: 100%;
-}
-.setting-row__control--wide select {
-  width: 100%;
-  max-width: 100%;
-}
-.theme-actions-row {
+.setting-actions-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
-  width: 100%;
 }
-.btn-subtle {
+.btn-setting {
   border: 1px solid var(--border);
-  padding: 4px 10px;
-  font-size: 11.5px;
+  padding: 6px 14px;
+  font-size: 12px;
   border-radius: 6px;
   background: var(--bg);
   color: var(--text);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  line-height: 1.3;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
-.btn-subtle:hover {
+.btn-setting:hover {
   border-color: var(--accent);
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 8%, var(--bg));
 }
-.btn-subtle--danger:hover {
+.btn-setting--danger:hover {
   border-color: var(--danger, #ef4444);
   color: var(--danger, #ef4444);
   background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg));
-}
-.bg-option-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  justify-content: flex-end;
-  width: 100%;
-}
-.bg-option-label {
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.bg-option-row select {
-  flex: 1;
-  max-width: 180px;
-}
-.bg-tuning-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--bg-hover) 50%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: 8px;
-  width: 100%;
-  box-sizing: border-box;
-}
-.bg-tuning-slider {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.tuning-slider-title {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-.bg-card-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
-  color: var(--text);
-  cursor: pointer;
-  margin-top: 4px;
-  user-select: none;
-}
-.bg-card-checkbox input[type='checkbox'] {
-  width: 32px;
-  height: 18px;
-}
-.bg-card-checkbox input[type='checkbox']::after {
-  width: 14px;
-  height: 14px;
-}
-.bg-card-checkbox input[type='checkbox']:checked::after {
-  transform: translateX(14px);
 }
 
 /* Standalone Card-style sections fallback */
