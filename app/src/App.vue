@@ -472,6 +472,17 @@ import { dataThemeFor } from './lib/themes';
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let lastQuotaWarn = 0;
 
+function flushPendingPersist() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+    try {
+      tabs.persist();
+      tiles.persist();
+    } catch {}
+  }
+}
+
 function debouncedPersistTabs() {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
@@ -492,6 +503,8 @@ function debouncedPersistTabs() {
     }
   }, 400);
 }
+
+window.addEventListener('beforeunload', flushPendingPersist);
 
 // Auto-persist tabs and tiles on every change (debounced 400ms without expensive string concatenation on every keystroke).
 watch(
@@ -1576,13 +1589,8 @@ window.addEventListener(VIEW_CLOSE_EVENT, onCloseView as EventListener);
 window.addEventListener('solomd:open-settings', onOpenSettingsEvent as EventListener);
 
 onBeforeUnmount(() => {
-  if (persistTimer) {
-    clearTimeout(persistTimer);
-    try {
-      tabs.persist();
-      tiles.persist();
-    } catch {}
-  }
+  flushPendingPersist();
+  window.removeEventListener('beforeunload', flushPendingPersist);
   window.removeEventListener('keydown', onEsc);
   window.removeEventListener('wheel', onWheelZoom, { capture: true } as EventListenerOptions);
   window.removeEventListener('blur', onWindowBlur);
@@ -2394,7 +2402,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   min-height: 0;
   flex: 0 0 auto;
 }
-.typora-sidebar__body :deep(.ftree) {
+.typora-sidebar__body :deep(.ftree),
+.typora-sidebar__body :deep(.outline) {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
@@ -2405,7 +2414,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
    and the editor didn't squeeze each other into slivers. #168 replaces that
    with the drawer above: same goal, but the editor stays visible underneath
    and one tap outside returns to it, instead of the tree taking the screen. */
-.app--mobile .typora-sidebar__body :deep(.ftree) {
+.app--mobile .typora-sidebar__body :deep(.ftree),
+.app--mobile .typora-sidebar__body :deep(.outline) {
   width: 100%;
 }
 .side-sidebar {

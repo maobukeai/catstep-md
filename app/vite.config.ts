@@ -30,7 +30,7 @@ export default defineConfig(async () => ({
     },
   },
   build: {
-    chunkSizeWarningLimit: 6000,
+    chunkSizeWarningLimit: 3000,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -72,6 +72,19 @@ export default defineConfig(async () => ({
           }
           if (normalized.includes('/node_modules/prettier/')) {
             return 'prettier';
+          }
+          if (normalized.includes('/node_modules/opencc-js/')) {
+            return 'opencc';
+          }
+          if (
+            normalized.includes('/node_modules/html2pdf.js/') ||
+            normalized.includes('/node_modules/html2canvas/') ||
+            normalized.includes('/node_modules/jspdf/')
+          ) {
+            return 'html2pdf';
+          }
+          if (normalized.includes('/node_modules/reveal.js/')) {
+            return 'reveal';
           }
         },
       },
