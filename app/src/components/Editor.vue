@@ -4398,7 +4398,7 @@ watch(
   },
 );
 
-function gotoLine(line: number, from?: number, to?: number) {
+function gotoLine(line: number, from?: number, to?: number, original?: string) {
   if (usePlainWindowsEditor) {
     if (plainLiveEnabled.value) {
       if (from != null) {
@@ -4420,23 +4420,77 @@ function gotoLine(line: number, from?: number, to?: number) {
     return;
   }
   if (!view) return;
+
+  const docLen = view.state.doc.length;
+  let targetFrom: number | null = null;
+  let targetTo: number | null = null;
+
+  // 1. If from & to provided, verify against doc content in CodeMirror
   if (from != null) {
-    const docLen = view.state.doc.length;
     const safeFrom = Math.max(0, Math.min(from, docLen));
     const safeTo = to != null ? Math.max(safeFrom, Math.min(to, docLen)) : safeFrom;
-    view.dispatch({
-      selection: { anchor: safeFrom, head: safeTo },
-      effects: EditorView.scrollIntoView(safeFrom, { y: 'center', yMargin: 60 }),
-    });
-    view.focus();
-    triggerJumpPulse();
-    return;
+    if (!original || view.state.doc.sliceString(safeFrom, safeTo) === original) {
+      targetFrom = safeFrom;
+      targetTo = safeTo;
+    }
   }
-  const safe = Math.max(1, Math.min(line, view.state.doc.lines));
-  const lineObj = view.state.doc.line(safe);
+
+  // 2. If mismatch or not given, search line in view.state.doc directly
+  if (targetFrom == null && original && line > 0 && line <= view.state.doc.lines) {
+    const lineObj = view.state.doc.line(line);
+    let bestIdx = -1;
+    let minDistance = Infinity;
+    let searchPos = 0;
+    const estLineCol = from != null ? Math.max(0, from - lineObj.from) : 0;
+    while ((searchPos = lineObj.text.indexOf(original, searchPos)) >= 0) {
+      const dist = Math.abs(searchPos - estLineCol);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestIdx = searchPos;
+      }
+      searchPos += original.length;
+    }
+    if (bestIdx >= 0) {
+      targetFrom = lineObj.from + bestIdx;
+      targetTo = targetFrom + original.length;
+    }
+  }
+
+  // 3. Nearby lines fallback (±2 lines in case line number shifted)
+  if (targetFrom == null && original && line > 0) {
+    const minL = Math.max(1, line - 2);
+    const maxL = Math.min(view.state.doc.lines, line + 2);
+    for (let l = minL; l <= maxL; l++) {
+      const lineObj = view.state.doc.line(l);
+      const inLine = lineObj.text.indexOf(original);
+      if (inLine >= 0) {
+        targetFrom = lineObj.from + inLine;
+        targetTo = targetFrom + original.length;
+        break;
+      }
+    }
+  }
+
+  // 4. Fallback to provided from/to
+  if (targetFrom == null && from != null) {
+    targetFrom = Math.max(0, Math.min(from, docLen));
+    targetTo = to != null ? Math.max(targetFrom, Math.min(to, docLen)) : targetFrom;
+  }
+
+  // 5. Fallback to line start
+  if (targetFrom == null) {
+    const safe = Math.max(1, Math.min(line, view.state.doc.lines));
+    const lineObj = view.state.doc.line(safe);
+    targetFrom = lineObj.from;
+    targetTo = lineObj.from;
+  }
+
+  const finalFrom = targetFrom ?? 0;
+  const finalTo = targetTo ?? finalFrom;
+
   view.dispatch({
-    selection: { anchor: lineObj.from },
-    effects: EditorView.scrollIntoView(lineObj.from, { y: 'start', yMargin: 40 }),
+    selection: { anchor: finalFrom, head: finalTo },
+    effects: EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
   });
   view.focus();
   triggerJumpPulse();

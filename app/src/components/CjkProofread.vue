@@ -148,7 +148,10 @@ async function rescan() {
   }
   loading.value = true;
   try {
-    const result = await invoke<Issue[]>('cjk_proofread', { text: tab.content ?? '' });
+    // Crucial: normalize CRLF to LF so Rust byte offsets, JS string char indices,
+    // and CodeMirror document coordinates (which are strictly LF) align 100%.
+    const text = (tab.content ?? '').replace(/\r\n/g, '\n');
+    const result = await invoke<Issue[]>('cjk_proofread', { text });
     issues.value = result;
     selectedIdx.value = -1;
   } catch (e) {
@@ -242,7 +245,7 @@ function bucketTitle(bucket: 'high' | 'medium' | 'low'): string {
 function contextOf(issue: Issue): { before: string; hit: string; after: string } {
   const tab = tabs.activeTab;
   if (!tab) return { before: '', hit: '', after: '' };
-  const text = tab.content ?? '';
+  const text = (tab.content ?? '').replace(/\r\n/g, '\n');
   const enc = new TextEncoder();
   const dec = new TextDecoder();
   const bytes = enc.encode(text);
@@ -257,8 +260,9 @@ function contextOf(issue: Issue): { before: string; hit: string; after: string }
   return { before: cleanBefore, hit, after: cleanAfter };
 }
 
-function getIssueCharRange(issue: Issue, content: string): { from: number; to: number } {
-  if (!content) return { from: 0, to: 0 };
+function getIssueCharRange(issue: Issue, rawContent: string): { from: number; to: number } {
+  if (!rawContent) return { from: 0, to: 0 };
+  const content = rawContent.replace(/\r\n/g, '\n');
 
   // 1. Primary: Decode exact Rust UTF-8 byte offsets (disambiguates multiple occurrences)
   try {
@@ -274,7 +278,7 @@ function getIssueCharRange(issue: Issue, content: string): { from: number; to: n
     }
   } catch {}
 
-  // 2. Secondary: Line-scoped search on issue.line
+  // 2. Secondary: Line-scoped search on issue.line, finding occurrence closest to byte offset
   const lines = content.split('\n');
   const lineIdx = Math.max(0, Math.min(issue.line - 1, lines.length - 1));
   let lineStart = 0;
@@ -283,9 +287,31 @@ function getIssueCharRange(issue: Issue, content: string): { from: number; to: n
   }
   const currentLine = lines[lineIdx] || '';
   if (issue.original) {
-    const inLine = currentLine.indexOf(issue.original);
-    if (inLine >= 0) {
-      const from = lineStart + inLine;
+    const occs: number[] = [];
+    let pos = 0;
+    while ((pos = currentLine.indexOf(issue.original, pos)) >= 0) {
+      occs.push(pos);
+      pos += issue.original.length;
+    }
+    if (occs.length === 1) {
+      const from = lineStart + occs[0];
+      return { from, to: from + issue.original.length };
+    } else if (occs.length > 1) {
+      const enc = new TextEncoder();
+      const lineBytes = enc.encode(content.slice(0, lineStart)).length;
+      const colByteInLine = Math.max(0, issue.col_start - lineBytes);
+      const dec = new TextDecoder();
+      const approxCharInLine = dec.decode(enc.encode(currentLine).slice(0, colByteInLine)).length;
+      let best = occs[0];
+      let minDiff = Math.abs(best - approxCharInLine);
+      for (const occ of occs) {
+        const diff = Math.abs(occ - approxCharInLine);
+        if (diff < minDiff) {
+          minDiff = diff;
+          best = occ;
+        }
+      }
+      const from = lineStart + best;
       return { from, to: from + issue.original.length };
     }
   }
@@ -312,7 +338,8 @@ function getIssueCharRange(issue: Issue, content: string): { from: number; to: n
 
 function jumpTo(issue: Issue, idx: number) {
   selectedIdx.value = idx;
-  const content = tabs.activeTab?.content ?? '';
+  const rawContent = tabs.activeTab?.content ?? '';
+  const content = rawContent.replace(/\r\n/g, '\n');
   const { from, to } = getIssueCharRange(issue, content);
 
   window.dispatchEvent(
@@ -321,6 +348,7 @@ function jumpTo(issue: Issue, idx: number) {
         line: issue.line,
         from,
         to,
+        original: issue.original,
         paneId: tiles.focusedPaneId || undefined,
       },
     }),
@@ -350,8 +378,10 @@ function cancelCustom() {
 
 function jumpAndMinimize(issue: Issue) {
   const idx = issues.value.indexOf(issue);
-  jumpTo(issue, idx);
   isMinimized.value = true;
+  nextTick(() => {
+    jumpTo(issue, idx);
+  });
   toasts.info('已定位至正文并收起面板，可直接在正文中编辑；右下角悬浮胶囊随时展开');
 }
 
@@ -394,7 +424,8 @@ function ignoreCategory(cat: Issue['category']) {
 function applyOne(issue: Issue) {
   const tab = tabs.activeTab;
   if (!tab) return;
-  const text = tab.content ?? '';
+  const rawText = tab.content ?? '';
+  const text = rawText.replace(/\r\n/g, '\n');
   const replacement = customSuggestions.value[issueKey(issue)] ?? issue.suggestion;
 
   // 1. Precise character-level replacement
@@ -439,14 +470,11 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
     toasts.info(t('proofread.nothingToApply'));
     return;
   }
-  // Sort descending so applying late edits doesn't shift early offsets.
-  // ALSO: skip overlapping issues (e.g. cjk_latin_space across the
-  // same boundary) — a simple greedy filter keeps the first (latest
-  // by position) per overlap window.
   const sorted = target.slice().sort((a, b) => b.col_start - a.col_start);
+  const text = (tab.content ?? '').replace(/\r\n/g, '\n');
   const enc = new TextEncoder();
   const dec = new TextDecoder();
-  let bytes = enc.encode(tab.content ?? '');
+  let bytes = enc.encode(text);
   let applied = 0;
   let lastStart = Infinity;
   for (const issue of sorted) {
