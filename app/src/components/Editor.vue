@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue';
-import { EditorState, Compartment } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
+import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state';
+import { EditorView, Decoration, type DecorationSet, keymap, lineNumbers, highlightActiveLine, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { searchKeymap, search, openSearchPanel, getSearchQuery, setSearchQuery } from '@codemirror/search';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching } from '@codemirror/language';
@@ -163,6 +163,31 @@ const incrementalFindScroll = EditorView.updateListener.of((update) => {
     if (!getSearchQuery(view.state).eq(query)) return;
     view.dispatch({ effects: EditorView.scrollIntoView(match.from, { y: 'center' }) });
   });
+});
+
+const setSpotlightEffect = StateEffect.define<{ from: number; to: number } | null>();
+const spotlightField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(underlines, tr) {
+    underlines = underlines.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setSpotlightEffect)) {
+        if (!e.value) {
+          underlines = Decoration.none;
+        } else {
+          const mark = Decoration.mark({
+            class: 'cm-proof-spotlight',
+          });
+          const safeEnd = Math.max(e.value.from + 1, e.value.to);
+          underlines = Decoration.set([mark.range(e.value.from, safeEnd)]);
+        }
+      }
+    }
+    return underlines;
+  },
+  provide: (f) => EditorView.decorations.from(f),
 });
 
 type PlainBlock = {
@@ -2449,6 +2474,7 @@ function buildExtensions() {
           getEditorPhrases(),
           search({ top: true }),
           incrementalFindScroll,
+          spotlightField,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         ]),
     keymap.of([
@@ -4490,10 +4516,163 @@ function gotoLine(line: number, from?: number, to?: number, original?: string) {
 
   view.dispatch({
     selection: { anchor: finalFrom, head: finalTo },
-    effects: EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
+    effects: [
+      EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
+      setSpotlightEffect.of({ from: finalFrom, to: finalTo }),
+    ],
   });
   view.focus();
   triggerJumpPulse();
+
+  // If target falls within a rendered table widget, highlight and focus the cell directly
+  findAndHighlightTableCellWithRetry(line, original, finalFrom);
+
+  if (spotlightTimer) clearTimeout(spotlightTimer);
+  spotlightTimer = setTimeout(() => {
+    view?.dispatch({ effects: setSpotlightEffect.of(null) });
+  }, 4000);
+}
+
+let spotlightTimer: any = null;
+let tableSpotlightTimer: any = null;
+
+function triggerTableCellSpotlight(cell: HTMLElement, searchOriginal?: string) {
+  cell.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+  cell.classList.add('cm-table-cell-spotlight');
+  cell.focus();
+
+  if (searchOriginal) {
+    try {
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      let textNode: Text | null = null;
+      let matchIdx = -1;
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text;
+        const idx = node.textContent?.indexOf(searchOriginal) ?? -1;
+        if (idx >= 0) {
+          textNode = node;
+          matchIdx = idx;
+          break;
+        }
+      }
+      if (textNode && matchIdx >= 0) {
+        const range = document.createRange();
+        range.setStart(textNode, matchIdx);
+        range.setEnd(textNode, matchIdx + searchOriginal.length);
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    } catch {}
+  }
+
+  if (tableSpotlightTimer) clearTimeout(tableSpotlightTimer);
+  tableSpotlightTimer = setTimeout(() => {
+    cell.classList.remove('cm-table-cell-spotlight');
+  }, 4000);
+}
+
+function tryHighlightTableCell(rowLine: number, searchOriginal?: string, targetPos?: number): boolean {
+  if (!view) return false;
+  const tableWraps = view.dom.querySelectorAll('.cm-live-block--table');
+  for (const wrap of Array.from(tableWraps)) {
+    const tw = (wrap as any).__tableWidget;
+    if (!tw) continue;
+    const startLine = view.state.doc.lineAt(tw.blockFrom).number;
+    const endLine = view.state.doc.lineAt(tw.blockTo).number;
+    if (rowLine >= startLine && rowLine <= endLine) {
+      let targetRow = -1;
+      if (rowLine === startLine) {
+        targetRow = -1;
+      } else if (rowLine === startLine + 1) {
+        targetRow = 0;
+      } else {
+        targetRow = rowLine - startLine - 2;
+      }
+
+      let targetCol = -1;
+      try {
+        const lineText = view.state.doc.line(rowLine).text;
+        let colPos = -1;
+        if (targetPos != null) {
+          colPos = targetPos - view.state.doc.line(rowLine).from;
+        } else if (searchOriginal) {
+          colPos = lineText.indexOf(searchOriginal);
+        }
+        if (colPos >= 0) {
+          const pre = lineText.slice(0, colPos);
+          const pipeCount = (pre.match(/\|/g) || []).length;
+          targetCol = Math.max(0, pipeCount - 1);
+        }
+      } catch {}
+
+      let targetCell: HTMLElement | null = null;
+      if (targetCol >= 0) {
+        targetCell = wrap.querySelector(`[data-row="${targetRow}"][data-col="${targetCol}"]`);
+      }
+
+      if (!targetCell) {
+        const rowCells = wrap.querySelectorAll(`[data-row="${targetRow}"]`);
+        if (searchOriginal) {
+          for (const cell of Array.from(rowCells)) {
+            const el = cell as HTMLElement;
+            if (el.textContent?.includes(searchOriginal) || el.dataset.raw?.includes(searchOriginal)) {
+              targetCell = el;
+              break;
+            }
+          }
+        }
+        if (!targetCell && rowCells.length > 0) {
+          targetCell = rowCells[0] as HTMLElement;
+        }
+      }
+
+      if (!targetCell && searchOriginal) {
+        for (const r of [targetRow - 1, targetRow + 1]) {
+          const adjCells = wrap.querySelectorAll(`[data-row="${r}"]`);
+          for (const cell of Array.from(adjCells)) {
+            const el = cell as HTMLElement;
+            if (el.textContent?.includes(searchOriginal) || el.dataset.raw?.includes(searchOriginal)) {
+              targetCell = el;
+              break;
+            }
+          }
+          if (targetCell) break;
+        }
+      }
+
+      if (!targetCell && searchOriginal) {
+        for (const cell of Array.from(wrap.querySelectorAll('[data-row]'))) {
+          const el = cell as HTMLElement;
+          if (el.textContent?.includes(searchOriginal) || el.dataset.raw?.includes(searchOriginal)) {
+            targetCell = el;
+            break;
+          }
+        }
+      }
+
+      if (targetCell) {
+        triggerTableCellSpotlight(targetCell, searchOriginal);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function findAndHighlightTableCellWithRetry(rowLine: number, searchOriginal?: string, targetPos?: number) {
+  if (tryHighlightTableCell(rowLine, searchOriginal, targetPos)) return;
+  requestAnimationFrame(() => {
+    if (tryHighlightTableCell(rowLine, searchOriginal, targetPos)) return;
+    setTimeout(() => {
+      if (tryHighlightTableCell(rowLine, searchOriginal, targetPos)) return;
+      setTimeout(() => {
+        tryHighlightTableCell(rowLine, searchOriginal, targetPos);
+      }, 150);
+    }, 60);
+  });
 }
 
 let pulseTimer: any = null;
@@ -4503,7 +4682,7 @@ function triggerJumpPulse() {
   if (pulseTimer) clearTimeout(pulseTimer);
   pulseTimer = setTimeout(() => {
     view?.dom.classList.remove('cm-jump-pulse');
-  }, 1200);
+  }, 1800);
 }
 
 async function insertImageFromPath(srcPath: string): Promise<void> {
@@ -5565,6 +5744,72 @@ const cls = computed(() => ({
   }
   100% {
     box-shadow: none;
+  }
+}
+
+/* High-visibility Spotlight Beacon for Proofreading and Navigation */
+:deep(.cm-proof-spotlight) {
+  background: rgba(239, 68, 68, 0.35) !important;
+  border-bottom: 2.5px solid #ef4444 !important;
+  border-radius: 3px;
+  position: relative;
+  animation: proofSpotlightGlow 1s ease-in-out infinite alternate;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5), 0 0 10px rgba(239, 68, 68, 0.4);
+}
+:deep(.cm-proof-spotlight)::after {
+  content: '⚠️ 此处规范建议';
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+:deep(.cm-table-cell-spotlight) {
+  outline: 2.5px solid #ef4444 !important;
+  outline-offset: -1px;
+  background: rgba(239, 68, 68, 0.18) !important;
+  animation: tableCellSpotlightPulse 1s ease-in-out infinite alternate !important;
+  position: relative;
+}
+:deep(.cm-table-cell-spotlight)::after {
+  content: '⚠️ 表格此处规范建议';
+  position: absolute;
+  top: -24px;
+  left: 4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+@keyframes proofSpotlightGlow {
+  0% {
+    box-shadow: 0 0 0 2px #ef4444, 0 0 6px rgba(239, 68, 68, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 4px #ef4444, 0 0 16px rgba(239, 68, 68, 0.85);
+  }
+}
+@keyframes tableCellSpotlightPulse {
+  0% {
+    box-shadow: inset 0 0 0 1px #ef4444, 0 0 4px rgba(239, 68, 68, 0.3);
+  }
+  100% {
+    box-shadow: inset 0 0 0 2.5px #ef4444, 0 0 14px rgba(239, 68, 68, 0.7);
   }
 }
 </style>
