@@ -67,6 +67,14 @@ import {
   findTableAtCursor,
   performTableAction,
   tableNavigate,
+  parseTable,
+  serializeTable,
+  insertRow,
+  deleteRow,
+  insertColumn,
+  deleteColumn,
+  setAlign,
+  type TableModel,
   type TableActionType,
   type TableAlign,
 } from '../lib/markdown-table';
@@ -2604,6 +2612,8 @@ onMounted(() => {
   };
   window.addEventListener('pointerup', onGlobalPointerUp);
   window.addEventListener('keydown', onGlobalKeyDown);
+  window.addEventListener('solomd:table-toolbar-show', onTableToolbarShow);
+  window.addEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
 
   if (usePlainWindowsEditor) {
     syncPlainEditorFromStore(props.tab.content);
@@ -2979,6 +2989,44 @@ const inPlaceTableState = ref<{
   canDeleteCol: true,
 });
 
+const activeTableWidgetInfo = ref<{
+  top: number;
+  left: number;
+  align: TableAlign;
+  canDeleteRow: boolean;
+  canDeleteCol: boolean;
+  blockFrom: number;
+  blockTo: number;
+  row: number;
+  col: number;
+  source: string;
+} | null>(null);
+
+function onTableToolbarShow(e: Event) {
+  const d = (e as CustomEvent).detail;
+  if (!d) return;
+  activeTableWidgetInfo.value = d;
+  inPlaceTableState.value = {
+    visible: true,
+    top: d.top,
+    left: d.left,
+    align: d.align,
+    canDeleteRow: d.canDeleteRow,
+    canDeleteCol: d.canDeleteCol,
+  };
+}
+
+function onTableToolbarHide() {
+  setTimeout(() => {
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    if (active?.closest('.inplace-tbl-toolbar') || active?.closest('.cm-interactive-table')) {
+      return;
+    }
+    activeTableWidgetInfo.value = null;
+    inPlaceTableState.value.visible = false;
+  }, 120);
+}
+
 const inPlaceFormulaState = ref<{
   visible: boolean;
   top: number;
@@ -3024,10 +3072,14 @@ function updateInPlaceOverlays(cmView: EditorView) {
         canDeleteCol: tableInfo.model.header.length > 1,
       };
     } else {
-      inPlaceTableState.value.visible = false;
+      if (!activeTableWidgetInfo.value) {
+        inPlaceTableState.value.visible = false;
+      }
     }
   } else {
-    inPlaceTableState.value.visible = false;
+    if (!activeTableWidgetInfo.value) {
+      inPlaceTableState.value.visible = false;
+    }
   }
 
   // 2. In-place formula detection
@@ -3131,6 +3183,95 @@ function onInPlaceTableAction(action: TableActionType) {
     return;
   }
   if (!view) return;
+
+  if (activeTableWidgetInfo.value) {
+    const info = activeTableWidgetInfo.value;
+    const model = parseTable(info.source);
+    if (!model) return;
+
+    let updatedModel: TableModel | null = null;
+    let newRow = info.row;
+    let newCol = info.col;
+
+    switch (action) {
+      case 'insertRowAbove':
+        updatedModel = insertRow(model, info.row <= 0 ? 0 : info.row);
+        newRow = info.row <= 0 ? 0 : info.row;
+        break;
+      case 'insertRowBelow':
+        updatedModel = insertRow(model, info.row < 0 ? 0 : info.row + 1);
+        newRow = info.row < 0 ? 0 : info.row + 1;
+        break;
+      case 'deleteRow':
+        if (info.row >= 0 && model.rows.length > 0) {
+          updatedModel = deleteRow(model, info.row);
+          newRow = Math.min(info.row, updatedModel.rows.length - 1);
+        }
+        break;
+      case 'insertColLeft':
+        updatedModel = insertColumn(model, info.col);
+        newCol = info.col;
+        break;
+      case 'insertColRight':
+        updatedModel = insertColumn(model, info.col + 1);
+        newCol = info.col + 1;
+        break;
+      case 'deleteCol':
+        if (model.header.length > 1) {
+          updatedModel = deleteColumn(model, info.col);
+          newCol = Math.min(info.col, updatedModel.header.length - 1);
+        }
+        break;
+      case 'alignLeft':
+        updatedModel = setAlign(model, info.col, 'left');
+        break;
+      case 'alignCenter':
+        updatedModel = setAlign(model, info.col, 'center');
+        break;
+      case 'alignRight':
+        updatedModel = setAlign(model, info.col, 'right');
+        break;
+      case 'deleteTable':
+        view.dispatch({
+          changes: { from: info.blockFrom, to: info.blockTo, insert: '' },
+        });
+        inPlaceTableState.value.visible = false;
+        activeTableWidgetInfo.value = null;
+        view.focus();
+        return;
+    }
+
+    if (updatedModel) {
+      const newSource = serializeTable(updatedModel);
+      view.dispatch({
+        changes: { from: info.blockFrom, to: info.blockTo, insert: newSource },
+      });
+      activeTableWidgetInfo.value = {
+        ...info,
+        source: newSource,
+        blockTo: info.blockFrom + newSource.length,
+        row: newRow,
+        col: newCol,
+        align: updatedModel.aligns[newCol] ?? null,
+        canDeleteRow: newRow >= 0 && updatedModel.rows.length > 0,
+        canDeleteCol: updatedModel.header.length > 1,
+      };
+      inPlaceTableState.value = {
+        ...inPlaceTableState.value,
+        align: updatedModel.aligns[newCol] ?? null,
+        canDeleteRow: newRow >= 0 && updatedModel.rows.length > 0,
+        canDeleteCol: updatedModel.header.length > 1,
+      };
+      setTimeout(() => {
+        const cell = document.querySelector(
+          `.cm-interactive-table [data-row="${newRow}"][data-col="${newCol}"]`
+        ) as HTMLElement | null;
+        cell?.focus();
+      }, 35);
+    }
+    return;
+  }
+
   const docText = view.state.doc.toString();
   const caret = view.state.selection.main.head;
   const res = performTableAction(docText, caret, action);
@@ -3154,6 +3295,20 @@ function onInPlaceTableAction(action: TableActionType) {
 }
 
 function onInPlaceTableOpenFull() {
+  if (activeTableWidgetInfo.value) {
+    const info = activeTableWidgetInfo.value;
+    inPlaceTableState.value.visible = false;
+    openTableEditor({
+      source: info.source,
+      apply: (markdown: string) => {
+        if (!view) return;
+        view.dispatch({
+          changes: { from: info.blockFrom, to: info.blockTo, insert: markdown },
+        });
+      },
+    });
+    return;
+  }
   openTableAtCursor();
 }
 
@@ -3325,6 +3480,8 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onGlobalPointerUp);
   window.removeEventListener('keydown', onGlobalKeyDown);
+  window.removeEventListener('solomd:table-toolbar-show', onTableToolbarShow);
+  window.removeEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
   cleanupRelayout?.();
   cleanupTransformCase?.();
   cleanupTransformCase = null;

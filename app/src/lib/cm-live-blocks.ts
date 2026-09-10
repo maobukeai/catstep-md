@@ -43,8 +43,15 @@ import {
   resolveImageSrc,
   rewriteImageUrls,
 } from './image-resolve';
-import { renderMarkdown, extractImageRoot } from './markdown';
+import { renderMarkdown, renderInlineMarkdown, extractImageRoot } from './markdown';
 import { findHtmlBlockEnd } from './html-live-render';
+import {
+  parseTable,
+  serializeTable,
+  insertRow,
+  setCell,
+  type TableModel,
+} from './markdown-table';
 import { plantumlSvgUrl } from './plantuml';
 import mermaid from 'mermaid';
 import 'katex/contrib/mhchem';
@@ -191,28 +198,339 @@ class ImageWidget extends WidgetType {
 }
 
 class TableWidget extends WidgetType {
-  constructor(private readonly source: string) {
+  readonly parsedModel: TableModel | null;
+
+  constructor(
+    readonly source: string,
+    readonly blockFrom: number,
+    readonly blockTo: number,
+    _opts?: BlockOptions,
+  ) {
     super();
+    this.parsedModel = parseTable(source);
   }
 
   eq(other: TableWidget): boolean {
-    return other.source === this.source;
+    return (
+      other.source === this.source &&
+      other.blockFrom === this.blockFrom &&
+      other.blockTo === this.blockTo
+    );
   }
 
-  toDOM(): HTMLElement {
+  ignoreEvent(): boolean {
+    // When editing inside the table, let all pointer, keyboard, and input events
+    // pass through directly to the cell contenteditable so IME, typing, selection,
+    // and Tab navigation work smoothly without CodeMirror intercepting them.
+    return true;
+  }
+
+  toDOM(view: EditorView): HTMLElement {
     const wrap = document.createElement('div');
-    wrap.className = 'cm-live-block cm-live-block--table';
-    // Render the table source through the same markdown pipeline used by the
-    // preview pane so we get GFM alignment, inline formatting, etc. for free.
-    // We strip everything except the table rows from the rendered output.
-    const html = renderMarkdown(this.source);
-    wrap.innerHTML = html;
+    wrap.className = 'cm-live-block cm-live-block--table cm-live-table-interactive';
+    (wrap as any).__tableWidget = this;
+    (wrap as any).__cmView = view;
+
+    const model = this.parsedModel;
+    if (!model) {
+      const html = renderMarkdown(this.source);
+      wrap.innerHTML = html;
+      trackImageHeights(wrap);
+      return wrap;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'cm-interactive-table';
+    wrap.appendChild(table);
+
+    this.renderTableContent(table, model, view, wrap);
     trackImageHeights(wrap);
     return wrap;
   }
 
-  ignoreEvent(): boolean {
-    return false;
+  private renderTableContent(
+    table: HTMLTableElement,
+    model: TableModel,
+    view: EditorView,
+    wrap: HTMLElement,
+  ) {
+    table.innerHTML = '';
+
+    let currentModel = model;
+    let currentBlockFrom = this.blockFrom;
+    let currentBlockTo = this.blockTo;
+    let currentSource = this.source;
+
+    const colCount = currentModel.header.length;
+    const rowCount = currentModel.rows.length;
+
+    const focusCell = (targetRow: number, targetCol: number) => {
+      const el = wrap.querySelector(
+        `[data-row="${targetRow}"][data-col="${targetCol}"]`
+      ) as HTMLElement | null;
+      if (el) {
+        el.focus();
+        try {
+          const sel = window.getSelection();
+          if (sel) {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch {}
+      }
+    };
+
+    const appendRowAndFocus = (atRow: number, targetCol = 0) => {
+      currentModel = insertRow(currentModel, atRow);
+      const newSource = serializeTable(currentModel);
+      view.dispatch({
+        changes: {
+          from: currentBlockFrom,
+          to: currentBlockTo,
+          insert: newSource,
+        },
+      });
+      currentBlockTo = currentBlockFrom + newSource.length;
+      currentSource = newSource;
+      setTimeout(() => {
+        focusCell(atRow, targetCol);
+      }, 25);
+    };
+
+    const setupCell = (cell: HTMLTableCellElement, r: number, c: number, rawVal: string) => {
+      cell.setAttribute('contenteditable', 'true');
+      cell.setAttribute('spellcheck', 'false');
+      cell.dataset.row = String(r);
+      cell.dataset.col = String(c);
+      cell.dataset.raw = rawVal;
+      cell.style.textAlign = currentModel.aligns[c] || 'left';
+      cell.innerHTML = renderInlineMarkdown(rawVal) || '<br>';
+
+      let isComposing = false;
+
+      cell.addEventListener('compositionstart', () => {
+        isComposing = true;
+      });
+
+      cell.addEventListener('compositionend', () => {
+        isComposing = false;
+        onCellInput();
+      });
+
+      const onCellInput = () => {
+        const val = cell.textContent || '';
+        cell.dataset.raw = val;
+        currentModel = setCell(currentModel, r, c, val);
+        const newSource = serializeTable(currentModel);
+        if (newSource !== currentSource) {
+          view.dispatch({
+            changes: {
+              from: currentBlockFrom,
+              to: currentBlockTo,
+              insert: newSource,
+            },
+          });
+          currentBlockTo = currentBlockFrom + newSource.length;
+          currentSource = newSource;
+        }
+      };
+
+      cell.addEventListener('input', () => {
+        if (isComposing) return;
+        onCellInput();
+      });
+
+      cell.addEventListener('paste', (e: ClipboardEvent) => {
+        e.preventDefault();
+        const text = e.clipboardData?.getData('text/plain') || '';
+        const clean = text.replace(/\r?\n/g, ' ');
+        document.execCommand('insertText', false, clean);
+      });
+
+      cell.addEventListener('focus', () => {
+        cell.classList.add('is-editing');
+        const raw = cell.dataset.raw ?? '';
+        if (cell.textContent !== raw) {
+          cell.textContent = raw;
+        }
+        const rect = wrap.getBoundingClientRect();
+        const toolbarTop = rect.top - 42 > 45 ? rect.top - 42 : rect.bottom + 8;
+        const toolbarLeft = Math.max(12, Math.min(window.innerWidth - 440, rect.left + 16));
+        window.dispatchEvent(
+          new CustomEvent('solomd:table-toolbar-show', {
+            detail: {
+              top: toolbarTop,
+              left: toolbarLeft,
+              align: currentModel.aligns[c] ?? null,
+              canDeleteRow: r >= 0 && currentModel.rows.length > 0,
+              canDeleteCol: currentModel.header.length > 1,
+              blockFrom: currentBlockFrom,
+              blockTo: currentBlockTo,
+              row: r,
+              col: c,
+              source: currentSource,
+            },
+          })
+        );
+      });
+
+      cell.addEventListener('blur', () => {
+        cell.classList.remove('is-editing');
+        const text = cell.textContent || '';
+        cell.dataset.raw = text;
+        cell.innerHTML = renderInlineMarkdown(text) || '<br>';
+        window.dispatchEvent(new CustomEvent('solomd:table-toolbar-hide'));
+      });
+
+      cell.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.shiftKey) {
+            if (r === -1) {
+              if (c > 0) focusCell(-1, c - 1);
+            } else if (r === 0) {
+              if (c > 0) focusCell(0, c - 1);
+              else focusCell(-1, colCount - 1);
+            } else {
+              if (c > 0) focusCell(r, c - 1);
+              else focusCell(r - 1, colCount - 1);
+            }
+          } else {
+            if (r === -1) {
+              if (c < colCount - 1) focusCell(-1, c + 1);
+              else {
+                if (rowCount > 0) focusCell(0, 0);
+                else appendRowAndFocus(0, 0);
+              }
+            } else if (r < rowCount - 1) {
+              if (c < colCount - 1) focusCell(r, c + 1);
+              else focusCell(r + 1, 0);
+            } else {
+              if (c < colCount - 1) focusCell(r, c + 1);
+              else appendRowAndFocus(rowCount, 0);
+            }
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (r === -1) {
+            if (rowCount > 0) focusCell(0, c);
+            else appendRowAndFocus(0, c);
+          } else if (r < rowCount - 1) {
+            focusCell(r + 1, c);
+          } else {
+            appendRowAndFocus(rowCount, c);
+          }
+        } else if (e.key === 'ArrowUp') {
+          if (r > 0) {
+            e.preventDefault();
+            focusCell(r - 1, c);
+          } else if (r === 0) {
+            e.preventDefault();
+            focusCell(-1, c);
+          }
+        } else if (e.key === 'ArrowDown') {
+          if (r === -1 && rowCount > 0) {
+            e.preventDefault();
+            focusCell(0, c);
+          } else if (r >= 0 && r < rowCount - 1) {
+            e.preventDefault();
+            focusCell(r + 1, c);
+          }
+        } else if (e.key === 'Escape') {
+          cell.blur();
+          view.focus();
+        }
+      });
+    };
+
+    // Header
+    const thead = document.createElement('thead');
+    const trHead = document.createElement('tr');
+    for (let c = 0; c < colCount; c++) {
+      const th = document.createElement('th');
+      setupCell(th, -1, c, currentModel.header[c] || '');
+      trHead.appendChild(th);
+    }
+    thead.appendChild(trHead);
+    table.appendChild(thead);
+
+    // Body
+    const tbody = document.createElement('tbody');
+    for (let r = 0; r < rowCount; r++) {
+      const tr = document.createElement('tr');
+      for (let c = 0; c < colCount; c++) {
+        const td = document.createElement('td');
+        setupCell(td, r, c, currentModel.rows[r]?.[c] || '');
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+  }
+
+  updateDOM(dom: HTMLElement, view: EditorView): boolean {
+    const wrap = dom;
+    const oldWidget = (wrap as any).__tableWidget as TableWidget | undefined;
+    (wrap as any).__tableWidget = this;
+    (wrap as any).__cmView = view;
+
+    if (!this.parsedModel || !oldWidget || !oldWidget.parsedModel) {
+      return false;
+    }
+
+    const oldModel = oldWidget.parsedModel;
+    const newModel = this.parsedModel;
+
+    // If structure changed (different number of rows/cols), recreate via toDOM
+    if (
+      oldModel.header.length !== newModel.header.length ||
+      oldModel.rows.length !== newModel.rows.length
+    ) {
+      return false;
+    }
+
+    const table = wrap.querySelector('table');
+    if (!table) return false;
+
+    const activeEl = document.activeElement;
+
+    // Header
+    const ths = table.querySelectorAll('thead th');
+    ths.forEach((thEl, c) => {
+      const el = thEl as HTMLElement;
+      el.style.textAlign = newModel.aligns[c] || 'left';
+      if (el !== activeEl) {
+        const val = newModel.header[c] || '';
+        el.dataset.raw = val;
+        el.innerHTML = renderInlineMarkdown(val) || '<br>';
+      }
+    });
+
+    // Body
+    const trs = table.querySelectorAll('tbody tr');
+    trs.forEach((trEl, r) => {
+      const tds = trEl.querySelectorAll('td');
+      tds.forEach((tdEl, c) => {
+        const el = tdEl as HTMLElement;
+        el.style.textAlign = newModel.aligns[c] || 'left';
+        if (el !== activeEl) {
+          const val = newModel.rows[r]?.[c] || '';
+          el.dataset.raw = val;
+          el.innerHTML = renderInlineMarkdown(val) || '<br>';
+        }
+      });
+    });
+
+    return true;
+  }
+
+  destroy(): void {
+    window.dispatchEvent(new CustomEvent('solomd:table-toolbar-hide'));
   }
 }
 
@@ -911,23 +1229,17 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
               }
               const tableEnd = endI - 1; // last pipe row
               if (tableEnd >= i + 2) {
-                const cursorInside =
-                  cursorLine >= i && cursorLine <= tableEnd
-                    ? true
-                    : cursorLineEnd >= i && cursorLineEnd <= tableEnd;
-                if (!cursorInside) {
-                  const blockFrom = doc.line(i).from;
-                  const blockTo = doc.line(tableEnd).to;
-                  const source = doc.sliceString(blockFrom, blockTo);
-                  builder.add(
-                    blockFrom,
-                    blockTo,
-                    Decoration.replace({
-                      widget: new TableWidget(source),
-                      block: true,
-                    }),
-                  );
-                }
+                const blockFrom = doc.line(i).from;
+                const blockTo = doc.line(tableEnd).to;
+                const source = doc.sliceString(blockFrom, blockTo);
+                builder.add(
+                  blockFrom,
+                  blockTo,
+                  Decoration.replace({
+                    widget: new TableWidget(source, blockFrom, blockTo, opts),
+                    block: true,
+                  }),
+                );
                 i = tableEnd + 1;
                 continue;
               }
@@ -1137,17 +1449,33 @@ export const liveBlocksTheme = EditorView.theme({
   },
   '.cm-live-block--table table': {
     borderCollapse: 'collapse',
-    margin: '0.4em 0',
+    margin: '0.6em 0',
     fontSize: '0.95em',
+    width: 'max-content',
+    maxWidth: '100%',
+    borderRadius: '4px',
+    boxShadow: '0 0 0 1px var(--border)',
+    overflow: 'hidden',
   },
   '.cm-live-block--table th, .cm-live-block--table td': {
     border: '1px solid var(--border)',
-    padding: '6px 12px',
+    padding: '7px 14px',
     textAlign: 'left',
+    minWidth: '64px',
+    outline: 'none',
+    transition: 'box-shadow 0.15s ease, background 0.15s ease',
   },
   '.cm-live-block--table thead th': {
     background: 'var(--bg-soft)',
     fontWeight: '600',
+    color: 'var(--text)',
+  },
+  '.cm-live-block--table th[contenteditable="true"]:focus, .cm-live-block--table td[contenteditable="true"]:focus': {
+    outline: '2px solid var(--accent, #3b82f6)',
+    outlineOffset: '-1px',
+    background: 'var(--accent-subtle, rgba(59, 130, 246, 0.08))',
+    zIndex: '2',
+    position: 'relative',
   },
   // v4.3.0 issue #57a — paddings fold in the 0.6em that used to come from the
   // shared margin (see #155 note above) so the visual rhythm is unchanged.

@@ -842,6 +842,19 @@ export function renderMarkdown(source: string, options?: { breaks?: boolean }): 
 }
 
 /**
+ * Render an inline Markdown snippet (bold, italic, code, links, math) without
+ * wrapping it in block-level <p> tags. Used by in-place table cells.
+ */
+export function renderInlineMarkdown(source: string): string {
+  if (!source) return '';
+  try {
+    return md.renderInline(source);
+  } catch {
+    return source;
+  }
+}
+
+/**
  * Extract the `imageRoot` field from a document's YAML front matter.
  * Supports aliases `image_root` and (Typora) `typora-root-url`.
  * Returns null if no front matter or no such field.
