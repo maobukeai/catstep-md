@@ -37,11 +37,11 @@ const showPreview = computed(
 
 const isFocused = computed(() => tiles.focusedPaneId === props.paneId);
 const windowsEditorRuntime = isWindowsEditorRuntime();
-// Preserve CodeMirror history/caret on macOS and Linux. Only Windows needs a
-// remount because toggling Vim changes the editor implementation itself.
+// Preserve CodeMirror history/caret across platforms. Only explicit fallback
+// via ?forcePlain needs a key switch between plain and vim.
 const editorImplementationKey = computed(() => {
   if (!windowsEditorRuntime) return `${props.paneId}:codemirror`;
-  return `${props.paneId}:${shouldUsePlainWindowsEditor(true, settings.vimMode) ? 'plain' : 'vim'}`;
+  return `${props.paneId}:${shouldUsePlainWindowsEditor(windowsEditorRuntime, settings.vimMode) ? 'plain' : 'vim'}`;
 });
 
 function onCursor(line: number, col: number) {

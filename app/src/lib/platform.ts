@@ -89,21 +89,18 @@ export function forceWinChromePreview(): boolean {
 
 /** Windows desktop editor detection, including the forcePlain QA hook. */
 export function isWindowsEditorRuntime(): boolean {
-  return (
-    (typeof navigator !== 'undefined' && /Win/i.test(navigator.platform)) ||
-    (typeof location !== 'undefined' && location.search.includes('forcePlain'))
-  );
+  return typeof location !== 'undefined' && location.search.includes('forcePlain');
 }
 
 /**
- * Windows falls back to the native textarea for reliable CJK IME input, but
- * Vim is a CodeMirror extension and therefore requires the CodeMirror editor.
- * Keep this decision pure so the Windows/Vim hand-off can be regression tested
- * without booting a platform WebView.
+ * Windows previously fell back to a plain textarea block editor, but with CodeMirror 6
+ * live-render and WebView2 IME composition guard (cm-ime-guard.ts), CodeMirror 6 is now
+ * the modern default on all platforms for seamless Typora-style live editing.
+ * The plain textarea fallback is only active if explicitly forced via `?forcePlain`.
  */
 export function shouldUsePlainWindowsEditor(
-  windowsRuntime: boolean,
+  forcePlainRequested: boolean,
   vimMode: boolean,
 ): boolean {
-  return windowsRuntime && !vimMode;
+  return forcePlainRequested && !vimMode;
 }

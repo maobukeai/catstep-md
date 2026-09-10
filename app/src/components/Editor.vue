@@ -2318,7 +2318,7 @@ function richExtensionsFor(tab: Tab) {
   // the WYSIWYG bundle ALREADY includes rich highlighting + marker hiding,
   // and stacking livePreviewExtension on top would cause duplicate
   // marker-replace decorations.
-  if (settings.viewMode === 'liveEdit') {
+  if (settings.viewMode === 'liveEdit' || (settings.viewMode === 'edit' && settings.livePreview)) {
     // v3.6 issue #44: in live-edit mode, also collapse standalone image
     // lines + GFM tables into block widgets when the cursor is elsewhere.
     // Cursor enters → widget unmounts → source returns. Image paths
@@ -4099,6 +4099,7 @@ const cls = computed(() => ({
         :class="{
           'plain-block--active': index === plainActiveBlock,
           'plain-block--heading': !!plainHeadingFor(block),
+          [`plain-block--h${plainHeadingFor(block)?.level ?? 0}`]: !!plainHeadingFor(block),
         }"
         @click="(event) => activatePlainBlockFromClick(index, event)"
       >
@@ -4524,6 +4525,21 @@ const cls = computed(() => ({
 }
 .plain-block__textarea::selection {
   background: rgba(255, 159, 64, 0.28);
+}
+.plain-block--h1 .plain-block__textarea {
+  font-size: 1.85em;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.plain-block--h2 .plain-block__textarea {
+  font-size: 1.45em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.plain-block--h3 .plain-block__textarea {
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.35;
 }
 .plain-block__render {
   color: var(--text);

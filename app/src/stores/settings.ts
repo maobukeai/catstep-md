@@ -994,7 +994,7 @@ export const useSettingsStore = defineStore('settings', {
         this.livePreview = false;
         this.persist();
       } else {
-        this.viewMode = 'edit';
+        this.viewMode = 'liveEdit';
         this.livePreview = true;
         this.persist();
       }
@@ -1003,8 +1003,8 @@ export const useSettingsStore = defineStore('settings', {
       if (this.viewMode === 'reading') {
         this.viewMode = 'edit';
         this.livePreview = false;
-      } else if (!this.livePreview) {
-        this.viewMode = 'edit';
+      } else if (!this.livePreview || this.viewMode === 'edit') {
+        this.viewMode = 'liveEdit';
         this.livePreview = true;
       } else {
         this.setViewMode('reading');
@@ -1013,14 +1013,14 @@ export const useSettingsStore = defineStore('settings', {
     },
     toggleLivePreview() {
       if (this.viewMode === 'reading') {
-        this.viewMode = 'edit';
+        this.viewMode = 'liveEdit';
         this.livePreview = true;
-      } else if (this.viewMode === 'liveEdit') {
+      } else if (this.viewMode === 'liveEdit' || this.livePreview) {
         this.viewMode = 'edit';
         this.livePreview = false;
       } else {
-        this.viewMode = 'edit';
-        this.livePreview = !this.livePreview;
+        this.viewMode = 'liveEdit';
+        this.livePreview = true;
       }
       this.persist();
     },

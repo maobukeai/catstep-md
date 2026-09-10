@@ -263,9 +263,9 @@ function closeAllDropdowns() {
 }
 
 // ── Triple Mode Switcher (Edit vs Reading vs Source) ─────────────────────
-const isEditing = computed(() => settings.viewMode === 'edit' && settings.livePreview);
+const isEditing = computed(() => (settings.viewMode === 'liveEdit' || settings.viewMode === 'edit') && settings.livePreview);
 const isReading = computed(() => settings.viewMode === 'reading');
-const isSource = computed(() => settings.viewMode === 'edit' && !settings.livePreview);
+const isSource = computed(() => (settings.viewMode === 'edit' && !settings.livePreview) || (settings.viewMode as any) === 'source');
 
 function onSelectEditMode() {
   settings.setTripleMode('edit');
