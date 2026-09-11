@@ -414,11 +414,41 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
         .map_err(|e| format!("workspace not accessible: {e}"))?;
 
     // (2) Candidate path: allow relative paths joined to workspace, or absolute paths within workspace.
-    let candidate = if raw.is_absolute() {
+    let mut candidate = if raw.is_absolute() {
         raw
     } else {
         workspace_canon.join(&raw)
     };
+
+    // If candidate does NOT exist, check if it's a relative path or filename that exists uniquely in workspace
+    if !candidate.exists() {
+        if let Some(target_file_name) = candidate.file_name().map(|n| n.to_os_string()) {
+            let target_str = target_file_name.to_string_lossy().to_lowercase();
+            let mut matches: Vec<PathBuf> = Vec::new();
+            for entry in walkdir::WalkDir::new(&workspace_canon)
+                .max_depth(10)
+                .into_iter()
+                .filter_entry(|e| {
+                    let name = e.file_name().to_string_lossy();
+                    !name.starts_with('.') && name != "node_modules" && name != "target"
+                })
+                .filter_map(|e| e.ok())
+            {
+                if entry.file_type().is_file() {
+                    let entry_name = entry.file_name().to_string_lossy().to_lowercase();
+                    if entry_name == target_str {
+                        matches.push(entry.path().to_path_buf());
+                        if matches.len() > 1 {
+                            break;
+                        }
+                    }
+                }
+            }
+            if matches.len() == 1 {
+                candidate = matches.remove(0);
+            }
+        }
+    }
 
     // (3) Resolve safely whether or not the leaf / its parent exists. Walk
     // up the candidate's ancestors until we find one that exists on disk,
@@ -1251,11 +1281,12 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     
     let original = fs::read_to_string(&abs).map_err(|e| format!("read: {e}"))?;
     
-    // Tier 1: Exact match
+    let has_crlf = original.contains("\r\n");
     let mut modified = original.clone();
     let mut matches = 0;
     let mut start_line = 1;
-    
+
+    // Tier 1: Direct exact match
     if original.contains(target) {
         let count = original.matches(target).count();
         if count > 1 && !allow_multiple {
@@ -1266,42 +1297,104 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         modified = original.replace(target, replacement);
         matches = count;
     }
-    
-    // Tier 2: Normalized match (CRLF/LF normalization and trailing whitespace removal)
+
+    // Tier 2: CRLF/LF normalized exact match
     if matches == 0 {
-        let mut regex_pattern = String::new();
-        let lines: Vec<&str> = target.lines().collect();
-        for (i, line) in lines.iter().enumerate() {
-            let trimmed = line.trim_end();
-            regex_pattern.push_str(&regex_lite::escape(trimmed));
-            if i < lines.len() - 1 {
-                regex_pattern.push_str(r"[ \t]*\r?\n");
+        let orig_lf = original.replace("\r\n", "\n");
+        let target_lf = target.replace("\r\n", "\n");
+        if orig_lf.contains(&target_lf) {
+            let count = orig_lf.matches(&target_lf).count();
+            if count > 1 && !allow_multiple {
+                return Err("target_content matches multiple locations (CRLF/LF normalized). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
             }
+            let match_idx = orig_lf.find(&target_lf).unwrap_or(0);
+            start_line = orig_lf[..match_idx].matches('\n').count() + 1;
+            let repl_lf = replacement.replace("\r\n", "\n");
+            let mut mod_lf = orig_lf.replace(&target_lf, &repl_lf);
+            if has_crlf {
+                mod_lf = mod_lf.replace('\n', "\r\n");
+            }
+            modified = mod_lf;
+            matches = count;
         }
-        
-        if target.ends_with('\n') {
-            regex_pattern.push_str(r"[ \t]*\r?\n?");
+    }
+
+    // Tier 3: Trimmed target match (leading/trailing whitespace/blank lines stripped)
+    if matches == 0 {
+        let orig_lf = original.replace("\r\n", "\n");
+        let target_trimmed = target.replace("\r\n", "\n").trim().to_string();
+        if !target_trimmed.is_empty() && orig_lf.contains(&target_trimmed) {
+            let count = orig_lf.matches(&target_trimmed).count();
+            if count > 1 && !allow_multiple {
+                return Err("target_content (trimmed) matches multiple locations. Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+            }
+            let match_idx = orig_lf.find(&target_trimmed).unwrap_or(0);
+            start_line = orig_lf[..match_idx].matches('\n').count() + 1;
+            let repl_lf = replacement.replace("\r\n", "\n");
+            let mut mod_lf = orig_lf.replace(&target_trimmed, &repl_lf);
+            if has_crlf {
+                mod_lf = mod_lf.replace('\n', "\r\n");
+            }
+            modified = mod_lf;
+            matches = count;
         }
+    }
+
+    // Tier 4: Line-by-line trimmed sequence match (tolerant of line indentation shifts)
+    if matches == 0 {
+        let orig_lf = original.replace("\r\n", "\n");
+        let orig_lines: Vec<&str> = orig_lf.split('\n').collect();
+        let target_lf = target.replace("\r\n", "\n");
+        let target_lines: Vec<&str> = target_lf.split('\n').collect();
         
-        if let Ok(re) = Regex::new(&regex_pattern) {
-            let count = re.find_iter(&original).count();
-            if count > 0 {
-                if count > 1 && !allow_multiple {
-                    return Err("target_content matches multiple locations (after normalization). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+        let mut t_start = 0;
+        while t_start < target_lines.len() && target_lines[t_start].trim().is_empty() {
+            t_start += 1;
+        }
+        let mut t_end = target_lines.len();
+        while t_end > t_start && target_lines[t_end - 1].trim().is_empty() {
+            t_end -= 1;
+        }
+        let clean_target = &target_lines[t_start..t_end];
+
+        if !clean_target.is_empty() && orig_lines.len() >= clean_target.len() {
+            let mut match_starts: Vec<(usize, usize)> = Vec::new();
+            for i in 0..=(orig_lines.len() - clean_target.len()) {
+                let mut matched = true;
+                for (k, t_line) in clean_target.iter().enumerate() {
+                    if orig_lines[i + k].trim() != t_line.trim() {
+                        matched = false;
+                        break;
+                    }
                 }
-                if let Some(m) = re.find(&original) {
-                    start_line = original[..m.start()].matches('\n').count() + 1;
+                if matched {
+                    match_starts.push((i, i + clean_target.len()));
                 }
-                // We use replace_all with a closure to avoid `$` getting interpreted as capture groups.
-                modified = re.replace_all(&original, |_caps: &regex_lite::Captures| replacement.to_string()).to_string();
-                matches = count;
-            } else {
-                // Tier 3: Whitespace-tolerant match
-                let stripped_original: String = original.chars().filter(|c| !c.is_whitespace()).collect();
-                let stripped_target: String = target.chars().filter(|c| !c.is_whitespace()).collect();
-                if stripped_original.contains(&stripped_target) {
-                    return Err("target_content found but whitespace mismatches. Please provide the exact text including whitespace or a shorter block.".into());
+            }
+
+            if match_starts.len() > 1 && !allow_multiple {
+                return Err("target_content matches multiple locations (whitespace-resilient). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+            }
+            if match_starts.len() == 1 {
+                let (start_idx, end_idx) = match_starts[0];
+                start_line = start_idx + 1;
+                let mut new_lines = Vec::new();
+                for line in &orig_lines[..start_idx] {
+                    new_lines.push(line.to_string());
                 }
+                let repl_lf = replacement.replace("\r\n", "\n");
+                for line in repl_lf.split('\n') {
+                    new_lines.push(line.to_string());
+                }
+                for line in &orig_lines[end_idx..] {
+                    new_lines.push(line.to_string());
+                }
+                let mut mod_lf = new_lines.join("\n");
+                if has_crlf {
+                    mod_lf = mod_lf.replace('\n', "\r\n");
+                }
+                modified = mod_lf;
+                matches = 1;
             }
         }
     }
@@ -2024,6 +2117,42 @@ mod tests {
         assert!(folders.iter().any(|f| f["name"] == "daily"));
         assert!(folders.iter().any(|f| f["name"] == "archive"));
         assert!(folders.iter().any(|f| f["name"] == "sub"));
+
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn patch_note_exact_and_crlf_and_multiline() {
+        let ws = make_workspace();
+        // 1. CRLF test
+        let test_file = ws.join("crlf_test.md");
+        fs::write(&test_file, "# Title\r\n\r\nHello World\r\n\r\nEnd\r\n").unwrap();
+        
+        let res = tool_patch_note(&ws, &json!({
+            "path": "crlf_test.md",
+            "target_content": "Hello World",
+            "replacement_content": "Hello Rust"
+        })).unwrap();
+        assert_eq!(res["ok"], true);
+        assert_eq!(res["start_line"], 3);
+        let updated = fs::read_to_string(&test_file).unwrap();
+        assert!(updated.contains("Hello Rust"));
+        assert!(updated.contains("\r\n"));
+
+        // 2. Multi-line whitespace-tolerant test in subfolder with fuzzy path
+        let sub_file = ws.join("subfolder").join("DeepNote.md");
+        fs::create_dir_all(ws.join("subfolder")).unwrap();
+        fs::write(&sub_file, "# Deep\n\n  Line One  \n  Line Two  \n\nTail\n").unwrap();
+
+        // Pass only filename "DeepNote.md" without "subfolder/" to test fuzzy filename resolution
+        let res2 = tool_patch_note(&ws, &json!({
+            "path": "DeepNote.md",
+            "target_content": "Line One\nLine Two",
+            "replacement_content": "Line Modified"
+        })).unwrap();
+        assert_eq!(res2["ok"], true);
+        let updated2 = fs::read_to_string(&sub_file).unwrap();
+        assert!(updated2.contains("Line Modified"));
 
         let _ = fs::remove_dir_all(&ws);
     }

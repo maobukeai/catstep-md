@@ -66,24 +66,14 @@ import InPlaceFormulaBar from './InPlaceFormulaBar.vue';
 import SelectionBubbleBar from './SelectionBubbleBar.vue';
 import EditorContextMenu, { type EditorContextInfo } from './EditorContextMenu.vue';
 import {
-  findTableSpan,
   findTableAtCursor,
-  performTableAction,
   tableNavigate,
-  parseTable,
-  serializeTable,
-  insertRow,
-  deleteRow,
-  insertColumn,
-  deleteColumn,
-  setAlign,
-  type TableModel,
   type TableActionType,
-  type TableAlign,
 } from '../lib/markdown-table';
-import { findMathSpanAt, collectLabels } from '../lib/equations';
-import { openFormulaEditor } from '../lib/formula-editor-bus';
+import { findMathSpanAt } from '../lib/equations';
 import { openTableEditor } from '../lib/table-editor-bus';
+import { useEditorTable } from '../composables/useEditorTable';
+import { useEditorFormula } from '../composables/useEditorFormula';
 import {
   scanHeadings,
   foldedCharRanges,
@@ -2790,6 +2780,148 @@ function maybeRestoreSession() {
   }
 }
 
+/** Caret offset in the plain editor, in whole-document coordinates. */
+function plainCaretOffset(): number {
+  if (plainLiveEnabled.value) {
+    const block = plainBlocks.value[plainActiveBlock.value];
+    const el = plainBlockEditors.value[plainActiveBlock.value];
+    return (block?.start ?? 0) + (el?.selectionStart ?? 0);
+  }
+  return plainEditor.value?.selectionStart ?? 0;
+}
+
+/** Replace a document range in whichever editor this pane is running. */
+function replaceDocRange(from: number, to: number, text: string): void {
+  if (usePlainWindowsEditor) {
+    const src = plainText.value || '';
+    recordPlainHistory();
+    applyPlainContent(src.slice(0, from) + text + src.slice(to), from + text.length);
+    return;
+  }
+  if (!view) return;
+  view.dispatch({ changes: { from, to, insert: text } });
+}
+
+// ── In-Place Floating Overlays & Table/Formula Composables ─────────────────
+const {
+  inPlaceTableState,
+  activeTableWidgetInfo,
+  onTableToolbarShow,
+  onTableToolbarHide,
+  closeInPlaceTable,
+  updateInPlaceTable,
+  updateInPlaceTablePlain,
+  onInPlaceTableAction,
+  openTableAtCursor,
+  onInPlaceTableOpenFull,
+  findAndHighlightTableCellWithRetry,
+  clearTableSpotlight,
+} = useEditorTable({
+  getView: () => view,
+  isPlainWindowsEditor: () => usePlainWindowsEditor,
+  plainText,
+  plainCaretOffset,
+  plainSetCaret,
+  recordPlainHistory,
+  replaceDocRange,
+  emitPlainCursorAndSelection,
+  t,
+  toasts,
+  openTableEditor,
+  onTableChange: () => {
+    if (usePlainWindowsEditor) {
+      updateInPlaceOverlaysPlain();
+    } else if (view) {
+      updateInPlaceOverlays(view);
+    }
+  },
+});
+
+const {
+  inPlaceFormulaState,
+  closeInPlaceFormula,
+  updateInPlaceFormula,
+  updateInPlaceFormulaPlain,
+  onInPlaceFormulaInsert,
+  onInPlaceFormulaToggleDisplay,
+  openFormulaAtCursor,
+  onInPlaceFormulaOpenFull,
+} = useEditorFormula({
+  getView: () => view,
+  isPlainWindowsEditor: () => usePlainWindowsEditor,
+  plainText,
+  plainCaretOffset,
+  plainSetCaret,
+  recordPlainHistory,
+  replaceDocRange,
+  emitPlainCursorAndSelection,
+  plainLiveEnabled,
+  plainActiveBlock,
+  plainBlockEditors,
+  plainBlocks,
+  plainEditor,
+  onFormulaChange: () => {
+    if (usePlainWindowsEditor) {
+      updateInPlaceOverlaysPlain();
+    } else if (view) {
+      updateInPlaceOverlays(view);
+    }
+  },
+});
+
+function updateInPlaceOverlays(cmView: EditorView) {
+  if (cmView.composing || props.tab.language !== 'markdown') {
+    closeInPlaceTable();
+    closeInPlaceFormula();
+    return;
+  }
+  const sel = cmView.state.selection.main;
+  // When text is actively selected, suppress in-place table & formula overlays so they don't clash with SelectionBubbleBar
+  if (!sel.empty) {
+    closeInPlaceTable();
+    closeInPlaceFormula();
+    return;
+  }
+  const caret = sel.head;
+  if (isInsideCodeContext(cmView.state, caret)) {
+    closeInPlaceTable();
+    closeInPlaceFormula();
+    return;
+  }
+  const docText = cmView.state.doc.toString();
+
+  // 1. In-place table detection
+  updateInPlaceTable(cmView, caret, docText);
+
+  // 2. In-place formula detection
+  updateInPlaceFormula(cmView, caret, docText);
+}
+
+function updateInPlaceOverlaysPlain() {
+  if (!usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown') {
+    closeInPlaceTable();
+    closeInPlaceFormula();
+    return;
+  }
+  const docText = plainText.value || '';
+  const caret = plainCaretOffset();
+
+  const el = plainLiveEnabled.value
+    ? plainBlockEditors.value[plainActiveBlock.value]
+    : plainEditor.value;
+  if (!el || el.selectionStart !== el.selectionEnd) {
+    closeInPlaceTable();
+    closeInPlaceFormula();
+    return;
+  }
+
+  // 1. In-place table detection
+  updateInPlaceTablePlain(docText, caret, el, plainLineTops.value);
+
+  // 2. In-place formula detection
+  updateInPlaceFormulaPlain(docText, caret, el, plainLineTops.value);
+}
+
 onMounted(() => {
   // Registered before the plain-editor early return below — this listener has
   // to exist on ALL three editor paths, and the CodeMirror-only setup that
@@ -2943,107 +3075,9 @@ function openFind(): void {
   }
 }
 
-/**
- * Open the grid editor on the table the caret is in.
- *
- * Works off the document text and line offsets rather than either editor's
- * internals, so the same code serves CodeMirror and the Windows plain
- * textarea; only the write-back differs.
- */
-function openTableAtCursor(): void {
-  const source = usePlainWindowsEditor ? plainText.value || '' : view?.state.doc.toString() ?? '';
-  if (!source) {
-    toasts.info(t('tableEditor.notInTable'));
-    return;
-  }
-  const lines = source.split('\n');
-  const caret = usePlainWindowsEditor
-    ? plainCaretOffset()
-    : view
-      ? view.state.selection.main.head
-      : 0;
-
-  // Offset → line index, plus each line's start offset for the reverse trip.
-  const starts: number[] = [];
-  let off = 0;
-  for (const line of lines) {
-    starts.push(off);
-    off += line.length + 1;
-  }
-  let caretLine = 0;
-  for (let i = 0; i < starts.length; i++) {
-    if (starts[i] <= caret) caretLine = i;
-    else break;
-  }
-
-  const span = findTableSpan(lines, caretLine);
-  if (!span) {
-    toasts.info(t('tableEditor.notInTable'));
-    return;
-  }
-  const from = starts[span.startLine];
-  const to = starts[span.endLine] + lines[span.endLine].length;
-
-  openTableEditor({
-    source: source.slice(from, to),
-    apply: (markdown: string) => replaceDocRange(from, to, markdown),
-  });
-}
-
-/**
- * Open the formula editor on the math under the caret, or on an empty formula
- * when the caret is not in one — "insert a formula" and "fix this formula" are
- * the same action from the user's side.
- */
-function openFormulaAtCursor(): void {
-  const source = usePlainWindowsEditor ? plainText.value || '' : view?.state.doc.toString() ?? '';
-  const caret = usePlainWindowsEditor
-    ? plainCaretOffset()
-    : view
-      ? view.state.selection.main.head
-      : 0;
-  const span = findMathSpanAt(source, caret);
-  const from = span ? span.from : caret;
-  const to = span ? span.to : caret;
-
-  openFormulaEditor({
-    latex: span?.body ?? '',
-    // A new formula defaults to inline; that is the common case, and the
-    // dialog has a one-click switch for the other one.
-    display: span?.display ?? false,
-    labels: collectLabels(source),
-    apply: (latex: string, display: boolean) =>
-      replaceDocRange(from, to, formatMath(source, from, to, latex, display)),
-  });
-}
-
-/**
- * Wrap a formula in the right delimiters for where it sits.
- *
- * A display formula gets its own lines only when nothing else shares them.
- * Turning `Inline $E=mc^2$ here.` into a three-line `$$` block would split the
- * sentence across the formula — the mid-sentence case has to stay on one line.
- */
-function formatMath(
-  source: string,
-  from: number,
-  to: number,
-  latex: string,
-  display: boolean,
-): string {
-  if (!display) return `$${latex}$`;
-  const lineStart = source.lastIndexOf('\n', Math.max(0, from - 1)) + 1;
-  const lineEndIdx = source.indexOf('\n', to);
-  const lineEnd = lineEndIdx < 0 ? source.length : lineEndIdx;
-  const alone =
-    source.slice(lineStart, from).trim() === '' && source.slice(to, lineEnd).trim() === '';
-  return alone ? `$$\n${latex}\n$$` : `$$${latex}$$`;
-}
-
 // ── Selection Bubble Floating Bar (Catstep MD) ─────────────────────────────
 let isDraggingSelection = false;
 let spotlightTimer: any = null;
-let tableSpotlightTimer: any = null;
 let pulseTimer: any = null;
 let agentJumpTimer: any = null;
 
@@ -3674,452 +3708,6 @@ async function onEditorContextMenuAction(action: string, payload?: any) {
   }
 }
 
-// ── In-Place Floating Overlays (Table & Formula) ───────────────────────────
-const inPlaceTableState = ref<{
-  visible: boolean;
-  top: number;
-  left: number;
-  align: TableAlign;
-  canDeleteRow: boolean;
-  canDeleteCol: boolean;
-}>({
-  visible: false,
-  top: 0,
-  left: 0,
-  align: null,
-  canDeleteRow: true,
-  canDeleteCol: true,
-});
-
-const activeTableWidgetInfo = ref<{
-  top: number;
-  left: number;
-  align: TableAlign;
-  canDeleteRow: boolean;
-  canDeleteCol: boolean;
-  blockFrom: number;
-  blockTo: number;
-  row: number;
-  col: number;
-  source: string;
-} | null>(null);
-
-function onTableToolbarShow(e: Event) {
-  const d = (e as CustomEvent).detail;
-  if (!d) return;
-  activeTableWidgetInfo.value = d;
-  inPlaceTableState.value = {
-    visible: true,
-    top: d.top,
-    left: d.left,
-    align: d.align,
-    canDeleteRow: d.canDeleteRow,
-    canDeleteCol: d.canDeleteCol,
-  };
-}
-
-function onTableToolbarHide() {
-  setTimeout(() => {
-    const active = typeof document !== 'undefined' ? document.activeElement : null;
-    if (active?.closest('.inplace-tbl-toolbar') || active?.closest('.cm-interactive-table')) {
-      return;
-    }
-    activeTableWidgetInfo.value = null;
-    inPlaceTableState.value.visible = false;
-  }, 120);
-}
-
-const inPlaceFormulaState = ref<{
-  visible: boolean;
-  top: number;
-  left: number;
-  latex: string;
-  display: boolean;
-  from: number;
-  to: number;
-}>({
-  visible: false,
-  top: 0,
-  left: 0,
-  latex: '',
-  display: false,
-  from: 0,
-  to: 0,
-});
-
-function updateInPlaceOverlays(cmView: EditorView) {
-  if (cmView.composing || props.tab.language !== 'markdown') {
-    inPlaceTableState.value.visible = false;
-    inPlaceFormulaState.value.visible = false;
-    return;
-  }
-  const sel = cmView.state.selection.main;
-  // When text is actively selected, suppress in-place table & formula overlays so they don't clash with SelectionBubbleBar
-  if (!sel.empty) {
-    inPlaceTableState.value.visible = false;
-    inPlaceFormulaState.value.visible = false;
-    return;
-  }
-  const caret = sel.head;
-  if (isInsideCodeContext(cmView.state, caret)) {
-    inPlaceTableState.value.visible = false;
-    inPlaceFormulaState.value.visible = false;
-    return;
-  }
-  const docText = cmView.state.doc.toString();
-
-  // 1. In-place table detection
-  const tableInfo = findTableAtCursor(docText, caret);
-  if (tableInfo) {
-    const coords = cmView.coordsAtPos(caret);
-    if (coords && coords.top >= 35 && coords.bottom <= window.innerHeight - 20) {
-      const toolbarTop = coords.top - 42 > 45 ? coords.top - 42 : coords.bottom + 8;
-      inPlaceTableState.value = {
-        visible: true,
-        top: toolbarTop,
-        left: coords.left,
-        align: tableInfo.model.aligns[tableInfo.caretCol] ?? null,
-        canDeleteRow: tableInfo.rowIndex >= 0,
-        canDeleteCol: tableInfo.model.header.length > 1,
-      };
-    } else {
-      if (!activeTableWidgetInfo.value) {
-        inPlaceTableState.value.visible = false;
-      }
-    }
-  } else {
-    if (!activeTableWidgetInfo.value) {
-      inPlaceTableState.value.visible = false;
-    }
-  }
-
-  // 2. In-place formula detection
-  const mathSpan = findMathSpanAt(docText, caret);
-  if (mathSpan) {
-    const coords = cmView.coordsAtPos(caret);
-    if (coords && coords.top >= 35 && coords.bottom <= window.innerHeight - 20) {
-      inPlaceFormulaState.value = {
-        visible: true,
-        top: coords.bottom + 8,
-        left: Math.max(12, coords.left - 40),
-        latex: mathSpan.body,
-        display: mathSpan.display,
-        from: mathSpan.from,
-        to: mathSpan.to,
-      };
-    } else {
-      inPlaceFormulaState.value.visible = false;
-    }
-  } else {
-    inPlaceFormulaState.value.visible = false;
-  }
-}
-
-function updateInPlaceOverlaysPlain() {
-  if (!usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown') {
-    inPlaceTableState.value.visible = false;
-    inPlaceFormulaState.value.visible = false;
-    return;
-  }
-  const docText = plainText.value || '';
-  const caret = plainCaretOffset();
-
-  const el = plainLiveEnabled.value
-    ? plainBlockEditors.value[plainActiveBlock.value]
-    : plainEditor.value;
-  if (!el || el.selectionStart !== el.selectionEnd) {
-    inPlaceTableState.value.visible = false;
-    inPlaceFormulaState.value.visible = false;
-    return;
-  }
-
-  const tableInfo = findTableAtCursor(docText, caret);
-  if (tableInfo) {
-    const elRect = el.getBoundingClientRect();
-    const lineNum = docText.slice(0, caret).split('\n').length;
-    const tops = plainLineTops.value;
-    const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
-    const topPx = elRect.top + lineY - el.scrollTop;
-    if (topPx < 35 || topPx > window.innerHeight - 35) {
-      inPlaceTableState.value.visible = false;
-    } else {
-      const toolbarTop = topPx - 42 > 45 ? topPx - 42 : topPx + 28;
-      inPlaceTableState.value = {
-        visible: true,
-        top: toolbarTop,
-        left: Math.max(12, Math.min(window.innerWidth - 440, elRect.left + 24)),
-        align: tableInfo.model.aligns[tableInfo.caretCol] ?? null,
-        canDeleteRow: tableInfo.rowIndex >= 0,
-        canDeleteCol: tableInfo.model.header.length > 1,
-      };
-    }
-  } else {
-    inPlaceTableState.value.visible = false;
-  }
-
-  const mathSpan = findMathSpanAt(docText, caret);
-  if (mathSpan) {
-    const elRect = el.getBoundingClientRect();
-    const lineNum = docText.slice(0, caret).split('\n').length;
-    const tops = plainLineTops.value;
-    const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
-    const topPx = elRect.top + lineY - el.scrollTop;
-    if (topPx < 35 || topPx > window.innerHeight - 35) {
-      inPlaceFormulaState.value.visible = false;
-    } else {
-      inPlaceFormulaState.value = {
-        visible: true,
-        top: topPx + 28,
-        left: Math.max(12, Math.min(window.innerWidth - 460, elRect.left + 24)),
-        latex: mathSpan.body,
-        display: mathSpan.display,
-        from: mathSpan.from,
-        to: mathSpan.to,
-      };
-    }
-  } else {
-    inPlaceFormulaState.value.visible = false;
-  }
-}
-
-function onInPlaceTableAction(action: TableActionType) {
-  if (usePlainWindowsEditor) {
-    const docText = plainText.value || '';
-    const caret = plainCaretOffset();
-    const res = performTableAction(docText, caret, action);
-    if (res) {
-      replaceDocRange(0, docText.length, res.text);
-      nextTick(() => {
-        plainSetCaret(res.newCaret);
-        emitPlainCursorAndSelection();
-        updateInPlaceOverlaysPlain();
-      });
-    }
-    return;
-  }
-  if (!view) return;
-
-  if (activeTableWidgetInfo.value) {
-    const info = activeTableWidgetInfo.value;
-    const model = parseTable(info.source);
-    if (!model) return;
-
-    let updatedModel: TableModel | null = null;
-    let newRow = info.row;
-    let newCol = info.col;
-
-    switch (action) {
-      case 'insertRowAbove':
-        updatedModel = insertRow(model, info.row <= 0 ? 0 : info.row);
-        newRow = info.row <= 0 ? 0 : info.row;
-        break;
-      case 'insertRowBelow':
-        updatedModel = insertRow(model, info.row < 0 ? 0 : info.row + 1);
-        newRow = info.row < 0 ? 0 : info.row + 1;
-        break;
-      case 'deleteRow':
-        if (info.row >= 0 && model.rows.length > 0) {
-          updatedModel = deleteRow(model, info.row);
-          newRow = Math.min(info.row, updatedModel.rows.length - 1);
-        }
-        break;
-      case 'insertColLeft':
-        updatedModel = insertColumn(model, info.col);
-        newCol = info.col;
-        break;
-      case 'insertColRight':
-        updatedModel = insertColumn(model, info.col + 1);
-        newCol = info.col + 1;
-        break;
-      case 'deleteCol':
-        if (model.header.length > 1) {
-          updatedModel = deleteColumn(model, info.col);
-          newCol = Math.min(info.col, updatedModel.header.length - 1);
-        }
-        break;
-      case 'alignLeft':
-        updatedModel = setAlign(model, info.col, 'left');
-        break;
-      case 'alignCenter':
-        updatedModel = setAlign(model, info.col, 'center');
-        break;
-      case 'alignRight':
-        updatedModel = setAlign(model, info.col, 'right');
-        break;
-      case 'deleteTable':
-        view.dispatch({
-          changes: { from: info.blockFrom, to: info.blockTo, insert: '' },
-        });
-        inPlaceTableState.value.visible = false;
-        activeTableWidgetInfo.value = null;
-        view.focus();
-        return;
-    }
-
-    if (updatedModel) {
-      const newSource = serializeTable(updatedModel);
-      view.dispatch({
-        changes: { from: info.blockFrom, to: info.blockTo, insert: newSource },
-      });
-      activeTableWidgetInfo.value = {
-        ...info,
-        source: newSource,
-        blockTo: info.blockFrom + newSource.length,
-        row: newRow,
-        col: newCol,
-        align: updatedModel.aligns[newCol] ?? null,
-        canDeleteRow: newRow >= 0 && updatedModel.rows.length > 0,
-        canDeleteCol: updatedModel.header.length > 1,
-      };
-      inPlaceTableState.value = {
-        ...inPlaceTableState.value,
-        align: updatedModel.aligns[newCol] ?? null,
-        canDeleteRow: newRow >= 0 && updatedModel.rows.length > 0,
-        canDeleteCol: updatedModel.header.length > 1,
-      };
-      setTimeout(() => {
-        const cell = document.querySelector(
-          `.cm-interactive-table [data-row="${newRow}"][data-col="${newCol}"]`
-        ) as HTMLElement | null;
-        cell?.focus();
-      }, 35);
-    }
-    return;
-  }
-
-  const docText = view.state.doc.toString();
-  const caret = view.state.selection.main.head;
-  const res = performTableAction(docText, caret, action);
-  if (res) {
-    if (res.from !== undefined && res.to !== undefined && res.tableText !== undefined) {
-      view.dispatch({
-        changes: { from: res.from, to: res.to, insert: res.tableText },
-        selection: { anchor: res.newCaret },
-      });
-    } else {
-      view.dispatch({
-        changes: { from: 0, to: docText.length, insert: res.text },
-        selection: { anchor: res.newCaret },
-      });
-    }
-    view.focus();
-    nextTick(() => {
-      if (view) updateInPlaceOverlays(view);
-    });
-  }
-}
-
-function onInPlaceTableOpenFull() {
-  if (activeTableWidgetInfo.value) {
-    const info = activeTableWidgetInfo.value;
-    inPlaceTableState.value.visible = false;
-    openTableEditor({
-      source: info.source,
-      apply: (markdown: string) => {
-        if (!view) return;
-        view.dispatch({
-          changes: { from: info.blockFrom, to: info.blockTo, insert: markdown },
-        });
-      },
-    });
-    return;
-  }
-  openTableAtCursor();
-}
-
-function onInPlaceFormulaInsert(symbol: string, caretOffset?: number) {
-  if (usePlainWindowsEditor) {
-    const docText = plainText.value || '';
-    const el = plainLiveEnabled.value
-      ? plainBlockEditors.value[plainActiveBlock.value]
-      : plainEditor.value;
-    const base = plainLiveEnabled.value
-      ? (plainBlocks.value[plainActiveBlock.value]?.start ?? 0)
-      : 0;
-    const sStart = base + (el?.selectionStart ?? 0);
-    const sEnd = base + (el?.selectionEnd ?? sStart);
-    const newText = docText.slice(0, sStart) + symbol + docText.slice(sEnd);
-    replaceDocRange(0, docText.length, newText);
-    nextTick(() => {
-      plainSetCaret(sStart + (caretOffset ?? symbol.length));
-      emitPlainCursorAndSelection();
-      updateInPlaceOverlaysPlain();
-    });
-    return;
-  }
-  if (!view) return;
-  const sel = view.state.selection.main;
-  view.dispatch({
-    changes: { from: sel.from, to: sel.to, insert: symbol },
-    selection: { anchor: sel.from + (caretOffset ?? symbol.length) },
-  });
-  view.focus();
-  nextTick(() => {
-    if (view) updateInPlaceOverlays(view);
-  });
-}
-
-function onInPlaceFormulaToggleDisplay() {
-  if (usePlainWindowsEditor) {
-    const docText = plainText.value || '';
-    const caret = plainCaretOffset();
-    const span = findMathSpanAt(docText, caret);
-    if (!span) return;
-    const newDelim = span.display ? '$' : '$$';
-    const newText = `${newDelim}${span.body}${newDelim}`;
-    const updated = docText.slice(0, span.from) + newText + docText.slice(span.to);
-    replaceDocRange(0, docText.length, updated);
-    nextTick(() => {
-      plainSetCaret(span.from + newDelim.length + span.body.length);
-      emitPlainCursorAndSelection();
-      updateInPlaceOverlaysPlain();
-    });
-    return;
-  }
-  if (!view) return;
-  const docText = view.state.doc.toString();
-  const caret = view.state.selection.main.head;
-  const span = findMathSpanAt(docText, caret);
-  if (!span) return;
-  const newDelim = span.display ? '$' : '$$';
-  const newText = `${newDelim}${span.body}${newDelim}`;
-  view.dispatch({
-    changes: { from: span.from, to: span.to, insert: newText },
-    selection: { anchor: span.from + newDelim.length + span.body.length },
-  });
-  view.focus();
-  nextTick(() => {
-    if (view) updateInPlaceOverlays(view);
-  });
-}
-
-function onInPlaceFormulaOpenFull() {
-  openFormulaAtCursor();
-}
-
-
-/** Caret offset in the plain editor, in whole-document coordinates. */
-function plainCaretOffset(): number {
-  if (plainLiveEnabled.value) {
-    const block = plainBlocks.value[plainActiveBlock.value];
-    const el = plainBlockEditors.value[plainActiveBlock.value];
-    return (block?.start ?? 0) + (el?.selectionStart ?? 0);
-  }
-  return plainEditor.value?.selectionStart ?? 0;
-}
-
-/** Replace a document range in whichever editor this pane is running. */
-function replaceDocRange(from: number, to: number, text: string): void {
-  if (usePlainWindowsEditor) {
-    const src = plainText.value || '';
-    recordPlainHistory();
-    applyPlainContent(src.slice(0, from) + text + src.slice(to), from + text.length);
-    return;
-  }
-  if (!view) return;
-  view.dispatch({ changes: { from, to, insert: text } });
-}
-
 /**
  * Heading folding, driven from the command palette / shortcuts.
  *
@@ -4233,10 +3821,7 @@ onBeforeUnmount(() => {
     clearTimeout(spotlightTimer);
     spotlightTimer = null;
   }
-  if (tableSpotlightTimer) {
-    clearTimeout(tableSpotlightTimer);
-    tableSpotlightTimer = null;
-  }
+  clearTableSpotlight();
   if (pulseTimer) {
     clearTimeout(pulseTimer);
     pulseTimer = null;
@@ -4319,10 +3904,7 @@ watch(
       clearTimeout(spotlightTimer);
       spotlightTimer = null;
     }
-    if (tableSpotlightTimer) {
-      clearTimeout(tableSpotlightTimer);
-      tableSpotlightTimer = null;
-    }
+    clearTableSpotlight();
     // Snapshot the OUTGOING tab first — at this point the editor DOM/state
     // still holds the old document (re-sync happens below).
     if (oldId) {
@@ -4642,7 +4224,12 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   }
 
   if (usePlainWindowsEditor) {
-    if (from == null && original) {
+    if (isAgentJump && line && line >= 1) {
+      const safeLine = Math.max(1, Math.floor(line));
+      const safeEndLine = (endLine && !isNaN(endLine) && endLine >= safeLine) ? Math.floor(endLine) : safeLine;
+      from = plainLineStartOffset(safeLine);
+      to = plainLineStartOffset(safeEndLine + 1);
+    } else if (from == null && original) {
       const fullText = plainLiveEnabled.value ? (plainText.value || '') : (plainEditor.value?.value || '');
       let idx = fullText.indexOf(original);
       if (idx === -1) {
@@ -4654,13 +4241,14 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
         const nIdx = normDoc.indexOf(normOrig);
         if (nIdx !== -1) {
           idx = nIdx;
+          original = normOrig;
         } else {
           const lines = normOrig.split('\n').map((l) => l.trim()).filter((l) => l.length >= 3);
           for (const line of lines) {
             const lIdx = normDoc.indexOf(line);
             if (lIdx !== -1) {
               idx = lIdx;
-              original = line;
+              original = normOrig;
               break;
             }
           }
@@ -4716,8 +4304,16 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   let targetFrom: number | null = null;
   let targetTo: number | null = null;
 
+  // 0. For Agent Jump, directly select the entire modified line range if line is valid
+  if (isAgentJump && line && line > 0 && line <= view.state.doc.lines) {
+    const safeStart = Math.max(1, Math.min(line, view.state.doc.lines));
+    const safeEnd = endLine != null ? Math.min(Math.max(safeStart, endLine), view.state.doc.lines) : safeStart;
+    targetFrom = view.state.doc.line(safeStart).from;
+    targetTo = view.state.doc.line(safeEnd).to;
+  }
+
   // 1. If from & to provided, verify against doc content in CodeMirror
-  if (from != null) {
+  if (targetFrom == null && from != null) {
     const safeFrom = Math.max(0, Math.min(from, docLen));
     const safeTo = to != null ? Math.max(safeFrom, Math.min(to, docLen)) : safeFrom;
     if (!original || view.state.doc.sliceString(safeFrom, safeTo) === original) {
@@ -4797,7 +4393,9 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
             const linesBefore = normDoc.slice(0, lIdx).split('\n').length;
             const lineInDoc = view.state.doc.line(Math.min(linesBefore, view.state.doc.lines));
             targetFrom = lineInDoc.from;
-            targetTo = lineInDoc.to;
+            const totalLinesInOrig = Math.max(1, normOrig.split('\n').length);
+            const endLineInDoc = view.state.doc.line(Math.min(linesBefore + totalLinesInOrig - 1, view.state.doc.lines));
+            targetTo = endLineInDoc.to;
             break;
           }
         }
@@ -4846,11 +4444,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     // Dismiss any existing proofread spotlight so it never falsely labels chapters
     effects.push(setSpotlightEffect.of(null));
     effects.push(setAgentJumpEffect.of(null));
-    if (tableSpotlightTimer) {
-      clearTimeout(tableSpotlightTimer);
-      const existing = view.dom.querySelectorAll('.cm-table-cell-spotlight');
-      existing.forEach((el) => el.classList.remove('cm-table-cell-spotlight'));
-    }
+    clearTableSpotlight(view);
   }
 
   view.dispatch({
@@ -4859,145 +4453,6 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   });
   view.focus();
   triggerJumpPulse();
-}
-
-function triggerTableCellSpotlight(cell: HTMLElement, searchOriginal?: string) {
-  cell.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-  cell.classList.add('cm-table-cell-spotlight');
-  cell.focus();
-
-  if (searchOriginal) {
-    try {
-      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
-      let textNode: Text | null = null;
-      let matchIdx = -1;
-      while (walker.nextNode()) {
-        const node = walker.currentNode as Text;
-        const idx = node.textContent?.indexOf(searchOriginal) ?? -1;
-        if (idx >= 0) {
-          textNode = node;
-          matchIdx = idx;
-          break;
-        }
-      }
-      if (textNode && matchIdx >= 0) {
-        const range = document.createRange();
-        range.setStart(textNode, matchIdx);
-        range.setEnd(textNode, matchIdx + searchOriginal.length);
-        const sel = window.getSelection();
-        if (sel) {
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      }
-    } catch {}
-  }
-
-  if (tableSpotlightTimer) clearTimeout(tableSpotlightTimer);
-  tableSpotlightTimer = setTimeout(() => {
-    cell.classList.remove('cm-table-cell-spotlight');
-  }, 4000);
-}
-
-function tryHighlightTableCell(rowLine: number, searchOriginal?: string, targetPos?: number): boolean {
-  if (!view) return false;
-  const tableWraps = view.dom.querySelectorAll('.cm-live-block--table');
-  for (const wrap of Array.from(tableWraps)) {
-    const tw = (wrap as any).__tableWidget;
-    if (!tw) continue;
-    const startLine = view.state.doc.lineAt(tw.blockFrom).number;
-    const endLine = view.state.doc.lineAt(tw.blockTo).number;
-    if (rowLine >= startLine && rowLine <= endLine) {
-      let targetRow = -1;
-      if (rowLine === startLine) {
-        targetRow = -1;
-      } else if (rowLine === startLine + 1) {
-        targetRow = 0;
-      } else {
-        targetRow = rowLine - startLine - 2;
-      }
-
-      let targetCol = -1;
-      try {
-        const lineText = view.state.doc.line(rowLine).text;
-        let colPos = -1;
-        if (targetPos != null) {
-          colPos = targetPos - view.state.doc.line(rowLine).from;
-        } else if (searchOriginal) {
-          colPos = lineText.indexOf(searchOriginal);
-        }
-        if (colPos >= 0) {
-          const pre = lineText.slice(0, colPos);
-          const pipeCount = (pre.match(/\|/g) || []).length;
-          targetCol = Math.max(0, pipeCount - 1);
-        }
-      } catch {}
-
-      let targetCell: HTMLElement | null = null;
-      if (targetCol >= 0) {
-        targetCell = wrap.querySelector(`[data-row="${targetRow}"][data-col="${targetCol}"]`);
-      }
-
-      if (!targetCell) {
-        const rowCells = wrap.querySelectorAll(`[data-row="${targetRow}"]`);
-        if (searchOriginal) {
-          for (const cell of Array.from(rowCells)) {
-            const el = cell as HTMLElement;
-            if (el.textContent?.includes(searchOriginal) || el.dataset.raw?.includes(searchOriginal)) {
-              targetCell = el;
-              break;
-            }
-          }
-        }
-        if (!targetCell && rowCells.length > 0) {
-          targetCell = rowCells[0] as HTMLElement;
-        }
-      }
-
-      if (!targetCell && searchOriginal) {
-        for (const r of [targetRow - 1, targetRow + 1]) {
-          const adjCells = wrap.querySelectorAll(`[data-row="${r}"]`);
-          for (const cell of Array.from(adjCells)) {
-            const el = cell as HTMLElement;
-            if (el.textContent?.includes(searchOriginal) || el.dataset.raw?.includes(searchOriginal)) {
-              targetCell = el;
-              break;
-            }
-          }
-          if (targetCell) break;
-        }
-      }
-
-      if (!targetCell && searchOriginal) {
-        for (const cell of Array.from(wrap.querySelectorAll('[data-row]'))) {
-          const el = cell as HTMLElement;
-          if (el.textContent?.includes(searchOriginal) || el.dataset.raw?.includes(searchOriginal)) {
-            targetCell = el;
-            break;
-          }
-        }
-      }
-
-      if (targetCell) {
-        triggerTableCellSpotlight(targetCell, searchOriginal);
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function findAndHighlightTableCellWithRetry(rowLine: number, searchOriginal?: string, targetPos?: number) {
-  if (tryHighlightTableCell(rowLine, searchOriginal, targetPos)) return;
-  requestAnimationFrame(() => {
-    if (tryHighlightTableCell(rowLine, searchOriginal, targetPos)) return;
-    setTimeout(() => {
-      if (tryHighlightTableCell(rowLine, searchOriginal, targetPos)) return;
-      setTimeout(() => {
-        tryHighlightTableCell(rowLine, searchOriginal, targetPos);
-      }, 150);
-    }, 60);
-  });
 }
 
 function triggerJumpPulse() {

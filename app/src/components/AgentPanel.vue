@@ -727,14 +727,29 @@ function matchesTabPath(tab: any, targetPath: string): boolean {
  * commit on `feat/v4-panel` adds an explicit "include active note content"
  * toggle and the commit after that adds proper MCP tool calls.
  */
+function getActiveNoteRelativePath(): string {
+  const tab = tabs.activeTab;
+  if (!tab) return '';
+  const folder = workspace.currentFolder;
+  const filePath = (tab.filePath || '').replace(/\\/g, '/');
+  if (folder && filePath) {
+    const normFolder = folder.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (filePath.toLowerCase().startsWith(normFolder.toLowerCase() + '/')) {
+      return filePath.slice(normFolder.length + 1);
+    }
+  }
+  return tab.fileName || filePath;
+}
+
 function buildVaultContext(): string {
   const folder = workspace.currentFolder;
   if (!folder) return '';
+  const activeRel = getActiveNoteRelativePath();
   const activeFile = tabs.activeTab?.filePath || '(no active file)';
   const noteCount = workspaceIndex.entries.length;
   const lines = [
     `User's vault is at: ${folder}`,
-    `Active file: ${activeFile}`,
+    `Active file relative path: ${activeRel || activeFile}`,
   ];
   if (noteCount > 0) {
     lines.push(`Workspace contains ${noteCount} indexed note${noteCount === 1 ? '' : 's'}.`);
@@ -760,11 +775,7 @@ function buildActiveNoteContext(explicitSelection?: string): string {
     : (!isSelectionDismissed.value && activeSelectionText.value
       ? activeSelectionText.value.trim()
       : '');
-  const folder = workspace.currentFolder;
-  let relPath = tab.filePath || tab.fileName || '(untitled)';
-  if (folder && tab.filePath && tab.filePath.startsWith(folder)) {
-    relPath = tab.filePath.slice(folder.length).replace(/^[/\\]+/, '');
-  }
+  const relPath = getActiveNoteRelativePath() || tab.fileName || '(untitled)';
   const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)' : content;
 
   if (rawSel.length > 0) {
@@ -1259,19 +1270,25 @@ async function send() {
   const systemParts = [SYSTEM_PROMPT];
 
   if (isToolAllowed) {
+    const activeRel = getActiveNoteRelativePath();
     if (hasActiveSel) {
       systemParts.push(
-        "【核心指令：自动替换所选片段】\n" +
-        "当前处于【智能体/编辑模式】，用户已在当前笔记中明确划选了具体文本片段（见下方的 User's current selected text）。\n" +
-        "当用户的请求是润色、改写、修正或优化这段文字时：\n" +
-        "1. 必须直接且仅调用一次 `patch_note` 工具自动替换文档中的选区内容！\n" +
-        "2. 严禁调用 `read_note` 去重复读取文件（你已拥有用户的确切选区文本）；严禁调用 `write_note` 覆盖整篇已有笔记！\n" +
-        "3. `patch_note` 参数中，`path` 填写当前笔记路径，`target_content` 必须完全匹配用户划选的原文本片段，`replacement_content` 填入润色后的优质纯正文。\n" +
-        "4. 单次修改铁律：一旦 `patch_note` 执行成功，编辑器已自动同步完成。严禁再次调用 patch_note、write_note 或 read_note！必须立即向用户输出针对修改亮点的文字总结并结束本轮回复。"
+        "【核心指令：直接局部修改所选片段】\n" +
+        `当前用户正在编辑的文件是：\`${activeRel}\`。\n` +
+        `用户已明确划选了该文件中的如下文本片段（共 ${activeSel.length} 字）：\n` +
+        `\`\`\`markdown\n${activeSel}\n\`\`\`\n\n` +
+        "当用户的请求是润色、改写、修正、精简或优化这段文字时：\n" +
+        "1. 【必须且仅调用一次 patch_note】：必须直接调用 `patch_note` 自动替换文档中的选区内容！\n" +
+        `   - \`path\`: 必须精确填写当前文件的相对路径 \`"${activeRel}"\`（严禁省略子目录，严禁使用纯文件名或绝对路径！）；\n` +
+        "   - `target_content`: 必须完全填写上面用户划选的原文本片段（包含原样格式与换行）；\n" +
+        "   - `replacement_content`: 填入你润色精简优化后的优质正文（严禁包含客套寒暄、修改列表或说明）。\n" +
+        "2. 【严禁多余工具调用】：你已经拥有用户划选的确切完整文本，严禁调用 search 检索，严禁调用 read_note 重复读取文件，严禁调用 write_note 覆盖全文件！\n" +
+        "3. 【单次修改铁律】：一旦 `patch_note` 执行成功，编辑器已自动同步完成。严禁再次调用 patch_note、write_note 或 read_note！必须立即向用户输出针对修改亮点的文字总结并结束本轮回复。"
       );
     } else {
       systemParts.push(
         "你具备修改笔记库的物理权限。\n" +
+        (activeRel ? `当前活动的笔记相对路径为: \`${activeRel}\`。\n` : "") +
         "1. 当用户要求修改、优化当前已有笔记的局部内容时，使用 `patch_note`。严禁在修改已有文件时使用 `write_note` 覆盖全文件！\n" +
         "2. 只有当用户明确要求创建新笔记、新建文件时，才调用 `write_note`。\n" +
         "3. 一旦文件修改或创建成功，切勿重复调用工具，立即向用户总结结果并结束回复。"
@@ -1821,62 +1838,61 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
   // 1. Activate or open the tab containing the file
   await files.openPath(targetPath, { bypassNewWindow: true });
 
-  // 2. Determine target line number
+  // 2. Determine target line number and full line range
   const resultData = getToolResultData(tool);
   let lineNum: number | undefined = undefined;
   let endLineNum: number | undefined = undefined;
 
-  if (typeof specificLine === 'number') {
+  if (resultData && typeof resultData.start_line === 'number') {
+    lineNum = resultData.start_line;
+    const addedCount = typeof resultData.added_count === 'number' ? resultData.added_count : 1;
+    endLineNum = lineNum + Math.max(0, addedCount - 1);
+  } else if (typeof specificLine === 'number') {
     lineNum = specificLine;
   } else if (typeof specificLine === 'string' && !isNaN(Number(specificLine))) {
     lineNum = Number(specificLine);
-  } else if (resultData && typeof resultData.start_line === 'number') {
-    lineNum = resultData.start_line;
   } else if (tool.name === 'write_note') {
     lineNum = 1;
   }
 
-  // 3. Determine target snippet to spotlight
+  // 3. Determine target snippet to spotlight (prefer full modified block so whole paragraph is selected)
   let snippet = '';
-  if (specificSnippet && typeof specificSnippet === 'string') {
-    const trimmed = specificSnippet.trim();
-    // Strip leading diff markers (+ or -)
-    const cleanLine = trimmed.replace(/^[+-]\s*/, '').trim();
-    if (cleanLine.length > 0) {
-      snippet = cleanLine;
+  if (tool.name === 'patch_note') {
+    const repl = (tool.args?.replacement_content as string) || '';
+    if (repl.trim()) {
+      snippet = repl.trim();
+      if (lineNum && !endLineNum) {
+        const linesCount = repl.split(/\r?\n/).length;
+        endLineNum = lineNum + Math.max(0, linesCount - 1);
+      }
+    } else {
+      const targ = (tool.args?.target_content as string) || '';
+      snippet = targ.trim();
+      if (lineNum && !endLineNum) {
+        const linesCount = targ.split(/\r?\n/).length;
+        endLineNum = lineNum + Math.max(0, linesCount - 1);
+      }
+    }
+  } else if (tool.name === 'append_to_note') {
+    const content = (tool.args?.content as string) || '';
+    snippet = content.trim();
+    if (lineNum && !endLineNum) {
+      const linesCount = content.split(/\r?\n/).length;
+      endLineNum = lineNum + Math.max(0, linesCount - 1);
+    }
+  } else if (tool.name === 'write_note') {
+    const content = (tool.args?.content as string) || '';
+    snippet = content.trim();
+    if (content) {
+      endLineNum = content.split(/\r?\n/).length;
     }
   }
 
-  if (!snippet) {
-    if (tool.name === 'patch_note') {
-      const repl = (tool.args?.replacement_content as string) || '';
-      if (repl.trim()) {
-        snippet = repl.trim();
-        if (lineNum) {
-          const linesCount = repl.split(/\r?\n/).length;
-          endLineNum = lineNum + Math.max(0, linesCount - 1);
-        }
-      } else {
-        const targ = (tool.args?.target_content as string) || '';
-        snippet = targ.trim();
-        if (lineNum) {
-          const linesCount = targ.split(/\r?\n/).length;
-          endLineNum = lineNum + Math.max(0, linesCount - 1);
-        }
-      }
-    } else if (tool.name === 'append_to_note') {
-      const content = (tool.args?.content as string) || '';
-      snippet = content.trim();
-      if (lineNum) {
-        const linesCount = content.split(/\r?\n/).length;
-        endLineNum = lineNum + Math.max(0, linesCount - 1);
-      }
-    } else if (tool.name === 'write_note') {
-      const content = (tool.args?.content as string) || '';
-      snippet = content.trim();
-      if (content) {
-        endLineNum = content.split(/\r?\n/).length;
-      }
+  if (!snippet && specificSnippet && typeof specificSnippet === 'string') {
+    const trimmed = specificSnippet.trim();
+    const cleanLine = trimmed.replace(/^[+-]\s*/, '').trim();
+    if (cleanLine.length > 0) {
+      snippet = cleanLine;
     }
   }
 
@@ -2050,7 +2066,8 @@ onMounted(async () => {
           // 3. Write / patch note handling
           if (payloadResult.ok && payloadResult.path && !payloadResult.moved) {
             const path = payloadResult.path;
-            const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
+            const tab = tabs.tabs.find((t) => matchesTabPath(t, path)) ||
+              (tabs.activeTab && matchesTabPath(tabs.activeTab, path) ? tabs.activeTab : undefined);
             if (payloadResult.backup_path) {
               reverts.value[e.payload.tool_call_id] = { type: 'path', data: payloadResult.backup_path };
             } else if (tab) {
@@ -2062,6 +2079,7 @@ onMounted(async () => {
                 const result = await invoke<any>('read_file', { path });
                 if (result && typeof result.content === 'string') {
                   tabs.applyExternalSave(tab.id, result.content);
+                  window.dispatchEvent(new CustomEvent('solomd:saved'));
                 }
               } catch (err) {
                 console.error('Failed to sync file after ai write:', err);
@@ -2069,6 +2087,7 @@ onMounted(async () => {
             } else {
               try {
                 await files.openPath(path, { bypassNewWindow: true });
+                window.dispatchEvent(new CustomEvent('solomd:saved'));
               } catch (err) {
                 console.error('Failed to auto-open created note:', err);
               }
