@@ -11,10 +11,10 @@ function ok(name, cond, detail = '') {
 }
 
 console.log('\n=== chinese.ts ===');
-ok('S→T 软件→軟體', simplifiedToTraditional('软件').includes('軟') || simplifiedToTraditional('软件').length > 0);
-ok('T→S 軟體→软体', traditionalToSimplified('軟體').length > 0);
-ok('pinyin 你好', pinyin('你好').includes('ni'));
-ok('pinyin tones', pinyin('你好', { tone: true }).includes('ǐ') || pinyin('你好', { tone: true }) !== pinyin('你好'));
+ok('S→T 软件→軟體', (await simplifiedToTraditional('软件')).includes('軟') || (await simplifiedToTraditional('软件')).length > 0);
+ok('T→S 軟體→软体', (await traditionalToSimplified('軟體')).length > 0);
+ok('pinyin 你好', (await pinyin('你好')).includes('ni'));
+ok('pinyin tones', (await pinyin('你好', { tone: true })).includes('ǐ') || (await pinyin('你好', { tone: true })) !== (await pinyin('你好')));
 const wc = cjkWordCount('Hello 世界, this is 一段 mixed 内容!');
 ok('cjkWordCount cjk count', wc.cjk === 6, JSON.stringify(wc));
 ok('cjkWordCount asciiWords (no punct)', wc.asciiWords === 4, JSON.stringify(wc));

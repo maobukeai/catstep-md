@@ -11,9 +11,6 @@
  * the browser actually renders.
  */
 
-// @ts-ignore — html2pdf.js ships no types
-import html2pdf from 'html2pdf.js';
-import mermaid from 'mermaid';
 import { renderMarkdown, extractImageRoot } from './markdown';
 import type { ResolvedPdfOptions } from './pdf-options';
 import { rewriteImageUrls, rewriteLinkUrls } from './image-resolve';
@@ -162,8 +159,11 @@ const PDF_CSS = `
 let mermaidId = 0;
 
 async function processMermaidBlocks(container: HTMLElement) {
-  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' });
   const blocks = container.querySelectorAll('pre > code.language-mermaid');
+  if (blocks.length === 0) return;
+  const mermaidMod = await import('mermaid');
+  const mermaid = (mermaidMod as any).default || mermaidMod;
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' });
   for (const block of Array.from(blocks)) {
     const pre = block.parentElement as HTMLElement | null;
     if (!pre) continue;
@@ -424,6 +424,8 @@ export async function markdownToPdfBlob(
           ],
         },
       };
+      const html2pdfMod = await import('html2pdf.js');
+      const html2pdf = (html2pdfMod as any).default || html2pdfMod;
       const worker = html2pdf().set(opts).from(page);
 
       const blob: Blob = await worker.outputPdf('blob');

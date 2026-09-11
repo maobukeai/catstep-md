@@ -5,10 +5,33 @@ import { useI18n } from '../i18n';
 import { useSettingsStore } from '../stores/settings';
 import { shortcutLabel } from '../lib/keybindings';
 import { isMacOS } from '../lib/platform';
-import { pinyin } from 'pinyin-pro';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
+
+const pinyinReady = ref(false);
+let pinyinFn: typeof import('pinyin-pro').pinyin | null = null;
+
+async function ensurePinyin() {
+  if (pinyinFn) return;
+  try {
+    const mod = await import('pinyin-pro');
+    pinyinFn = mod.pinyin;
+    pinyinReady.value = true;
+  } catch (err) {
+    console.warn('Failed to load pinyin-pro for command palette', err);
+  }
+}
+
+watch(
+  () => props.open,
+  (open) => {
+    if (open) {
+      ensurePinyin();
+    }
+  },
+  { immediate: true },
+);
 
 const query = ref('');
 const selectedIdx = ref(0);
@@ -154,17 +177,29 @@ const indexedCommands = computed<PaletteItem[]>(() => {
     const chord = chordFor(c);
     const keys = parseChordKeys(chord);
 
-    // Build pinyin search tokens
-    const pyInitials = pinyin(full, { pattern: 'first', toneType: 'none', separator: '' })
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
-    const pyNameInitials = pinyin(name, { pattern: 'first', toneType: 'none', separator: '' })
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
+    // Build pinyin search tokens (on demand if loaded)
+    const hasPinyin = pinyinReady.value && !!pinyinFn;
+    let pyInitials = '';
+    let pyNameInitials = '';
+    let syllables: string[] = [];
 
-    const syllables = (pinyin(full, { toneType: 'none', type: 'array' }) as string[])
-      .map((s) => s.toLowerCase().replace(/[^a-z0-9]/g, ''))
-      .filter(Boolean);
+    if (hasPinyin && pinyinFn) {
+      try {
+        pyInitials = pinyinFn(full, { pattern: 'first', toneType: 'none', separator: '' })
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '');
+        pyNameInitials = pinyinFn(name, { pattern: 'first', toneType: 'none', separator: '' })
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '');
+
+        syllables = (pinyinFn(full, { toneType: 'none', type: 'array' }) as string[])
+          .map((s) => s.toLowerCase().replace(/[^a-z0-9]/g, ''))
+          .filter(Boolean);
+      } catch (err) {
+        console.warn('Pinyin generation error', err);
+      }
+    }
+
     const fullPinyinStr = syllables.join('');
     const syllableStarts: number[] = [];
     let curOffset = 0;

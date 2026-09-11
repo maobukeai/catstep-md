@@ -77,6 +77,9 @@ export default defineConfig(async () => ({
           if (normalized.includes('/node_modules/opencc-js/')) {
             return 'opencc';
           }
+          if (normalized.includes('/node_modules/pinyin-pro/')) {
+            return 'pinyin';
+          }
           if (
             normalized.includes('/node_modules/html2pdf.js/') ||
             normalized.includes('/node_modules/html2canvas/') ||

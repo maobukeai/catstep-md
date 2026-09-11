@@ -10,44 +10,49 @@
  *   ASCII content sensibly.
  */
 
-// opencc-js exports are synchronous: `Converter({ from, to })` returns a
-// plain `(s: string) => string`. The library does a bit of dictionary
-// parsing on construction though, so we cache instances per direction.
-// @ts-ignore — opencc-js ships no TypeScript declarations
-import * as OpenCC from 'opencc-js';
-import { pinyin as pinyinFn } from 'pinyin-pro';
-
 type OpenCCConverter = (s: string) => string;
 
 let s2tConverter: OpenCCConverter | null = null;
 let t2sConverter: OpenCCConverter | null = null;
+let openCCModule: any = null;
 
-function getS2T(): OpenCCConverter {
-  if (!s2tConverter) {
-    // cn -> tw gives a fuller Traditional conversion (incl. phrase-level
-    // substitutions) than hk or plain `t`.
-    s2tConverter = (OpenCC as any).Converter({ from: 'cn', to: 'tw' }) as OpenCCConverter;
+async function getOpenCC(): Promise<any> {
+  if (!openCCModule) {
+    const mod = await import('opencc-js');
+    openCCModule = mod.default || mod;
   }
-  return s2tConverter;
-}
-
-function getT2S(): OpenCCConverter {
-  if (!t2sConverter) {
-    t2sConverter = (OpenCC as any).Converter({ from: 'tw', to: 'cn' }) as OpenCCConverter;
-  }
-  return t2sConverter;
+  return openCCModule;
 }
 
 /** Convert Simplified Chinese text to Traditional. Non-Chinese passes through. */
-export function simplifiedToTraditional(text: string): string {
+export async function simplifiedToTraditional(text: string): Promise<string> {
   if (!text) return '';
-  return getS2T()(text);
+  if (!s2tConverter) {
+    const OpenCC = await getOpenCC();
+    // cn -> tw gives a fuller Traditional conversion (incl. phrase-level
+    // substitutions) than hk or plain `t`.
+    s2tConverter = OpenCC.Converter({ from: 'cn', to: 'tw' }) as OpenCCConverter;
+  }
+  return s2tConverter(text);
 }
 
 /** Convert Traditional Chinese text to Simplified. Non-Chinese passes through. */
-export function traditionalToSimplified(text: string): string {
+export async function traditionalToSimplified(text: string): Promise<string> {
   if (!text) return '';
-  return getT2S()(text);
+  if (!t2sConverter) {
+    const OpenCC = await getOpenCC();
+    t2sConverter = OpenCC.Converter({ from: 'tw', to: 'cn' }) as OpenCCConverter;
+  }
+  return t2sConverter(text);
+}
+
+let pinyinProModule: typeof import('pinyin-pro') | null = null;
+
+async function getPinyinFn() {
+  if (!pinyinProModule) {
+    pinyinProModule = await import('pinyin-pro');
+  }
+  return pinyinProModule.pinyin;
 }
 
 /**
@@ -55,12 +60,13 @@ export function traditionalToSimplified(text: string): string {
  *
  * Defaults: no tone marks, lowercase, space-separated.
  */
-export function pinyin(
+export async function pinyin(
   text: string,
   opts: { tone?: boolean; separator?: string } = {}
-): string {
+): Promise<string> {
   if (!text) return '';
   const { tone = false, separator = ' ' } = opts;
+  const pinyinFn = await getPinyinFn();
   const result = pinyinFn(text, {
     toneType: tone ? 'symbol' : 'none',
     type: 'string',

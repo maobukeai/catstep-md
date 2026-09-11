@@ -12,14 +12,8 @@ import { openNewWindow } from '../lib/new-window';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { toggleFullscreen } from '../lib/fullscreen';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import {
-  simplifiedToTraditional,
-  traditionalToSimplified,
-  pinyin,
-} from '../lib/chinese';
 import { cleanAIArtifacts, stripMarkdownToPlain } from '../lib/clean-ai';
 import { openWelcomeTour } from '../lib/welcome-tour';
-import { formatMarkdown } from '../lib/markdown-format';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { useDailyNotes } from './useDailyNotes';
 import { usePandocExport } from './usePandocExport';
@@ -133,15 +127,20 @@ export function useCommands(): Command[] {
   }
 
   /** Replace the active editor's content (used for the Chinese conversion commands). */
-  function transformActive(fn: (s: string) => string, successMsg: string) {
+  async function transformActive(fn: (s: string) => string | Promise<string>, successMsg: string) {
     const tDoc = tabs.activeTab;
     if (!tDoc) {
       toasts.warning(t('toast.noActiveDoc'));
       return;
     }
-    const next = fn(tDoc.content);
-    tabs.setContent(tDoc.id, next);
-    toasts.success(successMsg);
+    try {
+      const next = await fn(tDoc.content);
+      tabs.setContent(tDoc.id, next);
+      toasts.success(successMsg);
+    } catch (e) {
+      console.error('transform failed', e);
+      toasts.error('Conversion failed');
+    }
   }
 
   function dispatchFormat(action: string, options?: any) {
@@ -295,24 +294,50 @@ export function useCommands(): Command[] {
       id: 'cn.s2t',
       title: 'Chinese: Simplified → Traditional',
       hint: 'Convert document content',
-      run: () => transformActive(simplifiedToTraditional, 'Converted to Traditional'),
+      run: async () => {
+        const tid = toasts.info('Converting to Traditional…', 0);
+        try {
+          const { simplifiedToTraditional } = await import('../lib/chinese');
+          await transformActive(simplifiedToTraditional, 'Converted to Traditional');
+        } finally {
+          toasts.dismiss(tid);
+        }
+      },
     },
     {
       id: 'cn.t2s',
       title: 'Chinese: Traditional → Simplified',
-      run: () => transformActive(traditionalToSimplified, 'Converted to Simplified'),
+      run: async () => {
+        const tid = toasts.info('Converting to Simplified…', 0);
+        try {
+          const { traditionalToSimplified } = await import('../lib/chinese');
+          await transformActive(traditionalToSimplified, 'Converted to Simplified');
+        } finally {
+          toasts.dismiss(tid);
+        }
+      },
     },
     {
       id: 'cn.copyPinyin',
       title: 'Chinese: Copy Active Document as Pinyin',
       run: async () => {
-        const t = tabs.activeTab;
-        if (!t) {
+        const tDoc = tabs.activeTab;
+        if (!tDoc) {
           toasts.warning('No active document');
           return;
         }
-        await writeText(pinyin(t.content));
-        toasts.success('Pinyin copied to clipboard');
+        const tid = toasts.info('Converting to Pinyin…', 0);
+        try {
+          const { pinyin } = await import('../lib/chinese');
+          const py = await pinyin(tDoc.content);
+          await writeText(py);
+          toasts.success('Pinyin copied to clipboard');
+        } catch (e) {
+          console.error('copy pinyin failed', e);
+          toasts.error('Pinyin conversion failed');
+        } finally {
+          toasts.dismiss(tid);
+        }
       },
     },
 
@@ -503,7 +528,9 @@ export function useCommands(): Command[] {
           toasts.warning('Format works on Markdown files only');
           return;
         }
+        const tid = toasts.info('Formatting…', 0);
         try {
+          const { formatMarkdown } = await import('../lib/markdown-format');
           const next = await formatMarkdown(t.content);
           if (next === t.content) {
             toasts.info('Already formatted');
@@ -514,6 +541,8 @@ export function useCommands(): Command[] {
         } catch (e) {
           console.error('format failed', e);
           toasts.warning('Format failed — check syntax');
+        } finally {
+          toasts.dismiss(tid);
         }
       },
     },

@@ -5,9 +5,6 @@ import { writeText, writeHtml, writeImage } from '@tauri-apps/plugin-clipboard-m
 import { Image } from '@tauri-apps/api/image';
 import { documentDir, join } from '@tauri-apps/api/path';
 import { isIOS } from '../lib/platform';
-import { markdownToDocxBlob } from '../lib/docx-export';
-import { markdownToPdfBlob } from '../lib/pdf-export';
-import { markdownToImageBlob } from '../lib/image-export';
 import { renderMarkdown, extractImageRoot } from '../lib/markdown';
 import { exportDefaultPath } from '../lib/export-paths';
 import { useI18n } from '../i18n';
@@ -434,7 +431,9 @@ export function useExport() {
     const filename = `${ctx.baseName}.docx`;
     const path = await pickWritePath(filename, [{ name: 'Word Document', extensions: ['docx'] }]);
     if (!path) return;
+    const tid = toasts.info('Generating Word document…', 0);
     try {
+      const { markdownToDocxBlob } = await import('../lib/docx-export');
       const blob = await markdownToDocxBlob(
         ctx.content,
         ctx.baseName,
@@ -445,9 +444,11 @@ export function useExport() {
       const buffer = new Uint8Array(await blob.arrayBuffer());
       // Tauri 2 serializes Uint8Array as a number array which Rust accepts as Vec<u8>.
       await invoke('write_binary_file', { path, data: Array.from(buffer) });
+      toasts.dismiss(tid);
       toasts.success(isIOS() ? iosSavedToast(filename) : 'Exported to DOCX');
     } catch (e) {
       console.error(e);
+      toasts.dismiss(tid);
       toasts.error(`DOCX export failed: ${e}`);
     }
   }
@@ -467,6 +468,7 @@ export function useExport() {
         ctx.content,
         userTouchedPdfDefaults(settings.pdfDefaults),
       );
+      const { markdownToPdfBlob } = await import('../lib/pdf-export');
       const blob = await markdownToPdfBlob(ctx.content, ctx.baseName, pdfOpts, ctx.filePath);
       const buffer = new Uint8Array(await blob.arrayBuffer());
       await invoke('write_binary_file', { path, data: Array.from(buffer) });
@@ -650,6 +652,7 @@ export function useExport() {
     if (!path) return;
     const tid = toasts.info(isSelection ? 'Generating selection image…' : 'Generating image…', 0);
     try {
+      const { markdownToImageBlob } = await import('../lib/image-export');
       const blob = await markdownToImageBlob(source, ctx.baseName, ctx.filePath, {
         branding: settings.imageExportBranding,
       });
@@ -678,6 +681,7 @@ export function useExport() {
     const isSelection = sel !== null;
     const tid = toasts.info(isSelection ? 'Capturing selection…' : 'Capturing image…', 0);
     try {
+      const { markdownToImageBlob } = await import('../lib/image-export');
       const blob = await markdownToImageBlob(source, ctx.baseName, ctx.filePath, {
         branding: settings.imageExportBranding,
       });
@@ -710,6 +714,7 @@ export function useExport() {
         const filename = `${ctx.baseName}.png`;
         const path = await pickWritePath(filename, [{ name: 'PNG Image', extensions: ['png'] }]);
         if (path) {
+          const { markdownToImageBlob } = await import('../lib/image-export');
           const blob2 = await markdownToImageBlob(source, ctx.baseName, ctx.filePath, {
             branding: settings.imageExportBranding,
           });
