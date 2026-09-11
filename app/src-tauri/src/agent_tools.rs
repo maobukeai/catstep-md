@@ -129,6 +129,7 @@ fn charge_write_cap(workspace: &Path) -> Result<(), String> {
 /// tool schema; `dispatch_tool` uses this list to validate.
 pub const READ_TOOLS: &[&str] = &[
     "list_notes",
+    "list_folders",
     "read_note",
     "search",
     "get_backlinks",
@@ -138,7 +139,17 @@ pub const READ_TOOLS: &[&str] = &[
     "autogit_diff",
     "read_agent_trace",
 ];
-pub const WRITE_TOOLS: &[&str] = &["write_note", "append_to_note", "patch_note", "delete_note", "restore_note_backup"];
+pub const WRITE_TOOLS: &[&str] = &[
+    "write_note",
+    "append_to_note",
+    "patch_note",
+    "delete_note",
+    "restore_note_backup",
+    "move_note",
+    "create_folder",
+    "delete_folder",
+    "copy_note",
+];
 
 pub fn all_tools() -> Vec<&'static str> {
     READ_TOOLS.iter().chain(WRITE_TOOLS.iter()).copied().collect()
@@ -298,6 +309,60 @@ pub fn tool_descriptor(name: &str) -> Option<(&'static str, Value)> {
                 "properties": {
                     "path": { "type": "string" },
                     "backup_path": { "type": "string" }
+                }
+            })
+        ),
+        "list_folders" => (
+            "List folders/directories in the workspace. Returns relative paths, names, and direct notes count.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "folder": { "type": "string", "description": "Optional subfolder to scope listing to." },
+                    "max_depth": { "type": "integer", "description": "Maximum depth to scan. Default 10." }
+                }
+            })
+        ),
+        "move_note" => (
+            "Move or rename a note within the workspace. Automatically creates target directory if needed. Requires --allow-write.",
+            json!({
+                "type": "object",
+                "required": ["source_path", "target_path"],
+                "properties": {
+                    "source_path": { "type": "string", "description": "Current workspace-relative path of the note to move." },
+                    "target_path": { "type": "string", "description": "Destination workspace-relative path for the note." },
+                    "overwrite": { "type": "boolean", "description": "If true, allow overwriting existing target file. Default false." }
+                }
+            })
+        ),
+        "create_folder" => (
+            "Create a new directory/folder in the workspace. Recursively creates parents. Requires --allow-write.",
+            json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": { "type": "string", "description": "Workspace-relative folder path to create." }
+                }
+            })
+        ),
+        "delete_folder" => (
+            "Move a directory and its contents to the workspace's .trash/ directory. Requires --allow-write.",
+            json!({
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": { "type": "string", "description": "Workspace-relative folder path to safely move to trash." }
+                }
+            })
+        ),
+        "copy_note" => (
+            "Copy a note to a new destination path within the workspace. Requires --allow-write.",
+            json!({
+                "type": "object",
+                "required": ["source_path", "target_path"],
+                "properties": {
+                    "source_path": { "type": "string", "description": "Source note path." },
+                    "target_path": { "type": "string", "description": "Target note path." },
+                    "overwrite": { "type": "boolean", "description": "If true, overwrite existing target note. Default false." }
                 }
             })
         ),
@@ -1334,6 +1399,211 @@ fn tool_restore_note_backup(workspace: &Path, args: &Value) -> Result<Value, Str
     }))
 }
 
+fn tool_list_folders(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let subfolder = args.get("folder").and_then(|v| v.as_str()).unwrap_or("");
+    let max_depth = args.get("max_depth").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
+    let root = if subfolder.trim().is_empty() {
+        workspace.to_path_buf()
+    } else {
+        resolve_in_workspace(workspace, subfolder)?
+    };
+
+    if !root.exists() || !root.is_dir() {
+        return Err(format!("folder not found: {}", root.display()));
+    }
+
+    let mut folders = Vec::new();
+    let walker = WalkDir::new(&root)
+        .max_depth(max_depth)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            if name.starts_with('.') || name == "node_modules" || name == "target" || name == "dist" {
+                return false;
+            }
+            true
+        });
+
+    for entry in walker.flatten() {
+        if entry.file_type().is_dir() {
+            let p = entry.path();
+            if p == workspace {
+                continue;
+            }
+            if let Ok(rel) = p.strip_prefix(workspace) {
+                let rel_str = normalize_path_str(rel);
+                let name = entry.file_name().to_string_lossy().to_string();
+
+                let mut notes_count = 0;
+                if let Ok(read_dir) = fs::read_dir(p) {
+                    for f in read_dir.flatten() {
+                        if f.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                            let fname = f.file_name().to_string_lossy().to_lowercase();
+                            if fname.ends_with(".md") || fname.ends_with(".markdown") {
+                                notes_count += 1;
+                            }
+                        }
+                    }
+                }
+
+                folders.push(json!({
+                    "path": rel_str,
+                    "name": name,
+                    "notes_count": notes_count,
+                }));
+            }
+        }
+    }
+
+    Ok(json!({ "folders": folders }))
+}
+
+fn tool_move_note(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let source_arg = args
+        .get("source_path")
+        .or_else(|| args.get("from"))
+        .and_then(|v| v.as_str())
+        .ok_or("source_path: required")?;
+    let target_arg = args
+        .get("target_path")
+        .or_else(|| args.get("to"))
+        .and_then(|v| v.as_str())
+        .ok_or("target_path: required")?;
+    let overwrite = args
+        .get("overwrite")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let src_abs = resolve_in_workspace(workspace, source_arg)?;
+    let tgt_abs = resolve_in_workspace(workspace, target_arg)?;
+
+    if !src_abs.exists() {
+        return Err(format!("source file not found: {source_arg}"));
+    }
+    if !src_abs.is_file() {
+        return Err(format!("source is not a file: {source_arg}"));
+    }
+    if tgt_abs.exists() && !overwrite {
+        return Err(format!("target file already exists: {target_arg}"));
+    }
+
+    if let Some(parent) = tgt_abs.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("create target directory: {e}"))?;
+    }
+
+    if let Err(e) = fs::rename(&src_abs, &tgt_abs) {
+        fs::copy(&src_abs, &tgt_abs).map_err(|copy_err| {
+            format!("rename failed ({e}) and fallback copy failed: {copy_err}")
+        })?;
+        let _ = fs::remove_file(&src_abs);
+    }
+
+    Ok(json!({
+        "ok": true,
+        "source_path": normalize_path_str(&src_abs),
+        "target_path": normalize_path_str(&tgt_abs),
+        "relative_source": source_arg,
+        "relative_target": target_arg,
+        "moved": true
+    }))
+}
+
+fn tool_create_folder(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let path_arg = args
+        .get("path")
+        .or_else(|| args.get("folder"))
+        .and_then(|v| v.as_str())
+        .ok_or("path: required")?;
+    let dir_abs = resolve_in_workspace(workspace, path_arg)?;
+    fs::create_dir_all(&dir_abs).map_err(|e| format!("mkdir: {e}"))?;
+
+    Ok(json!({
+        "ok": true,
+        "path": normalize_path_str(&dir_abs),
+        "relative_path": path_arg,
+        "created": true
+    }))
+}
+
+fn tool_delete_folder(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let path_arg = args
+        .get("path")
+        .or_else(|| args.get("folder"))
+        .and_then(|v| v.as_str())
+        .ok_or("path: required")?;
+    let abs = resolve_in_workspace(workspace, path_arg)?;
+    if !abs.exists() {
+        return Err(format!("folder not found: {path_arg}"));
+    }
+    if !abs.is_dir() {
+        return Err(format!("path is not a folder: {path_arg}"));
+    }
+    let canon_ws = workspace.canonicalize().map_err(|e| format!("{e}"))?;
+    let canon_dir = abs.canonicalize().map_err(|e| format!("{e}"))?;
+    if canon_dir == canon_ws {
+        return Err("cannot delete workspace root folder".into());
+    }
+
+    let trash_dir = workspace.join(".trash");
+    fs::create_dir_all(&trash_dir).map_err(|e| format!("mkdir .trash: {e}"))?;
+
+    let folder_name = abs.file_name().unwrap_or_default();
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let trash_name = format!("{}_{}", timestamp, folder_name.to_string_lossy());
+    let trash_path = trash_dir.join(trash_name);
+
+    fs::rename(&abs, &trash_path).map_err(|e| format!("move folder to trash: {e}"))?;
+
+    Ok(json!({
+        "ok": true,
+        "path": normalize_path_str(&abs),
+        "trashed_to": normalize_path_str(&trash_path),
+        "deleted": true
+    }))
+}
+
+fn tool_copy_note(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let source_arg = args
+        .get("source_path")
+        .or_else(|| args.get("from"))
+        .and_then(|v| v.as_str())
+        .ok_or("source_path: required")?;
+    let target_arg = args
+        .get("target_path")
+        .or_else(|| args.get("to"))
+        .and_then(|v| v.as_str())
+        .ok_or("target_path: required")?;
+    let overwrite = args
+        .get("overwrite")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let src_abs = resolve_in_workspace(workspace, source_arg)?;
+    let tgt_abs = resolve_in_workspace(workspace, target_arg)?;
+
+    if !src_abs.exists() || !src_abs.is_file() {
+        return Err(format!("source file not found: {source_arg}"));
+    }
+    if tgt_abs.exists() && !overwrite {
+        return Err(format!("target file already exists: {target_arg}"));
+    }
+    if let Some(parent) = tgt_abs.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("create target directory: {e}"))?;
+    }
+
+    fs::copy(&src_abs, &tgt_abs).map_err(|e| format!("copy failed: {e}"))?;
+
+    Ok(json!({
+        "ok": true,
+        "source_path": normalize_path_str(&src_abs),
+        "target_path": normalize_path_str(&tgt_abs),
+        "copied": true
+    }))
+}
+
 // ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
@@ -1371,6 +1641,7 @@ pub fn dispatch_tool_inner(workspace: &Path, tool: &str, args: Value) -> Result<
     }
     match tool {
         "list_notes" => tool_list_notes(workspace, &args),
+        "list_folders" => tool_list_folders(workspace, &args),
         "read_note" => tool_read_note(workspace, &args),
         "search" => tool_search(workspace, &args),
         "get_backlinks" => tool_get_backlinks(workspace, &args),
@@ -1383,6 +1654,10 @@ pub fn dispatch_tool_inner(workspace: &Path, tool: &str, args: Value) -> Result<
         "patch_note" => tool_patch_note(workspace, &args),
         "delete_note" => tool_delete_note(workspace, &args),
         "restore_note_backup" => tool_restore_note_backup(workspace, &args),
+        "move_note" => tool_move_note(workspace, &args),
+        "create_folder" => tool_create_folder(workspace, &args),
+        "delete_folder" => tool_delete_folder(workspace, &args),
+        "copy_note" => tool_copy_note(workspace, &args),
         "read_agent_trace" => tool_read_agent_trace(workspace, &args),
         other => Err(format!("unknown tool: {other}")),
     }
@@ -1418,6 +1693,7 @@ macro_rules! agent_tool_cmd {
 }
 
 agent_tool_cmd!(agent_tool_list_notes, "list_notes");
+agent_tool_cmd!(agent_tool_list_folders, "list_folders");
 agent_tool_cmd!(agent_tool_read_note, "read_note");
 agent_tool_cmd!(agent_tool_search, "search");
 agent_tool_cmd!(agent_tool_get_backlinks, "get_backlinks");
@@ -1430,6 +1706,10 @@ agent_tool_cmd!(agent_tool_append_to_note, "append_to_note");
 agent_tool_cmd!(agent_tool_patch_note, "patch_note");
 agent_tool_cmd!(agent_tool_delete_note, "delete_note");
 agent_tool_cmd!(agent_tool_restore_note_backup, "restore_note_backup");
+agent_tool_cmd!(agent_tool_move_note, "move_note");
+agent_tool_cmd!(agent_tool_create_folder, "create_folder");
+agent_tool_cmd!(agent_tool_delete_folder, "delete_folder");
+agent_tool_cmd!(agent_tool_copy_note, "copy_note");
 agent_tool_cmd!(agent_tool_read_agent_trace, "read_agent_trace");
 
 /// List recent agent runs by reading `<workspace>/.solomd/agent-runs/`.
@@ -1684,4 +1964,36 @@ mod tests {
         // Single-char hex suffix still ok.
         assert!(validate_run_id("20260101-000000-a").is_ok());
     }
+
+    #[test]
+    fn move_note_and_create_folder_work() {
+        let ws = make_workspace();
+        // 1. create_folder
+        let res_cf = tool_create_folder(&ws, &json!({"path": "archive/sub"})).unwrap();
+        assert_eq!(res_cf["ok"], true);
+        assert!(ws.join("archive/sub").is_dir());
+
+        // 2. move_note
+        let res_mn = tool_move_note(
+            &ws,
+            &json!({
+                "source_path": "Welcome.md",
+                "target_path": "archive/sub/Welcome_Moved.md"
+            }),
+        )
+        .unwrap();
+        assert_eq!(res_mn["ok"], true);
+        assert!(!ws.join("Welcome.md").exists());
+        assert!(ws.join("archive/sub/Welcome_Moved.md").is_file());
+
+        // 3. list_folders
+        let res_lf = tool_list_folders(&ws, &json!({})).unwrap();
+        let folders = res_lf["folders"].as_array().unwrap();
+        assert!(folders.iter().any(|f| f["name"] == "daily"));
+        assert!(folders.iter().any(|f| f["name"] == "archive"));
+        assert!(folders.iter().any(|f| f["name"] == "sub"));
+
+        let _ = fs::remove_dir_all(&ws);
+    }
 }
+

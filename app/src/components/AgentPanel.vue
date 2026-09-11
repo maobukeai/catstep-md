@@ -78,6 +78,7 @@ const quoteTooltip = ref<{ visible: boolean; x: number; y: number; text: string 
   text: '',
 });
 const hasPastUserMessage = computed(() => agent.messages.some((m) => m.role === 'user'));
+const reverts = ref<Record<string, { type: 'path' | 'content' | 'move'; data: string }>>({});
 
 // Synchronize selection tracking from editor store
 watch(
@@ -232,29 +233,17 @@ function onWindowClick(e?: MouseEvent) {
 }
 
 // --- Granular Turn & Message Actions (Stage 2) ---
-function recallLastTurn() {
+async function recallLastTurn() {
   if (agent.isStreaming) return;
-  const recalled = agent.recallLastTurn();
-  if (recalled) {
-    draft.value = recalled.content;
-    if (recalled.references && recalled.references.length) {
-      activeReferences.value = recalled.references.filter((r) => r.type !== 'selection');
+  for (let i = agent.messages.length - 1; i >= 0; i--) {
+    if (agent.messages[i].role === 'user') {
+      await recallMessage(agent.messages[i]);
+      return;
     }
-    if (recalled.images && recalled.images.length) {
-      activeImages.value = [...recalled.images];
-    }
-    if (recalled.selectionContext?.targetText) {
-      activeSelectionText.value = recalled.selectionContext.targetText;
-      isSelectionDismissed.value = false;
-    }
-    toasts.success(t('agent.msgRecallTitle'));
-    nextTick(() => {
-      inputRef.value?.focus();
-    });
   }
 }
 
-function recallMessage(msg: any) {
+async function recallMessage(msg: any) {
   if (agent.isStreaming) return;
   const msgIdx = agent.messages.findIndex((m) => m.id === msg.id);
   if (msgIdx === -1) return;
@@ -263,6 +252,21 @@ function recallMessage(msg: any) {
     const ok = window.confirm(t('agent.confirmRecallMsg') || '撤回此历史消息将清除其后的所有回复，是否继续？');
     if (!ok) return;
   }
+
+  // Automatically revert any file modifications made in the recalled turns
+  const toolsToRevert = agent.messages
+    .slice(msgIdx)
+    .filter((m) => m.role === 'tool' && m.tool?.toolCallId && reverts.value[m.tool.toolCallId]);
+
+  let revertedCount = 0;
+  for (let i = toolsToRevert.length - 1; i >= 0; i--) {
+    const toolMsg = toolsToRevert[i];
+    if (toolMsg.tool?.toolCallId) {
+      await revertToolCall(toolMsg.tool.toolCallId, toolMsg.tool.result, true);
+      revertedCount++;
+    }
+  }
+
   const content = msg.content;
   const refs = msg.references ? msg.references.filter((r: any) => r.type !== 'selection') : [];
   const imgs = msg.images ? [...msg.images] : [];
@@ -274,7 +278,12 @@ function recallMessage(msg: any) {
   draft.value = content;
   activeReferences.value = refs;
   activeImages.value = imgs;
-  toasts.success(t('agent.msgRecallTitle'));
+
+  if (revertedCount > 0) {
+    toasts.success(t('agent.msgRecalledAndReverted', { count: revertedCount }) || `已撤回提问并还原了 ${revertedCount} 处笔记修改`);
+  } else {
+    toasts.success(t('agent.msgRecallTitle'));
+  }
   nextTick(() => {
     inputRef.value?.focus();
   });
@@ -294,6 +303,19 @@ function cancelEditUserMessage() {
 async function saveAndResendUserMessage(msg: any) {
   const newContent = editingMsgContent.value.trim();
   if (!newContent || agent.isStreaming) return;
+  const msgIdx = agent.messages.findIndex((m) => m.id === msg.id);
+  if (msgIdx !== -1) {
+    const toolsToRevert = agent.messages
+      .slice(msgIdx)
+      .filter((m) => m.role === 'tool' && m.tool?.toolCallId && reverts.value[m.tool.toolCallId]);
+    for (let i = toolsToRevert.length - 1; i >= 0; i--) {
+      const toolMsg = toolsToRevert[i];
+      if (toolMsg.tool?.toolCallId) {
+        await revertToolCall(toolMsg.tool.toolCallId, toolMsg.tool.result, true);
+      }
+    }
+  }
+
   const refs = msg.references ? msg.references.filter((r: any) => r.type !== 'selection') : [];
   const imgs = msg.images ? [...msg.images] : [];
   if (msg.selectionContext?.targetText) {
@@ -326,6 +348,17 @@ async function regenerateAssistant(msg: any) {
     }
   }
   if (prevUserIdx === -1) return;
+
+  const toolsToRevert = agent.messages
+    .slice(prevUserIdx)
+    .filter((m) => m.role === 'tool' && m.tool?.toolCallId && reverts.value[m.tool.toolCallId]);
+  for (let i = toolsToRevert.length - 1; i >= 0; i--) {
+    const toolMsg = toolsToRevert[i];
+    if (toolMsg.tool?.toolCallId) {
+      await revertToolCall(toolMsg.tool.toolCallId, toolMsg.tool.result, true);
+    }
+  }
+
   const userMsg = agent.messages[prevUserIdx];
   const prompt = userMsg.content;
   const refs = userMsg.references ? userMsg.references.filter((r: any) => r.type !== 'selection') : [];
@@ -659,7 +692,15 @@ const ACTIVE_NOTE_CHAR_LIMIT = 8192;
  * snippets + active note path) before the user's message.
  */
 const SYSTEM_PROMPT =
-  'You are a helpful, professional assistant inside SoloMD, a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses. If the user asks about a specific note that is not in context, politely ask them to reference it.';
+  'You are a helpful, professional assistant inside SoloMD, a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses.\n\n' +
+  '【思考与推演规范】\n' +
+  '在思考或调用工具前，可在 <think> 与 </think> 标签中输出 1~2 句精炼的意图与推演规划（如理解需求、梳理步骤），便于用户实时了解进展。思考推演请保持简明。\n\n' +
+  '【文件与目录整理规范】\n' +
+  '当用户要求整理、归类、移动或重命名笔记时：\n' +
+  '1. 先使用 list_notes 或 search 定位目标笔记；\n' +
+  '2. 如目标文件夹不存在，使用 create_folder 创建目标文件夹；\n' +
+  '3. 使用 move_note（指定 source_path 和 target_path）移动笔记。切勿使用 read_note + write_note 重复创建副本！\n' +
+  '4. 完成后向用户汇总移动结果。';
 
 function normalizePath(p?: string | null): string {
   if (!p) return '';
@@ -1377,8 +1418,6 @@ function cleanupListeners() {
   }
 }
 
-const reverts = ref<Record<string, { type: 'path' | 'content'; data: string }>>({});
-
 function processChunkForThinking(chunk: string) {
   const last = agent.messages[agent.messages.length - 1];
   if (!last || last.role !== 'assistant') return;
@@ -1489,11 +1528,6 @@ function isThoughtExpanded(msg: any): boolean {
   if (typeof msg.thoughtExpanded === 'boolean') {
     return msg.thoughtExpanded;
   }
-  // While streaming and no main text content yet: keep expanded so user sees live thinking!
-  if (agent.isStreaming && !msg.content) {
-    return true;
-  }
-  // Once main content is generated: default to collapsed to prioritize answer reading
   return false;
 }
 
@@ -1501,21 +1535,38 @@ function toggleThoughtExpand(msg: any) {
   msg.thoughtExpanded = !isThoughtExpanded(msg);
 }
 
+function getLatestThoughtLine(thought?: string): string {
+  if (!thought) return '';
+  const clean = thought.replace(/\r\n/g, '\n').trim();
+  const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return '';
+  return lines.slice(-2).join(' · ');
+}
+
 function isFileTool(name?: string): boolean {
-  return name === 'write_note' || name === 'patch_note' || name === 'append_to_note' || name === 'delete_note';
+  return (
+    name === 'write_note' ||
+    name === 'patch_note' ||
+    name === 'append_to_note' ||
+    name === 'delete_note' ||
+    name === 'move_note' ||
+    name === 'create_folder' ||
+    name === 'delete_folder' ||
+    name === 'copy_note'
+  );
 }
 
 function getToolFileName(tool?: any): string {
-  if (!tool) return '未知笔记';
-  const p = (tool.args?.path as string) || '';
-  if (!p) return '未知笔记';
+  if (!tool) return '未知文件';
+  const p = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
+  if (!p) return '未知文件';
   const norm = p.replace(/\\/g, '/');
   return norm.split('/').pop() || norm;
 }
 
 function getToolFileRelativePath(tool?: any): string {
   if (!tool) return '';
-  return (tool.args?.path as string) || '';
+  return ((tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string);
 }
 
 interface DiffBadge {
@@ -1545,6 +1596,18 @@ function getToolDiffBadge(tool?: any): DiffBadge | null {
   if (tool.name === 'delete_note') {
     return { text: '已移入回收站', type: 'del' };
   }
+  if (tool.name === 'move_note') {
+    return { text: '移动归档', type: 'modify' };
+  }
+  if (tool.name === 'create_folder') {
+    return { text: '新建目录', type: 'add' };
+  }
+  if (tool.name === 'delete_folder') {
+    return { text: '移入回收站', type: 'del' };
+  }
+  if (tool.name === 'copy_note') {
+    return { text: '复制副本', type: 'add' };
+  }
   return null;
 }
 
@@ -1563,10 +1626,9 @@ function formatDiffLines(diffStr?: any): Array<{ type: 'add' | 'del' | 'context'
 
 async function openToolFile(tool?: any) {
   if (!tool) return;
-  const p = (tool.args?.path as string) || '';
-  if (p) {
-    await files.openPath(p, { bypassNewWindow: true });
-  }
+  const p = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
+  if (!p) return;
+  await files.openPath(p, { bypassNewWindow: true });
 }
 
 onMounted(async () => {
@@ -1693,7 +1755,30 @@ onMounted(async () => {
 
         if (!e.payload.error && e.payload.result && typeof e.payload.result === 'object') {
           const payloadResult = e.payload.result as any;
-          if (payloadResult.ok && payloadResult.path) {
+
+          // 1. Move note handling
+          if (payloadResult.ok && payloadResult.moved && payloadResult.source_path && payloadResult.target_path) {
+            reverts.value[e.payload.tool_call_id] = {
+              type: 'move',
+              data: JSON.stringify({
+                from: payloadResult.target_path,
+                to: payloadResult.source_path,
+              }),
+            };
+            const tab = tabs.tabs.find((t) => matchesTabPath(t, payloadResult.source_path));
+            if (tab && typeof tab.id === 'string') {
+              tabs.renamePath(tab.id, payloadResult.target_path);
+            }
+            window.dispatchEvent(new CustomEvent('solomd:saved'));
+          }
+
+          // 2. Folder creation / deletion handling
+          if (payloadResult.ok && (payloadResult.created || payloadResult.deleted)) {
+            window.dispatchEvent(new CustomEvent('solomd:saved'));
+          }
+
+          // 3. Write / patch note handling
+          if (payloadResult.ok && payloadResult.path && !payloadResult.moved) {
             const path = payloadResult.path;
             const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
             if (payloadResult.backup_path) {
@@ -1742,15 +1827,35 @@ onMounted(async () => {
   }
 });
 
-async function revertToolCall(toolCallId: string, toolResultStr?: string) {
+async function revertToolCall(toolCallId: string, toolResultStr?: string, silent = false) {
   const original = reverts.value[toolCallId];
   if (original === undefined) return;
   if (!toolResultStr) {
-    toasts.error('Cannot revert: missing tool result');
+    if (!silent) toasts.error('Cannot revert: missing tool result');
     return;
   }
   try {
     const resultObj = JSON.parse(toolResultStr);
+    if (original.type === 'move') {
+      const moveInfo = JSON.parse(original.data);
+      await invoke('agent_tool_move_note', {
+        workspace: workspace.currentFolder,
+        args: {
+          source_path: moveInfo.from,
+          target_path: moveInfo.to,
+          overwrite: true,
+        },
+      });
+      const tab = tabs.tabs.find((t) => matchesTabPath(t, moveInfo.from));
+      if (tab && typeof tab.id === 'string') {
+        tabs.renamePath(tab.id, moveInfo.to);
+      }
+      window.dispatchEvent(new CustomEvent('solomd:saved'));
+      if (!silent) toasts.success(t('agent.revertSuccess'));
+      delete reverts.value[toolCallId];
+      return;
+    }
+
     const path = resultObj.path;
     if (path) {
       let contentToRestore = '';
@@ -1766,11 +1871,11 @@ async function revertToolCall(toolCallId: string, toolResultStr?: string) {
       if (tab && typeof tab.id === 'string') {
         tabs.applyExternalSave(tab.id, contentToRestore);
       }
-      toasts.success(t('agent.revertSuccess'));
+      if (!silent) toasts.success(t('agent.revertSuccess'));
       delete reverts.value[toolCallId];
     }
   } catch (err) {
-    toasts.error(`Failed to revert: ${err}`);
+    if (!silent) toasts.error(`Failed to revert: ${err}`);
   }
 }
 
@@ -1858,12 +1963,23 @@ function getGroupSummaryText(tools: any[]): string {
   const names = Array.from(new Set(tools.map((m) => m.tool?.name).filter(Boolean)));
   const friendlyNames: Record<string, string> = {
     list_notes: '检索笔记',
+    list_folders: '浏览目录',
     read_note: '读取笔记',
     search: '知识库检索',
     patch_note: '局部修改',
     write_note: '写入笔记',
     append_to_note: '追加笔记',
     delete_note: '移入回收站',
+    move_note: '移动笔记',
+    create_folder: '创建目录',
+    delete_folder: '删除目录',
+    copy_note: '复制笔记',
+    get_backlinks: '反向链接检索',
+    list_tags: '标签检索',
+    get_outline: '读取大纲',
+    autogit_log: '版本记录',
+    autogit_diff: '版本差异',
+    read_agent_trace: '分析执行轨迹',
   };
   const nameLabels = names.map((n) => friendlyNames[n] || n).join('、');
   return `执行了 ${count} 项操作${nameLabels ? ` (${nameLabels})` : ''}`;
@@ -2358,31 +2474,44 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <!-- Assistant / System message -->
             <template v-else>
               <div class="agent-panel__assistant-msg">
-                <!-- Thinking Accordion -->
+                <!-- Single-line Rolling Thought Ticker -->
                 <div
                   v-if="block.msg.thought || (agent.isStreaming && block.idx === agent.messages.length - 1 && !block.msg.content)"
-                  class="agent-panel__thought-card"
+                  class="agent-panel__thought-ticker"
+                  :class="{ 'agent-panel__thought-ticker--streaming': agent.isStreaming && !block.msg.content }"
                 >
-                  <button
-                    class="agent-panel__thought-header"
-                    type="button"
+                  <div
+                    class="agent-panel__thought-ticker-main"
                     @click="toggleThoughtExpand(block.msg)"
+                    :title="block.msg.thought || '点击展开思考推演详情'"
                   >
+                    <span class="agent-panel__thought-tag">{{ t('agent.thoughtTag') }}</span>
                     <span
                       class="agent-panel__thought-dot"
                       :class="{ 'agent-panel__thought-dot--spinning': agent.isStreaming && !block.msg.content }"
                     />
-                    <span class="agent-panel__thought-title">
-                      <template v-if="agent.isStreaming && !block.msg.content">
-                        <span>{{ block.msg.thought ? '深度推演思考中…' : '正在深度思考与组织逻辑…' }}</span>
-                        <span class="agent-panel__thought-time-pill">{{ (stepElapsedMs / 1000).toFixed(1) }}s</span>
-                      </template>
-                      <template v-else>
-                        {{ block.msg.thoughtDurationMs ? `已深度思考 ${(block.msg.thoughtDurationMs / 1000).toFixed(1)} 秒` : '思考推演过程' }}
-                      </template>
+                    <div class="agent-panel__thought-ticker-track">
+                      <span v-if="block.msg.thought" class="agent-panel__thought-ticker-text">
+                        {{ getLatestThoughtLine(block.msg.thought) }}
+                      </span>
+                      <span v-else class="agent-panel__thought-ticker-placeholder">
+                        正在分析笔记内容与意图，组织思考推演…
+                      </span>
+                    </div>
+                    <span class="agent-panel__thought-time-pill" v-if="agent.isStreaming && !block.msg.content">
+                      {{ (stepElapsedMs / 1000).toFixed(1) }}s
                     </span>
-                    <span class="agent-panel__thought-caret">{{ isThoughtExpanded(block.msg) ? '收起' : '展开' }}</span>
-                  </button>
+                    <span class="agent-panel__thought-time-pill" v-else-if="block.msg.thoughtDurationMs">
+                      {{ (block.msg.thoughtDurationMs / 1000).toFixed(1) }}s
+                    </span>
+                    <button
+                      type="button"
+                      class="agent-panel__thought-toggle-btn"
+                      @click.stop="toggleThoughtExpand(block.msg)"
+                    >
+                      {{ isThoughtExpanded(block.msg) ? t('agent.thoughtCollapse') : t('agent.thoughtExpand') }}
+                    </button>
+                  </div>
                   <div v-if="isThoughtExpanded(block.msg)" class="agent-panel__thought-body">
                     <pre v-if="block.msg.thought" class="agent-panel__thought-text">{{ block.msg.thought }}<span v-if="agent.isStreaming && !block.msg.content" class="agent-panel__cursor" aria-hidden="true">▋</span></pre>
                     <div v-else class="agent-panel__thought-loading">
@@ -4267,53 +4396,102 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   max-height: 240px;
   overflow: auto;
 }
-/* --- Model Thinking Accordion ----------------------------------------- */
-.agent-panel__thought-card {
-  margin: 6px 0 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--accent, #6366f1) 6%, var(--bg-soft));
-  border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 20%, var(--border));
+/* --- Single-line Rolling Thought Ticker ------------------------------- */
+.agent-panel__thought-ticker {
+  margin: 4px 0 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 5%, var(--bg-soft));
+  border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 18%, var(--border));
+  overflow: hidden;
+  transition: border-color 0.15s ease;
 }
-.agent-panel__thought-header {
-  background: transparent;
-  border: none;
-  cursor: pointer;
+.agent-panel__thought-ticker:hover {
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 32%, var(--border));
+}
+.agent-panel__thought-ticker-main {
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 100%;
-  text-align: left;
-  padding: 0;
-  font: inherit;
+  height: 28px;
+  padding: 0 8px;
   font-size: 11.5px;
   color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
 }
-.agent-panel__thought-header:hover {
+.agent-panel__thought-ticker-main:hover {
+  background: var(--bg-hover);
   color: var(--text);
 }
-.agent-panel__thought-icon {
-  font-size: 13px;
+.agent-panel__thought-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
-.agent-panel__thought-icon--spinning {
-  display: inline-block;
-  animation: agent-thought-pulse 1.3s ease-in-out infinite;
+.agent-panel__thought-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent, #6366f1);
+  flex-shrink: 0;
+}
+.agent-panel__thought-dot--spinning {
+  animation: agent-thought-pulse 1.2s ease-in-out infinite;
 }
 @keyframes agent-thought-pulse {
-  0%, 100% { transform: scale(0.95); opacity: 0.6; }
-  50% { transform: scale(1.1); opacity: 1; }
+  0%, 100% { transform: scale(0.92); opacity: 0.55; }
+  50% { transform: scale(1.15); opacity: 1; }
 }
-.agent-panel__thought-title {
+.agent-panel__thought-ticker-track {
   flex: 1;
-  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.agent-panel__thought-caret {
-  font-size: 10px;
+.agent-panel__thought-ticker-text {
+  display: inline-block;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 11px;
   color: var(--text-muted);
 }
+.agent-panel__thought-ticker-placeholder {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.agent-panel__thought-time-pill {
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 10px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.agent-panel__thought-toggle-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 5px;
+  font: inherit;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.agent-panel__thought-toggle-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
 .agent-panel__thought-body {
-  margin-top: 6px;
-  padding-top: 6px;
+  padding: 6px 10px 8px;
   border-top: 1px dashed color-mix(in srgb, var(--accent, #6366f1) 22%, transparent);
 }
 .agent-panel__thought-text {
@@ -4335,16 +4513,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__thought-text::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
   border-radius: 4px;
-}
-.agent-panel__thought-time-pill {
-  font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 10px;
-  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
-  color: var(--accent, #6366f1);
-  border-radius: 4px;
-  padding: 1px 5px;
-  margin-left: 6px;
-  font-weight: 600;
 }
 .agent-panel__thought-loading {
   display: flex;
