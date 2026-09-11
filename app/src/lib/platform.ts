@@ -6,6 +6,9 @@
  * never match, so `isIOS()` is effectively "running inside the Tauri iOS
  * binary". `isMobile()` also catches Android (future-proofing).
  */
+export function isTauri(): boolean {
+  return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || 'isTauri' in window);
+}
 
 export function isIOS(): boolean {
   if (typeof navigator === 'undefined') return false;

@@ -113,25 +113,29 @@ export function useSessionRestore() {
   }
 
   async function maybeOfferRestore(folder: string): Promise<void> {
-    await cloud.refresh(folder);
-    if (cloud.promptedSessionFor === folder) return;
-    const sibling = cloud.freshestSibling;
-    if (!sibling) return;
-    // Only prompt if the sibling is meaningfully fresher than our local
-    // record. 60s threshold absorbs clock skew between devices.
-    if (sibling.saved_at <= lastSavedAt + 60) return;
-    cloud.markPrompted(folder);
-    window.dispatchEvent(
-      new CustomEvent('solomd:session-restore-available', {
-        detail: { folder, sibling },
-      }),
-    );
+    try {
+      await cloud.refresh(folder);
+      if (cloud.promptedSessionFor === folder) return;
+      const sibling = cloud.freshestSibling;
+      if (!sibling) return;
+      // Only prompt if the sibling is meaningfully fresher than our local
+      // record. 60s threshold absorbs clock skew between devices.
+      if (sibling.saved_at <= lastSavedAt + 60) return;
+      cloud.markPrompted(folder);
+      window.dispatchEvent(
+        new CustomEvent('solomd:session-restore-available', {
+          detail: { folder, sibling },
+        }),
+      );
+    } catch (e) {
+      console.warn('[sessionRestore] maybeOfferRestore failed:', e);
+    }
   }
 
   function start(): void {
     if (started) return;
     started = true;
-    void cloud.ensureDeviceId();
+    cloud.ensureDeviceId().catch(() => {});
 
     // Whenever the workspace changes, run the cloud probe + sibling check.
     watch(

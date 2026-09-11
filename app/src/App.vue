@@ -695,6 +695,7 @@ watchEffect(() => {
 // a rebound action must lose its old chord from the native menu, or macOS
 // keeps firing the original and the rebind only ever adds a second key.
 watchEffect(() => {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
   // Spread rather than passing the reactive object straight through: reading
   // it with `hasOwnProperty` (as nativeMenuAccelerators does) does not register
   // a dependency on a key that does not exist yet, so the first rebind of an
@@ -763,6 +764,7 @@ watchEffect(() => {
 // world, so the localhost HTTP server knows where to write captured notes
 // (or returns 503 when no folder is open).
 watchEffect(() => {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
   const folder = workspace.currentFolder;
   invoke('capture_set_workspace', { folder: folder ?? null }).catch(() => {});
   // v4.0: same dance for the public REST API server. Both endpoints share
@@ -776,6 +778,7 @@ watchEffect(() => {
 // every change. Passing null unregisters, which is what "off" has to mean for
 // a chord that would otherwise stay stolen from every other application.
 watchEffect(() => {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
   const accel = settings.quickCaptureEnabled ? settings.quickCaptureShortcut : null;
   invoke('quick_capture_set_shortcut', { accelerator: accel })
     .then(() => {
@@ -1840,6 +1843,26 @@ const showAgentPane = computed(() => !IS_APP_STORE_BUILD && settings.showAgentPa
 // no setting persisted because users don't want search living in their
 // sidebar across launches.
 const showSearchPane = computed(() => searchOpen.value);
+
+const showRightSidebar = computed(() => {
+  // Master "hide" toggle wins over individual panes — preserves which panes
+  // the user had on while still letting them dismiss the whole strip with
+  // a single action (toolbar close button / ⌥⌘B / command palette).
+  if (settings.rightSidebarHidden) return false;
+  return (
+    showSearchPane.value ||
+    showOutlinePane.value ||
+    showBacklinksPane.value ||
+    showRelationshipsPane.value ||
+    showTagsPane.value ||
+    showTasksPane.value ||
+    showNeighborhoodPane.value ||
+    showTypesPane.value ||
+    showHistoryPane.value ||
+    showInspectorPane.value ||
+    showAgentPane.value
+  );
+});
 // #168 — phone and tablet shell.
 const { isNarrow } = useViewport();
 
@@ -1918,26 +1941,6 @@ function onFocusOut(e: FocusEvent) {
     }, 150);
   }
 }
-
-const showRightSidebar = computed(() => {
-  // Master "hide" toggle wins over individual panes — preserves which panes
-  // the user had on while still letting them dismiss the whole strip with
-  // a single action (toolbar close button / ⌥⌘B / command palette).
-  if (settings.rightSidebarHidden) return false;
-  return (
-    showSearchPane.value ||
-    showOutlinePane.value ||
-    showBacklinksPane.value ||
-    showRelationshipsPane.value ||
-    showTagsPane.value ||
-    showTasksPane.value ||
-    showNeighborhoodPane.value ||
-    showTypesPane.value ||
-    showHistoryPane.value ||
-    showInspectorPane.value ||
-    showAgentPane.value
-  );
-});
 
 /**
  * #168 — which side pane, if any, is floating over the editor on a phone or compact tablet.
