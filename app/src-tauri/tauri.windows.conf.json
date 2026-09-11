@@ -1,9 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBundleCommand": null
+  },
   "app": {
     "windows": [
       {
-        "title": "SoloMD",
+        "title": "猫步 MD",
         "width": 1200,
         "height": 800,
         "minWidth": 480,

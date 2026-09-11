@@ -27,7 +27,7 @@ import { getPlainSelection } from '../lib/plain-selection';
 import BrandMark from './BrandMark.vue';
 import type { Tab } from '../types';
 
-defineProps<{ collapsed?: boolean }>();
+defineProps<{ collapsed?: boolean; mobileMode?: boolean }>();
 
 const emit = defineEmits<{
   (e: 'open-settings', section?: string): void;
@@ -2401,8 +2401,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 </script>
 
 <template>
-  <div class="agent-panel">
-    <header class="agent-panel__head">
+  <div class="agent-panel" :class="{ 'agent-panel--mobile': mobileMode }">
+    <header v-if="!mobileMode" class="agent-panel__head">
       <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
         <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
           <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -3437,6 +3437,10 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-left: 1px solid var(--border);
   overflow: hidden;
   container-type: inline-size;
+}
+.agent-panel--mobile {
+  border-left: none;
+  width: 100%;
 }
 .agent-panel__head {
   display: flex;

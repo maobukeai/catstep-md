@@ -2,6 +2,7 @@
 **/node_modules/
 **/target/
 **/dist/
+dist_release/
 
 # Tauri build artifacts
 **/src-tauri/gen/

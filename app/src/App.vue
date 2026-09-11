@@ -54,6 +54,10 @@ const AgentSetupWizard = defineAsyncComponent(() => import('./components/AgentSe
 const UnsavedDialog = defineAsyncComponent(() => import('./components/UnsavedDialog.vue'));
 const FileChangedDialog = defineAsyncComponent(() => import('./components/FileChangedDialog.vue'));
 const ImageUrlDialog = defineAsyncComponent(() => import('./components/ImageUrlDialog.vue'));
+const MobileBottomDock = defineAsyncComponent(() => import('./components/MobileBottomDock.vue'));
+const MobileOutlineSheet = defineAsyncComponent(() => import('./components/MobileOutlineSheet.vue'));
+const MobileAgentView = defineAsyncComponent(() => import('./components/MobileAgentView.vue'));
+const MobileAccessoryBar = defineAsyncComponent(() => import('./components/MobileAccessoryBar.vue'));
 
 import { useAutoCommit } from './composables/useAutoCommit';
 import { useGithubSync } from './composables/useGithubSync';
@@ -1363,6 +1367,10 @@ onMounted(async () => {
   window.addEventListener('solomd:open-help', onOpenHelpEvent as EventListener);
   window.addEventListener('solomd:open-global-search', onOpenSearchEvent as EventListener);
   window.addEventListener('solomd:open-cjk-proofread', onOpenCjkProofreadEvent as EventListener);
+  window.addEventListener('solomd:open-mobile-agent', onOpenMobileAgent);
+  window.addEventListener('solomd:open-mobile-outline', onOpenMobileOutline);
+  window.addEventListener('focusin', onFocusIn);
+  window.addEventListener('focusout', onFocusOut);
 
   track('app_launched', {
     locale: settings.language,
@@ -1739,6 +1747,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('solomd:open-help', onOpenHelpEvent as EventListener);
   window.removeEventListener('solomd:open-global-search', onOpenSearchEvent as EventListener);
   window.removeEventListener('solomd:open-cjk-proofread', onOpenCjkProofreadEvent as EventListener);
+  window.removeEventListener('solomd:open-mobile-agent', onOpenMobileAgent);
+  window.removeEventListener('solomd:open-mobile-outline', onOpenMobileOutline);
+  window.removeEventListener('focusin', onFocusIn);
+  window.removeEventListener('focusout', onFocusOut);
   window.removeEventListener('solomd:wiki-open', onWikiOpen as EventListener);
   window.removeEventListener('solomd:ai-rewrite-accept', onAIRewriteAccept as EventListener);
   window.removeEventListener('solomd:ai-rewrite-cancel', onAIRewriteCancel as EventListener);
@@ -1828,8 +1840,59 @@ const showAgentPane = computed(() => !IS_APP_STORE_BUILD && settings.showAgentPa
 // no setting persisted because users don't want search living in their
 // sidebar across launches.
 const showSearchPane = computed(() => searchOpen.value);
-// #168 — phone shell: one flag drives the CSS and the behaviour.
-const { isNarrow } = useViewport();
+// #168 — phone and tablet shell.
+const { isNarrow, isCompactTablet } = useViewport();
+
+const mobileAgentOpen = ref(false);
+const mobileOutlineOpen = ref(false);
+const isMobileEditorFocused = ref(false);
+
+function onOpenMobileAgent() {
+  mobileAgentOpen.value = true;
+}
+
+function onOpenMobileOutline() {
+  mobileOutlineOpen.value = true;
+}
+
+function onFocusIn(e: FocusEvent) {
+  if (!isNarrow.value) return;
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  if (
+    target.closest('.cm-content') ||
+    target.closest('.plain-editor') ||
+    target.closest('.cm-editor') ||
+    (target.tagName === 'TEXTAREA' && target.closest('.catstep-prose-wrap'))
+  ) {
+    isMobileEditorFocused.value = true;
+  }
+}
+
+function onFocusOut(e: FocusEvent) {
+  if (!isNarrow.value) return;
+  const related = e.relatedTarget as HTMLElement | null;
+  if (
+    !related ||
+    (!related.closest('.cm-content') &&
+      !related.closest('.plain-editor') &&
+      !related.closest('.cm-editor') &&
+      !related.closest('.mobile-accessory-bar'))
+  ) {
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (
+        !active ||
+        (!active.closest('.cm-content') &&
+          !active.closest('.plain-editor') &&
+          !active.closest('.cm-editor') &&
+          !active.closest('.mobile-accessory-bar'))
+      ) {
+        isMobileEditorFocused.value = false;
+      }
+    }, 150);
+  }
+}
 
 const showRightSidebar = computed(() => {
   // Master "hide" toggle wins over individual panes — preserves which panes
@@ -1852,15 +1915,16 @@ const showRightSidebar = computed(() => {
 });
 
 /**
- * #168 — which side pane, if any, is floating over the editor on a phone.
- * Only one at a time: two 320px drawers on a 390px screen is the "everything
- * crammed together" the report was about. The file tree wins because that's
- * the one users open on purpose.
+ * #168 — which side pane, if any, is floating over the editor on a phone or compact tablet.
+ * Only one at a time: side panes float over the editor as slide-over drawers so
+ * the editor maintains ample width.
  */
 const narrowDrawer = computed<'left' | 'right' | null>(() => {
-  if (!isNarrow.value) return null;
-  if (settings.showFileTree || settings.showViewsPanel) return 'left';
-  if (showRightSidebar.value) return 'right';
+  if (isNarrow.value || isCompactTablet.value) {
+    if (settings.showFileTree || settings.showViewsPanel) return 'left';
+    if (showRightSidebar.value) return 'right';
+    return null;
+  }
   return null;
 });
 
@@ -2136,6 +2200,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       'app--reading': settings.viewMode === 'reading',
       'app--mobile': isMobile(),
       'app--narrow': isNarrow,
+      'app--compact-tablet': isCompactTablet,
       'app--drawer-left': narrowDrawer === 'left',
       'app--drawer-right': narrowDrawer === 'right',
       'has-app-custom-bg': hasActiveBackground,
@@ -2165,6 +2230,59 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
     />
     <TelemetryBanner />
     <div class="workspace">
+        <!-- Tablet 56px Navigation Rail (640px ~ 960px) -->
+        <aside
+          v-if="isCompactTablet"
+          class="tablet-rail"
+          role="navigation"
+          aria-label="Tablet Navigation Rail"
+        >
+          <!-- 1. 文档目录 -->
+          <button
+            class="tablet-rail__btn"
+            :class="{ active: settings.showFileTree }"
+            type="button"
+            @click="settings.toggleLeftSidebar()"
+            :title="t('toolbar.fileTree')"
+          >
+            <Icon name="sidebar" :size="18" />
+          </button>
+
+          <!-- 2. 全局搜索 -->
+          <button
+            class="tablet-rail__btn"
+            type="button"
+            @click="toggleGlobalSearch()"
+            :title="t('rsPane.search')"
+          >
+            <Icon name="search" :size="18" />
+          </button>
+
+          <!-- 3. 大纲 -->
+          <button
+            class="tablet-rail__btn"
+            :class="{ active: showOutlinePane }"
+            type="button"
+            @click="ctxToggle(() => settings.toggleOutline())"
+            :title="t('toolbar.outline')"
+          >
+            <Icon name="outline" :size="18" />
+          </button>
+
+          <div class="tablet-rail__divider" />
+
+          <!-- 4. 猫步 AI 快捷助手 -->
+          <button
+            class="tablet-rail__btn tablet-rail__btn--ai"
+            :class="{ active: showAgentPane }"
+            type="button"
+            @click="ctxToggle(() => settings.toggleAgentPanel())"
+            :title="t('toolbar.aiAssistant')"
+          >
+            <div class="tablet-rail__ai-dot">✦</div>
+          </button>
+        </aside>
+
         <!-- #168 — on a phone the side panes float over the editor instead of
              stealing its width; this catches the tap that dismisses them. -->
         <div
@@ -2433,6 +2551,38 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           </template>
         </aside>
       </div>
+
+      <!-- Mobile Bottom Dock (Floating 5-action bar on mobile < 640px) -->
+      <MobileBottomDock
+        v-if="isNarrow && !mobileAgentOpen && !isMobileEditorFocused"
+        :is-ai-active="showAgentPane"
+        @open-files="settings.toggleLeftSidebar()"
+        @open-outline="mobileOutlineOpen = true"
+        @open-agent="mobileAgentOpen = true"
+        @open-search="toggleGlobalSearch()"
+        @new-file="files.newFile()"
+      />
+
+      <!-- Mobile Markdown Accessory Bar (Docked above virtual keyboard when editing) -->
+      <MobileAccessoryBar
+        v-if="isNarrow && !mobileAgentOpen && isMobileEditorFocused"
+        @dismiss="isMobileEditorFocused = false"
+      />
+
+      <!-- Mobile Outline Bottom Sheet (55% height slide-up modal) -->
+      <MobileOutlineSheet
+        :open="isNarrow && mobileOutlineOpen"
+        @close="mobileOutlineOpen = false"
+        @goto="onOutlineGoto"
+      />
+
+      <!-- Mobile Standalone AI Agent Fullscreen View (100% full screen page) -->
+      <MobileAgentView
+        v-if="isNarrow && mobileAgentOpen"
+        @close="mobileAgentOpen = false"
+        @open-settings="(sec) => openSettingsAt(sec)"
+      />
+
       <StatusBar :line="cursorLine" :col="cursorCol" :selection-text="selectionText" />
       <!-- Grid editor for the table under the caret. The pane that found the
            table supplies the write-back closure, so this stays pane-agnostic. -->
@@ -2709,6 +2859,96 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 }
 /* The editor keeps the full width underneath the drawer. */
 .app--narrow .content {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding-bottom: 60px;
+}
+.app--narrow .statusbar {
+  display: none;
+}
+
+/* Tablet 56px Navigation Rail (640px ~ 960px) */
+.tablet-rail {
+  width: 56px;
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 10px;
+  flex-shrink: 0;
+  user-select: none;
+  z-index: 25;
+}
+.tablet-rail__btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.tablet-rail__btn:hover,
+.tablet-rail__btn.active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tablet-rail__btn--ai {
+  margin-top: 4px;
+}
+.tablet-rail__ai-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  color: #ea580c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+}
+.tablet-rail__divider {
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+/* Tablet compact drawer slide-over behavior */
+.app--compact-tablet .workspace {
+  position: relative;
+}
+.app--compact-tablet .left-stack,
+.app--compact-tablet .side-sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 40;
+  width: min(80vw, 320px);
+  max-width: 80vw;
+  flex: none;
+  min-width: 0;
+  box-shadow: 0 0 28px rgba(0, 0, 0, 0.25);
+}
+.app--compact-tablet .left-stack {
+  left: 56px;
+}
+.app--compact-tablet .side-sidebar--right {
+  right: 0;
+}
+.app--compact-tablet .side-sidebar__resize,
+.app--compact-tablet .typora-sidebar__resize {
+  display: none;
+}
+.app--compact-tablet .content {
   flex: 1 1 100%;
   min-width: 0;
 }

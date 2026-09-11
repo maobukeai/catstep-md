@@ -372,6 +372,10 @@ const isAiDrawerActive = computed(() => {
 });
 
 function toggleAiDrawer() {
+  if (isNarrow.value) {
+    window.dispatchEvent(new CustomEvent('solomd:open-mobile-agent'));
+    return;
+  }
   if (isAiDrawerActive.value) {
     settings.rightSidebarHidden = true;
   } else {
@@ -732,7 +736,7 @@ onBeforeUnmount(() => {
       </button>
 
       <!-- In-app Typora Menubar (Windows/Linux/Dev) -->
-      <nav v-if="showInAppMenubar" class="menubar" data-no-drag>
+      <nav v-if="showInAppMenubar && !isNarrow" class="menubar" data-no-drag>
         <button
           v-for="name in menubarNames"
           :key="name"
@@ -1303,6 +1307,21 @@ onBeforeUnmount(() => {
   }
   .segmented-btn {
     padding: 2px 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    padding: 0 6px;
+  }
+  .toolbar__left {
+    gap: 2px;
+  }
+  .toolbar__right {
+    gap: 4px;
+  }
+  .win-controls {
+    display: none;
   }
 }
 </style>

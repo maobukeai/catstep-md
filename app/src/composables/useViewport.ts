@@ -25,54 +25,88 @@
  */
 import { onScopeDispose, readonly, ref } from 'vue';
 
-/** Below this the three-column shell stops fitting. */
-export const NARROW_BREAKPOINT_PX = 600;
+/** Below this the three-column shell stops fitting (phone viewport). */
+export const NARROW_BREAKPOINT_PX = 640;
 /** A phone held sideways: wide enough, but no vertical room. */
 export const SHORT_BREAKPOINT_PX = 480;
+/** Compact tablet (iPad portrait 768px/820px/834px) breakpoint where 56px Rail activates. */
+export const COMPACT_TABLET_BREAKPOINT_PX = 960;
+/** Expanded tablet (iPad landscape 1024px/1180px) breakpoint. */
+export const EXPANDED_TABLET_BREAKPOINT_PX = 1200;
 
-const MEDIA_QUERY =
+const MEDIA_QUERY_NARROW =
   `(max-width: ${NARROW_BREAKPOINT_PX}px), ` +
   `((max-height: ${SHORT_BREAKPOINT_PX}px) and (pointer: coarse))`;
 
-// Module-level singleton: one matchMedia listener for the whole app, and every
-// caller observes the same value.
-const narrow = ref(false);
-let mql: MediaQueryList | null = null;
+const MEDIA_QUERY_COMPACT_TABLET =
+  `(min-width: ${NARROW_BREAKPOINT_PX + 1}px) and (max-width: ${COMPACT_TABLET_BREAKPOINT_PX}px)`;
 
-/**
- * Mirrored onto <html> as well as the reactive ref: modals, dropdowns and
- * the command palette are `<Teleport>`-ed to <body>, outside the app root,
- * so a class on the app element can't reach them.
- */
-const ROOT_CLASS = 'narrow-viewport';
+const MEDIA_QUERY_TABLET =
+  `(min-width: ${NARROW_BREAKPOINT_PX + 1}px) and (max-width: ${EXPANDED_TABLET_BREAKPOINT_PX}px)`;
+
+// Module-level singletons: one listener set for the whole app
+const narrow = ref(false);
+const compactTablet = ref(false);
+const tablet = ref(false);
+const desktop = ref(false);
+
+let mqlNarrow: MediaQueryList | null = null;
+let mqlCompactTablet: MediaQueryList | null = null;
+let mqlTablet: MediaQueryList | null = null;
+
+const ROOT_CLASS_NARROW = 'narrow-viewport';
+const ROOT_CLASS_COMPACT_TABLET = 'tablet-compact';
+const ROOT_CLASS_TABLET = 'tablet-viewport';
+const ROOT_CLASS_DESKTOP = 'desktop-viewport';
 
 function evaluate(): void {
-  const next = mql?.matches ?? false;
-  narrow.value = next;
+  const isNarrowNow = mqlNarrow?.matches ?? (typeof window !== 'undefined' ? window.innerWidth <= NARROW_BREAKPOINT_PX : false);
+  const isCompactNow = mqlCompactTablet?.matches ?? (typeof window !== 'undefined' ? (window.innerWidth > NARROW_BREAKPOINT_PX && window.innerWidth <= COMPACT_TABLET_BREAKPOINT_PX) : false);
+  const isTabletNow = mqlTablet?.matches ?? (typeof window !== 'undefined' ? (window.innerWidth > NARROW_BREAKPOINT_PX && window.innerWidth <= EXPANDED_TABLET_BREAKPOINT_PX) : false);
+  const isDesktopNow = !isNarrowNow && !isTabletNow;
+
+  narrow.value = isNarrowNow;
+  compactTablet.value = isCompactNow;
+  tablet.value = isTabletNow;
+  desktop.value = isDesktopNow;
+
   if (typeof document !== 'undefined') {
-    document.documentElement.classList.toggle(ROOT_CLASS, next);
+    document.documentElement.classList.toggle(ROOT_CLASS_NARROW, isNarrowNow);
+    document.documentElement.classList.toggle(ROOT_CLASS_COMPACT_TABLET, isCompactNow);
+    document.documentElement.classList.toggle(ROOT_CLASS_TABLET, isTabletNow);
+    document.documentElement.classList.toggle(ROOT_CLASS_DESKTOP, isDesktopNow);
   }
 }
 
 function ensureWatching(): void {
-  if (mql || typeof window === 'undefined' || !window.matchMedia) return;
-  mql = window.matchMedia(MEDIA_QUERY);
+  if (mqlNarrow || typeof window === 'undefined' || !window.matchMedia) return;
+  mqlNarrow = window.matchMedia(MEDIA_QUERY_NARROW);
+  mqlCompactTablet = window.matchMedia(MEDIA_QUERY_COMPACT_TABLET);
+  mqlTablet = window.matchMedia(MEDIA_QUERY_TABLET);
+
   evaluate();
-  mql.addEventListener('change', evaluate);
+
+  mqlNarrow.addEventListener('change', evaluate);
+  mqlCompactTablet.addEventListener('change', evaluate);
+  mqlTablet.addEventListener('change', evaluate);
+  window.addEventListener('resize', evaluate);
 }
 
 ensureWatching();
 
 export function useViewport() {
   ensureWatching();
-  // Re-evaluate on mount: the media query may not have been available at
-  // module-eval time (import order in tests).
   evaluate();
   onScopeDispose(() => {
-    // The listener is shared and lives for the app's lifetime; nothing to tear
-    // down per component.
+    // Shared module lifecycle
   });
-  return { isNarrow: readonly(narrow) };
+  return {
+    isNarrow: readonly(narrow),
+    isPhone: readonly(narrow),
+    isCompactTablet: readonly(compactTablet),
+    isTablet: readonly(tablet),
+    isDesktop: readonly(desktop),
+  };
 }
 
 /** Non-reactive read, for call sites outside a component scope. */
@@ -81,3 +115,10 @@ export function isNarrowViewport(): boolean {
   evaluate();
   return narrow.value;
 }
+
+export function isCompactTabletViewport(): boolean {
+  ensureWatching();
+  evaluate();
+  return compactTablet.value;
+}
+

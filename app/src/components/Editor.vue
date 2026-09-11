@@ -2954,6 +2954,27 @@ function updateInPlaceOverlaysPlain() {
   updateInPlaceFormulaPlain(docText, caret, el, plainLineTops.value);
 }
 
+function onMoveCursor(e: Event) {
+  const delta = (e as CustomEvent).detail?.delta || 0;
+  if (!delta) return;
+  if (usePlainWindowsEditor) {
+    let el = plainLiveEnabled.value ? plainBlockEditors.value[plainActiveBlock.value] : plainEditor.value;
+    if (!el && typeof document !== 'undefined' && document.activeElement instanceof HTMLTextAreaElement) {
+      el = document.activeElement;
+    }
+    if (el) {
+      const pos = Math.max(0, Math.min(el.value.length, el.selectionStart + delta));
+      el.setSelectionRange(pos, pos);
+      el.focus();
+    }
+  } else if (view) {
+    const head = view.state.selection.main.head;
+    const pos = Math.max(0, Math.min(view.state.doc.length, head + delta));
+    view.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: true });
+    view.focus();
+  }
+}
+
 onMounted(() => {
   // Registered before the plain-editor early return below — this listener has
   // to exist on ALL three editor paths, and the CodeMirror-only setup that
@@ -2967,6 +2988,7 @@ onMounted(() => {
   window.addEventListener('keydown', onGlobalKeyDown);
   window.addEventListener('solomd:table-toolbar-show', onTableToolbarShow);
   window.addEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
+  window.addEventListener('solomd:move-cursor', onMoveCursor);
 
   if (usePlainWindowsEditor) {
     syncPlainEditorFromStore(props.tab.content);
@@ -3845,6 +3867,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onGlobalKeyDown);
   window.removeEventListener('solomd:table-toolbar-show', onTableToolbarShow);
   window.removeEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
+  window.removeEventListener('solomd:move-cursor', onMoveCursor);
   cleanupRelayout?.();
   cleanupTransformCase?.();
   cleanupTransformCase = null;
