@@ -420,7 +420,7 @@ onBeforeUnmount(() => {
           v-else-if="!streaming && !streamingError && proposed"
           class="ai-overlay__banner ai-overlay__banner--done"
         >
-          ✓ {{ t('ai.proposed') }}
+          {{ t('ai.proposed') }}
         </div>
         <div v-if="streamingError" class="ai-overlay__error">
           {{ streamingError }}

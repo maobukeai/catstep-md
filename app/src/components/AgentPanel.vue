@@ -128,32 +128,27 @@ const phaseDisplay = computed(() => {
   switch (agent.agentPhase) {
     case 'analyzing':
       return {
-        icon: '⚡',
         text: agent.agentPhaseDetail || '分析上下文与意图…',
         time: `${sec}s`,
       };
     case 'thinking':
       return {
-        icon: '💭',
         text: agent.agentPhaseDetail || '深度推演中…',
         time: `${sec}s`,
       };
     case 'calling_tool':
       return {
-        icon: '🔧',
         text: agent.agentPhaseDetail || '执行工具中…',
         time: `${sec}s`,
       };
     case 'organizing':
       return {
-        icon: '✍️',
         text: agent.agentPhaseDetail || '组织回复与整理内容…',
         time: `${sec}s`,
       };
     default:
       if (agent.isStreaming) {
         return {
-          icon: '⚡',
           text: agent.agentPhaseDetail || '处理中…',
           time: `${sec}s`,
         };
@@ -1157,7 +1152,7 @@ async function send() {
         "当前处于【只读建议模式】" + (isOllama ? "（本地 Ollama 模型）" : "") + "，你没有直接写盘修改文件的权限，因此绝对严禁在回答中声称“已为你自动修改文件”或“已自动同步到工作区”。\n" +
         "当用户要求润色或修改所选文本片段时：\n" +
         "1. 请在回复中用单个 markdown 代码块（```markdown ... ```）完整输出润色后的纯正文，严禁夹杂任何客套寒暄或修改列表在正文里；\n" +
-        "2. 代码块外面可以附带简要的修改亮点；用户可以直接点击面板上的【⚡ 替换选区】一键应用到当前选区。"
+        "2. 代码块外面可以附带简要的修改亮点；用户可以直接点击面板上的【替换选区】一键应用到当前选区。"
       );
     } else {
       systemParts.push(
@@ -1472,6 +1467,19 @@ function getToolDiffBadge(tool?: any): DiffBadge | null {
     return { text: '已移入回收站', type: 'del' };
   }
   return null;
+}
+
+function formatDiffLines(diffStr?: any): Array<{ type: 'add' | 'del' | 'context'; sign: string; text: string }> {
+  if (!diffStr || typeof diffStr !== 'string') return [];
+  return diffStr.split(/\r?\n/).map((line) => {
+    if (line.startsWith('+')) {
+      return { type: 'add', sign: '+', text: line.slice(1) };
+    }
+    if (line.startsWith('-')) {
+      return { type: 'del', sign: '-', text: line.slice(1) };
+    }
+    return { type: 'context', sign: ' ', text: line.startsWith(' ') ? line.slice(1) : line };
+  });
 }
 
 async function openToolFile(tool?: any) {
@@ -1809,6 +1817,15 @@ interface RenderBlockToolGroup {
 
 type RenderBlock = RenderBlockMessage | RenderBlockToolGroup;
 
+const shortcutHint = computed(() => {
+  const full = t('agent.enterToSend') || 'Enter 发送 · Shift+Enter 换行';
+  const parts = full.split(' · ');
+  if (parts.length >= 2) {
+    return { main: parts[0], sub: ` · ${parts[1]}` };
+  }
+  return { main: full, sub: '' };
+});
+
 const renderBlocks = computed<RenderBlock[]>(() => {
   const blocks: RenderBlock[] = [];
   let currentToolGroup: any[] = [];
@@ -1861,7 +1878,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       </div>
       <span class="agent-panel__spacer" />
 
-      <!-- Header Action Buttons: + 新建 & 🕒 历史 (with dropdown) -->
+      <!-- Header Action Buttons: 新建 & 历史 (with dropdown) -->
       <template v-if="!collapsed && stateKey === 'ready'">
         <div class="agent-panel__head-actions">
           <button
@@ -1870,8 +1887,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             title="新建会话"
             @click.stop="agent.newSession()"
           >
-            <span class="agent-panel__btn-icon">+</span>
-            <span class="agent-panel__btn-text">新建</span>
+            新建
           </button>
 
           <div class="agent-panel__history-wrap">
@@ -1881,8 +1897,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               title="会话历史记录"
               @click.stop="showHistoryDropdown = !showHistoryDropdown"
             >
-              <span class="agent-panel__btn-icon">🕒</span>
-              <span class="agent-panel__btn-text">历史</span>
+              历史
             </button>
 
             <!-- History Dropdown Menu -->
@@ -1896,7 +1911,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   type="button"
                   @click="agent.newSession(); showHistoryDropdown = false"
                 >
-                  + 新建
+                  新建
                 </button>
               </div>
 
@@ -1913,7 +1928,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   v-if="historySearchQuery"
                   class="agent-panel__history-search-clear"
                   @click.stop="historySearchQuery = ''"
-                >✕</span>
+                >×</span>
               </div>
 
               <div class="agent-panel__history-list">
@@ -1935,8 +1950,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         @keydown.esc.stop="editingSessionId = null"
                       />
                       <div class="agent-panel__history-rename-actions" @click.stop>
-                        <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">✓</button>
-                        <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">✕</button>
+                        <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">保存</button>
+                        <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">取消</button>
                       </div>
                     </template>
                     <template v-else>
@@ -1955,7 +1970,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       title="重命名会话"
                       @click="startSessionRename(s)"
                     >
-                      ✏️
+                      重命名
                     </button>
                     <button
                       class="agent-panel__history-item-btn agent-panel__history-item-btn--del"
@@ -1963,7 +1978,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       title="删除此会话"
                       @click="agent.deleteSession(s.id)"
                     >
-                      ✕
+                      删除
                     </button>
                   </div>
                 </div>
@@ -1987,16 +2002,12 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
           <button
             v-if="agent.messages.length"
-            class="agent-panel__icon-btn"
+            class="agent-panel__action-btn"
             type="button"
             :title="t('agent.clearTitle')"
             @click.stop="agent.clear()"
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 4H4.5L1 8.5 4.5 13H14a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/>
-              <line x1="11" y1="6.5" x2="7.5" y2="10.5"/>
-              <line x1="7.5" y1="6.5" x2="11" y2="10.5"/>
-            </svg>
+            清空
           </button>
         </div>
       </template>
@@ -2018,7 +2029,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
     <div v-if="stateKey === 'no-folder'" class="agent-panel__empty">
       <p>{{ t('agent.empty.noFolder') }}</p>
       <button class="agent-panel__cta agent-panel__cta--primary" type="button" @click="files.openFolder">
-        📁 {{ t('menubar.openFolder') }}
+        {{ t('menubar.openFolder') }}
       </button>
     </div>
 
@@ -2041,7 +2052,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 @click="toggleGroupExpand(block.id)"
               >
                 <div class="agent-panel__tool-group-left">
-                  <span class="agent-panel__tool-group-icon">⚡</span>
                   <span class="agent-panel__tool-group-title">{{ getGroupSummaryText(block.tools) }}</span>
                 </div>
                 <div class="agent-panel__tool-group-right">
@@ -2057,10 +2067,10 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   <div v-if="isFileTool(m.tool?.name)" class="agent-panel__file-action-card">
                     <div class="agent-panel__file-action-head">
                       <div class="agent-panel__file-action-info">
-                        <span class="agent-panel__file-action-icon">
-                          <template v-if="m.tool?.name === 'delete_note'">🗑️</template>
-                          <template v-else-if="m.tool?.name === 'patch_note'">✏️</template>
-                          <template v-else>📄</template>
+                        <span class="agent-panel__file-action-tag">
+                          <template v-if="m.tool?.name === 'delete_note'">删除</template>
+                          <template v-else-if="m.tool?.name === 'patch_note'">修改</template>
+                          <template v-else>新建</template>
                         </span>
                         <div class="agent-panel__file-action-titles">
                           <span class="agent-panel__file-action-name">{{ getToolFileName(m.tool) }}</span>
@@ -2083,7 +2093,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                           title="在编辑器中打开此笔记"
                           @click="openToolFile(m.tool)"
                         >
-                          👁 打开
+                          打开
                         </button>
                         <button
                           v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
@@ -2092,7 +2102,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                           title="撤销修改并恢复备份"
                           @click="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
                         >
-                          ↩ 撤销
+                          撤销
                         </button>
                         <button
                           class="agent-panel__action-pill agent-panel__action-pill--expand"
@@ -2107,29 +2117,32 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
                     <!-- Expanded Details (Diff / Results) -->
                     <div v-if="m.tool?.expanded" class="agent-panel__file-action-body">
-                      <div v-if="m.tool?.name === 'patch_note'" class="agent-panel__diff-preview">
-                        <div class="agent-panel__diff-section agent-panel__diff-section--del">
-                          <div class="agent-panel__diff-label">- 移除原段落</div>
-                          <pre class="agent-panel__diff-code">{{ m.tool.args.target_content }}</pre>
-                        </div>
-                        <div class="agent-panel__diff-section agent-panel__diff-section--add">
-                          <div class="agent-panel__diff-label">+ 替换新段落</div>
-                          <pre class="agent-panel__diff-code">{{ m.tool.args.replacement_content }}</pre>
+                      <!-- Render Diff If Available -->
+                      <div v-if="m.tool?.result?.diff" class="agent-panel__diff-view">
+                        <div class="agent-panel__diff-lines">
+                          <div
+                            v-for="(dLine, dIdx) in formatDiffLines(m.tool.result.diff)"
+                            :key="dIdx"
+                            class="agent-panel__diff-line"
+                            :class="`agent-panel__diff-line--${dLine.type}`"
+                          >
+                            <span class="agent-panel__diff-sign">{{ dLine.sign }}</span>
+                            <span class="agent-panel__diff-text">{{ dLine.text }}</span>
+                          </div>
                         </div>
                       </div>
-                      <div v-else-if="m.tool?.args && m.tool?.args.content" class="agent-panel__tool-section">
-                        <div class="agent-panel__tool-label">写入内容预览 (前 200 字)</div>
-                        <pre class="agent-panel__tool-pre">{{ String(m.tool.args.content).slice(0, 200) + (String(m.tool.args.content).length > 200 ? '…' : '') }}</pre>
+                      <div v-else-if="m.tool?.result?.newContent" class="agent-panel__diff-view">
+                        <div class="agent-panel__diff-preview-label">写入内容预览：</div>
+                        <pre class="agent-panel__file-preview-content">{{ m.tool.result.newContent.slice(0, 500) }}{{ m.tool.result.newContent.length > 500 ? '…' : '' }}</pre>
                       </div>
-                      <div v-if="m.tool?.error" class="agent-panel__tool-section">
-                        <div class="agent-panel__tool-label agent-panel__tool-label--err">执行错误</div>
-                        <pre class="agent-panel__tool-pre agent-panel__tool-pre--err">{{ m.tool.error }}</pre>
+                      <div v-else-if="m.tool?.error" class="agent-panel__tool-error">
+                        {{ m.tool.error }}
                       </div>
                     </div>
                   </div>
 
-                  <!-- Generic Search / Read Tool Pill -->
-                  <div v-else class="agent-panel__generic-tool-wrap">
+                  <!-- Generic Tool Item -->
+                  <div v-else class="agent-panel__tool-item">
                     <button
                       class="agent-panel__tool-head"
                       :class="{ 'agent-panel__tool-head--err': !!m.tool?.error, 'agent-panel__tool-head--pending': !m.tool?.result && !m.tool?.error }"
@@ -2138,10 +2151,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     >
                       <span class="agent-panel__tool-icon" aria-hidden="true">
                         <span v-if="!m.tool?.result && !m.tool?.error" class="agent-panel__tool-spinner" />
-                        <template v-else-if="m.tool?.error">⚠</template>
-                        <template v-else-if="m.tool?.name === 'search' || m.tool?.name === 'list_notes'">🔍</template>
-                        <template v-else-if="m.tool?.name === 'read_note'">📖</template>
-                        <template v-else>🔧</template>
+                        <span v-else-if="m.tool?.error" class="agent-panel__tool-dot agent-panel__tool-dot--err" />
+                        <span v-else class="agent-panel__tool-dot" />
                       </span>
                       <code class="agent-panel__tool-sig">{{ m.tool?.name }}({{ formatArgsInline(m.tool?.args) }})</code>
                       <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '▾' : '▸' }}</span>
@@ -2189,7 +2200,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         :title="r.preview ? r.preview : `在编辑器中打开 ${r.name}`"
                         @click="r.path && openReferencedNote(r.path)"
                       >
-                        {{ r.type === 'selection' ? '📌' : '📄' }} {{ r.name }}
+                        {{ r.type === 'selection' ? '选区: ' : '' }}{{ r.name }}
                       </button>
                     </div>
 
@@ -2215,7 +2226,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         :title="t('agent.msgEditTitle')"
                         @click="startEditUserMessage(block.msg)"
                       >
-                        ✏️ {{ t('agent.msgEdit') }}
+                        {{ t('agent.msgEdit') }}
                       </button>
                       <button
                         class="agent-panel__bubble-action-btn"
@@ -2224,7 +2235,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         :title="t('agent.msgRecallTitle')"
                         @click="recallMessage(block.msg)"
                       >
-                        ↩ {{ t('agent.msgRecall') }}
+                        {{ t('agent.msgRecall') }}
                       </button>
                       <button
                         class="agent-panel__bubble-action-btn agent-panel__bubble-action-btn--del"
@@ -2233,7 +2244,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         :title="t('agent.msgDeleteTurnTitle')"
                         @click="deleteTurn(block.msg)"
                       >
-                        🗑️ {{ t('agent.msgDeleteTurn') }}
+                        {{ t('agent.msgDeleteTurn') }}
                       </button>
                     </div>
                   </div>
@@ -2288,9 +2299,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     @click="toggleThoughtExpand(block.msg)"
                   >
                     <span
-                      class="agent-panel__thought-icon"
-                      :class="{ 'agent-panel__thought-icon--spinning': agent.isStreaming && !block.msg.content }"
-                    >💭</span>
+                      class="agent-panel__thought-dot"
+                      :class="{ 'agent-panel__thought-dot--spinning': agent.isStreaming && !block.msg.content }"
+                    />
                     <span class="agent-panel__thought-title">
                       <template v-if="agent.isStreaming && !block.msg.content">
                         <span>{{ block.msg.thought ? '深度推演思考中…' : '正在深度思考与组织逻辑…' }}</span>
@@ -2314,11 +2325,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 <!-- Content Card -->
                 <div v-if="block.msg.content" class="agent-panel__assistant-content-wrap">
                   <div class="agent-panel__assistant-head">
-                    <div class="agent-panel__assistant-avatar">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
-                      </svg>
-                    </div>
                     <span class="agent-panel__assistant-name">{{ t('agent.name') }}</span>
                     <span v-if="settings.aiModel" class="agent-panel__assistant-model">{{ settings.aiModel }}</span>
                   </div>
@@ -2347,10 +2353,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="t('agent.msgRegenerateTitle')"
                       @click="regenerateAssistant(block.msg)"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M2.5 8a5.5 5.5 0 0 1 9.4-3.9L13.5 2V6H9.5"/>
-                        <path d="M13.5 8a5.5 5.5 0 0 1-9.4 3.9L2.5 14V10H6.5"/>
-                      </svg>
                       <span>{{ t('agent.msgRegenerate') }}</span>
                     </button>
                     <button
@@ -2360,13 +2362,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="t('agent.msgCopyTitle')"
                       @click="copyAssistantMessage(block.msg.content, block.msg.id)"
                     >
-                      <svg v-if="copiedId === block.msg.id" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 9 6 12 13 4" />
-                      </svg>
-                      <svg v-else width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <rect x="5" y="5" width="8" height="8" rx="1.5" />
-                        <path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H11" />
-                      </svg>
                       <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
                     </button>
                     <button
@@ -2375,9 +2370,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="t('agent.msgQuoteTitle')"
                       @click="insertQuote(block.msg.content)"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M3 8h3l-1.5 5h-2L3 8zm7 0h3l-1.5 5h-2L10 8zM3 4h4v3H3V4zm7 0h4v3h-4V4z"/>
-                      </svg>
                       <span>{{ t('agent.msgQuote') }}</span>
                     </button>
                     <button
@@ -2388,9 +2380,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="t('agent.msgAcceptReplaceTitle')"
                       @click="applyPolishedTextToDoc(block.msg.content, getSelectionContextForMessage(block.msg))"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 9 6 12 13 4" />
-                      </svg>
                       <span>{{ t('agent.msgAcceptReplace') }}</span>
                     </button>
                     <button
@@ -2400,9 +2389,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
                       @click="insertAssistantMessage(block.msg.content)"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" />
-                      </svg>
                       <span>{{ t('agent.msgInsert') }}</span>
                     </button>
                     <button
@@ -2412,11 +2398,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="t('agent.msgSaveAsNoteTitle')"
                       @click="saveAssistantAsNote(block.msg.content)"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M14 10v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-3" />
-                        <polyline points="5 7 8 10 11 7" />
-                        <line x1="8" y1="1" x2="8" y2="10" />
-                      </svg>
                       <span>{{ t('agent.msgSaveAsNote') }}</span>
                     </button>
                     <button
@@ -2426,11 +2407,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       :title="t('agent.msgDeleteMsgTitle')"
                       @click="deleteAssistantMessage(block.msg)"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <polyline points="3 5 5 5 13 5"/>
-                        <path d="M6 5V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/>
-                        <path d="M12 5v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5"/>
-                      </svg>
                       <span>{{ t('agent.msgDelete') }}</span>
                     </button>
                   </div>
@@ -2441,11 +2417,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         </template>
       </ul>
       <div v-else class="agent-panel__welcome">
-        <div class="agent-panel__welcome-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="currentColor" fill-opacity="0.15" />
-          </svg>
-        </div>
         <h3 class="agent-panel__welcome-title">{{ t('agent.emptyTitle') }}</h3>
         <p class="agent-panel__welcome-desc">{{ t('agent.emptyDesc') }}</p>
 
@@ -2455,7 +2426,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestSummarize'))"
           >
-            <span class="agent-panel__suggestion-icon">📝</span>
             <span class="agent-panel__suggestion-text">{{ t('agent.suggestSummarize') }}</span>
           </button>
           <button
@@ -2463,7 +2433,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestTodos'))"
           >
-            <span class="agent-panel__suggestion-icon">📌</span>
             <span class="agent-panel__suggestion-text">{{ t('agent.suggestTodos') }}</span>
           </button>
           <button
@@ -2471,7 +2440,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestPolish'))"
           >
-            <span class="agent-panel__suggestion-icon">✨</span>
             <span class="agent-panel__suggestion-text">{{ t('agent.suggestPolish') }}</span>
           </button>
           <button
@@ -2479,7 +2447,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestRelated'))"
           >
-            <span class="agent-panel__suggestion-icon">🔍</span>
             <span class="agent-panel__suggestion-text">{{ t('agent.suggestRelated') }}</span>
           </button>
         </div>
@@ -2488,7 +2455,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       <!-- Live Step Progress Bar -->
       <div v-if="phaseDisplay" class="agent-panel__progress-bar">
         <span class="agent-panel__progress-spinner" />
-        <span class="agent-panel__progress-icon">{{ phaseDisplay.icon }}</span>
         <span class="agent-panel__progress-text">{{ phaseDisplay.text }}</span>
         <span class="agent-panel__progress-time">{{ phaseDisplay.time }}</span>
       </div>
@@ -2496,13 +2462,12 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       <!-- Rich Error Card with 1-Click Retry -->
       <div v-if="errorMsg" class="agent-panel__error-card">
         <div class="agent-panel__error-head">
-          <span class="agent-panel__error-icon">⚠️</span>
           <span class="agent-panel__error-title">执行异常中断</span>
         </div>
         <div class="agent-panel__error-body">{{ errorMsg }}</div>
         <div class="agent-panel__error-actions">
           <button class="agent-panel__retry-btn" type="button" @click="retryLastPrompt">
-            🔄 重新发送 / 重试本轮
+            重新发送 / 重试本轮
           </button>
         </div>
       </div>
@@ -2528,7 +2493,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               @mouseenter="mentionIndex = idx"
               @click="selectMention(item)"
             >
-              <span class="agent-panel__mention-icon">📄</span>
               <div class="agent-panel__mention-info">
                 <span class="agent-panel__mention-name">{{ item.name }}</span>
                 <span class="agent-panel__mention-path">{{ item.path }}</span>
@@ -2551,7 +2515,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__ref-badge agent-panel__ref-badge--active-note"
             :title="`当前笔记：${tabs.activeTab.filePath || tabs.activeTab.fileName}（已附带到本次对话上下文）`"
           >
-            <span class="agent-panel__ref-badge-icon">📄</span>
             <span class="agent-panel__ref-badge-name">{{ tabs.activeTab.fileName || '当前笔记' }}</span>
             <button
               class="agent-panel__ref-badge-del"
@@ -2568,7 +2531,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__ref-badge"
             :title="r.path"
           >
-            <span class="agent-panel__ref-badge-icon">📄</span>
             <span class="agent-panel__ref-badge-name">{{ r.name }}</span>
             <button class="agent-panel__ref-badge-del" type="button" @click="removeReference(r.path)">×</button>
           </span>
@@ -2579,8 +2541,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__ref-badge agent-panel__ref-badge--selection"
             :title="activeSelectionText"
           >
-            <span class="agent-panel__ref-badge-icon">📌</span>
-            <span class="agent-panel__ref-badge-name">{{ t('agent.refSelection') }} ({{ activeSelectionText.length }}字)</span>
+            <span class="agent-panel__ref-badge-name">选区 ({{ activeSelectionText.length }}字)</span>
             <button class="agent-panel__ref-badge-del" type="button" @click="isSelectionDismissed = true">×</button>
           </span>
 
@@ -2591,7 +2552,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             :title="t('agent.enableAutoWriteTip')"
             @click="settings.setAgentAllowWrite(true)"
           >
-            <span class="agent-panel__ref-tip-icon">⚡</span>
             <span>{{ t('agent.enableAutoWriteHint') }}</span>
           </button>
 
@@ -2619,7 +2579,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         ></textarea>
         <div class="agent-panel__compose-foot">
           <div class="agent-panel__compose-foot-left">
-            <!-- Segmented Mode Switch [ ✏️ 编辑 | 📖 只读 ] -->
+            <!-- Segmented Mode Switch [ 编辑 | 只读 ] -->
             <div class="agent-panel__mode-switch" :title="settings.agentAllowWrite ? '编辑模式：AI 拥有真实修改/创建笔记的物理权限' : '只读模式：AI 仅提供建议与回答，不可修改本地文件'">
               <button
                 type="button"
@@ -2627,7 +2587,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 :class="{ 'is-active': settings.agentAllowWrite }"
                 @click.stop="settings.setAgentAllowWrite(true)"
               >
-                ✏️ 编辑
+                编辑
               </button>
               <button
                 type="button"
@@ -2635,7 +2595,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 :class="{ 'is-active': !settings.agentAllowWrite }"
                 @click.stop="settings.setAgentAllowWrite(false)"
               >
-                📖 只读
+                只读
               </button>
             </div>
 
@@ -2657,7 +2617,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               :title="t('agent.includeNoteTitle')"
               @click.stop="includeActiveNote = true"
             >
-              + 附带当前笔记
+              附带当前笔记
             </button>
 
             <!-- Quick Recall Button -->
@@ -2668,7 +2628,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               :title="t('agent.msgRecallTitle')"
               @click.stop="recallLastTurn"
             >
-              ↩ {{ t('agent.msgRecall') }}
+              {{ t('agent.msgRecall') }}
             </button>
 
             <!-- Ollama local status pill -->
@@ -2683,9 +2643,12 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           </div>
 
           <div class="agent-panel__compose-foot-right">
-            <span class="agent-panel__compose-hint">
+            <span class="agent-panel__compose-hint" :title="t('agent.enterToSend')">
               <template v-if="agent.isStreaming">{{ t('agent.streaming') }}</template>
-              <template v-else>{{ t('agent.enterToSend') }}</template>
+              <template v-else>
+                <span class="agent-panel__hint-main">{{ shortcutHint.main }}</span>
+                <span v-if="shortcutHint.sub" class="agent-panel__hint-sub">{{ shortcutHint.sub }}</span>
+              </template>
             </span>
 
             <button
@@ -2722,7 +2685,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         }"
         @click.stop="insertQuote(quoteTooltip.text)"
       >
-        <span class="agent-panel__quote-icon">💬</span>
         <span>{{ t('agent.msgQuote') }}</span>
       </div>
     </Teleport>
@@ -3415,12 +3377,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__markdown-body :deep(.md-wikilink:hover) {
   background: rgba(99, 102, 241, 0.24);
 }
-.agent-panel__markdown-body :deep(.md-wikilink:before) {
-  content: '🔗';
-  font-size: 9px;
-  margin-right: 3px;
-  opacity: 0.75;
-}
 .agent-panel__markdown-body :deep(a:not(.md-wikilink)) {
   color: var(--accent, #ff9f40);
   text-decoration: underline;
@@ -3460,6 +3416,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.12s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
 }
 .agent-panel__msg-action-btn:hover:not(:disabled) {
   background: var(--bg-hover);
@@ -3933,18 +3892,25 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .agent-panel__compose-hint {
-  font-style: italic;
-  font-size: 10.5px;
+  font-style: normal;
+  font-size: 11px;
   color: var(--text-muted);
+  opacity: 0.75;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px;
-  flex-shrink: 1;
-  min-width: 0;
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+}
+.agent-panel__hint-sub {
+  opacity: 0.7;
 }
 @container (max-width: 380px) {
+  .agent-panel__hint-sub {
+    display: none;
+  }
+}
+@container (max-width: 270px) {
   .agent-panel__compose-hint {
     display: none;
   }
