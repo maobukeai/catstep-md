@@ -24,6 +24,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useFiles } from '../composables/useFiles';
 import { useI18n } from '../i18n';
 import { getPlainSelection } from '../lib/plain-selection';
+import BrandMark from './BrandMark.vue';
 import type { Tab } from '../types';
 
 defineProps<{ collapsed?: boolean }>();
@@ -1131,7 +1132,7 @@ async function send() {
   resetThinkingState();
 
   // Auto-save active note if dirty so disk content matches editor before tool calls (D06)
-  if (tabs.activeTab && tabs.activeTab.filePath && tabs.isDirty(tabs.activeTab.id)) {
+  if (tabs.activeTab && tabs.activeTab.filePath && (tabs.isDirty(tabs.activeTab.id) || tabs.activeTab.content !== tabs.activeTab.savedContent)) {
     try {
       await files.saveTab(tabs.activeTab, { silent: true });
     } catch (e) {
@@ -1669,6 +1670,9 @@ function getToolFileBaseName(tool?: any): string {
 
 function getToolActionTag(tool?: any): { label: string; icon: string; cls: string } {
   if (!tool) return { label: '操作', icon: '📝', cls: 'edit' };
+  if (tool.error) {
+    return { label: '操作失败', icon: '❌', cls: 'err' };
+  }
   switch (tool.name) {
     case 'patch_note':
       return { label: '已编辑', icon: '✏️', cls: 'edit' };
@@ -1692,8 +1696,9 @@ function getToolActionTag(tool?: any): { label: string; icon: string; cls: strin
 }
 
 function getToolDiffCounts(tool?: any): { add: number; del: number } | null {
-  if (!tool) return null;
+  if (!tool || tool.error) return null;
   const res = getToolResultData(tool);
+  if (!res) return null;
   if (tool.name === 'patch_note') {
     const add = typeof res?.added_count === 'number' ? res.added_count : ((tool.args?.replacement_content as string) || '').split(/\r?\n/).length;
     const del = typeof res?.deleted_count === 'number' ? res.deleted_count : ((tool.args?.target_content as string) || '').split(/\r?\n/).length;
@@ -1836,7 +1841,17 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
   if (!targetPath) return;
 
   // 1. Activate or open the tab containing the file
-  await files.openPath(targetPath, { bypassNewWindow: true });
+  const existingTab = tabs.tabs.find((t) => matchesTabPath(t, targetPath)) ||
+    (tabs.activeTab && matchesTabPath(tabs.activeTab, targetPath) ? tabs.activeTab : undefined);
+  if (existingTab && typeof existingTab.id === 'string') {
+    tabs.activate(existingTab.id);
+  } else {
+    let fullPath = targetPath;
+    if (workspace.currentFolder && !targetPath.includes(':') && !targetPath.startsWith('/') && !targetPath.startsWith('\\')) {
+      fullPath = `${workspace.currentFolder.replace(/[\\/]+$/, '')}/${targetPath.replace(/^[\\/]+/, '')}`;
+    }
+    await files.openPath(fullPath, { bypassNewWindow: true });
+  }
 
   // 2. Determine target line number and full line range
   const resultData = getToolResultData(tool);
@@ -1911,10 +1926,14 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
     );
   };
 
-  // Immediate dispatch for already-active editor, and staggered dispatch if editor is mounting
-  doDispatch();
-  setTimeout(doDispatch, 120);
-  setTimeout(doDispatch, 320);
+  // Immediate dispatch if tab is already active; staggered dispatch if editor is mounting/switching
+  if (existingTab && typeof existingTab.id === 'string' && tabs.activeId === existingTab.id) {
+    doDispatch();
+  } else {
+    doDispatch();
+    setTimeout(doDispatch, 120);
+    setTimeout(doDispatch, 320);
+  }
 }
 
 onMounted(async () => {
@@ -2244,9 +2263,11 @@ function isGroupExpanded(groupId: string, tools?: any[]): boolean {
   if (typeof expandedToolGroups.value[groupId] === 'boolean') {
     return expandedToolGroups.value[groupId];
   }
-  if (tools && tools.some((t: any) => isFileTool(t.tool?.name))) {
+  // While running, keep expanded so user can observe execution
+  if (tools && tools.some((t: any) => !t.tool?.result && !t.tool?.error)) {
     return true;
   }
+  // Once completed, default to collapsed as requested ("而且修改完自动收起")
   return false;
 }
 
@@ -3049,7 +3070,20 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         </template>
       </ul>
       <div v-else class="agent-panel__welcome">
-        <h3 class="agent-panel__welcome-title">{{ t('agent.emptyTitle') }}</h3>
+        <div class="agent-panel__welcome-avatar-wrap">
+          <div class="agent-panel__welcome-avatar-halo" />
+          <div class="agent-panel__welcome-avatar">
+            <BrandMark :size="44" class="agent-panel__welcome-brand" label="猫步智能体" />
+          </div>
+          <span class="agent-panel__welcome-status-badge" :title="settings.aiProvider ? `已连接: ${settings.aiProvider}` : '就绪'">
+            <span class="agent-panel__welcome-status-dot" />
+          </span>
+        </div>
+
+        <div class="agent-panel__welcome-title-row">
+          <h3 class="agent-panel__welcome-title">{{ t('agent.emptyTitle') }}</h3>
+          <span class="agent-panel__welcome-badge">{{ t('agent.welcomeBadge') || '智能伴侣' }}</span>
+        </div>
         <p class="agent-panel__welcome-desc">{{ t('agent.emptyDesc') }}</p>
 
         <div class="agent-panel__suggestions">
@@ -3058,29 +3092,100 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestSummarize'))"
           >
-            <span class="agent-panel__suggestion-text">{{ t('agent.suggestSummarize') }}</span>
+            <div class="agent-panel__suggestion-icon-box agent-panel__suggestion-icon-box--summarize">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="10 9 9 9 8 9" />
+              </svg>
+            </div>
+            <div class="agent-panel__suggestion-content">
+              <span class="agent-panel__suggestion-text">{{ t('agent.suggestSummarize') }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestSummarizeSub') || '快速梳理大纲与核心观点' }}</span>
+            </div>
+            <span class="agent-panel__suggestion-arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 3l5 5-5 5" />
+              </svg>
+            </span>
           </button>
+
           <button
             class="agent-panel__suggestion-pill"
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestTodos'))"
           >
-            <span class="agent-panel__suggestion-text">{{ t('agent.suggestTodos') }}</span>
+            <div class="agent-panel__suggestion-icon-box agent-panel__suggestion-icon-box--todos">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 11 12 14 22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+            </div>
+            <div class="agent-panel__suggestion-content">
+              <span class="agent-panel__suggestion-text">{{ t('agent.suggestTodos') }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestTodosSub') || '梳理待办任务与行动项' }}</span>
+            </div>
+            <span class="agent-panel__suggestion-arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 3l5 5-5 5" />
+              </svg>
+            </span>
           </button>
+
           <button
             class="agent-panel__suggestion-pill"
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestPolish'))"
           >
-            <span class="agent-panel__suggestion-text">{{ t('agent.suggestPolish') }}</span>
+            <div class="agent-panel__suggestion-icon-box agent-panel__suggestion-icon-box--polish">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
+              </svg>
+            </div>
+            <div class="agent-panel__suggestion-content">
+              <span class="agent-panel__suggestion-text">{{ t('agent.suggestPolish') }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestPolishSub') || '精修文笔、去AI味、理顺逻辑' }}</span>
+            </div>
+            <span class="agent-panel__suggestion-arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 3l5 5-5 5" />
+              </svg>
+            </span>
           </button>
+
           <button
             class="agent-panel__suggestion-pill"
             type="button"
             @click="applyPromptSuggestion(t('agent.suggestRelated'))"
           >
-            <span class="agent-panel__suggestion-text">{{ t('agent.suggestRelated') }}</span>
+            <div class="agent-panel__suggestion-icon-box agent-panel__suggestion-icon-box--related">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+            </div>
+            <div class="agent-panel__suggestion-content">
+              <span class="agent-panel__suggestion-text">{{ t('agent.suggestRelated') }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestRelatedSub') || '跨笔记关联发掘灵感脉络' }}</span>
+            </div>
+            <span class="agent-panel__suggestion-arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 3l5 5-5 5" />
+              </svg>
+            </span>
           </button>
+        </div>
+
+        <div class="agent-panel__welcome-footer">
+          <span class="agent-panel__welcome-hint">
+            <span class="agent-panel__hint-icon">💡</span>
+            <span class="agent-panel__hint-text">{{ t('agent.welcomeHint') || '输入 @ 引用笔记 · 选中文本自动附加上下文' }}</span>
+          </span>
         </div>
       </div>
 
@@ -4187,7 +4292,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__welcome {
   flex: 1;
   min-height: 0;
-  padding: 24px 16px;
+  padding: 32px 18px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4197,75 +4302,249 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   overflow-x: hidden;
   box-sizing: border-box;
 }
-.agent-panel__welcome-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent, #ff9f40) 14%, transparent);
-  color: var(--accent, #ff9f40);
+
+.agent-panel__welcome-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.agent-panel__welcome-avatar-halo {
+  position: absolute;
+  inset: -6px;
+  border-radius: 20px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent, #ff9f40) 24%, transparent) 0%, transparent 70%);
+  filter: blur(8px);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.agent-panel__welcome-avatar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
+  padding: 3px;
+  border-radius: 16px;
+  background: var(--bg-elev);
+  border: 1px solid color-mix(in srgb, var(--accent, #ff9f40) 25%, var(--border));
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
+
+.agent-panel__welcome-brand {
+  border-radius: 12px;
+}
+
+.agent-panel__welcome-status-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.agent-panel__welcome-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  animation: agent-status-pulse 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes agent-status-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.agent-panel__welcome-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .agent-panel__welcome-title {
-  margin: 0 0 6px 0;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--text);
+  letter-spacing: -0.01em;
 }
+
+.agent-panel__welcome-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #ff9f40) 12%, transparent);
+  color: var(--accent, #ff9f40);
+  border: 1px solid color-mix(in srgb, var(--accent, #ff9f40) 24%, transparent);
+  line-height: 1.4;
+}
+
 .agent-panel__welcome-desc {
-  margin: 0 0 18px 0;
-  font-size: 12px;
-  line-height: 1.55;
+  margin: 0 0 20px 0;
+  font-size: 12.5px;
+  line-height: 1.6;
   color: var(--text-muted);
-  max-width: 280px;
+  max-width: 320px;
 }
+
 .agent-panel__suggestions {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 9px;
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
   box-sizing: border-box;
 }
+
 .agent-panel__suggestion-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 12px;
+  padding: 10px 13px;
   font: inherit;
-  font-size: 12px;
   color: var(--text);
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   width: 100%;
   box-sizing: border-box;
   min-width: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
+
 .agent-panel__suggestion-pill:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent, #ff9f40);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  background: var(--bg-hover, color-mix(in srgb, var(--accent, #ff9f40) 5%, var(--bg-elev)));
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 45%, var(--border));
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px -3px rgba(0, 0, 0, 0.08), 0 0 0 1px color-mix(in srgb, var(--accent, #ff9f40) 20%, transparent);
 }
-.agent-panel__suggestion-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-  line-height: 1;
-  display: inline-flex;
+
+.agent-panel__suggestion-pill:active {
+  transform: scale(0.985) translateY(0);
+}
+
+.agent-panel__suggestion-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
 }
-.agent-panel__suggestion-text {
+
+.agent-panel__suggestion-pill:hover .agent-panel__suggestion-icon-box {
+  transform: scale(1.06);
+}
+
+.agent-panel__suggestion-icon-box--summarize {
+  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: #3b82f6;
+}
+
+.agent-panel__suggestion-icon-box--todos {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+}
+
+.agent-panel__suggestion-icon-box--polish {
+  background: color-mix(in srgb, var(--accent, #ff9f40) 16%, transparent);
+  color: var(--accent, #ff9f40);
+}
+
+.agent-panel__suggestion-icon-box--related {
+  background: color-mix(in srgb, #8b5cf6 14%, transparent);
+  color: #8b5cf6;
+}
+
+.agent-panel__suggestion-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agent-panel__suggestion-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.agent-panel__suggestion-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-panel__suggestion-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.35;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.agent-panel__suggestion-pill:hover .agent-panel__suggestion-arrow {
+  opacity: 1;
+  color: var(--accent, #ff9f40);
+  transform: translateX(2px);
+}
+
+.agent-panel__welcome-footer {
+  margin-top: 20px;
+}
+
+.agent-panel__welcome-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.agent-panel__hint-icon {
+  font-size: 12px;
+  line-height: 1;
 }
 
 /* --- Compose Area ------------------------------------------------------ */
@@ -5039,7 +5318,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: #3b82f6;
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
-.agent-panel__file-action-tag--delete {
+.agent-panel__file-action-tag--delete,
+.agent-panel__file-action-tag--err {
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
   border: 1px solid rgba(239, 68, 68, 0.3);

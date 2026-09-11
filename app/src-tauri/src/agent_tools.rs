@@ -1256,6 +1256,42 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
     }))
 }
 
+fn clean_line_for_fuzzy_match(s: &str) -> String {
+    let cleaned: String = s
+        .chars()
+        .filter(|c| !['\u{FFFD}', '\u{FEFF}', '\u{200B}', '\u{200C}', '\u{200D}'].contains(c))
+        .collect();
+    let with_norm_spaces = cleaned.replace('\u{A0}', " ");
+    let parts: Vec<&str> = with_norm_spaces.split_whitespace().collect();
+    parts.join(" ")
+}
+
+fn lines_are_fuzzy_equal(a: &str, b: &str) -> bool {
+    let ca = clean_line_for_fuzzy_match(a);
+    let cb = clean_line_for_fuzzy_match(b);
+    if ca == cb {
+        return true;
+    }
+    if ca.is_empty() && cb.is_empty() {
+        return true;
+    }
+    if !ca.is_empty() && !cb.is_empty() {
+        let trim_heading_a = ca.trim_start_matches('#').trim();
+        let trim_heading_b = cb.trim_start_matches('#').trim();
+        if !trim_heading_a.is_empty() && trim_heading_a == trim_heading_b {
+            return true;
+        }
+        if ca.contains(&cb) || cb.contains(&ca) {
+            let min_len = ca.len().min(cb.len());
+            let max_len = ca.len().max(cb.len());
+            if min_len as f64 / max_len as f64 >= 0.7 {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     let path_arg = args
         .get("path")
@@ -1362,7 +1398,7 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
             for i in 0..=(orig_lines.len() - clean_target.len()) {
                 let mut matched = true;
                 for (k, t_line) in clean_target.iter().enumerate() {
-                    if orig_lines[i + k].trim() != t_line.trim() {
+                    if !lines_are_fuzzy_equal(orig_lines[i + k], t_line) {
                         matched = false;
                         break;
                     }
@@ -1377,6 +1413,73 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
             }
             if match_starts.len() == 1 {
                 let (start_idx, end_idx) = match_starts[0];
+                start_line = start_idx + 1;
+                let mut new_lines = Vec::new();
+                for line in &orig_lines[..start_idx] {
+                    new_lines.push(line.to_string());
+                }
+                let repl_lf = replacement.replace("\r\n", "\n");
+                for line in repl_lf.split('\n') {
+                    new_lines.push(line.to_string());
+                }
+                for line in &orig_lines[end_idx..] {
+                    new_lines.push(line.to_string());
+                }
+                let mut mod_lf = new_lines.join("\n");
+                if has_crlf {
+                    mod_lf = mod_lf.replace('\n', "\r\n");
+                }
+                modified = mod_lf;
+                matches = 1;
+            }
+        }
+    }
+
+    // Tier 5: Anchor & High-Similarity Sequence Match (for blocks where >=75% of lines match, resilient against minor garbled/unicode/markdown shifts)
+    if matches == 0 {
+        let orig_lf = original.replace("\r\n", "\n");
+        let orig_lines: Vec<&str> = orig_lf.split('\n').collect();
+        let target_lf = target.replace("\r\n", "\n");
+        let target_lines: Vec<&str> = target_lf.split('\n').collect();
+
+        let mut t_start = 0;
+        while t_start < target_lines.len() && target_lines[t_start].trim().is_empty() {
+            t_start += 1;
+        }
+        let mut t_end = target_lines.len();
+        while t_end > t_start && target_lines[t_end - 1].trim().is_empty() {
+            t_end -= 1;
+        }
+        let clean_target = &target_lines[t_start..t_end];
+
+        if clean_target.len() >= 2 && orig_lines.len() >= clean_target.len() {
+            let mut match_candidates: Vec<(usize, usize, usize)> = Vec::new(); // (start, end, matched_count)
+            for i in 0..=(orig_lines.len() - clean_target.len()) {
+                let start_ok = lines_are_fuzzy_equal(orig_lines[i], clean_target[0]);
+                let end_ok = lines_are_fuzzy_equal(orig_lines[i + clean_target.len() - 1], clean_target[clean_target.len() - 1]);
+                if start_ok || end_ok {
+                    let mut matched_count = 0;
+                    for (k, t_line) in clean_target.iter().enumerate() {
+                        if lines_are_fuzzy_equal(orig_lines[i + k], t_line) {
+                            matched_count += 1;
+                        }
+                    }
+                    if matched_count * 4 >= clean_target.len() * 3 {
+                        match_candidates.push((i, i + clean_target.len(), matched_count));
+                    }
+                }
+            }
+
+            if match_candidates.len() > 1 && !allow_multiple {
+                match_candidates.sort_by(|a, b| b.2.cmp(&a.2));
+                if match_candidates[0].2 > match_candidates[1].2 {
+                    match_candidates.truncate(1);
+                } else {
+                    return Err("target_content matches multiple locations (fuzzy). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+                }
+            }
+            if match_candidates.len() == 1 {
+                let (start_idx, end_idx, _) = match_candidates[0];
                 start_line = start_idx + 1;
                 let mut new_lines = Vec::new();
                 for line in &orig_lines[..start_idx] {
@@ -2153,6 +2256,31 @@ mod tests {
         assert_eq!(res2["ok"], true);
         let updated2 = fs::read_to_string(&sub_file).unwrap();
         assert!(updated2.contains("Line Modified"));
+
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn patch_note_fuzzy_unicode_and_heading_mismatch() {
+        let ws = make_workspace();
+        let test_file = ws.join("Blender 入门笔记.md");
+        let content_on_disk = "# 标题\n\n## ## 一、 界面与基础操作\n\n- **平移视图**：\u{FFFD}\u{FFFD}\u{FFFD}Shift` + 鼠标中键动，或 `Shift` + 鼠标左右键。\n- **旋转视图**：按住鼠标中键并移动。\n\n## 二、 其他操作\n";
+        fs::write(&test_file, content_on_disk).unwrap();
+
+        let clean_target = "## 一、 界面与基础操作\n\n- **平移视图**：`Shift` + 鼠标中键动，或 `Shift` + 鼠标左右键。\n- **旋转视图**：按住鼠标中键并移动。";
+        let replacement = "## 一、 界面与基础操作\n\n- **平移**：`Shift` + 中键\n- **旋转**：中键拖拽";
+
+        let res = tool_patch_note(&ws, &json!({
+            "path": "Blender 入门笔记.md",
+            "target_content": clean_target,
+            "replacement_content": replacement
+        })).unwrap();
+
+        assert_eq!(res["ok"], true);
+        assert_eq!(res["matches_replaced"], 1);
+        let updated = fs::read_to_string(&test_file).unwrap();
+        assert!(updated.contains("- **平移**：`Shift` + 中键"));
+        assert!(updated.contains("## 二、 其他操作"));
 
         let _ = fs::remove_dir_all(&ws);
     }

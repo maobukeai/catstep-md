@@ -1169,8 +1169,35 @@ function focusPlainEditor() {
 }
 
 function syncPlainEditorFromStore(text: string, preserveCaret = false) {
-  const el = plainEditor.value;
   plainText.value = text;
+  if (plainLiveEnabled.value) {
+    nextTick(() => {
+      const activeIdx = plainActiveBlock.value;
+      if (activeIdx >= 0 && plainBlockEditors.value[activeIdx]) {
+        const block = plainBlocks.value[activeIdx];
+        const blockEl = plainBlockEditors.value[activeIdx];
+        if (blockEl && block && blockEl.value !== block.text) {
+          const hadFocus = document.activeElement === blockEl;
+          const from = blockEl.selectionStart;
+          const to = blockEl.selectionEnd;
+          blockEl.value = block.text;
+          autoSizePlainBlock(blockEl);
+          if (preserveCaret) {
+            const a = Math.min(from ?? 0, block.text.length);
+            const b = Math.min(to ?? a, block.text.length);
+            try { blockEl.setSelectionRange(a, b); } catch {}
+            if (hadFocus && document.activeElement !== blockEl) blockEl.focus();
+          }
+        }
+      }
+      void processPlainLiveRenderedBlocks();
+      emitPlainCursorAndSelection();
+      syncPlainLiveScroll();
+      schedulePlainGutter();
+    });
+    return;
+  }
+  const el = plainEditor.value;
   if (!el) {
     // #281 — the flat textarea may not exist *yet*. Watchers run before Vue
     // patches the DOM, so a tab switch that also flips `plainLiveEnabled`
@@ -2121,6 +2148,11 @@ function activatePlainBlock(index: number, caret?: number, selectionEnd?: number
   nextTick(() => {
     const el = plainBlockEditors.value[plainActiveBlock.value];
     if (!el) return;
+    const block = plainBlocks.value[plainActiveBlock.value];
+    if (block && el.value !== block.text) {
+      el.value = block.text;
+      autoSizePlainBlock(el);
+    }
     el.focus();
     if (caret != null) {
       const pos = Math.max(0, Math.min(caret, el.value.length));
@@ -3080,6 +3112,7 @@ let isDraggingSelection = false;
 let spotlightTimer: any = null;
 let pulseTimer: any = null;
 let agentJumpTimer: any = null;
+let suppressSelectionBubbleUntil = 0;
 
 function clearAgentJumpSpotlight() {
   if (agentJumpTimer) {
@@ -3104,7 +3137,7 @@ const selectionBubbleState = ref<{
 });
 
 function updateSelectionBubble(cmView: EditorView) {
-  if (isDraggingSelection || cmView.composing || props.tab.language !== 'markdown') {
+  if (isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3145,7 +3178,7 @@ function updateSelectionBubble(cmView: EditorView) {
 }
 
 function updateSelectionBubblePlain() {
-  if (isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown') {
+  if (isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -4279,6 +4312,10 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
         plainScrollToLine(safeLine);
       }
       if (isProofread || isAgentJump) {
+        if (isAgentJump) {
+          suppressSelectionBubbleUntil = Date.now() + 2500;
+          selectionBubbleState.value.visible = false;
+        }
         triggerJumpPulse();
       }
       return;
@@ -4294,6 +4331,10 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
       plainScrollToLine(safeLine);
     }
     if (isProofread || isAgentJump) {
+      if (isAgentJump) {
+        suppressSelectionBubbleUntil = Date.now() + 2500;
+        selectionBubbleState.value.visible = false;
+      }
       triggerJumpPulse();
     }
     return;
@@ -4421,13 +4462,14 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   ];
 
   if (isAgentJump) {
+    suppressSelectionBubbleUntil = Date.now() + 2500;
+    selectionBubbleState.value.visible = false;
     effects.push(setSpotlightEffect.of(null));
-    effects.push(setAgentJumpEffect.of({ from: finalFrom, to: finalTo }));
-    if (agentJumpTimer) clearTimeout(agentJumpTimer);
-    agentJumpTimer = setTimeout(() => {
-      view?.dispatch({ effects: setAgentJumpEffect.of(null) });
+    effects.push(setAgentJumpEffect.of(null));
+    if (agentJumpTimer) {
+      clearTimeout(agentJumpTimer);
       agentJumpTimer = null;
-    }, 2500);
+    }
   } else if (isProofread) {
     effects.push(setAgentJumpEffect.of(null));
     effects.push(setSpotlightEffect.of({ from: finalFrom, to: finalTo }));
@@ -5516,7 +5558,7 @@ const cls = computed(() => ({
   animation: cmLineGlow 1.2s ease-out;
 }
 :deep(.cm-editor.cm-jump-pulse .cm-selectionBackground) {
-  animation: cmSelGlow 1.2s ease-out;
+  animation: cmSelGlow 1.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes cmLineGlow {
   0% {
@@ -5531,36 +5573,21 @@ const cls = computed(() => ({
 }
 @keyframes cmSelGlow {
   0% {
-    box-shadow: 0 0 0 2px var(--accent, #6366f1), 0 0 12px rgba(99, 102, 241, 0.5);
+    background-color: color-mix(in srgb, var(--accent, #6366f1) 38%, transparent) !important;
   }
-  60% {
-    box-shadow: 0 0 0 1px var(--accent, #6366f1), 0 0 6px rgba(99, 102, 241, 0.25);
+  50% {
+    background-color: color-mix(in srgb, var(--accent, #6366f1) 26%, transparent) !important;
   }
   100% {
-    box-shadow: none;
+    background-color: var(--selection-bg, rgba(56, 139, 253, 0.22)) !important;
   }
 }
 
-/* Elegant Breathing Glow for AI Agent Modification Navigation (NO warning badges!) */
+/* Elegant Breathing Glow for AI Agent Modification Navigation (Clean, zero borders/pills) */
 :deep(.cm-agent-jump-spotlight) {
-  background: rgba(16, 185, 129, 0.2) !important;
-  box-shadow: 0 0 0 1.5px rgba(16, 185, 129, 0.5), 0 0 14px rgba(16, 185, 129, 0.28) !important;
-  border-radius: 4px;
-  animation: agentJumpFade 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-@keyframes agentJumpFade {
-  0% {
-    background: rgba(16, 185, 129, 0.35);
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.65), 0 0 16px rgba(16, 185, 129, 0.4);
-  }
-  65% {
-    background: rgba(16, 185, 129, 0.15);
-    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3), 0 0 8px rgba(16, 185, 129, 0.2);
-  }
-  100% {
-    background: transparent;
-    box-shadow: none;
-  }
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
 }
 
 /* High-visibility Spotlight Beacon for Proofreading and Navigation */

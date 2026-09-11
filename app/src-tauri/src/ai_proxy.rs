@@ -1912,19 +1912,27 @@ pub async fn run_chat_anthropic_loop(
 
     let tools = build_anthropic_tools(req);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
+    let empty_tools = serde_json::json!([]);
+    let mut has_written_note = false;
+    let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
 
     for iter in 0..cap {
         if cancel.load(Ordering::SeqCst) {
             return Err(cancelled());
         }
+        let current_tools = if has_written_note {
+            &empty_tools
+        } else {
+            &tools
+        };
         if let Some(rh) = &run_handle {
             let _ = rh.append_trace(TraceStep {
                 kind: "model_call".to_string(),
                 provider: Some("anthropic".to_string()),
                 model: Some(req.model.clone()),
                 messages_n: Some(history.len() as u64),
-                tools_n: Some(tools_n),
+                tools_n: Some(if has_written_note { 0 } else { tools_n }),
                 ..Default::default()
             });
         }
@@ -1935,7 +1943,7 @@ pub async fn run_chat_anthropic_loop(
             api_key,
             &system_str,
             &history,
-            &tools,
+            current_tools,
             cancel.clone(),
         )
         .await?;
@@ -2029,6 +2037,16 @@ pub async fn run_chat_anthropic_loop(
                     (Value::String(err.clone()), Some(err))
                 }
             };
+            if name == "patch_note" || name == "write_note" || name == "append_to_note" {
+                if error_str.is_none() {
+                    has_written_note = true;
+                } else {
+                    write_fail_count += 1;
+                    if write_fail_count >= 2 {
+                        has_written_note = true;
+                    }
+                }
+            }
             let preview = json_preview(&result_value);
             // Emit tool-result event.
             let _ = app.emit(
@@ -2371,6 +2389,9 @@ pub async fn run_chat_openai_loop(
 
     let tools = build_openai_tools(req);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
+    let empty_tools = serde_json::json!([]);
+    let mut has_written_note = false;
+    let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     let mut last_tool_sig: Option<String> = None;
     let mut consecutive_duplicate_count: u32 = 0;
@@ -2379,13 +2400,18 @@ pub async fn run_chat_openai_loop(
         if cancel.load(Ordering::SeqCst) {
             return Err(cancelled());
         }
+        let current_tools = if has_written_note {
+            &empty_tools
+        } else {
+            &tools
+        };
         if let Some(rh) = &run_handle {
             let _ = rh.append_trace(TraceStep {
                 kind: "model_call".to_string(),
                 provider: Some("openai".to_string()),
                 model: Some(req.model.clone()),
                 messages_n: Some(history.len() as u64),
-                tools_n: Some(tools_n),
+                tools_n: Some(if has_written_note { 0 } else { tools_n }),
                 ..Default::default()
             });
         }
@@ -2395,7 +2421,7 @@ pub async fn run_chat_openai_loop(
             req,
             api_key,
             &history,
-            &tools,
+            current_tools,
             cancel.clone(),
         )
         .await?;
@@ -2519,10 +2545,22 @@ pub async fn run_chat_openai_loop(
                 }
             };
             let mut preview = json_preview(&result_value);
-            if error_str.is_none() && (name == "patch_note" || name == "write_note" || name == "append_to_note") {
-                preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+            if name == "patch_note" || name == "write_note" || name == "append_to_note" {
+                if error_str.is_none() {
+                    has_written_note = true;
+                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                } else {
+                    write_fail_count += 1;
+                    if write_fail_count >= 2 {
+                        has_written_note = true;
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
+                    }
+                }
             }
-            if consecutive_duplicate_count >= 1 {
+            if consecutive_duplicate_count >= 2 {
+                has_written_note = true;
+                preview.push_str("\n\n[SYSTEM DIRECTIVE: Repeated tool calls detected. Tool calls are now halted. Please synthesize your response directly to the user.]");
+            } else if consecutive_duplicate_count == 1 {
                 preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
             }
             let _ = app.emit(
@@ -3170,7 +3208,7 @@ mod tests {
 
     #[test]
     fn test_normalize_anthropic_messages_merges_consecutive_user() {
-        use crate::ai_proxy::ChatMessage;
+        use super::ChatMessage;
         let msgs = vec![
             ChatMessage { role: "system".into(), content: "sys".into(), tool_call_id: None },
             ChatMessage { role: "user".into(), content: "hello".into(), tool_call_id: None },
@@ -3184,7 +3222,7 @@ mod tests {
 
     #[test]
     fn test_normalize_anthropic_messages_prepends_user_if_starts_with_assistant() {
-        use crate::ai_proxy::ChatMessage;
+        use super::ChatMessage;
         let msgs = vec![
             ChatMessage { role: "assistant".into(), content: "I am ready".into(), tool_call_id: None },
             ChatMessage { role: "user".into(), content: "hi".into(), tool_call_id: None },

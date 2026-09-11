@@ -2,39 +2,43 @@ import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 /**
- * Update check protocol.
+ * CatStep MD GitHub Release Update Protocol.
  *
- * Two sources, in priority order:
+ * Checks official GitHub repository: maobukeai/catstep-md
  *
- *   1. solomd.app /api/stats — Cloudflare Pages Function that proxies the
- *      GitHub releases API server-side, edge-cached for 5 min. Clients hit
- *      our own domain so they're never rate-limited (regardless of how many
- *      SoloMD installs share the same NAT IP).
- *   2. Direct api.github.com fallback — only used if #1 is unreachable
- *      (offline, ad-blocker on solomd.app, etc).
+ * Sources in priority order:
+ *   1. GitHub Official Releases API:
+ *      https://api.github.com/repos/maobukeai/catstep-md/releases/latest
+ *   2. GitHub Releases Web Page (Extracts redirect destination /tag/vX.Y.Z, no API rate limits):
+ *      https://github.com/maobukeai/catstep-md/releases/latest
+ *   3. jsDelivr / GitHub Raw mirror fallback (Mainland China friendly, 0 rate limit):
+ *      https://fastly.jsdelivr.net/gh/maobukeai/catstep-md@main/app/package.json
  *
- * If both fail, we surface a `null` latest with `error: true` so the UI
- * shows "couldn't check, retry" instead of silently lying with "up to date"
- * (which was the v2.4.x bug that prompted this rewrite).
+ * Clicking release notification opens the official GitHub release page.
  */
 
-const STATS_URL = 'https://solomd.app/api/stats';
-const GITHUB_FALLBACK_URL = 'https://api.github.com/repos/maobukeai/catstep-md/releases/latest';
+const REPO_OWNER = 'maobukeai';
+const REPO_NAME = 'catstep-md';
+const RELEASES_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases`;
+const LATEST_RELEASE_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
+const GITHUB_API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
+const JSDELIVR_MIRROR_URL = `https://fastly.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@main/app/package.json`;
+const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/app/package.json`;
 
 export interface UpdateResult {
   current: string;
   latest: string | null;
   hasUpdate: boolean;
   url: string;
-  /** True when neither source could be reached. UI should show
-   *  "couldn't check" rather than "up to date". */
+  /** True when no update source could be reached (offline). */
   error: boolean;
 }
 
 /** Returns semver comparison: 1 if a > b, -1 if a < b, 0 if equal */
-function compareSemver(a: string, b: string): number {
-  const pa = a.replace(/^v/, '').split('.').map(Number);
-  const pb = b.replace(/^v/, '').split('.').map(Number);
+export function compareSemver(a: string, b: string): number {
+  const clean = (s: string) => s.replace(/^v/, '').split('-')[0].trim();
+  const pa = clean(a).split('.').map(n => parseInt(n, 10) || 0);
+  const pb = clean(b).split('.').map(n => parseInt(n, 10) || 0);
   const len = Math.max(pa.length, pb.length);
   for (let i = 0; i < len; i++) {
     const na = pa[i] || 0;
@@ -49,48 +53,74 @@ const MAS_BUILD = import.meta.env.VITE_MAS_BUILD === '1';
 
 export const isMasBuild = (): boolean => MAS_BUILD;
 
-const RELEASES_PAGE = 'https://github.com/maobukeai/catstep-md/releases';
-
-async function fetchFromStatsProxy(): Promise<{ tag: string; url: string } | null> {
+/** Fetch latest release info from GitHub official Releases API */
+async function fetchFromGitHubApi(): Promise<{ tag: string; url: string } | null> {
   try {
-    const res = await fetch(STATS_URL, { cache: 'no-store' });
+    const res = await fetch(GITHUB_API_URL, {
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/vnd.github.v3+json',
+        'User-Agent': 'CatstepMD-App',
+      },
+    });
     if (!res.ok) return null;
-    const data = (await res.json()) as { latest_tag?: string | null; latest_url?: string | null };
-    if (!data.latest_tag) return null;
-    return {
-      tag: data.latest_tag,
-      url: data.latest_url || RELEASES_PAGE,
-    };
+    const data = (await res.json()) as { tag_name?: string; html_url?: string };
+    const tag = (data.tag_name || '').replace(/^v/, '').trim();
+    if (!tag) return null;
+    return { tag, url: data.html_url || LATEST_RELEASE_PAGE };
   } catch {
     return null;
   }
 }
 
-async function fetchFromGitHubDirect(): Promise<{ tag: string; url: string } | null> {
+/** Fetch latest release by following GitHub's web release redirect (not rate-limited) */
+async function fetchFromGitHubWebRedirect(): Promise<{ tag: string; url: string } | null> {
   try {
-    const res = await fetch(GITHUB_FALLBACK_URL, { cache: 'no-store' });
+    const res = await fetch(LATEST_RELEASE_PAGE, {
+      cache: 'no-store',
+      redirect: 'follow',
+    });
     if (!res.ok) return null;
-    const data = (await res.json()) as { tag_name?: string; html_url?: string };
-    const tag = (data.tag_name || '').replace(/^v/, '');
-    if (!tag) return null;
-    return { tag, url: data.html_url || RELEASES_PAGE };
+    const tagMatch = res.url.match(/\/releases\/tag\/v?([^/?#]+)/);
+    if (tagMatch && tagMatch[1]) {
+      const tag = tagMatch[1].replace(/^v/, '').trim();
+      return { tag, url: res.url };
+    }
+    return null;
   } catch {
     return null;
   }
+}
+
+/** Fetch repository latest package version from jsDelivr / GitHub Raw mirror */
+async function fetchFromRepoMirror(): Promise<{ tag: string; url: string } | null> {
+  for (const url of [JSDELIVR_MIRROR_URL, GITHUB_RAW_URL]) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        const pkg = (await res.json()) as { version?: string };
+        if (pkg.version) {
+          const tag = pkg.version.replace(/^v/, '').trim();
+          return { tag, url: LATEST_RELEASE_PAGE };
+        }
+      }
+    } catch {
+      // Continue to next mirror
+    }
+  }
+  return null;
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '0.0.0');
+  const current = await getVersion().catch(() => '1.0.0');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }
 
-  // Try our own proxy first (no rate limit, edge-cached).
-  let info = await fetchFromStatsProxy();
-  // Fall back to GitHub direct if the proxy is unreachable. This is the
-  // path that was rate-limited as the only source — it's still useful as
-  // backup since most users don't share an IP that's already exhausted.
-  if (!info) info = await fetchFromGitHubDirect();
+  // Multi-tier check: GitHub API -> Web Redirect -> Fast Mirror
+  let info = await fetchFromGitHubApi();
+  if (!info) info = await fetchFromGitHubWebRedirect();
+  if (!info) info = await fetchFromRepoMirror();
 
   if (!info) {
     return {
@@ -112,24 +142,18 @@ export async function checkForUpdate(): Promise<UpdateResult> {
   };
 }
 
-/** #154 — the "update available" toast used to open the GitHub release page,
- *  which is unreachable for many users in mainland China, making the whole
- *  update check look broken. The solomd.app download section serves everyone
- *  (Cloudflare edge) and links BOTH GitHub and the Gitee CN mirror, so send
- *  users there instead. The `_url` param is kept for call-site compatibility
- *  and as documentation of the release the toast referred to. */
-const DOWNLOAD_PAGE = 'https://solomd.app/#download';
-
-export async function openReleaseUrl(_url: string): Promise<void> {
+/** Open GitHub Release page for download */
+export async function openReleaseUrl(url?: string): Promise<void> {
+  const target = url && url.startsWith('http') ? url : LATEST_RELEASE_PAGE;
   try {
-    await openUrl(DOWNLOAD_PAGE);
-  } catch {
-    /* ignore */
+    await openUrl(target);
+  } catch (e) {
+    console.error('Failed to open release url', e);
   }
 }
 
-/** Store the last-checked timestamp so we don't spam GitHub on every launch. */
-const LS_KEY = 'solomd.update.last-check';
+/** Store the last-checked timestamp so we don't query excessively on launch. */
+const LS_KEY = 'catstep.update.last-check';
 const CHECK_INTERVAL = 24 * 3600 * 1000; // 24 hours
 
 export async function checkForUpdateOnStartup(): Promise<UpdateResult | null> {
@@ -142,8 +166,6 @@ export async function checkForUpdateOnStartup(): Promise<UpdateResult | null> {
     }
   } catch {}
   const result = await checkForUpdate();
-  // Only stamp the cache when the check actually succeeded — failed
-  // checks shouldn't lock us out for 24 h.
   if (!result.error) {
     try {
       localStorage.setItem(LS_KEY, String(Date.now()));
