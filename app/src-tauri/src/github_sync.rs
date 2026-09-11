@@ -47,11 +47,11 @@ use git2::{AutotagOption, FetchOptions, PushOptions, Repository, Signature};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
-const KEYRING_SERVICE: &str = "solomd-github";
+const KEYRING_SERVICE: &str = "catstep-github";
 const KEYRING_USER: &str = "personal-access-token";
 const SYNC_CONFIG_FILE: &str = ".solomd/sync.json";
 const GITHUB_API: &str = "https://api.github.com";
-const USER_AGENT: &str = "SoloMD-sync/2.6";
+const USER_AGENT: &str = "CatstepMD-sync/1.0";
 
 /// v3.0 — process-local token cache. Auto-push fires every save and
 /// auto-pull every N minutes; without this each call would re-read the

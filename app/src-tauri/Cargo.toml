@@ -1,22 +1,20 @@
 [package]
-name = "solomd"
+name = "catstep-md"
 version = "1.0.0"
-description = "SoloMD — a lightweight, cross-platform Markdown + plain text editor"
-authors = ["zhitong"]
+description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
+authors = ["maobukeai"]
 edition = "2021"
 # Disable auto-discovery of bins so Cargo only produces the explicit
-# [[bin]] "SoloMD" below (instead of also building an implicit "solomd"
+# [[bin]] "CatstepMD" below (instead of also building an implicit "catstep-md"
 # binary from src/main.rs + package.name).
 autobins = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# Force the binary name to "SoloMD" so it matches tauri.conf.json's
-# `mainBinaryName`. Without this, Cargo would produce `solomd.exe` (lowercase
-# from [package].name) while Tauri's NSIS template was creating shortcuts
-# pointing to a different name, causing the Windows shortcut to break.
+# Force the binary name to "CatstepMD" so it matches tauri.conf.json's
+# `mainBinaryName`.
 [[bin]]
-name = "SoloMD"
+name = "CatstepMD"
 path = "src/main.rs"
 
 # v4.3.1 issue #73 — size-optimised release profile. Most of the Android

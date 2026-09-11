@@ -3,7 +3,8 @@ import type { Theme, ViewMode } from '../types';
 import { isIOS, isMobile } from '../lib/platform';
 import { isDarkTheme } from '../lib/themes';
 
-const LS_KEY = 'solomd.settings.v1';
+const LS_KEY = 'catstep.settings.v1';
+const LEGACY_LS_KEY = 'solomd.settings.v1';
 
 // CJK + generic fallback appended after the user's chosen face. This way
 // Latin glyphs come from the user's pick while CJK still falls back to
@@ -696,7 +697,7 @@ function mergePdfDefaults(saved: unknown): PdfDefaults {
 
 function load(): Settings {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = localStorage.getItem(LS_KEY) || localStorage.getItem(LEGACY_LS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>;
       const merged: Settings = { ...defaults(), ...parsed };

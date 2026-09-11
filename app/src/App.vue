@@ -1841,7 +1841,32 @@ const showAgentPane = computed(() => !IS_APP_STORE_BUILD && settings.showAgentPa
 // sidebar across launches.
 const showSearchPane = computed(() => searchOpen.value);
 // #168 — phone and tablet shell.
-const { isNarrow, isCompactTablet } = useViewport();
+const { isNarrow } = useViewport();
+
+// On compact screens (< 960px, e.g. tablet portrait), prevent left and right sidebars
+// from simultaneously squeezing the editor into a tiny column.
+watch(
+  () => showRightSidebar.value,
+  (open) => {
+    if (open && !isNarrow.value && typeof window !== 'undefined' && window.innerWidth < 960) {
+      if (settings.showFileTree) {
+        settings.showFileTree = false;
+        settings.persist();
+      }
+    }
+  },
+);
+watch(
+  () => settings.showFileTree,
+  (open) => {
+    if (open && !isNarrow.value && typeof window !== 'undefined' && window.innerWidth < 960) {
+      if (!settings.rightSidebarHidden) {
+        settings.rightSidebarHidden = true;
+        settings.persist();
+      }
+    }
+  },
+);
 
 const mobileAgentOpen = ref(false);
 const mobileOutlineOpen = ref(false);
@@ -1920,7 +1945,7 @@ const showRightSidebar = computed(() => {
  * the editor maintains ample width.
  */
 const narrowDrawer = computed<'left' | 'right' | null>(() => {
-  if (isNarrow.value || isCompactTablet.value) {
+  if (isNarrow.value) {
     if (settings.showFileTree || settings.showViewsPanel) return 'left';
     if (showRightSidebar.value) return 'right';
     return null;
@@ -2200,7 +2225,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       'app--reading': settings.viewMode === 'reading',
       'app--mobile': isMobile(),
       'app--narrow': isNarrow,
-      'app--compact-tablet': isCompactTablet,
       'app--drawer-left': narrowDrawer === 'left',
       'app--drawer-right': narrowDrawer === 'right',
       'has-app-custom-bg': hasActiveBackground,
@@ -2230,59 +2254,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
     />
     <TelemetryBanner />
     <div class="workspace">
-        <!-- Tablet 56px Navigation Rail (640px ~ 960px) -->
-        <aside
-          v-if="isCompactTablet"
-          class="tablet-rail"
-          role="navigation"
-          aria-label="Tablet Navigation Rail"
-        >
-          <!-- 1. 文档目录 -->
-          <button
-            class="tablet-rail__btn"
-            :class="{ active: settings.showFileTree }"
-            type="button"
-            @click="settings.toggleLeftSidebar()"
-            :title="t('toolbar.fileTree')"
-          >
-            <Icon name="sidebar" :size="18" />
-          </button>
-
-          <!-- 2. 全局搜索 -->
-          <button
-            class="tablet-rail__btn"
-            type="button"
-            @click="toggleGlobalSearch()"
-            :title="t('rsPane.search')"
-          >
-            <Icon name="search" :size="18" />
-          </button>
-
-          <!-- 3. 大纲 -->
-          <button
-            class="tablet-rail__btn"
-            :class="{ active: showOutlinePane }"
-            type="button"
-            @click="ctxToggle(() => settings.toggleOutline())"
-            :title="t('toolbar.outline')"
-          >
-            <Icon name="outline" :size="18" />
-          </button>
-
-          <div class="tablet-rail__divider" />
-
-          <!-- 4. 猫步 AI 快捷助手 -->
-          <button
-            class="tablet-rail__btn tablet-rail__btn--ai"
-            :class="{ active: showAgentPane }"
-            type="button"
-            @click="ctxToggle(() => settings.toggleAgentPanel())"
-            :title="t('toolbar.aiAssistant')"
-          >
-            <div class="tablet-rail__ai-dot">✦</div>
-          </button>
-        </aside>
-
         <!-- #168 — on a phone the side panes float over the editor instead of
              stealing its width; this catches the tap that dismisses them. -->
         <div
@@ -2560,7 +2531,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         @open-outline="mobileOutlineOpen = true"
         @open-agent="mobileAgentOpen = true"
         @open-search="toggleGlobalSearch()"
-        @new-file="files.newFile()"
+        @open-settings="openSettingsAt()"
       />
 
       <!-- Mobile Markdown Accessory Bar (Docked above virtual keyboard when editing) -->
@@ -2865,92 +2836,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 }
 .app--narrow .statusbar {
   display: none;
-}
-
-/* Tablet 56px Navigation Rail (640px ~ 960px) */
-.tablet-rail {
-  width: 56px;
-  background: var(--bg-elev);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 0;
-  gap: 10px;
-  flex-shrink: 0;
-  user-select: none;
-  z-index: 25;
-}
-.tablet-rail__btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.tablet-rail__btn:hover,
-.tablet-rail__btn.active {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-.tablet-rail__btn--ai {
-  margin-top: 4px;
-}
-.tablet-rail__ai-dot {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(249, 115, 22, 0.12);
-  border: 1px solid rgba(249, 115, 22, 0.3);
-  color: #ea580c;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-}
-.tablet-rail__divider {
-  width: 28px;
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-/* Tablet compact drawer slide-over behavior */
-.app--compact-tablet .workspace {
-  position: relative;
-}
-.app--compact-tablet .left-stack,
-.app--compact-tablet .side-sidebar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 40;
-  width: min(80vw, 320px);
-  max-width: 80vw;
-  flex: none;
-  min-width: 0;
-  box-shadow: 0 0 28px rgba(0, 0, 0, 0.25);
-}
-.app--compact-tablet .left-stack {
-  left: 56px;
-}
-.app--compact-tablet .side-sidebar--right {
-  right: 0;
-}
-.app--compact-tablet .side-sidebar__resize,
-.app--compact-tablet .typora-sidebar__resize {
-  display: none;
-}
-.app--compact-tablet .content {
-  flex: 1 1 100%;
-  min-width: 0;
 }
 
 /* v4.6 F5 — left column stacks the file tree above the Saved Views panel. */

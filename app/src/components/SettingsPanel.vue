@@ -121,7 +121,8 @@ watch(
           :class="{ 'settings__nav-item--active': activeCategory === c.id }"
           @click="activeCategory = c.id"
         >
-          {{ t(c.labelKey) }}
+          <span class="settings__nav-icon">{{ c.icon }}</span>
+          <span class="settings__nav-label">{{ t(c.labelKey) }}</span>
         </button>
       </nav>
 
@@ -268,5 +269,81 @@ watch(
 .settings__body::-webkit-scrollbar-thumb:hover,
 .settings__nav::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+
+.settings__nav-icon {
+  font-size: 13px;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .settings-modal :deep(.ds-modal) {
+    padding: 0;
+  }
+  .settings-modal :deep(.ds-modal__panel) {
+    width: 100vw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-width: 100vw !important;
+    max-height: 100% !important;
+    max-height: 100dvh !important;
+    border-radius: 0;
+    border: none;
+  }
+  .settings-modal :deep(.ds-modal__head) {
+    padding: 10px 14px;
+    height: 48px;
+    box-sizing: border-box;
+  }
+  .settings__layout {
+    flex-direction: column;
+    height: calc(100dvh - 48px);
+    height: calc(100vh - 48px);
+  }
+  .settings__nav {
+    width: 100%;
+    height: 46px;
+    min-height: 46px;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 6px 10px;
+    gap: 6px;
+    background: var(--bg-elev);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .settings__nav::-webkit-scrollbar {
+    display: none;
+  }
+  .settings__nav-item {
+    padding: 6px 14px;
+    font-size: 12.5px;
+    border-radius: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .settings__nav-item--active {
+    background: #ea580c;
+    color: #fff;
+    border-color: #ea580c;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(234, 88, 12, 0.25);
+  }
+  .settings__body {
+    padding: 14px 14px 56px 14px;
+  }
+  .settings__category-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+  .settings__category-header h2 {
+    font-size: 16px;
+  }
 }
 </style>

@@ -26,7 +26,7 @@ type HmacSha256 = Hmac<Sha256>;
 
 /// User-Agent sent on outbound requests. sm.ms and GitHub both reject requests
 /// without a sane UA, so we always set one.
-const USER_AGENT: &str = "SoloMD/1.0";
+const USER_AGENT: &str = "CatstepMD/1.0";
 
 /// The image-bed backend selected by the user, deserialized from the JS
 /// `config` object. Internally tagged on `kind` (`picgo` / `command` /
@@ -533,7 +533,7 @@ async fn upload_github(
         .put(&api_url)
         .header("Authorization", format!("Bearer {token}"))
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "SoloMD")
+        .header("User-Agent", "CatstepMD")
         .json(&body)
         .send()
         .await

@@ -70,7 +70,7 @@ pub fn quick_capture_open(app: AppHandle) -> Result<(), String> {
             CAPTURE_LABEL,
             WebviewUrl::App("index.html?quickCapture=1".into()),
         )
-        .title("SoloMD — Quick Capture")
+        .title("猫步 MD — 快速收集")
         .inner_size(560.0, 180.0)
         .resizable(false)
         .decorations(false)

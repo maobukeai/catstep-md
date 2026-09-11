@@ -14,6 +14,7 @@ const emit = defineEmits<{
   (e: 'open-outline'): void;
   (e: 'open-agent'): void;
   (e: 'open-search'): void;
+  (e: 'open-settings'): void;
   (e: 'new-file'): void;
 }>();
 </script>
@@ -69,15 +70,15 @@ const emit = defineEmits<{
       <span class="mobile-bottom-dock__label">{{ t('rsPane.search') || '搜索' }}</span>
     </button>
 
-    <!-- 5. 新建 -->
+    <!-- 5. 设置 -->
     <button
       class="mobile-bottom-dock__btn"
       type="button"
-      @click="emit('new-file')"
-      :title="t('menubar.newMd')"
+      @click="emit('open-settings')"
+      :title="t('settings.title') || '设置'"
     >
-      <Icon name="new" :size="18" />
-      <span class="mobile-bottom-dock__label">{{ t('toolbar.newNote') || '新建' }}</span>
+      <Icon name="settings" :size="18" />
+      <span class="mobile-bottom-dock__label">{{ t('settings.title') || '设置' }}</span>
     </button>
   </nav>
 </template>

@@ -181,9 +181,16 @@ fn read_saved_language() -> String {
 }
 
 fn dirs_path() -> std::path::PathBuf {
-    let mut p = dirs_home().unwrap_or_else(std::env::temp_dir);
-    p.push(".solomd-language");
-    p
+    let p = dirs_home().unwrap_or_else(std::env::temp_dir);
+    let catstep_p = p.join(".catstep-language");
+    if catstep_p.exists() {
+        return catstep_p;
+    }
+    let solomd_p = p.join(".solomd-language");
+    if solomd_p.exists() {
+        return solomd_p;
+    }
+    catstep_p
 }
 
 fn dirs_home() -> Option<std::path::PathBuf> {
@@ -287,7 +294,7 @@ fn strings_for(lang: &str) -> MenuStrings {
             global_search: "在文件夹中搜索…",
             settings_menu: "设置…",
             md_help: "Markdown 速查",
-            about: "关于 SoloMD",
+            about: "关于 猫步 MD",
             exit: "退出",
         }
     } else {
@@ -324,7 +331,7 @@ fn strings_for(lang: &str) -> MenuStrings {
             global_search: "Search in Folder…",
             settings_menu: "Settings…",
             md_help: "Markdown Cheatsheet",
-            about: "About SoloMD",
+            about: "About Catstep MD",
             exit: "Exit",
         }
     }
