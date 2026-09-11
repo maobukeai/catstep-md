@@ -81,6 +81,182 @@ const quoteTooltip = ref<{ visible: boolean; x: number; y: number; text: string 
 const hasPastUserMessage = computed(() => agent.messages.some((m) => m.role === 'user'));
 const reverts = ref<Record<string, { type: 'path' | 'content' | 'move'; data: string }>>({});
 
+// --- Cascading Flyout Model Selector (Desktop Native Style matching user screenshot) ---
+const showModelPicker = ref(false);
+const cascadeMenuPos = ref<{ x: number; y: number; anchor: 'top' | 'bottom'; alignRight?: boolean }>({
+  x: 0,
+  y: 0,
+  anchor: 'top',
+  alignRight: true,
+});
+const hoveredProfileId = ref<string | null>(null);
+const hoveredItemRect = ref<{ top: number; bottom: number; left: number; right: number } | null>(null);
+let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+let leaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+const currentActiveProfileName = computed(() => {
+  const p = settings.aiProfiles.find((x) => x.id === settings.activeProfileId);
+  return p ? p.name : (settings.aiProfiles[0]?.name || settings.aiProvider || 'AI');
+});
+
+const hoveredProfile = computed(() => {
+  if (!hoveredProfileId.value) return null;
+  return settings.aiProfiles.find((p) => p.id === hoveredProfileId.value) || null;
+});
+
+function isVisionModel(modelName: string): boolean {
+  if (!modelName) return false;
+  const lower = modelName.toLowerCase();
+  return (
+    lower.includes('vision') ||
+    lower.includes('vl') ||
+    lower.includes('4o') ||
+    lower.includes('gemini') ||
+    lower.includes('claude-3') ||
+    lower.includes('glm-4v') ||
+    lower.includes('glm-5') ||
+    lower.includes('qvq')
+  );
+}
+
+function toggleModelPicker(source: 'header' | 'footer', ev?: MouseEvent) {
+  if (showModelPicker.value) {
+    closeModelPicker();
+    return;
+  }
+  if (ev && ev.currentTarget) {
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    if (source === 'header') {
+      cascadeMenuPos.value = {
+        x: rect.right,
+        y: rect.bottom + 6,
+        anchor: 'top',
+        alignRight: true,
+      };
+    } else {
+      cascadeMenuPos.value = {
+        x: rect.left,
+        y: rect.top - 6,
+        anchor: 'bottom',
+        alignRight: false,
+      };
+    }
+  }
+  showModelPicker.value = true;
+  hoveredProfileId.value = settings.activeProfileId || (settings.aiProfiles[0]?.id ?? null);
+}
+
+function closeModelPicker() {
+  showModelPicker.value = false;
+  hoveredProfileId.value = null;
+  hoveredItemRect.value = null;
+  if (hoverTimer) {
+    clearTimeout(hoverTimer);
+    hoverTimer = null;
+  }
+  if (leaveTimer) {
+    clearTimeout(leaveTimer);
+    leaveTimer = null;
+  }
+}
+
+function onHoverProfile(profileId: string, ev?: MouseEvent) {
+  if (leaveTimer) {
+    clearTimeout(leaveTimer);
+    leaveTimer = null;
+  }
+  if (ev && ev.currentTarget) {
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    hoveredItemRect.value = {
+      top: rect.top,
+      bottom: rect.bottom,
+      left: rect.left,
+      right: rect.right,
+    };
+  }
+  hoverTimer = setTimeout(() => {
+    hoveredProfileId.value = profileId;
+  }, 40);
+}
+
+function onLeaveProfile() {
+  if (hoverTimer) {
+    clearTimeout(hoverTimer);
+    hoverTimer = null;
+  }
+  leaveTimer = setTimeout(() => {
+    // leave bridge
+  }, 200);
+}
+
+function onEnterSubmenu() {
+  if (leaveTimer) {
+    clearTimeout(leaveTimer);
+    leaveTimer = null;
+  }
+}
+
+function onLeaveSubmenu() {
+  if (leaveTimer) {
+    clearTimeout(leaveTimer);
+    leaveTimer = null;
+  }
+  leaveTimer = setTimeout(() => {
+    // leave bridge
+  }, 200);
+}
+
+function chooseProfileAndModel(profile: any, model: string) {
+  settings.setActiveProfile(profile.id);
+  settings.setProfileSelectedModel(profile.id, model);
+  closeModelPicker();
+}
+
+function openManageProfiles() {
+  closeModelPicker();
+  emit('open-settings', 'integrations');
+}
+
+const menuStyle = computed(() => {
+  const pos = cascadeMenuPos.value;
+  const style: Record<string, string> = {
+    position: 'fixed',
+    zIndex: '99999',
+  };
+  if (pos.alignRight) {
+    style.right = `${Math.max(8, window.innerWidth - pos.x)}px`;
+  } else {
+    style.left = `${Math.max(8, pos.x)}px`;
+  }
+  if (pos.anchor === 'bottom') {
+    style.bottom = `${Math.max(8, window.innerHeight - pos.y)}px`;
+  } else {
+    style.top = `${Math.max(8, pos.y)}px`;
+  }
+  return style;
+});
+
+const submenuStyle = computed(() => {
+  const rect = hoveredItemRect.value;
+  const style: Record<string, string> = {
+    position: 'fixed',
+    zIndex: '100000',
+  };
+  if (!rect) {
+    return style;
+  }
+  // Primary menu width is ~160px; submenu flies out to its left
+  style.right = `${Math.max(8, window.innerWidth - rect.left + 4)}px`;
+
+  // Dynamic vertical alignment
+  if (rect.bottom + 160 > window.innerHeight) {
+    style.bottom = `${Math.max(8, window.innerHeight - rect.bottom)}px`;
+  } else {
+    style.top = `${Math.max(8, rect.top - 4)}px`;
+  }
+  return style;
+});
+
 // Synchronize selection tracking from editor store
 watch(
   () => tabs.activeEditorSelection,
@@ -220,6 +396,16 @@ function onWindowClick(e?: MouseEvent) {
   }
   if (showMentionMenu.value) {
     showMentionMenu.value = false;
+  }
+  if (showModelPicker.value) {
+    const target = e?.target as HTMLElement | null;
+    if (
+      !target?.closest('.catstep-cascade-wrap') &&
+      !target?.closest('.agent-panel__model-pill') &&
+      !target?.closest('.agent-panel__compose-model-pill')
+    ) {
+      closeModelPicker();
+    }
   }
   if (activeMoreMenuMsgId.value) {
     if (!e || !(e.target as HTMLElement)?.closest?.('.agent-panel__more-wrap')) {
@@ -1669,29 +1855,29 @@ function getToolFileBaseName(tool?: any): string {
 }
 
 function getToolActionTag(tool?: any): { label: string; icon: string; cls: string } {
-  if (!tool) return { label: '操作', icon: '📝', cls: 'edit' };
+  if (!tool) return { label: '操作', icon: '', cls: 'edit' };
   if (tool.error) {
-    return { label: '操作失败', icon: '❌', cls: 'err' };
+    return { label: '操作失败', icon: '', cls: 'err' };
   }
   switch (tool.name) {
     case 'patch_note':
-      return { label: '已编辑', icon: '✏️', cls: 'edit' };
+      return { label: '已编辑', icon: '', cls: 'edit' };
     case 'write_note':
-      return { label: '新建', icon: '📄', cls: 'create' };
+      return { label: '新建', icon: '', cls: 'create' };
     case 'append_to_note':
-      return { label: '追加', icon: '➕', cls: 'append' };
+      return { label: '追加', icon: '', cls: 'append' };
     case 'delete_note':
-      return { label: '删除', icon: '🗑️', cls: 'delete' };
+      return { label: '删除', icon: '', cls: 'delete' };
     case 'move_note':
-      return { label: '移动', icon: '📦', cls: 'move' };
+      return { label: '移动', icon: '', cls: 'move' };
     case 'create_folder':
-      return { label: '目录', icon: '📁', cls: 'create' };
+      return { label: '目录', icon: '', cls: 'create' };
     case 'delete_folder':
-      return { label: '删目录', icon: '🗑️', cls: 'delete' };
+      return { label: '删目录', icon: '', cls: 'delete' };
     case 'copy_note':
-      return { label: '复制', icon: '📋', cls: 'copy' };
+      return { label: '复制', icon: '', cls: 'copy' };
     default:
-      return { label: '操作', icon: '⚡', cls: 'default' };
+      return { label: '操作', icon: '', cls: 'default' };
   }
 }
 
@@ -2418,6 +2604,16 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       <template v-if="!collapsed && stateKey === 'ready'">
         <div class="agent-panel__head-actions">
           <button
+            class="agent-panel__model-pill"
+            type="button"
+            :title="t('ai.selectProviderAndModel') || '选择服务商与模型'"
+            @click.stop="toggleModelPicker('header', $event)"
+          >
+            <span class="agent-panel__model-pill-text">{{ currentActiveProfileName }} / {{ settings.aiModel }}</span>
+            <span class="agent-panel__model-arrow" :class="{ 'is-open': showModelPicker }">▾</span>
+          </button>
+
+          <button
             class="agent-panel__action-btn"
             type="button"
             :disabled="agent.isStreaming"
@@ -2772,7 +2968,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         >
                           <!-- Action Capsule -->
                           <span class="agent-panel__file-action-tag" :class="`agent-panel__file-action-tag--${getToolActionTag(m.tool).cls}`">
-                            <span class="agent-panel__file-action-tag-icon">{{ getToolActionTag(m.tool).icon }}</span>
                             <span class="agent-panel__file-action-tag-text">{{ getToolActionTag(m.tool).label }}</span>
                           </span>
 
@@ -3183,7 +3378,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
         <div class="agent-panel__welcome-footer">
           <span class="agent-panel__welcome-hint">
-            <span class="agent-panel__hint-icon">💡</span>
             <span class="agent-panel__hint-text">{{ t('agent.welcomeHint') || '输入 @ 引用笔记 · 选中文本自动附加上下文' }}</span>
           </span>
         </div>
@@ -3336,6 +3530,17 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               </button>
             </div>
 
+            <!-- Model Picker Pill Button (Footer) -->
+            <button
+              class="agent-panel__compose-model-pill"
+              type="button"
+              :title="t('ai.selectProviderAndModel') || '选择服务商与模型'"
+              @click.stop="toggleModelPicker('footer', $event)"
+            >
+              <span class="agent-panel__compose-model-text">{{ currentActiveProfileName }} / {{ settings.aiModel }}</span>
+              <span class="agent-panel__model-arrow" :class="{ 'is-open': showModelPicker }">▾</span>
+            </button>
+
             <!-- @ Mention Button -->
             <button
               type="button"
@@ -3423,6 +3628,77 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         @click.stop="insertQuote(quoteTooltip.text)"
       >
         <span>{{ t('agent.msgQuote') }}</span>
+      </div>
+    </Teleport>
+
+    <!-- Hierarchical Cascading Model Selector (Desktop Native Style matching user screenshot) -->
+    <Teleport to="body">
+      <div v-if="showModelPicker" class="catstep-cascade-wrap" @click.stop>
+        <!-- Level 1: 厂商列表 (Primary Menu) -->
+        <div
+          class="catstep-cascade-menu"
+          :style="menuStyle"
+        >
+          <div class="catstep-cascade-menu__list">
+            <div
+              v-for="p in settings.aiProfiles"
+              :key="p.id"
+              :data-profile-id="p.id"
+              class="catstep-cascade-menu__item"
+              :class="{
+                'is-active': p.id === settings.activeProfileId,
+                'is-hovered': p.id === hoveredProfileId,
+              }"
+              @mouseenter="onHoverProfile(p.id, $event)"
+              @mouseleave="onLeaveProfile"
+              @click="onHoverProfile(p.id, $event)"
+            >
+              <span class="catstep-cascade-menu__name">{{ p.name }}</span>
+              <span v-if="p.id === settings.activeProfileId" class="catstep-cascade-menu__check">✓</span>
+              <span class="catstep-cascade-menu__arrow">›</span>
+            </div>
+          </div>
+
+          <div class="catstep-cascade-menu__divider" />
+
+          <button
+            type="button"
+            class="catstep-cascade-menu__manage"
+            @click="openManageProfiles"
+          >
+            {{ t('ai.manageProviders') || '管理模型' }}
+          </button>
+        </div>
+
+        <!-- Level 2: 厂商模型列表 (Submenu Flyout to the Left) -->
+        <div
+          v-if="hoveredProfile"
+          class="catstep-cascade-submenu"
+          :style="submenuStyle"
+          @mouseenter="onEnterSubmenu"
+          @mouseleave="onLeaveSubmenu"
+        >
+          <div
+            v-for="m in hoveredProfile.models"
+            :key="m"
+            class="catstep-cascade-submenu__item"
+            :class="{
+              'is-selected': hoveredProfile.id === settings.activeProfileId && m === settings.aiModel,
+            }"
+            @click="chooseProfileAndModel(hoveredProfile, m)"
+          >
+            <span class="catstep-cascade-submenu__name" :title="m">{{ m }}</span>
+            <span v-if="isVisionModel(m)" class="catstep-cascade-submenu__badge">视觉</span>
+            <span
+              v-if="hoveredProfile.id === settings.activeProfileId && m === settings.aiModel"
+              class="catstep-cascade-submenu__check"
+            >✓</span>
+          </div>
+
+          <div v-if="!hoveredProfile.models.length" class="catstep-cascade-submenu__empty">
+            暂无模型
+          </div>
+        </div>
       </div>
     </Teleport>
   </div>
@@ -5687,6 +5963,244 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
+  }
+}
+
+/* --- Model Selector Trigger Pills (Header & Footer) --- */
+.agent-panel__model-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  background: var(--bg-hover, rgba(125, 125, 125, 0.1));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+  max-width: 140px;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+.agent-panel__model-pill:hover {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+.agent-panel__model-pill-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.agent-panel__model-arrow {
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.agent-panel__model-arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.agent-panel__compose-model-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-hover, rgba(125, 125, 125, 0.1));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text);
+  cursor: pointer;
+  max-width: 160px;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+.agent-panel__compose-model-pill:hover {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+.agent-panel__compose-model-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Hierarchical Cascading Flyout Menu (Desktop Native Style matching user screenshot) --- */
+.catstep-cascade-wrap {
+  position: relative;
+  z-index: 99999;
+}
+
+.catstep-cascade-menu {
+  min-width: 140px;
+  max-width: 200px;
+  max-height: 420px;
+  background: var(--bg-elev, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  animation: catstep-cascade-fade 0.1s ease-out;
+}
+
+.catstep-cascade-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  max-height: 340px;
+}
+
+.catstep-cascade-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text);
+  transition: background 0.1s ease;
+}
+
+.catstep-cascade-menu__item:hover,
+.catstep-cascade-menu__item.is-hovered {
+  background: var(--bg-hover, rgba(125, 125, 125, 0.12));
+}
+
+.catstep-cascade-menu__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+.catstep-cascade-menu__check {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+.catstep-cascade-menu__arrow {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 300;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.catstep-cascade-menu__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+}
+
+.catstep-cascade-menu__manage {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--accent, #3b82f6);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.catstep-cascade-menu__manage:hover {
+  background: var(--bg-hover, rgba(125, 125, 125, 0.1));
+  text-decoration: underline;
+}
+
+/* Secondary Submenu (Flies out to the left) */
+.catstep-cascade-submenu {
+  min-width: 160px;
+  max-width: 250px;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--bg-elev, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  user-select: none;
+  animation: catstep-cascade-fade 0.1s ease-out;
+}
+
+.catstep-cascade-submenu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+  transition: background 0.1s ease;
+}
+
+.catstep-cascade-submenu__item:hover {
+  background: var(--bg-hover, rgba(125, 125, 125, 0.12));
+}
+
+.catstep-cascade-submenu__item.is-selected {
+  color: var(--accent, #6366f1);
+  font-weight: 500;
+}
+
+.catstep-cascade-submenu__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catstep-cascade-submenu__badge {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-hover, rgba(125, 125, 125, 0.15));
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.catstep-cascade-submenu__check {
+  font-size: 11px;
+  color: var(--accent, #6366f1);
+  flex-shrink: 0;
+}
+
+.catstep-cascade-submenu__empty {
+  padding: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@keyframes catstep-cascade-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 </style>

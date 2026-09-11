@@ -528,7 +528,6 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'format.image', label: m('insertImage'), shortcut: shortcutLabel('format.image', settings.keybindings, macChord) || 'Ctrl+Shift+I' },
       { id: 'format.imageNetwork', label: m('insertWebImage') },
       { sep: true },
-      { id: 'format.cleanAI', label: m('cleanAI') },
       { id: 'format.aiRewrite', label: m('aiRewrite'), shortcut: 'Ctrl+J' },
     ],
     view: [

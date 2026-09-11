@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useSettingsStore } from '../stores/settings';
 import { useI18n } from '../i18n';
 import { DsModal } from '../ui';
+import { useViewport } from '../composables/useViewport';
 import BrandMark from './BrandMark.vue';
 import GeneralSettingsTab from './settings/GeneralSettingsTab.vue';
 import EditorSettingsTab from './settings/EditorSettingsTab.vue';
@@ -15,13 +16,23 @@ import AboutSettingsTab from './settings/AboutSettingsTab.vue';
 
 const { t } = useI18n();
 const kbSettings = useSettingsStore();
+const { isNarrow } = useViewport();
 
 type SettingsCategory = 'basics' | 'writing' | 'sync' | 'integrations' | 'export' | 'keys' | 'advanced' | 'about';
 const activeCategory = ref<SettingsCategory>('basics');
 
 const bodyEl = ref<HTMLElement | null>(null);
-watch(activeCategory, () => {
+const mobileBodyEl = ref<HTMLElement | null>(null);
+const mobileNavEl = ref<HTMLElement | null>(null);
+
+watch(activeCategory, async () => {
   bodyEl.value?.scrollTo({ top: 0 });
+  mobileBodyEl.value?.scrollTo({ top: 0 });
+  await nextTick();
+  if (mobileNavEl.value) {
+    const activeBtn = mobileNavEl.value.querySelector<HTMLElement>('.settings-mobile-page__nav-item--active');
+    activeBtn?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
 });
 
 const categories: { id: SettingsCategory; icon: string; labelKey: string }[] = [
@@ -35,9 +46,12 @@ const categories: { id: SettingsCategory; icon: string; labelKey: string }[] = [
   { id: 'about', icon: 'ℹ️', labelKey: 'settings.catAbout' },
 ];
 
+const isZh = computed(() => (kbSettings.language || 'zh').startsWith('zh'));
+const backLabel = computed(() => (isZh.value ? '返回' : 'Back'));
+const doneLabel = computed(() => (isZh.value ? '完成' : 'Done'));
+
 const currentCategoryMeta = computed(() => {
   const cat = categories.find((c) => c.id === activeCategory.value) || categories[0];
-  const isZh = (kbSettings.language || 'zh').startsWith('zh');
   const descs: Record<SettingsCategory, { zh: string; en: string }> = {
     basics: {
       zh: '系统语言、外观主题、显示字体与界面缩放比例',
@@ -74,7 +88,7 @@ const currentCategoryMeta = computed(() => {
   };
   return {
     ...cat,
-    desc: isZh ? descs[cat.id]?.zh : descs[cat.id]?.en,
+    desc: isZh.value ? descs[cat.id]?.zh : descs[cat.id]?.en,
   };
 });
 
@@ -95,10 +109,101 @@ watch(
     }
   },
 );
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.open && isNarrow.value) {
+    e.preventDefault();
+    emit('close');
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown);
+});
 </script>
 
 <template>
+  <!-- Mobile Dedicated Full-Screen Page (手机端全新全屏独立设置页) -->
+  <Teleport to="body" :disabled="!isNarrow">
+    <transition name="settings-mobile-slide">
+      <div
+        v-if="open && isNarrow"
+        class="settings-mobile-page"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="t('settings.title')"
+      >
+        <!-- Mobile App Bar / Top Navigation -->
+        <header class="settings-mobile-page__header">
+          <button
+            type="button"
+            class="settings-mobile-page__back-btn"
+            @click="emit('close')"
+            :aria-label="backLabel"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>{{ backLabel }}</span>
+          </button>
+          <div class="settings-mobile-page__title">
+            <BrandMark :size="19" class="settings-mobile-page__brand" />
+            <span>{{ t('settings.title') }}</span>
+          </div>
+          <button
+            type="button"
+            class="settings-mobile-page__done-btn"
+            @click="emit('close')"
+          >
+            {{ doneLabel }}
+          </button>
+        </header>
+
+        <!-- Category Horizontal Scroll Tabs -->
+        <nav ref="mobileNavEl" class="settings-mobile-page__nav">
+          <button
+            v-for="c in categories"
+            :key="c.id"
+            class="settings-mobile-page__nav-item"
+            :class="{ 'settings-mobile-page__nav-item--active': activeCategory === c.id }"
+            @click="activeCategory = c.id"
+          >
+            <span class="settings-mobile-page__nav-icon">{{ c.icon }}</span>
+            <span>{{ t(c.labelKey) }}</span>
+          </button>
+        </nav>
+
+        <!-- Mobile Scrollable Body -->
+        <main ref="mobileBodyEl" class="settings-mobile-page__body">
+          <div class="settings-mobile-page__category-banner">
+            <h2 class="settings-mobile-page__category-title">
+              <span class="settings-mobile-page__banner-icon">{{ currentCategoryMeta.icon }}</span>
+              {{ t(currentCategoryMeta.labelKey) }}
+            </h2>
+            <p class="settings-mobile-page__category-desc">{{ currentCategoryMeta.desc }}</p>
+          </div>
+
+          <!-- Category Tab Panels -->
+          <GeneralSettingsTab v-show="activeCategory === 'basics'" />
+          <EditorSettingsTab v-show="activeCategory === 'writing'" />
+          <SyncSettingsTab v-show="activeCategory === 'sync'" />
+          <AISettingsTab v-show="activeCategory === 'integrations'" />
+          <ExportSettingsTab v-show="activeCategory === 'export'" />
+          <ShortcutsSettingsTab v-show="activeCategory === 'keys'" />
+          <AdvancedSettingsTab v-show="activeCategory === 'advanced'" />
+          <AboutSettingsTab v-show="activeCategory === 'about'" />
+        </main>
+      </div>
+    </transition>
+  </Teleport>
+
+  <!-- Desktop Floating Modal Dialog (桌面端优雅弹窗) -->
   <DsModal
+    v-if="!isNarrow"
     :model-value="open"
     :title="t('settings.title')"
     width="820px"
@@ -277,73 +382,187 @@ watch(
   flex-shrink: 0;
 }
 
-@media (max-width: 640px) {
-  .settings-modal :deep(.ds-modal) {
-    padding: 0;
-  }
-  .settings-modal :deep(.ds-modal__panel) {
-    width: 100vw !important;
-    height: 100% !important;
-    height: 100dvh !important;
-    max-width: 100vw !important;
-    max-height: 100% !important;
-    max-height: 100dvh !important;
-    border-radius: 0;
-    border: none;
-  }
-  .settings-modal :deep(.ds-modal__head) {
-    padding: 10px 14px;
-    height: 48px;
-    box-sizing: border-box;
-  }
-  .settings__layout {
-    flex-direction: column;
-    height: calc(100dvh - 48px);
-    height: calc(100vh - 48px);
-  }
-  .settings__nav {
-    width: 100%;
-    height: 46px;
-    min-height: 46px;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 6px 10px;
-    gap: 6px;
-    background: var(--bg-elev);
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .settings__nav::-webkit-scrollbar {
-    display: none;
-  }
-  .settings__nav-item {
-    padding: 6px 14px;
-    font-size: 12.5px;
-    border-radius: 20px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .settings__nav-item--active {
-    background: #ea580c;
-    color: #fff;
-    border-color: #ea580c;
-    font-weight: 600;
-    box-shadow: 0 1px 4px rgba(234, 88, 12, 0.25);
-  }
-  .settings__body {
-    padding: 14px 14px 56px 14px;
-  }
-  .settings__category-header {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-  }
-  .settings__category-header h2 {
-    font-size: 16px;
-  }
+/* ==========================================================================
+   Mobile Full-Screen Page (原生沉浸式设置页面)
+   ========================================================================== */
+.settings-mobile-page {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100%;
+  height: 100dvh;
+  z-index: 10000;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Slide in from right (push page transition) */
+.settings-mobile-slide-enter-active,
+.settings-mobile-slide-leave-active {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+}
+.settings-mobile-slide-enter-from,
+.settings-mobile-slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0.92;
+}
+
+/* Top App Bar */
+.settings-mobile-page__header {
+  height: calc(48px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: 8px;
+  padding-right: 12px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+.settings-mobile-page__back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: var(--accent, #ea580c);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 10px 8px 4px;
+  border-radius: 6px;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+.settings-mobile-page__back-btn:active {
+  opacity: 0.65;
+}
+
+.settings-mobile-page__title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.settings-mobile-page__brand {
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.settings-mobile-page__done-btn {
+  background: transparent;
+  border: none;
+  color: var(--accent, #ea580c);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 6px;
+  transition: opacity 0.15s ease;
+}
+.settings-mobile-page__done-btn:active {
+  opacity: 0.65;
+}
+
+/* Horizontal Category Navigation Bar */
+.settings-mobile-page__nav {
+  height: 48px;
+  min-height: 48px;
+  background: color-mix(in srgb, var(--bg-elev) 88%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.settings-mobile-page__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-mobile-page__nav-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  height: 32px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.16s ease;
+  user-select: none;
+}
+.settings-mobile-page__nav-item:active {
+  transform: scale(0.96);
+}
+.settings-mobile-page__nav-icon {
+  font-size: 13px;
+  margin-right: 5px;
+}
+.settings-mobile-page__nav-item--active {
+  background: var(--accent, #ea580c);
+  color: #ffffff;
+  border-color: var(--accent, #ea580c);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.32);
+}
+
+/* Mobile Content Body */
+.settings-mobile-page__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px calc(48px + env(safe-area-inset-bottom, 20px)) 14px;
+  background: var(--bg);
+  box-sizing: border-box;
+}
+
+.settings-mobile-page__category-banner {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg-elev) 65%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 10px;
+}
+.settings-mobile-page__category-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-mobile-page__banner-icon {
+  font-size: 16px;
+}
+.settings-mobile-page__category-desc {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 </style>
