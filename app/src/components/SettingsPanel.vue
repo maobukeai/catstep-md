@@ -413,7 +413,7 @@ const searchResults = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   if (!q) return [];
   return searchableCatalog.filter((item) => {
-    if (isNarrow.value && item.category === 'keys') return false;
+    if (isNarrow.value && (item.category === 'keys' || item.id === 'mcp')) return false;
     return (
       item.title.toLowerCase().includes(q) ||
       item.desc.toLowerCase().includes(q) ||

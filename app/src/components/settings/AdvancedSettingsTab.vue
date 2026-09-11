@@ -136,7 +136,7 @@ function openThemeMarketplace() {
         <option value="">{{ t('settings.startupViewModeLastUsed') }}</option>
         <option value="edit">Edit</option>
         <option value="liveEdit">Live edit</option>
-        <option value="split">Split</option>
+        <option v-if="!isNarrow" value="split">Split</option>
         <option value="preview">Preview</option>
         <option value="reading">Reading</option>
       </select>
@@ -198,8 +198,8 @@ function openThemeMarketplace() {
       </div>
     </section>
 
-    <!-- Open Linked Files Externally -->
-    <section class="settings-section">
+    <!-- Open Linked Files Externally (Desktop only) -->
+    <section v-if="!isNarrow" class="settings-section">
       <label>
         <input type="checkbox" :checked="settings.openLinkedFilesExternally" @change="settings.toggleOpenLinkedFilesExternally()" />
         {{ t('settings.openLinkedFilesExternally') }}

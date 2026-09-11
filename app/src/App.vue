@@ -2328,7 +2328,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           </div>
         </div>
         <aside
-          v-if="showRightSidebar && settings.outlineSide === 'left'"
+          v-if="showRightSidebar && settings.outlineSide === 'left' && (!isNarrow || narrowDrawer === 'left')"
           class="side-sidebar side-sidebar--left"
           :style="sideSidebarStyle"
           @contextmenu.prevent="openSidebarCtx"

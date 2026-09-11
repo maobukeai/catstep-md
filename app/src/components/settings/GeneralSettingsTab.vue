@@ -198,8 +198,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Theme Folder & user.css -->
-        <div class="setting-row">
+        <!-- Row: Theme Folder & user.css (Desktop only) -->
+        <div v-if="!isNarrow" class="setting-row">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ isZh ? '主题文件夹与扩展' : 'Themes Folder & Extensions' }}</label>
             <p class="setting-row__hint">{{ isZh ? '支持直接放入 Typora .css 主题文件，或编辑全局 user.css' : 'Add Typora .css files to directory or edit user.css' }}</p>
@@ -282,7 +282,7 @@ onMounted(() => {
               <button type="button" class="btn-setting" @click="pickWallpaper('light')">
                 {{ isZh ? '选择图片…' : 'Pick Image…' }}
               </button>
-              <button type="button" class="btn-setting" @click="themesStore.openWallpapersFolder()">
+              <button v-if="!isNarrow" type="button" class="btn-setting" @click="themesStore.openWallpapersFolder()">
                 {{ isZh ? '壁纸目录' : 'Wallpapers Folder' }}
               </button>
               <button v-if="settings.bgImage" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper('light')">
@@ -481,8 +481,8 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Wheel Zoom -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Wheel Zoom (Desktop only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.wheelZoom') }}</span>
             <p class="setting-row__hint">{{ t('settings.wheelZoomHint') }}</p>
@@ -599,8 +599,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: Limit editor width -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Limit editor width (Desktop only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.limitEditorWidth') || '限制编辑器宽度' }}</span>
           </div>
@@ -660,8 +660,8 @@ onMounted(() => {
     <div class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupOutlineSidebars') }}</div>
       <div class="settings-group__card">
-        <!-- Row: Show outline -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Show outline (Desktop dock only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showOutline') }}</span>
           </div>
@@ -670,8 +670,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: Outline side -->
-        <div class="setting-row">
+        <!-- Row: Outline side (Desktop dock only) -->
+        <div v-if="!isNarrow" class="setting-row">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.outlineSide') }}</label>
           </div>
@@ -718,8 +718,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: Show file tree -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Show file tree (Desktop sidebar only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showFileTree') }}</span>
           </div>
@@ -728,8 +728,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: Show backlinks -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Show backlinks (Desktop sidebar only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showBacklinks') }}</span>
           </div>
@@ -738,8 +738,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: Show tags panel -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Show tags panel (Desktop sidebar only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showTagsPanel') }}</span>
           </div>

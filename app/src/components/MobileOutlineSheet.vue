@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useTabsStore } from '../stores/tabs';
+import { useSettingsStore } from '../stores/settings';
 import { extractOutline, type OutlineItem } from '../lib/markdown';
 import { useI18n } from '../i18n';
 
@@ -15,7 +16,9 @@ const emit = defineEmits<{
 }>();
 
 const tabs = useTabsStore();
+const settings = useSettingsStore();
 const { t } = useI18n();
+const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 const searchQuery = ref('');
 
 const activeTab = computed(() => tabs.activeTab);
@@ -85,9 +88,9 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
       <div class="mobile-outline-sheet__header">
         <div class="flex items-center gap-1.5 font-bold text-xs text-[var(--text)]">
           <span>📑</span>
-          <span>{{ t('toolbar.outline') || '文档大纲' }}</span>
+          <span>{{ t('toolbar.outline') || (isZh ? '文档大纲' : 'Outline') }}</span>
           <span v-if="items.length" class="text-[10px] text-[var(--text-faint)] font-normal ml-1">
-            ({{ items.length }} 节)
+            ({{ items.length }} {{ isZh ? '节' : 'sections' }})
           </span>
         </div>
 
@@ -96,17 +99,17 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
             type="button"
             class="mobile-outline-sheet__edge-btn"
             @click="jumpToDocEdge('top')"
-            title="跳转到文档顶部"
+            :title="isZh ? '跳转到文档顶部' : 'Jump to top'"
           >
-            ⬆ 顶部
+            ⬆ {{ isZh ? '顶部' : 'Top' }}
           </button>
           <button
             type="button"
             class="mobile-outline-sheet__edge-btn"
             @click="jumpToDocEdge('bottom')"
-            title="跳转到文档底部"
+            :title="isZh ? '跳转到文档底部' : 'Jump to bottom'"
           >
-            ⬇ 底部
+            ⬇ {{ isZh ? '底部' : 'Bottom' }}
           </button>
           <button
             class="mobile-outline-sheet__close-btn"
@@ -126,13 +129,14 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
           v-model="searchQuery"
           type="text"
           class="mobile-outline-sheet__search-input"
-          placeholder="搜索大纲小节..."
+          :placeholder="isZh ? '搜索大纲小节...' : 'Filter outline sections...'"
         />
         <button
           v-if="searchQuery"
           type="button"
           class="mobile-outline-sheet__search-clear"
           @click="searchQuery = ''"
+          aria-label="Clear search"
         >
           ✕
         </button>
@@ -143,9 +147,11 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
         <!-- 空状态：引导快速创建标题 -->
         <div v-if="!items.length" class="mobile-outline-sheet__empty">
           <span class="text-3xl mb-2">📝</span>
-          <span class="font-medium text-[13px] text-[var(--text)]">当前文档暂无标题</span>
+          <span class="font-medium text-[13px] text-[var(--text)]">
+            {{ isZh ? '当前文档暂无标题' : 'No headings in document' }}
+          </span>
           <span class="text-[11px] text-[var(--text-faint)] mt-0.5 mb-4 text-center max-w-[240px]">
-            在文档中输入 # 即可生成目录，或点击下方快捷插入：
+            {{ isZh ? '在文档中输入 # 即可生成目录，或点击下方快捷插入：' : 'Type # to create headings, or tap below to insert:' }}
           </span>
           <div class="mobile-outline-sheet__action-group">
             <button
@@ -153,14 +159,14 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
               class="mobile-outline-sheet__create-btn"
               @click="insertHeading(1)"
             >
-              ＋ 插入一级标题 (#)
+              {{ isZh ? '＋ 插入一级标题 (#)' : '+ Insert Heading 1 (#)' }}
             </button>
             <button
               type="button"
               class="mobile-outline-sheet__create-btn"
               @click="insertHeading(2)"
             >
-              ＋ 插入二级标题 (##)
+              {{ isZh ? '＋ 插入二级标题 (##)' : '+ Insert Heading 2 (##)' }}
             </button>
           </div>
         </div>
@@ -168,7 +174,9 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
         <!-- 搜索无结果 -->
         <div v-else-if="!filteredItems.length" class="mobile-outline-sheet__empty">
           <span class="text-xl mb-1">🔍</span>
-          <span class="text-xs text-[var(--text-muted)]">未找到包含 “{{ searchQuery }}” 的标题</span>
+          <span class="text-xs text-[var(--text-muted)]">
+            {{ isZh ? `未找到包含 “${searchQuery}” 的标题` : `No headings matching “${searchQuery}”` }}
+          </span>
         </div>
 
         <!-- 大纲列表 -->

@@ -9,10 +9,12 @@ import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { checkForUpdate, openReleaseUrl } from '../lib/check-update';
 import { useI18n } from '../i18n';
+import { useViewport } from '../composables/useViewport';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
+const { isNarrow } = useViewport();
 
 const appVersion = ref('…');
 const copied = ref(false);
@@ -149,8 +151,8 @@ async function manualCheckUpdate() {
       </div>
     </div>
 
-    <!-- Group 1: 版本与更新 -->
-    <div class="settings-group">
+    <!-- Group 1: 版本与更新 (Desktop only) -->
+    <div v-if="!isNarrow" class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupAboutUpdates') }}</div>
       <div class="settings-group__card">
         <div class="setting-row">

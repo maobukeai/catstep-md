@@ -356,8 +356,8 @@ void refreshSpellDicts();
       </div>
     </section>
 
-    <!-- Vim Mode -->
-    <section class="settings-section">
+    <!-- Vim Mode (Desktop only) -->
+    <section v-if="!isNarrow" class="settings-section">
       <label>
         <input type="checkbox" :checked="settings.vimMode" @change="settings.toggleVimMode()" />
         {{ t('settings.vimMode') }}

@@ -48,18 +48,22 @@ const slugByRunId = ref<Map<string, string>>(new Map());
 let unlistenRunFinished: UnlistenFn | null = null;
 
 onMounted(async () => {
-  await store.subscribe(() => folder.value);
-  unlistenRunFinished = await listen<RunMeta>(
-    'solomd://recipes-run-finished',
-    (e) => {
-      const slug = slugByRunId.value.get(e.payload.run_id);
-      if (slug) {
-        runningSlugs.value.delete(slug);
-        runningSlugs.value = new Set(runningSlugs.value);
-        slugByRunId.value.delete(e.payload.run_id);
-      }
-    },
-  );
+  try {
+    await store.subscribe(() => folder.value);
+    unlistenRunFinished = await listen<RunMeta>(
+      'solomd://recipes-run-finished',
+      (e) => {
+        const slug = slugByRunId.value.get(e.payload.run_id);
+        if (slug) {
+          runningSlugs.value.delete(slug);
+          runningSlugs.value = new Set(runningSlugs.value);
+          slugByRunId.value.delete(e.payload.run_id);
+        }
+      },
+    );
+  } catch (err) {
+    console.debug('Recipes listener not active:', err);
+  }
 });
 
 onBeforeUnmount(() => {
