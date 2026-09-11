@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useSettingsStore } from '../stores/settings';
 import { useI18n } from '../i18n';
 import { DsModal } from '../ui';
@@ -37,7 +37,6 @@ const searchInputRef = ref<HTMLInputElement | null>(null);
 
 const bodyEl = ref<HTMLElement | null>(null);
 const mobileBodyEl = ref<HTMLElement | null>(null);
-const mobileNavEl = ref<HTMLElement | null>(null);
 
 const isZh = computed(() => (kbSettings.language || 'zh').startsWith('zh'));
 const backLabel = computed(() => (isZh.value ? '返回' : 'Back'));
@@ -449,16 +448,9 @@ function getCategoryStatusBadge(catId: SettingsCategory): string {
   }
 }
 
-watch(activeCategory, async () => {
+watch(activeCategory, () => {
   bodyEl.value?.scrollTo({ top: 0 });
   mobileBodyEl.value?.scrollTo({ top: 0 });
-  await nextTick();
-  if (mobileNavEl.value) {
-    const activeBtn = mobileNavEl.value.querySelector<HTMLElement>(
-      '.settings-mobile-subpage__tab--active',
-    );
-    activeBtn?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-  }
 });
 
 const props = defineProps<{ open: boolean; initialSection?: string | null }>();
@@ -761,29 +753,8 @@ onBeforeUnmount(() => {
             </button>
           </header>
 
-          <!-- Horizontal Secondary Quick Switcher Tabs -->
-          <nav ref="mobileNavEl" class="settings-mobile-subpage__tabs">
-            <button
-              v-for="c in categories"
-              :key="c.id"
-              class="settings-mobile-subpage__tab"
-              :class="{ 'settings-mobile-subpage__tab--active': activeCategory === c.id }"
-              @click="openCategory(c.id)"
-            >
-              <span class="settings-mobile-subpage__tab-icon">{{ c.icon }}</span>
-              <span>{{ isZh ? c.labelZh : c.labelEn }}</span>
-            </button>
-          </nav>
-
           <!-- Scrollable Subpage Content Body -->
           <main ref="mobileBodyEl" class="settings-mobile-subpage__body">
-            <div class="settings-mobile-subpage__banner">
-              <h2 class="settings-mobile-subpage__banner-title">
-                <span class="settings-mobile-subpage__banner-icon">{{ currentCategoryMeta.icon }}</span>
-                {{ currentCategoryMeta.label }}
-              </h2>
-              <p class="settings-mobile-subpage__banner-desc">{{ currentCategoryMeta.desc }}</p>
-            </div>
 
             <!-- Tab Panels Component Render -->
             <GeneralSettingsTab v-show="activeCategory === 'basics'" />
@@ -1527,59 +1498,6 @@ onBeforeUnmount(() => {
   opacity: 0.65;
 }
 
-/* Horizontal Subpage Quick Tabs */
-.settings-mobile-subpage__tabs {
-  height: 42px;
-  min-height: 42px;
-  background: color-mix(in srgb, var(--bg-elev) 88%, var(--bg));
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  gap: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  flex-shrink: 0;
-  scrollbar-width: none;
-}
-.settings-mobile-subpage__tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.settings-mobile-subpage__tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 12px;
-  height: 28px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-.settings-mobile-subpage__tab:active {
-  transform: scale(0.96);
-}
-.settings-mobile-subpage__tab-icon {
-  font-size: 12px;
-  margin-right: 4px;
-}
-.settings-mobile-subpage__tab--active {
-  background: var(--accent, #ea580c);
-  color: #ffffff;
-  border-color: var(--accent, #ea580c);
-  font-weight: 600;
-  box-shadow: 0 1px 4px rgba(234, 88, 12, 0.28);
-}
-
 /* Subpage Scrollable Body */
 .settings-mobile-subpage__body {
   flex: 1;
@@ -1589,33 +1507,6 @@ onBeforeUnmount(() => {
   padding: 14px 14px calc(56px + env(safe-area-inset-bottom, 24px)) 14px;
   background: var(--bg);
   box-sizing: border-box;
-}
-
-.settings-mobile-subpage__banner {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--bg-elev) 65%, var(--bg));
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: 12px;
-}
-.settings-mobile-subpage__banner-title {
-  margin: 0;
-  font-size: 15.5px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.settings-mobile-subpage__banner-icon {
-  font-size: 15px;
-}
-.settings-mobile-subpage__banner-desc {
-  margin: 4px 0 0 0;
-  font-size: 11.5px;
-  color: var(--text-muted);
-  line-height: 1.5;
 }
 
 .settings-mobile-subpage__footer-nav {
