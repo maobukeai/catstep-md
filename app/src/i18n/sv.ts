@@ -40,7 +40,7 @@ export const sv: I18n = {
     globalSearch: 'Sök i mapp…',
     settings: 'Inställningar…',
     mdHelp: 'Markdown-lathund',
-    about: 'Om SoloMD',
+    about: 'Om Catstep MD',
     minimize: 'Minimera',
     maximize: 'Maximera',
     restore: 'Återställ',
@@ -328,7 +328,7 @@ export const sv: I18n = {
       codeThemeDark: 'Alltid mörkt',
       frontmatterHint: 'Åsidosätt per dokument med ett `pdf:`-block i YAML-front matter (pageSize / margin / font / fontSize / footer).',
     },
-    imageExportBranding: 'Lägg till sidfoten "Created with SoloMD" vid bildexport',
+    imageExportBranding: 'Lägg till sidfoten "Created with Catstep MD" vid bildexport',
     imageExportBrandingHint: 'På som standard — mild självreklam på delade skärmdumpar. Stäng av om du inte vill ha vattenstämpeln, då exporteras korta anteckningar också tätare utan kortet i slutet.',
     attachmentMode: 'Where to save pasted/dropped images',
     attachmentModeShared: 'Shared `_assets/` folder per directory',
@@ -356,9 +356,9 @@ export const sv: I18n = {
     customCssReloadFailed: 'Det gick inte att ladda om det anpassade CSS-temat',
     clear: 'Rensa',
     fileAssoc: 'Filassociation',
-    setDefault: '⭐ Sätt SoloMD som standard Markdown-editor',
+    setDefault: '⭐ Sätt Catstep MD som standard Markdown-editor',
     settingDefault: 'Sätter…',
-    setDefaultHint: 'Registrerar SoloMD som standardapp för .md / .markdown / .mdown / .mkd-filer. På Windows läggs SoloMD också till i menyn "Öppna med". På Linux krävs xdg-utils.',
+    setDefaultHint: 'Registrerar Catstep MD som standardapp för .md / .markdown / .mdown / .mkd-filer. På Windows läggs Catstep MD också till i menyn "Öppna med". På Linux krävs xdg-utils.',
     language: 'Språk / 语言',
     restoreSession: 'Återställ tidigare flikar och paneler vid start',
     restoreSessionHint: 'Stäng av för att alltid starta med ett tomt fönster.',
@@ -378,20 +378,13 @@ export const sv: I18n = {
     revealInFileTreeOnOpen: 'Visa fil i filträdet vid öppning',
     revealInFileTreeOnOpenHint: 'När påslaget sätter sidofältet till filens överordnade mapp vid öppning (och visar sidofältet om det är dolt).',
     openLinkedFilesExternally: 'Öppna länkade filer med systemets standardapp',
-    openLinkedFilesExternallyHint: 'När på öppnar ett klick på en Markdown-länk till en lokal PDF- / Office- / annan dokumentfil den i systemets standardapp. Stäng av för att i stället konvertera den till Markdown. Länkar till .md / text / bilder öppnas alltid i SoloMD.',
+    openLinkedFilesExternallyHint: 'När på öppnar ett klick på en Markdown-länk till en lokal PDF- / Office- / annan dokumentfil den i systemets standardapp. Stäng av för att i stället konvertera den till Markdown. Länkar till .md / text / bilder öppnas alltid i Catstep MD.',
     autoCheckUpdate: 'Sök efter uppdateringar automatiskt',
     checkUpdate: 'Sök efter uppdateringar nu',
     checkingUpdate: 'Söker…',
     updateAvailable: 'Ny version {version} tillgänglig',
     upToDate: 'Du har den senaste versionen',
-    updateCheckFailed: 'Kunde inte nå uppdateringsservern — kontrollera ditt nätverk och försök igen',
-    telemetry: 'Skicka anonym användardata',
-    telemetryHint:
-      'Hjälper till att förbättra SoloMD. Ingen IP-adress, inget filinnehåll, ingen personlig information.',
-    telemetryNotice:
-      'SoloMD samlar in anonym användardata (funktionsanvändning, version, OS) för att förbättra produkten. Ingen IP-adress, inget filinnehåll och ingen personlig information. Du kan stänga av detta när som helst i inställningarna.',
-    telemetryNoticeOk: 'Uppfattat',
-    telemetryNoticeDisable: 'Stäng av nu',
+    updateCheckFailed: 'Kunde inte nå uppdateringsservern — kontrollera ditt nätverk och försök igen',
     imageUploaderSection: 'Bilduppladdning (bildhotell)',
     imageUploader: 'Ladda upp bilder till',
     imageUploaderNone: 'Ladda inte upp — spara lokalt',
@@ -460,7 +453,7 @@ export const sv: I18n = {
     desc: 'En lättviktig, plattformsoberoende editor för Markdown och vanlig text.',
   },
   help: {
-    about: 'Om SoloMD',
+    about: 'Om Catstep MD',
     markdownGuide: 'Markdown-guide',
     keyboardShortcuts: 'Tangentbordsgenvägar',
   },
@@ -650,7 +643,7 @@ export const sv: I18n = {
   integrations: {
     heading: 'Integrationer',
     intro:
-      'SoloMD pratar med din terminal och med MCP-medvetna AI-klienter (Claude Desktop, Codex CLI, Cursor) så att du kan läsa/skriva dina anteckningar utanför appen.',
+      'Catstep MD pratar med din terminal och med MCP-medvetna AI-klienter (Claude Desktop, Codex CLI, Cursor) så att du kan läsa/skriva dina anteckningar utanför appen.',
     cliTitle: 'CLI (solomd)',
     cliInstalled: 'Installerad i {path}',
     cliNotInstalled: 'Inte installerad',
@@ -663,7 +656,7 @@ export const sv: I18n = {
       'Kör detta i din terminal — sudo krävs för /usr/local/bin:',
     cliSubcommandsHeading: 'Vad kan den göra?',
     cliSubcommands: {
-      open: 'open <titel|sökväg> — öppna en anteckning i SoloMD',
+      open: 'open <titel|sökväg> — öppna en anteckning i Catstep MD',
       new: 'new <titel> [text] — skapa + öppna en ny anteckning',
       list: 'list [mapp] — lista markdown-filer',
       search: 'search <fråga> — sök i dina anteckningar',
@@ -699,9 +692,9 @@ export const sv: I18n = {
     mcpWriteNote:
       'write_note + append_to_note är avstängda som standard. Skicka --allow-write för att slå på dem.',
     // ---- v4.4.5: MCP auto-install across 6 AI clients (EN backfill) ----
-    aiClientsTitle: 'Hook SoloMD into your AI clients',
+    aiClientsTitle: 'Hook Catstep MD into your AI clients',
     aiClientsIntro:
-      'One click and SoloMD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
+      'One click and Catstep MD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
     aiClientsNotInstalled: 'not installed',
     aiClientsAlreadyConfigured: 'configured ✓',
     aiClientsReady: 'ready to inject',
@@ -709,11 +702,11 @@ export const sv: I18n = {
     aiClientsRemoveBtn: 'Remove',
     aiClientsAllowWrite:
       'Allow writes (--allow-write on the MCP server)',
-    aiClientsInjectBtn: 'Inject SoloMD into {n} client(s)',
+    aiClientsInjectBtn: 'Inject Catstep MD into {n} client(s)',
     aiClientsInjectBtnZero: 'Nothing to inject',
     aiClientsInjectedToast:
-      '✓ Injected SoloMD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
-    aiClientsRemovedToast: '✓ Removed SoloMD entry from {name}.',
+      '✓ Injected Catstep MD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
+    aiClientsRemovedToast: '✓ Removed Catstep MD entry from {name}.',
     aiClientsRestartHint:
       'After injecting, restart the AI client (or use its "Reload MCP servers" command if it has one) for the new server to load.'
 ,
@@ -993,7 +986,7 @@ export const sv: I18n = {
     captureHeading: 'HTTP-uppfångningsändpunkt',
     enableCapture: 'Aktivera uppfångningsändpunkt',
     enableCaptureHint:
-      'Av som standard. När påslagen lyssnar SoloMD på 127.0.0.1 (endast loopback) efter POST-förfrågningar för nya anteckningar från ett webbläsartillägg, iOS Genväg, shellskript eller curl. Anteckningar landar i arbetsytans inkorgsmapp med `inbox: true` i sin YAML.',
+      'Av som standard. När påslagen lyssnar Catstep MD på 127.0.0.1 (endast loopback) efter POST-förfrågningar för nya anteckningar från ett webbläsartillägg, iOS Genväg, shellskript eller curl. Anteckningar landar i arbetsytans inkorgsmapp med `inbox: true` i sin YAML.',
     endpoint: 'Ändpunkt',
     statusRunning: 'körs',
     statusStarting: 'startar…',
@@ -1019,7 +1012,7 @@ export const sv: I18n = {
       'HTTP-yta som endast är tillgänglig på localhost och som exponerar samma valvverktyg som MCP. Användbar för Alfred, Raycast, n8n, shellskript, iOS Genvägar — allt som inte talar MCP.',
     enable: 'Aktivera REST-API',
     enableHint:
-      'Av som standard. När påslagen lyssnar SoloMD på 127.0.0.1 (endast loopback). Alla rutter utom den publika bannern kräver bearer-token nedan.',
+      'Av som standard. När påslagen lyssnar Catstep MD på 127.0.0.1 (endast loopback). Alla rutter utom den publika bannern kräver bearer-token nedan.',
     endpoint: 'Ändpunkt',
     statusRunning: 'körs',
     statusStarting: 'startar…',
@@ -1046,7 +1039,7 @@ export const sv: I18n = {
     close: 'Stäng',
     chooseTitle: 'Konfigurera din AI-assistent',
     chooseSub:
-      'SoloMD fungerar utan AI, men agentpanelen och recepten behöver en modell. Välj en väg — du kan ändra den när som helst i Inställningar → AI.',
+      'Catstep MD fungerar utan AI, men agentpanelen och recepten behöver en modell. Välj en väg — du kan ändra den när som helst i Inställningar → AI.',
     cloudTitle: 'Moln (BYOK)',
     cloudBadge: '14+ Leverantörer',
     cloudBody:
@@ -1062,7 +1055,7 @@ export const sv: I18n = {
     localDetecting: 'Letar efter en körande Ollama-server…',
     localNotRunning: 'Ingen Ollama-server upptäckt på localhost:11434.',
     localNotRunningHint:
-      'Installera Ollama (~80 MB), starta det och klicka sedan på Försök igen. SoloMD bundlar inte Ollama.',
+      'Installera Ollama (~80 MB), starta det och klicka sedan på Försök igen. Catstep MD bundlar inte Ollama.',
     localInstallBtn: 'Installera Ollama',
     localRetryBtn: 'Försök upptäcka igen',
     localRunningNoModel:
@@ -1182,7 +1175,7 @@ export const sv: I18n = {
     autoEngageFocusHint: 'Att starta en pomodoro slår på fokusläget under tiden; när sessionen avslutas återställs ditt tidigare läge.',
     defaultDuration: 'Standardlängd',
     customDurationLabel: 'Anpassad (minuter)',
-    notificationTitle: 'SoloMD — fokussession klar',
+    notificationTitle: 'Catstep MD — fokussession klar',
     notificationBody: '{minutes} min · {words} ord skrivna',
   },
   quickSwitcher: {
@@ -1250,7 +1243,7 @@ export const sv: I18n = {
   cloudSync: {
     detectedTitle: 'Arbetsytan ligger i {label}',
     detectedHint:
-      'Filer som sparas här sprids automatiskt till dina andra enheter via molnleverantören. SoloMD lägger till sessionsåterställning mellan enheter ovanpå — öppna samma arbetsyta på en annan maskin och samma flikar kommer tillbaka.',
+      'Filer som sparas här sprids automatiskt till dina andra enheter via molnleverantören. Catstep MD lägger till sessionsåterställning mellan enheter ovanpå — öppna samma arbetsyta på en annan maskin och samma flikar kommer tillbaka.',
     siblingCount: '{n} andra enhet(er) har öppnat denna arbetsyta.',
     restoreTitle: 'Fortsätt där du slutade?',
     restoreLead:
@@ -1268,7 +1261,7 @@ export const sv: I18n = {
   githubSync: {
     heading: 'GitHub-synk',
     intro:
-      'Pusha ditt valv till en privat GitHub-repo så att det följer dig mellan enheter. Dina data stannar på ditt konto — SoloMD kör bara git push och git pull.',
+      'Pusha ditt valv till en privat GitHub-repo så att det följer dig mellan enheter. Dina data stannar på ditt konto — Catstep MD kör bara git push och git pull.',
     signInTitle: 'Anslut till GitHub',
     signInHint:
       'Klistra in en personlig åtkomsttoken. Lagras i ditt OS:s nyckelring — skickas aldrig någonstans utom till api.github.com.',
@@ -1358,11 +1351,11 @@ export const sv: I18n = {
     conflictResolveFailed: 'Lösningen misslyckades',
     keychainHintTitle: 'macOS frågar efter ditt lösenord — klicka "Tillåt alltid"',
     keychainHintBody:
-      'Första gången SoloMD pushar till GitHub visar macOS en Keychain-dialog så det kan läsa din sparade token. Om end-to-end-kryptering är på får du en till fråga om krypteringsnyckeln. Klicka "Tillåt alltid" (inte bara "Tillåt") på varje — det ger SoloMD permanent åtkomst och du ser inte frågan igen på den här Mac-en. Om du klickar "Tillåt" en gång får du frågan vid varje push.',
+      'Första gången Catstep MD pushar till GitHub visar macOS en Keychain-dialog så det kan läsa din sparade token. Om end-to-end-kryptering är på får du en till fråga om krypteringsnyckeln. Klicka "Tillåt alltid" (inte bara "Tillåt") på varje — det ger Catstep MD permanent åtkomst och du ser inte frågan igen på den här Mac-en. Om du klickar "Tillåt" en gång får du frågan vid varje push.',
     proxyTitle: 'HTTPS-proxy (för GFW / företagsnätverk)',
     proxyPlaceholder: 'http://127.0.0.1:7897 eller socks5://127.0.0.1:1080',
     proxyHint:
-      'Dirigerar git push / pull genom denna proxy. Lämna tomt för direktanslutning. macOS GUI-appar ärver inte HTTPS_PROXY från shellet, så ange den här specifikt för SoloMD. Löser också "Operation timed out" när github.com inte är direkt nåbar.',
+      'Dirigerar git push / pull genom denna proxy. Lämna tomt för direktanslutning. macOS GUI-appar ärver inte HTTPS_PROXY från shellet, så ange den här specifikt för Catstep MD. Löser också "Operation timed out" när github.com inte är direkt nåbar.',
     proxySaveBtn: 'Spara proxy',
     proxySaving: 'Sparar…',
     proxySavedToast: 'Proxy sparad.',
@@ -1382,7 +1375,7 @@ export const sv: I18n = {
     upgradeRowBtn: 'Aktivera kryptering',
     upgradeFormTitle: 'Aktivera end-to-end-kryptering',
     upgradeFormBody:
-      'Sätt en lösenfras. SoloMD härleder en nyckel (Argon2id) och krypterar om varje fil innan nästa push.',
+      'Sätt en lösenfras. Catstep MD härleder en nyckel (Argon2id) och krypterar om varje fil innan nästa push.',
     upgradeForcePushWarning:
       'Detta force-pushar den krypterade historiken över fjärrkopian — gamla klartextcommits blir onåbara på GitHub. Den som redan klonat repot måste klona om. Om du glömmer lösenfrasen är dina data oåterkalleliga.',
     upgradePassphrasePlaceholder: 'Valv-lösenfras (minst 8 tecken)',
@@ -1425,7 +1418,7 @@ export const sv: I18n = {
       'Push your vault to a Gitea server. Enter your server URL and a Personal Access Token to get started.',
     giteaUrlTitle: 'Gitea server URL',
     giteaUrlHint:
-      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). SoloMD will append /api/v1 automatically.',
+      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). Catstep MD will append /api/v1 automatically.',
     giteaUrlValidateBtn: 'Validate URL',
     giteaUrlValidating: 'Validating...',
     giteaTokenTitle: 'Gitea Personal Access Token',

@@ -125,7 +125,7 @@ The bundled `solomd-mcp` server runs against any folder of Markdown files — yo
 
 Available as:
 
-- **[Skill Pack](https://github.com/zhitongblog/solomd/releases/latest/download/solomd-skills-v4.4.1.zip)** — 11 reference Agent Recipes (weekly review, todo extract, link suggester, …) you can drop into `<vault>/.solomd/agents/`. Ships with every release.
+- **[Skill Pack](https://github.com/maobukeai/catstep-md/releases)** — 11 reference Agent Recipes (weekly review, todo extract, link suggester, …) you can drop into `<vault>/.solomd/agents/`. Ships with every release.
 - **[Claude Code Skill](marketplace/claude-code-skill/)** — `SKILL.md` + `install.sh` that registers `solomd-mcp` as a user-scope MCP server and exposes the 13 tools to Claude Code with patterns and starter recipes.
 - **Smithery** — `smithery.yaml` + Dockerfile at [`marketplace/smithery/`](marketplace/smithery/) (submission pending).
 - **Awesome MCP Servers** — PR entries for the three biggest community indices (`punkpeye/`, `appcypher/`, `wong2/awesome-mcp-servers`, ~14k forks combined) at [`marketplace/awesome-mcp/`](marketplace/awesome-mcp/).
@@ -193,4 +193,4 @@ Issues and PRs welcome — [open one on GitHub](https://github.com/maobukeai/cat
 
 ## License & credits
 
-[MIT](LICENSE) © 2026 maobukeai / xiangdong li. Catstep MD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Repository: [GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md).
+[MIT](LICENSE) © 2026 maobukeai. Catstep MD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Repository: [GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md).

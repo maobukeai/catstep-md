@@ -40,7 +40,7 @@ export const nl: I18n = {
     globalSearch: 'Zoeken in map…',
     settings: 'Instellingen…',
     mdHelp: 'Markdown-spiekbriefje',
-    about: 'Over SoloMD',
+    about: 'Over Catstep MD',
     minimize: 'Minimaliseren',
     maximize: 'Maximaliseren',
     restore: 'Herstellen',
@@ -328,7 +328,7 @@ export const nl: I18n = {
       codeThemeDark: 'Altijd donker',
       frontmatterHint: 'Per document overschrijven met een `pdf:`-blok in YAML front matter (pageSize / margin / font / fontSize / footer).',
     },
-    imageExportBranding: 'Voettekst "Created with SoloMD" toevoegen bij export als afbeelding',
+    imageExportBranding: 'Voettekst "Created with Catstep MD" toevoegen bij export als afbeelding',
     imageExportBrandingHint: 'Standaard aan — milde zelfpromotie op gedeelde screenshots. Schakel uit als je het watermerk niet wilt; korte notities exporteren dan ook compacter zonder de afsluitende kaart.',
     attachmentMode: 'Where to save pasted/dropped images',
     attachmentModeShared: 'Shared `_assets/` folder per directory',
@@ -356,9 +356,9 @@ export const nl: I18n = {
     customCssReloadFailed: 'Aangepast CSS-thema kon niet opnieuw worden geladen',
     clear: 'Wissen',
     fileAssoc: 'Bestandskoppeling',
-    setDefault: '⭐ SoloMD als standaard Markdown-editor instellen',
+    setDefault: '⭐ Catstep MD als standaard Markdown-editor instellen',
     settingDefault: 'Instellen…',
-    setDefaultHint: 'Registreert SoloMD als standaard-app voor .md / .markdown / .mdown / .mkd-bestanden. Op Windows wordt SoloMD ook toegevoegd aan het "Openen met"-menu. Op Linux is xdg-utils vereist.',
+    setDefaultHint: 'Registreert Catstep MD als standaard-app voor .md / .markdown / .mdown / .mkd-bestanden. Op Windows wordt Catstep MD ook toegevoegd aan het "Openen met"-menu. Op Linux is xdg-utils vereist.',
     language: 'Taal / 语言',
     restoreSession: 'Vorige tabbladen en panelen herstellen bij opstarten',
     restoreSessionHint: 'Schakel uit om elke keer met een leeg venster te starten.',
@@ -378,20 +378,13 @@ export const nl: I18n = {
     revealInFileTreeOnOpen: 'Bestand tonen in bestandsboom bij openen',
     revealInFileTreeOnOpenHint: 'Indien aan stelt het openen van een bestand de zijbalk in op de bovenliggende map (en toont de zijbalk indien verborgen).',
     openLinkedFilesExternally: 'Gekoppelde bestanden openen met de standaard-app',
-    openLinkedFilesExternallyHint: 'Indien aan, opent klikken op een Markdown-link naar een lokaal PDF- / Office- / ander document dit in de standaard-app van het systeem. Zet uit om het in plaats daarvan naar Markdown te converteren. Links naar .md / tekst / afbeeldingen openen altijd binnen SoloMD.',
+    openLinkedFilesExternallyHint: 'Indien aan, opent klikken op een Markdown-link naar een lokaal PDF- / Office- / ander document dit in de standaard-app van het systeem. Zet uit om het in plaats daarvan naar Markdown te converteren. Links naar .md / tekst / afbeeldingen openen altijd binnen Catstep MD.',
     autoCheckUpdate: 'Automatisch op updates controleren',
     checkUpdate: 'Nu op updates controleren',
     checkingUpdate: 'Bezig met controleren…',
     updateAvailable: 'Nieuwe versie {version} beschikbaar',
     upToDate: 'Je bent up-to-date',
-    updateCheckFailed: 'Kon de updateserver niet bereiken — controleer je netwerk en probeer opnieuw',
-    telemetry: 'Anonieme gebruiksgegevens versturen',
-    telemetryHint:
-      'Helpt SoloMD verbeteren. Geen IP-adres, geen bestandsinhoud, geen persoonlijke informatie.',
-    telemetryNotice:
-      'SoloMD verzamelt anonieme gebruiksgegevens (functiegebruik, versie, OS) om het product te verbeteren. Geen IP-adres, bestandsinhoud of persoonlijke informatie. Je kunt dit op elk moment uitschakelen in de instellingen.',
-    telemetryNoticeOk: 'Begrepen',
-    telemetryNoticeDisable: 'Nu uitschakelen',
+    updateCheckFailed: 'Kon de updateserver niet bereiken — controleer je netwerk en probeer opnieuw',
     imageUploaderSection: 'Afbeeldingen uploaden (afbeeldingshosting)',
     imageUploader: 'Afbeeldingen uploaden naar',
     imageUploaderNone: 'Niet uploaden — lokaal opslaan',
@@ -460,7 +453,7 @@ export const nl: I18n = {
     desc: 'Een lichtgewicht, platformonafhankelijke editor voor Markdown en platte tekst.',
   },
   help: {
-    about: 'Over SoloMD',
+    about: 'Over Catstep MD',
     markdownGuide: 'Markdown-handleiding',
     keyboardShortcuts: 'Sneltoetsen',
   },
@@ -650,7 +643,7 @@ export const nl: I18n = {
   integrations: {
     heading: 'Integraties',
     intro:
-      'SoloMD praat met je terminal en met MCP-bewuste AI-clients (Claude Desktop, Codex CLI, Cursor) zodat je je notities van buiten de app kunt lezen en schrijven.',
+      'Catstep MD praat met je terminal en met MCP-bewuste AI-clients (Claude Desktop, Codex CLI, Cursor) zodat je je notities van buiten de app kunt lezen en schrijven.',
     cliTitle: 'CLI (solomd)',
     cliInstalled: 'Geïnstalleerd op {path}',
     cliNotInstalled: 'Niet geïnstalleerd',
@@ -663,7 +656,7 @@ export const nl: I18n = {
       'Voer dit uit in je terminal — sudo is vereist voor /usr/local/bin:',
     cliSubcommandsHeading: 'Wat kan het?',
     cliSubcommands: {
-      open: 'open <titel|pad> — een notitie openen in SoloMD',
+      open: 'open <titel|pad> — een notitie openen in Catstep MD',
       new: 'new <titel> [tekst] — nieuwe notitie maken en openen',
       list: 'list [map] — markdown-bestanden tonen',
       search: 'search <query> — zoek in je notities',
@@ -699,9 +692,9 @@ export const nl: I18n = {
     mcpWriteNote:
       'write_note + append_to_note staan standaard uit. Geef --allow-write door om in te schakelen.',
     // ---- v4.4.5: MCP auto-install across 6 AI clients (EN backfill) ----
-    aiClientsTitle: 'Hook SoloMD into your AI clients',
+    aiClientsTitle: 'Hook Catstep MD into your AI clients',
     aiClientsIntro:
-      'One click and SoloMD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
+      'One click and Catstep MD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
     aiClientsNotInstalled: 'not installed',
     aiClientsAlreadyConfigured: 'configured ✓',
     aiClientsReady: 'ready to inject',
@@ -709,11 +702,11 @@ export const nl: I18n = {
     aiClientsRemoveBtn: 'Remove',
     aiClientsAllowWrite:
       'Allow writes (--allow-write on the MCP server)',
-    aiClientsInjectBtn: 'Inject SoloMD into {n} client(s)',
+    aiClientsInjectBtn: 'Inject Catstep MD into {n} client(s)',
     aiClientsInjectBtnZero: 'Nothing to inject',
     aiClientsInjectedToast:
-      '✓ Injected SoloMD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
-    aiClientsRemovedToast: '✓ Removed SoloMD entry from {name}.',
+      '✓ Injected Catstep MD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
+    aiClientsRemovedToast: '✓ Removed Catstep MD entry from {name}.',
     aiClientsRestartHint:
       'After injecting, restart the AI client (or use its "Reload MCP servers" command if it has one) for the new server to load.'
 ,
@@ -993,7 +986,7 @@ export const nl: I18n = {
     captureHeading: 'HTTP-capture endpoint',
     enableCapture: 'Capture-endpoint inschakelen',
     enableCaptureHint:
-      'Standaard uit. Indien aan luistert SoloMD op 127.0.0.1 (alleen loopback) naar nieuwe-notitie POSTs van een browserextensie, iOS Shortcut, shell-script of curl. Notities komen in de inbox-map van de werkruimte met `inbox: true` in hun YAML.',
+      'Standaard uit. Indien aan luistert Catstep MD op 127.0.0.1 (alleen loopback) naar nieuwe-notitie POSTs van een browserextensie, iOS Shortcut, shell-script of curl. Notities komen in de inbox-map van de werkruimte met `inbox: true` in hun YAML.',
     endpoint: 'Endpoint',
     statusRunning: 'actief',
     statusStarting: 'starten…',
@@ -1019,7 +1012,7 @@ export const nl: I18n = {
       'Localhost-only HTTP-oppervlak dat dezelfde vault-tools toont als MCP. Handig voor Alfred, Raycast, n8n, shell-scripts, iOS Shortcuts — alles dat geen MCP spreekt.',
     enable: 'REST API inschakelen',
     enableHint:
-      'Standaard uit. Indien aan luistert SoloMD op 127.0.0.1 (alleen loopback). Elke route behalve de publieke banner vereist het bearer-token hieronder.',
+      'Standaard uit. Indien aan luistert Catstep MD op 127.0.0.1 (alleen loopback). Elke route behalve de publieke banner vereist het bearer-token hieronder.',
     endpoint: 'Endpoint',
     statusRunning: 'actief',
     statusStarting: 'starten…',
@@ -1046,7 +1039,7 @@ export const nl: I18n = {
     close: 'Sluiten',
     chooseTitle: 'Je AI-assistent instellen',
     chooseSub:
-      'SoloMD werkt zonder AI, maar het agentpaneel en recepten hebben een model nodig. Kies een pad — je kunt het altijd wijzigen via Instellingen → AI.',
+      'Catstep MD werkt zonder AI, maar het agentpaneel en recepten hebben een model nodig. Kies een pad — je kunt het altijd wijzigen via Instellingen → AI.',
     cloudTitle: 'Cloud (BYOK)',
     cloudBadge: '14+ Providers',
     cloudBody:
@@ -1062,7 +1055,7 @@ export const nl: I18n = {
     localDetecting: 'Op zoek naar een draaiende Ollama-server…',
     localNotRunning: 'Geen Ollama-server gedetecteerd op localhost:11434.',
     localNotRunningHint:
-      'Installeer Ollama (~80 MB), start het en klik op Opnieuw proberen. SoloMD bundelt Ollama niet.',
+      'Installeer Ollama (~80 MB), start het en klik op Opnieuw proberen. Catstep MD bundelt Ollama niet.',
     localInstallBtn: 'Ollama installeren',
     localRetryBtn: 'Detectie opnieuw proberen',
     localRunningNoModel:
@@ -1182,7 +1175,7 @@ export const nl: I18n = {
     autoEngageFocusHint: 'Het starten van een Pomodoro schakelt focusmodus aan voor de duur; bij einde van de sessie wordt je vorige toestand hersteld.',
     defaultDuration: 'Standaardduur',
     customDurationLabel: 'Aangepast (minuten)',
-    notificationTitle: 'SoloMD — focussessie voltooid',
+    notificationTitle: 'Catstep MD — focussessie voltooid',
     notificationBody: '{minutes} min · {words} woorden geschreven',
   },
   quickSwitcher: {
@@ -1250,7 +1243,7 @@ export const nl: I18n = {
   cloudSync: {
     detectedTitle: 'Werkruimte staat in {label}',
     detectedHint:
-      'Hier opgeslagen bestanden worden automatisch verspreid naar je andere apparaten via de cloudaanbieder. SoloMD voegt cross-device sessieherstel toe — open dezelfde werkruimte op een andere machine en dezelfde tabbladen komen terug.',
+      'Hier opgeslagen bestanden worden automatisch verspreid naar je andere apparaten via de cloudaanbieder. Catstep MD voegt cross-device sessieherstel toe — open dezelfde werkruimte op een andere machine en dezelfde tabbladen komen terug.',
     siblingCount: '{n} ander(e) apparaat/apparaten heeft/hebben deze werkruimte geopend.',
     restoreTitle: 'Verder waar je gebleven was?',
     restoreLead:
@@ -1268,7 +1261,7 @@ export const nl: I18n = {
   githubSync: {
     heading: 'GitHub-sync',
     intro:
-      'Push je vault naar een privé GitHub-repo zodat hij je volgt over apparaten heen. Je gegevens blijven op je eigen account — SoloMD voert gewoon git push en git pull uit.',
+      'Push je vault naar een privé GitHub-repo zodat hij je volgt over apparaten heen. Je gegevens blijven op je eigen account — Catstep MD voert gewoon git push en git pull uit.',
     signInTitle: 'Verbinden met GitHub',
     signInHint:
       'Plak een Personal Access Token. Wordt opgeslagen in je OS-keychain — wordt nergens anders heen gestuurd dan api.github.com.',
@@ -1358,11 +1351,11 @@ export const nl: I18n = {
     conflictResolveFailed: 'Oplossen mislukt',
     keychainHintTitle: 'macOS vraagt om je wachtwoord — klik op "Altijd toestaan"',
     keychainHintBody:
-      'De eerste keer dat SoloMD naar GitHub pusht, opent macOS een Keychain-dialoog om je opgeslagen token te kunnen lezen. Als end-to-end-encryptie aan staat, zie je een tweede prompt voor de encryptiesleutel. Klik bij elke "Altijd toestaan" (niet alleen "Toestaan") — dit zet SoloMD permanent op de witte lijst en je ziet de prompt nooit meer op deze Mac. Als je eenmaal "Toestaan" klikt, krijg je bij elke push opnieuw de prompt.',
+      'De eerste keer dat Catstep MD naar GitHub pusht, opent macOS een Keychain-dialoog om je opgeslagen token te kunnen lezen. Als end-to-end-encryptie aan staat, zie je een tweede prompt voor de encryptiesleutel. Klik bij elke "Altijd toestaan" (niet alleen "Toestaan") — dit zet Catstep MD permanent op de witte lijst en je ziet de prompt nooit meer op deze Mac. Als je eenmaal "Toestaan" klikt, krijg je bij elke push opnieuw de prompt.',
     proxyTitle: 'HTTPS-proxy (voor GFW / bedrijfsnetwerken)',
     proxyPlaceholder: 'http://127.0.0.1:7897 of socks5://127.0.0.1:1080',
     proxyHint:
-      'Routeert git push / pull via deze proxy. Laat leeg voor directe verbinding. macOS GUI-apps erven shell-HTTPS_PROXY env niet, dus stel dit hier specifiek in voor SoloMD. Lost ook "Operation timed out" op wanneer github.com niet rechtstreeks bereikbaar is.',
+      'Routeert git push / pull via deze proxy. Laat leeg voor directe verbinding. macOS GUI-apps erven shell-HTTPS_PROXY env niet, dus stel dit hier specifiek in voor Catstep MD. Lost ook "Operation timed out" op wanneer github.com niet rechtstreeks bereikbaar is.',
     proxySaveBtn: 'Proxy opslaan',
     proxySaving: 'Opslaan…',
     proxySavedToast: 'Proxy opgeslagen.',
@@ -1382,7 +1375,7 @@ export const nl: I18n = {
     upgradeRowBtn: 'Encryptie inschakelen',
     upgradeFormTitle: 'End-to-end-encryptie inschakelen',
     upgradeFormBody:
-      'Stel een wachtwoordzin in. SoloMD leidt een sleutel af (Argon2id) en versleutelt elk bestand opnieuw vóór de volgende push.',
+      'Stel een wachtwoordzin in. Catstep MD leidt een sleutel af (Argon2id) en versleutelt elk bestand opnieuw vóór de volgende push.',
     upgradeForcePushWarning:
       'Dit force-pusht de versleutelde geschiedenis over de remote — oude platte-tekst commits worden onbereikbaar op GitHub. Wie de repo al heeft gecloned moet opnieuw clonen. Vergeet je de wachtwoordzin, dan zijn je gegevens onherstelbaar verloren.',
     upgradePassphrasePlaceholder: 'Vault-wachtwoordzin (min 8 tekens)',
@@ -1425,7 +1418,7 @@ export const nl: I18n = {
       'Push your vault to a Gitea server. Enter your server URL and a Personal Access Token to get started.',
     giteaUrlTitle: 'Gitea server URL',
     giteaUrlHint:
-      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). SoloMD will append /api/v1 automatically.',
+      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). Catstep MD will append /api/v1 automatically.',
     giteaUrlValidateBtn: 'Validate URL',
     giteaUrlValidating: 'Validating...',
     giteaTokenTitle: 'Gitea Personal Access Token',

@@ -2,6 +2,18 @@ import { defineStore } from 'pinia';
 import type { Theme, ViewMode } from '../types';
 import { isIOS, isMobile } from '../lib/platform';
 import { isDarkTheme } from '../lib/themes';
+import { providerById, type ProviderId } from '../lib/ai-providers';
+
+export interface AIProviderProfile {
+  id: string;
+  provider: ProviderId;
+  name: string;
+  baseUrl?: string;
+  models: string[];
+  selectedModel: string;
+  enabled?: boolean;
+  createdAt?: number;
+}
 
 const LS_KEY = 'catstep.settings.v1';
 const LEGACY_LS_KEY = 'solomd.settings.v1';
@@ -115,10 +127,7 @@ interface Settings {
   bgBlur: number;
   bgOpacity: number;
   bgFrostedCard: boolean;
-  // Anonymous telemetry (Aptabase). Defaults true but user can opt out.
-  telemetryEnabled: boolean;
-  // First-run banner dismissal. Shown once, never again.
-  telemetryNoticeAck: boolean;
+
   // Restore previously-open tabs + pane layout at startup (default: true).
   restoreSession: boolean;
   // Scope open tabs to the active workspace folder (default: true). Each
@@ -204,6 +213,8 @@ interface Settings {
   aiProvider: string;
   aiModel: string;
   aiBaseUrl: string;
+  aiProfiles: AIProviderProfile[];
+  activeProfileId: string;
   // v2.0 F5: Pandoc + citations
   workspaceBibliography: string;
   workspaceCsl: string;
@@ -258,7 +269,7 @@ interface Settings {
   // editor. Default ON — can be turned off for users who don't like
   // the keyboard interception.
   slashCommandsEnabled: boolean;
-  // v3.6: PNG export — show "Created with SoloMD · solomd.app" footer
+  // v3.6: PNG export — show "Created with 猫步 MD · Catstep MD" footer
   // under the rendered note. Default ON (mild self-promotion is fine
   // for a free MIT app), but explicitly toggleable in Settings → Export
   // for users who don't want the watermark on screenshots they share.
@@ -551,8 +562,6 @@ function defaults(): Settings {
     bgBlur: 0,
     bgOpacity: 25,
     bgFrostedCard: false,
-    telemetryEnabled: true,
-    telemetryNoticeAck: false,
     restoreSession: true,
     perWorkspaceTabs: true,
     autoReloadExternalChanges: true,
@@ -587,6 +596,8 @@ function defaults(): Settings {
     aiProvider: 'openai',
     aiModel: '',
     aiBaseUrl: '',
+    aiProfiles: [],
+    activeProfileId: '',
     workspaceBibliography: '',
     workspaceCsl: '',
     autoGitEnabled: false,
@@ -809,6 +820,61 @@ function load(): Settings {
       if (merged.theme && legacyThemeMap[merged.theme]) {
         merged.theme = legacyThemeMap[merged.theme];
       }
+
+      // Multi-provider AI profile migration & sync
+      if (!Array.isArray(merged.aiProfiles) || merged.aiProfiles.length === 0) {
+        const pId = (merged.aiProvider || 'openai') as ProviderId;
+        const cfg = providerById(pId);
+        const initialModels: string[] = [];
+        if (merged.aiModel && merged.aiModel.trim()) {
+          initialModels.push(merged.aiModel.trim());
+        }
+        if (cfg?.defaultModel && !initialModels.includes(cfg.defaultModel)) {
+          initialModels.push(cfg.defaultModel);
+        }
+        if (cfg?.modelHint) {
+          for (const segment of cfg.modelHint.split('·')) {
+            let s = segment.trim().replace(/^\(/, '').replace(/\)$/, '');
+            const colonIdx = s.indexOf(':');
+            if (colonIdx >= 0) s = s.slice(colonIdx + 1);
+            for (const m of s.split('/')) {
+              const id = m.trim();
+              if (id && !id.includes(' ') && !id.includes('…') && !id.includes('（')) {
+                if (!initialModels.includes(id)) initialModels.push(id);
+              }
+            }
+          }
+        }
+        if (initialModels.length === 0) {
+          initialModels.push('gpt-4o');
+        }
+
+        const defaultProfile: AIProviderProfile = {
+          id: pId,
+          provider: pId,
+          name: cfg?.label || pId,
+          baseUrl: merged.aiBaseUrl || cfg?.defaultBaseUrl || '',
+          models: initialModels,
+          selectedModel: merged.aiModel || initialModels[0] || '',
+          enabled: true,
+          createdAt: Date.now(),
+        };
+
+        merged.aiProfiles = [defaultProfile];
+        merged.activeProfileId = defaultProfile.id;
+      }
+
+      let active = merged.aiProfiles.find((p) => p.id === merged.activeProfileId);
+      if (!active && merged.aiProfiles.length > 0) {
+        active = merged.aiProfiles[0];
+        merged.activeProfileId = active.id;
+      }
+      if (active) {
+        merged.aiProvider = active.provider;
+        merged.aiModel = active.selectedModel || active.models[0] || '';
+        merged.aiBaseUrl = active.baseUrl || '';
+      }
+
       return merged;
     }
   } catch {}
@@ -1129,14 +1195,7 @@ export const useSettingsStore = defineStore('settings', {
       this.autoCheckUpdate = !this.autoCheckUpdate;
       this.persist();
     },
-    toggleTelemetry() {
-      this.telemetryEnabled = !this.telemetryEnabled;
-      this.persist();
-    },
-    ackTelemetryNotice() {
-      this.telemetryNoticeAck = true;
-      this.persist();
-    },
+
     toggleRestoreSession() {
       this.restoreSession = !this.restoreSession;
       this.persist();
@@ -1278,16 +1337,134 @@ export const useSettingsStore = defineStore('settings', {
       this.aiEnabled = !this.aiEnabled;
       this.persist();
     },
+    syncActiveProfile() {
+      let active = this.aiProfiles.find((p) => p.id === this.activeProfileId);
+      if (!active && this.aiProfiles.length > 0) {
+        active = this.aiProfiles[0];
+        this.activeProfileId = active.id;
+      }
+      if (active) {
+        this.aiProvider = active.provider;
+        this.aiModel = active.selectedModel || active.models[0] || '';
+        this.aiBaseUrl = active.baseUrl || '';
+      }
+    },
+    setActiveProfile(id: string) {
+      const target = this.aiProfiles.find((p) => p.id === id);
+      if (!target) return;
+      this.activeProfileId = id;
+      this.syncActiveProfile();
+      this.persist();
+    },
+    addAiProfile(profile: Omit<AIProviderProfile, 'id' | 'createdAt'> & { id?: string }): AIProviderProfile {
+      const id = profile.id || `profile-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const cfg = providerById(profile.provider);
+      let initialModels = Array.isArray(profile.models) && profile.models.length > 0 ? [...profile.models] : [];
+      if (initialModels.length === 0 && cfg?.defaultModel) {
+        initialModels.push(cfg.defaultModel);
+      }
+      const newProfile: AIProviderProfile = {
+        ...profile,
+        id,
+        models: initialModels,
+        selectedModel: profile.selectedModel || initialModels[0] || '',
+        enabled: profile.enabled ?? true,
+        createdAt: Date.now(),
+      };
+      this.aiProfiles.push(newProfile);
+      if (!this.activeProfileId || this.aiProfiles.length === 1) {
+        this.activeProfileId = id;
+      }
+      this.syncActiveProfile();
+      this.persist();
+      return newProfile;
+    },
+    updateAiProfile(id: string, patch: Partial<AIProviderProfile>) {
+      const idx = this.aiProfiles.findIndex((p) => p.id === id);
+      if (idx < 0) return;
+      this.aiProfiles[idx] = { ...this.aiProfiles[idx], ...patch };
+      if (this.activeProfileId === id) {
+        this.syncActiveProfile();
+      }
+      this.persist();
+    },
+    removeAiProfile(id: string) {
+      const idx = this.aiProfiles.findIndex((p) => p.id === id);
+      if (idx < 0) return;
+      this.aiProfiles.splice(idx, 1);
+      if (this.activeProfileId === id) {
+        this.activeProfileId = this.aiProfiles[0]?.id || '';
+      }
+      this.syncActiveProfile();
+      this.persist();
+    },
+    addModelToProfile(profileId: string, modelName: string) {
+      const name = modelName.trim();
+      if (!name) return;
+      const p = this.aiProfiles.find((x) => x.id === profileId);
+      if (!p) return;
+      if (!p.models.includes(name)) {
+        p.models.push(name);
+      }
+      if (!p.selectedModel) {
+        p.selectedModel = name;
+      }
+      if (this.activeProfileId === profileId) {
+        this.syncActiveProfile();
+      }
+      this.persist();
+    },
+    removeModelFromProfile(profileId: string, modelName: string) {
+      const p = this.aiProfiles.find((x) => x.id === profileId);
+      if (!p) return;
+      p.models = p.models.filter((m) => m !== modelName);
+      if (p.selectedModel === modelName) {
+        p.selectedModel = p.models[0] || '';
+      }
+      if (this.activeProfileId === profileId) {
+        this.syncActiveProfile();
+      }
+      this.persist();
+    },
+    setProfileSelectedModel(profileId: string, modelName: string) {
+      const p = this.aiProfiles.find((x) => x.id === profileId);
+      if (!p) return;
+      const name = modelName.trim();
+      if (!name) return;
+      if (!p.models.includes(name)) {
+        p.models.push(name);
+      }
+      p.selectedModel = name;
+      if (this.activeProfileId === profileId) {
+        this.syncActiveProfile();
+      }
+      this.persist();
+    },
     setAiProvider(p: string) {
       this.aiProvider = p;
+      const active = this.aiProfiles.find((x) => x.id === this.activeProfileId);
+      if (active) {
+        active.provider = p as ProviderId;
+      }
       this.persist();
     },
     setAiModel(m: string) {
       this.aiModel = m;
+      const active = this.aiProfiles.find((x) => x.id === this.activeProfileId);
+      if (active) {
+        active.selectedModel = m;
+        if (m && !active.models.includes(m)) {
+          active.models.push(m);
+        }
+      }
       this.persist();
     },
     setAiBaseUrl(u: string) {
       this.aiBaseUrl = u;
+      const active = this.aiProfiles.find((x) => x.id === this.activeProfileId);
+      if (active) {
+        active.baseUrl = u;
+      }
       this.persist();
     },
     setWorkspaceBibliography(p: string) {

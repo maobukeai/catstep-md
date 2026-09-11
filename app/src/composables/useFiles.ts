@@ -338,7 +338,7 @@ export function useFiles() {
    * non-image document (PDF, Office, audio, archives, unknown binaries) is
    * handed to the OS default app — matching the "click the link to open the
    * file" intuition users have from Typora / Obsidian. Markdown / text / code
-   * and images always stay inside SoloMD (editor tab / image overlay). When
+   * and images always stay inside 猫步 MD (editor tab / image overlay). When
    * the setting is off, everything routes through `openPath` as before
    * (PDF/PPTX/EPUB → markitdown conversion).
    */

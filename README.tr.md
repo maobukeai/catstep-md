@@ -103,7 +103,7 @@ https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal
 Veya tek satırlık shell kurulumu:
 
 ```bash
-curl -fsSL https://solomd.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
 ```
 
 ### Windows — x64
@@ -113,7 +113,7 @@ curl -fsSL https://solomd.app/install.sh | bash
 - [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — kurulumcu yok
 
 ```powershell
-irm https://solomd.app/install.ps1 | iex
+irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
 ```
 
 ```powershell
@@ -168,4 +168,4 @@ Tek bir bakımcı, iki ön kapı. Asenkron olarak [GitHub Discussions](https://g
 
 ## Lisans ve katkıda bulunanlar
 
-[MIT](LICENSE) © 2026 xiangdong li. SoloMD; Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` ve `rmcp` üzerinde durur. [GitHub Sponsors](https://github.com/maobukeai/catstep-md) veya [solomd.app/#sponsor](https://solomd.app/#sponsor) üzerinden sponsor olun.
+[MIT](LICENSE) © 2026 maobukeai. SoloMD; Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` ve `rmcp` üzerinde durur. [GitHub Sponsors](https://github.com/maobukeai/catstep-md) veya [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md) üzerinden sponsor olun.

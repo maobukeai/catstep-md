@@ -476,60 +476,223 @@ input[type='range']::-webkit-slider-thumb:active {
 /* Mobile Responsive Overrides */
 @media (max-width: 640px) {
   .settings-group {
-    margin-bottom: 14px;
+    margin-bottom: 16px;
   }
   .setting-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 8px;
     padding: 12px 14px;
   }
+  /* Crucial fix: toggle switches must remain horizontal row and never collapse title */
   .setting-row--clickable {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
   }
-  .setting-row__control {
-    width: 100%;
-    justify-content: flex-start;
+  .setting-row--clickable .setting-row__info {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
   }
-  .setting-row__control select,
-  .setting-row__control input[type='text'],
-  .setting-row__control input[type='password'],
-  .setting-row__control input[type='number'] {
+  .setting-row--clickable .setting-row__title {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .setting-row--clickable .setting-row__hint {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .setting-row--clickable .setting-row__control {
+    width: auto !important;
+    flex-shrink: 0 !important;
+    justify-content: flex-end !important;
+  }
+
+  /* Stacked layout for dropdowns, text inputs, sliders */
+  .setting-row:not(.setting-row--clickable) .setting-row__control {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+  .setting-row:not(.setting-row--clickable) .setting-row__control select,
+  .setting-row:not(.setting-row--clickable) .setting-row__control input[type='text'],
+  .setting-row:not(.setting-row--clickable) .setting-row__control input[type='password'],
+  .setting-row:not(.setting-row--clickable) .setting-row__control input[type='number'] {
     width: 100% !important;
     max-width: 100% !important;
+    height: 40px;
     box-sizing: border-box;
     font-size: 14px;
+    border-radius: 8px;
   }
-  .setting-row__control .btn-group,
-  .setting-row__control .segmented-control {
+  .setting-row:not(.setting-row--clickable) .setting-row__control .btn-group,
+  .setting-row:not(.setting-row--clickable) .setting-row__control .segmented-control {
     width: 100%;
     display: flex;
   }
-  .setting-row__control .btn-group button,
-  .setting-row__control .segmented-control button {
+  .setting-row:not(.setting-row--clickable) .setting-row__control .btn-group button,
+  .setting-row:not(.setting-row--clickable) .setting-row__control .segmented-control button {
     flex: 1;
     text-align: center;
+    height: 36px;
   }
+
+  .setting-actions-row {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    justify-content: flex-start !important;
+  }
+  .setting-actions-row .btn-setting {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 110px !important;
+    height: 38px !important;
+    font-size: 13px !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+  }
+
+  .setting-slider-ctrl {
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 12px !important;
+  }
+  .setting-slider-ctrl input[type='range'] {
+    flex: 1 !important;
+    margin: 0 !important;
+    height: 28px !important;
+  }
+
+  .setting-custom-font-input {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .settings-group__card {
-    border-radius: 8px;
+    border-radius: 12px;
+    overflow: hidden;
   }
   .settings-group__title {
-    font-size: 11.5px;
-    margin-left: 2px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 4px;
+    margin-bottom: 6px;
   }
+
+  section.settings-section,
+  section[data-cat] {
+    padding: 12px 14px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
   .kb-row {
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
-    padding: 8px 0;
+    gap: 8px;
+    padding: 10px 0;
   }
   .kb-row__combos {
     flex-wrap: wrap;
+    gap: 6px;
   }
   .kb-row__actions {
-    align-self: flex-end;
+    align-self: flex-start;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
   }
+}
+
+/* Dedicated styles scoped to .settings-mobile-page for consistency */
+.settings-mobile-page .setting-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.settings-mobile-page .setting-row--clickable {
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+}
+.settings-mobile-page .setting-row--clickable .setting-row__info {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+.settings-mobile-page .setting-row--clickable .setting-row__title {
+  font-size: 14px;
+  line-height: 1.4;
+}
+.settings-mobile-page .setting-row--clickable .setting-row__hint {
+  font-size: 12px;
+  line-height: 1.45;
+}
+.settings-mobile-page .setting-row--clickable .setting-row__control {
+  width: auto !important;
+  flex-shrink: 0 !important;
+  justify-content: flex-end !important;
+}
+.settings-mobile-page .setting-row:not(.setting-row--clickable) .setting-row__control {
+  width: 100% !important;
+  justify-content: flex-start !important;
+}
+.settings-mobile-page .setting-row:not(.setting-row--clickable) .setting-row__control select,
+.settings-mobile-page .setting-row:not(.setting-row--clickable) .setting-row__control input[type='text'],
+.settings-mobile-page .setting-row:not(.setting-row--clickable) .setting-row__control input[type='password'],
+.settings-mobile-page .setting-row:not(.setting-row--clickable) .setting-row__control input[type='number'] {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 40px;
+  box-sizing: border-box;
+  font-size: 14px;
+  border-radius: 8px;
+}
+.settings-mobile-page .setting-actions-row {
+  width: 100% !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  justify-content: flex-start !important;
+}
+.settings-mobile-page .setting-actions-row .btn-setting {
+  flex: 1 1 calc(50% - 4px) !important;
+  min-width: 110px !important;
+  height: 38px !important;
+  font-size: 13px !important;
+  box-sizing: border-box !important;
+  justify-content: center !important;
+}
+.settings-mobile-page .setting-slider-ctrl {
+  width: 100% !important;
+  max-width: 100% !important;
+  gap: 12px !important;
+}
+.settings-mobile-page .setting-slider-ctrl input[type='range'] {
+  flex: 1 !important;
+  margin: 0 !important;
+  height: 28px !important;
+}
+.settings-mobile-page .setting-custom-font-input {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+.settings-mobile-page .settings-group__card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+.settings-mobile-page .settings-group__title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 4px;
+  margin-bottom: 6px;
+}
+.settings-mobile-page section.settings-section,
+.settings-mobile-page section[data-cat] {
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 12px;
 }
 

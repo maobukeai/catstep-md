@@ -31,7 +31,6 @@ import { useTabsStore } from '../stores/tabs';
 import { useToastsStore } from '../stores/toasts';
 import { useTilesStore } from '../stores/tiles';
 import { useI18n } from '../i18n';
-import { track } from '../lib/telemetry';
 
 interface Issue {
   line: number;
@@ -126,7 +125,6 @@ watch(
       editingKey.value = null;
       resetPosition();
       await rescan();
-      track('cjk_proofread_opened');
     }
   },
 );
@@ -436,7 +434,6 @@ function applyOne(issue: Issue) {
     tabs.setContent(tab.id, next);
     fixedCount.value++;
     toasts.success(t('proofread.appliedToast', { n: 1 }));
-    track('cjk_proofread_apply', { category: issue.category, severity: issue.severity });
     return;
   }
 
@@ -451,7 +448,6 @@ function applyOne(issue: Issue) {
     tabs.setContent(tab.id, next);
     fixedCount.value++;
     toasts.success(t('proofread.appliedToast', { n: 1 }));
-    track('cjk_proofread_apply', { category: issue.category, severity: issue.severity });
     return;
   }
 
@@ -498,7 +494,6 @@ function applyAll(severity: 'high' | 'medium' | 'low' | 'all') {
   tabs.setContent(tab.id, next);
   fixedCount.value += applied;
   toasts.success(t('proofread.appliedToast', { n: applied }));
-  track('cjk_proofread_apply_all', { severity, count: applied });
 }
 
 function onKey(e: KeyboardEvent) {

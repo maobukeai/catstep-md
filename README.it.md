@@ -103,7 +103,7 @@ https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal
 O installazione shell in una riga:
 
 ```bash
-curl -fsSL https://solomd.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
 ```
 
 ### Windows — x64
@@ -113,7 +113,7 @@ curl -fsSL https://solomd.app/install.sh | bash
 - [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — senza installer
 
 ```powershell
-irm https://solomd.app/install.ps1 | iex
+irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
 ```
 
 ```powershell
@@ -168,4 +168,4 @@ Un manutentore, due porte d'ingresso. Asincrono su [GitHub Discussions](https://
 
 ## Licenza e crediti
 
-[MIT](LICENSE) © 2026 xiangdong li. SoloMD si appoggia su Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` e `rmcp`. Sponsorizza su [GitHub Sponsors](https://github.com/maobukeai/catstep-md) o via [solomd.app/#sponsor](https://solomd.app/#sponsor).
+[MIT](LICENSE) © 2026 maobukeai. SoloMD si appoggia su Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` e `rmcp`. Sponsorizza su [GitHub Sponsors](https://github.com/maobukeai/catstep-md) o via [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md).

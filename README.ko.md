@@ -103,7 +103,7 @@ https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal
 또는 한 줄 셸 설치:
 
 ```bash
-curl -fsSL https://solomd.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
 ```
 
 ### Windows — x64
@@ -113,7 +113,7 @@ curl -fsSL https://solomd.app/install.sh | bash
 - [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — 인스톨러 없음
 
 ```powershell
-irm https://solomd.app/install.ps1 | iex
+irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
 ```
 
 ```powershell
@@ -168,4 +168,4 @@ Issue와 PR 환영 — [열어주세요](https://github.com/maobukeai/catstep-md
 
 ## 라이선스 & 크레딧
 
-[MIT](LICENSE) © 2026 xiangdong li. SoloMD는 Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, `rmcp` 위에 서 있습니다. [GitHub Sponsors](https://github.com/maobukeai/catstep-md) 또는 [solomd.app/#sponsor](https://solomd.app/#sponsor)에서 후원하세요.
+[MIT](LICENSE) © 2026 maobukeai. SoloMD는 Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, `rmcp` 위에 서 있습니다. [GitHub Sponsors](https://github.com/maobukeai/catstep-md) 또는 [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md)에서 후원하세요.

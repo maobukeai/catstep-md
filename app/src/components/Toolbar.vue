@@ -6,7 +6,6 @@ import PomodoroPopover from './PomodoroPopover.vue';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { useTilesStore } from '../stores/tiles';
-import { track } from '../lib/telemetry';
 import { getPlainSelection } from '../lib/plain-selection';
 import { useFiles } from '../composables/useFiles';
 import { useViewport } from '../composables/useViewport';
@@ -338,7 +337,6 @@ function onSelectSourceMode() {
 
 function toggleDayNight() {
   settings.toggleTheme();
-  track('theme_changed', { theme: settings.theme });
 }
 
 // ── In-App Typora Menubar ───────────────────────────────────────────────────
@@ -442,7 +440,6 @@ function menuAction(id: string) {
     settings.setActiveCustomThemeId('');
     settings.setCustomCssPath('');
     settings.setTheme(themeName);
-    track('theme_changed', { theme: themeName });
   }
   else if (id.startsWith('custom-theme:')) {
     const customId = id.slice(13);
@@ -450,7 +447,6 @@ function menuAction(id: string) {
     if (found) {
       settings.setActiveCustomThemeId(found.id);
       settings.setCustomCssPath(found.path);
-      track('custom_theme_changed', { id: found.id });
     }
   } else {
     window.dispatchEvent(new CustomEvent('solomd:menu-action', { detail: id }));

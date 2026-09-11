@@ -72,7 +72,7 @@ Windows 当前的 IME 安全版本优先保证中文输入稳定。如果 Window
 
 普通段落包含 **粗体文本**、*斜体文本*、***粗斜体文本***、~~删除线文本~~、`inline code`、==高亮文本==。
 
-链接测试：[SoloMD GitHub](https://github.com/zhitongblog/solomd "SoloMD")。光标离开链接时应优先显示可读标签，光标进入时应能看到完整 Markdown 源码。
+链接测试：[猫步 MD GitHub](https://github.com/maobukeai/catstep-md "Catstep MD")。光标离开链接时应优先显示可读标签，光标进入时应能看到完整 Markdown 源码。
 
 自动链接测试：https://example.com/path?a=1&b=中文
 

@@ -11,7 +11,7 @@ import { renderMarkdown, extractImageRoot } from './markdown';
 import { rewriteImageUrls } from './image-resolve';
 
 export interface ImageExportOptions {
-  /** When true, append a "Created with SoloMD · solomd.app" footer.
+  /** When true, append a "Created with 猫步 MD · Catstep MD" footer.
    *  Default true (mirroring the settings store default); pass false
    *  to opt out per-call. */
   branding?: boolean;

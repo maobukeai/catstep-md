@@ -14,10 +14,8 @@
 //!       nord-light.css
 //!       …
 //!
-//! The frontend fetches the curator manifest at
-//! `https://solomd.app/themes/index.json` and downloads individual `.css`
-//! files via `fetch()` (Tauri 2's CSP allows arbitrary HTTPS for the bundled
-//! webview). The Rust side here only deals with the *local* filesystem —
+//! The frontend loads the theme manifest locally from
+//! `/themes/index.json` and copies individual `.css` files.
 //! writing, listing, removing. Network is intentionally kept on the JS side
 //! so the manifest cache lives in Pinia memory.
 //!

@@ -13,16 +13,14 @@
  * we only display the presence of a key, never the key itself.
  */
 
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
-  OLLAMA_RECOMMENDED_MODEL,
   PROVIDERS,
   providerById,
   type ProviderId,
 } from '../lib/ai-providers';
-import { useSettingsStore } from '../stores/settings';
+import { useSettingsStore, type AIProviderProfile } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useTabsStore } from '../stores/tabs';
 import { useI18n } from '../i18n';
@@ -32,21 +30,13 @@ const workspaceStore = useWorkspaceStore();
 const tabsStore = useTabsStore();
 
 // ---------------------------------------------------------------------------
-// Ollama detect / pull state (v4.0 Pillar 5)
+// Ollama detect state (v4.0 Pillar 5)
 // ---------------------------------------------------------------------------
 
 interface OllamaDetection {
   ok: boolean;
   version?: string | null;
   models: string[];
-}
-
-interface OllamaPullEvent {
-  request_id: string;
-  status: string;
-  completed?: number | null;
-  total?: number | null;
-  done: boolean;
 }
 
 const { t } = useI18n();
@@ -66,48 +56,172 @@ const emit = defineEmits<{
 }>();
 
 // ---------------------------------------------------------------------------
-// Key-presence tracking (queried from the OS keychain).
+// Model probe interface
 // ---------------------------------------------------------------------------
 
-const hasKey = ref<Partial<Record<ProviderId, boolean>>>({});
-const keyInput = ref('');
-const saving = ref(false);
-const status = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null);
-
-const currentProviderConfig = computed(() => providerById(props.provider));
+interface ModelProbe {
+  ok: boolean;
+  models: string[];
+  url: string;
+  error?: string | null;
+}
 
 // ---------------------------------------------------------------------------
-// Dynamic Model Fetching across providers (GET /models or provider API)
+// Multi-provider key presence & diagnostics
 // ---------------------------------------------------------------------------
-const fetchedModels = ref<string[]>([]);
-const fetchingModels = ref(false);
-const fetchModelsStatus = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null);
 
-async function onFetchModels(): Promise<void> {
-  if (fetchingModels.value) return;
-  fetchingModels.value = true;
-  fetchModelsStatus.value = null;
+const hasKey = ref<Record<string, boolean>>({});
+const profileKeyInputs = ref<Record<string, string>>({});
+const profileKeySaving = ref<Record<string, boolean>>({});
+const editingProfileId = ref<string | null>(null);
 
+interface DiagnosisState {
+  loading: boolean;
+  ok?: boolean;
+  latency?: number;
+  msg?: string;
+}
+const diagnosisMap = ref<Record<string, DiagnosisState>>({});
+
+interface FetchState {
+  loading: boolean;
+  models: string[];
+  msg?: string;
+  error?: string;
+}
+const fetchStateMap = ref<Record<string, FetchState>>({});
+const profileNewModelInput = ref<Record<string, string>>({});
+
+async function refreshProfileHasKey(profileId: string, provider: string): Promise<boolean> {
+  let ok = false;
   try {
-    const cfg = currentProviderConfig.value;
-    const url = (props.baseUrl || '').trim() || cfg?.defaultBaseUrl || null;
-    const key = keyInput.value.trim() || null;
+    ok = await invoke<boolean>('ai_has_key', { provider: profileId });
+    if (!ok && profileId !== provider) {
+      ok = await invoke<boolean>('ai_has_key', { provider });
+    }
+  } catch {
+    ok = false;
+  }
+  hasKey.value[profileId] = ok;
+  return ok;
+}
 
+async function refreshAllKeys(): Promise<void> {
+  for (const p of settingsStore.aiProfiles) {
+    void refreshProfileHasKey(p.id, p.provider);
+  }
+}
+
+async function onDiagnoseProfile(profile: AIProviderProfile): Promise<void> {
+  diagnosisMap.value[profile.id] = { loading: true };
+  const startTime = Date.now();
+  try {
+    const cfg = providerById(profile.provider);
+    const key = (profileKeyInputs.value[profile.id] || '').trim() || null;
+    const res = await invoke<string>('ai_verify_key', {
+      provider: profile.provider,
+      key,
+      apiFormat: cfg?.apiFormat || 'openai',
+      baseUrl: profile.baseUrl || cfg?.defaultBaseUrl || null,
+      model: profile.selectedModel || profile.models[0] || cfg?.defaultModel || null,
+      keyId: profile.id,
+    });
+    const latency = Date.now() - startTime;
+    diagnosisMap.value[profile.id] = {
+      loading: false,
+      ok: true,
+      latency,
+      msg: res || t('ai.diagnoseSuccess', { latency }),
+    };
+  } catch (err) {
+    const latency = Date.now() - startTime;
+    diagnosisMap.value[profile.id] = {
+      loading: false,
+      ok: false,
+      latency,
+      msg: String(err),
+    };
+  }
+}
+
+async function onSaveKeyForProfile(profile: AIProviderProfile): Promise<void> {
+  const key = (profileKeyInputs.value[profile.id] || '').trim();
+  if (!key) return;
+  profileKeySaving.value[profile.id] = true;
+  try {
+    const cfg = providerById(profile.provider);
+    await invoke('ai_verify_key', {
+      provider: profile.provider,
+      key,
+      apiFormat: cfg?.apiFormat || 'openai',
+      baseUrl: profile.baseUrl || cfg?.defaultBaseUrl || null,
+      model: profile.selectedModel || profile.models[0] || cfg?.defaultModel || null,
+      keyId: profile.id,
+    });
+    await invoke('ai_set_key', { provider: profile.id, key });
+    profileKeyInputs.value[profile.id] = '';
+    await refreshProfileHasKey(profile.id, profile.provider);
+    diagnosisMap.value[profile.id] = {
+      loading: false,
+      ok: true,
+      msg: '密钥验证成功并已安全存入系统钥匙串',
+    };
+  } catch (err) {
+    diagnosisMap.value[profile.id] = {
+      loading: false,
+      ok: false,
+      msg: t('ai.verifyFailed') + ': ' + String(err),
+    };
+  } finally {
+    profileKeySaving.value[profile.id] = false;
+  }
+}
+
+async function onClearKeyForProfile(profile: AIProviderProfile): Promise<void> {
+  profileKeySaving.value[profile.id] = true;
+  try {
+    await invoke('ai_clear_key', { provider: profile.id });
+    if (profile.id !== profile.provider) {
+      await invoke('ai_clear_key', { provider: profile.provider });
+    }
+    await refreshProfileHasKey(profile.id, profile.provider);
+    diagnosisMap.value[profile.id] = {
+      loading: false,
+      ok: true,
+      msg: t('ai.keyCleared'),
+    };
+  } catch (err) {
+    diagnosisMap.value[profile.id] = {
+      loading: false,
+      ok: false,
+      msg: String(err),
+    };
+  } finally {
+    profileKeySaving.value[profile.id] = false;
+  }
+}
+
+async function onFetchModelsForProfile(profile: AIProviderProfile): Promise<void> {
+  fetchStateMap.value[profile.id] = { loading: true, models: [] };
+  try {
+    const cfg = providerById(profile.provider);
+    const key = (profileKeyInputs.value[profile.id] || '').trim() || null;
     let p: ModelProbe;
     try {
       p = await invoke<ModelProbe>('ai_list_models', {
-        provider: props.provider,
-        baseUrl: url,
+        provider: profile.provider,
+        baseUrl: profile.baseUrl || cfg?.defaultBaseUrl || null,
         key,
+        keyId: profile.id,
       });
     } catch (invErr) {
       if (typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
         p = {
           ok: true,
-          models: props.provider === 'gemini'
-            ? ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
-            : ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.4-mini', 'gpt-4o', 'gpt-4o-mini'],
-          url: url || 'http://localhost:preview',
+          models: profile.provider === 'gemini'
+            ? ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash']
+            : ['gpt-5.6', 'gpt-5.4-mini', 'gpt-4o'],
+          url: profile.baseUrl || 'http://localhost:preview',
         };
       } else {
         throw invErr;
@@ -115,38 +229,72 @@ async function onFetchModels(): Promise<void> {
     }
 
     if (p.ok && p.models && p.models.length > 0) {
-      fetchedModels.value = p.models;
-      fetchModelsStatus.value = {
-        kind: 'ok',
+      fetchStateMap.value[profile.id] = {
+        loading: false,
+        models: p.models,
         msg: t('ai.fetchModelsSuccess', { n: p.models.length }),
       };
-      if (!props.model.trim() && p.models.length > 0) {
-        emit('update:model', p.models[0]);
-      }
     } else if (p.error) {
-      fetchModelsStatus.value = {
-        kind: 'err',
-        msg: `${t('ai.fetchModelsFailed')}: ${p.error}`,
+      fetchStateMap.value[profile.id] = {
+        loading: false,
+        models: [],
+        error: `${t('ai.fetchModelsFailed')}: ${p.error}`,
       };
     } else {
-      fetchModelsStatus.value = {
-        kind: 'err',
-        msg: `${t('ai.fetchModelsFailed')}: 未返回可用模型`,
+      fetchStateMap.value[profile.id] = {
+        loading: false,
+        models: [],
+        error: `${t('ai.fetchModelsFailed')}: 未返回可用模型`,
       };
     }
   } catch (e) {
-    fetchModelsStatus.value = {
-      kind: 'err',
-      msg: `${t('ai.fetchModelsFailed')}: ${String(e)}`,
+    fetchStateMap.value[profile.id] = {
+      loading: false,
+      models: [],
+      error: `${t('ai.fetchModelsFailed')}: ${String(e)}`,
     };
-  } finally {
-    fetchingModels.value = false;
   }
 }
 
-/** Clickable preset models from modelHint */
-const hintModelList = computed<string[]>(() => {
-  const cfg = currentProviderConfig.value;
+function onImportAllFetchedModels(profile: AIProviderProfile): void {
+  const fs = fetchStateMap.value[profile.id];
+  if (!fs || !fs.models.length) return;
+  for (const m of fs.models) {
+    settingsStore.addModelToProfile(profile.id, m);
+  }
+}
+
+function onImportSingleFetchedModel(profile: AIProviderProfile, modelId: string): void {
+  settingsStore.addModelToProfile(profile.id, modelId);
+}
+
+function onAddCustomModel(profile: AIProviderProfile): void {
+  const input = (profileNewModelInput.value[profile.id] || '').trim();
+  if (!input) return;
+  settingsStore.addModelToProfile(profile.id, input);
+  profileNewModelInput.value[profile.id] = '';
+}
+
+function onAddPresetModel(profile: AIProviderProfile, modelId: string): void {
+  settingsStore.addModelToProfile(profile.id, modelId);
+}
+
+function onRemoveModel(profile: AIProviderProfile, modelId: string): void {
+  settingsStore.removeModelFromProfile(profile.id, modelId);
+}
+
+function onSetDefaultModel(profile: AIProviderProfile, modelId: string): void {
+  settingsStore.setProfileSelectedModel(profile.id, modelId);
+}
+
+function onDeleteProfile(profile: AIProviderProfile): void {
+  if (confirm(t('ai.deleteProviderConfirm', { name: profile.name }))) {
+    settingsStore.removeAiProfile(profile.id);
+  }
+}
+
+function getHintModelsForProvider(providerId: ProviderId): string[] {
+  const cfg = providerById(providerId);
   if (!cfg?.modelHint) return [];
   const out: string[] = [];
   for (const segment of cfg.modelHint.split('·')) {
@@ -161,53 +309,92 @@ const hintModelList = computed<string[]>(() => {
     }
   }
   return out;
-});
+}
 
-defineExpose({ onFetchModels, hintModelList });
+// ---------------------------------------------------------------------------
+// Add Provider Modal State & Actions
+// ---------------------------------------------------------------------------
 
-/**
- * Parse the provider's modelHint into a flat list of model ids for the
- * <datalist> dropdown.
- */
-const modelChoices = computed<string[]>(() => {
-  const cfg = currentProviderConfig.value;
-  const out = new Set<string>();
+const showAddModal = ref(false);
+const newProviderTemplate = ref<ProviderId>('deepseek');
+const newProviderName = ref('DeepSeek 官方');
+const newProviderBaseUrl = ref('');
+const newProviderKey = ref('');
+const newProviderModels = ref<string[]>([]);
+const newProviderModelInput = ref('');
+const addingProvider = ref(false);
+const addError = ref('');
 
-  // If remote models were fetched, prioritize them:
-  for (const m of fetchedModels.value) {
-    out.add(m);
+function openAddProviderModal(): void {
+  newProviderTemplate.value = 'deepseek';
+  const cfg = providerById('deepseek');
+  newProviderName.value = cfg?.label || 'DeepSeek';
+  newProviderBaseUrl.value = cfg?.defaultBaseUrl || '';
+  newProviderKey.value = '';
+  newProviderModels.value = cfg?.defaultModel ? [cfg.defaultModel] : [];
+  const hints = getHintModelsForProvider('deepseek');
+  for (const h of hints) {
+    if (!newProviderModels.value.includes(h)) newProviderModels.value.push(h);
   }
+  newProviderModelInput.value = '';
+  addError.value = '';
+  showAddModal.value = true;
+}
 
-  if (props.provider === 'openai-compat') {
-    for (const m of probe.value?.models ?? []) {
-      out.add(m);
+function onAddModalTemplateChange(ev: Event): void {
+  const sel = (ev.target as HTMLSelectElement).value as ProviderId;
+  newProviderTemplate.value = sel;
+  const cfg = providerById(sel);
+  newProviderName.value = cfg?.label || sel;
+  newProviderBaseUrl.value = cfg?.defaultBaseUrl || '';
+  newProviderModels.value = cfg?.defaultModel ? [cfg.defaultModel] : [];
+  const hints = getHintModelsForProvider(sel);
+  for (const h of hints) {
+    if (!newProviderModels.value.includes(h)) newProviderModels.value.push(h);
+  }
+}
+
+function addModelToNewProvider(): void {
+  const m = newProviderModelInput.value.trim();
+  if (!m) return;
+  if (!newProviderModels.value.includes(m)) {
+    newProviderModels.value.push(m);
+  }
+  newProviderModelInput.value = '';
+}
+
+function removeModelFromNewProvider(m: string): void {
+  newProviderModels.value = newProviderModels.value.filter((x) => x !== m);
+}
+
+async function confirmAddProvider(): Promise<void> {
+  const name = newProviderName.value.trim() || newProviderTemplate.value;
+  addingProvider.value = true;
+  addError.value = '';
+  try {
+    const profile = settingsStore.addAiProfile({
+      provider: newProviderTemplate.value,
+      name,
+      baseUrl: newProviderBaseUrl.value.trim() || undefined,
+      models: newProviderModels.value.length > 0 ? [...newProviderModels.value] : ['gpt-4o'],
+      selectedModel: newProviderModels.value[0] || 'gpt-4o',
+      enabled: true,
+    });
+
+    if (newProviderKey.value.trim()) {
+      await invoke('ai_set_key', {
+        provider: profile.id,
+        key: newProviderKey.value.trim(),
+      });
+      await refreshProfileHasKey(profile.id, profile.provider);
     }
-    return Array.from(out);
+    showAddModal.value = false;
+  } catch (e) {
+    addError.value = String(e);
+  } finally {
+    addingProvider.value = false;
   }
-
-  if (!cfg) return Array.from(out);
-  if (cfg.defaultModel) out.add(cfg.defaultModel);
-  const hint = cfg.modelHint || '';
-  for (const segment of hint.split('·')) {
-    let s = segment.trim().replace(/^\(/, '').replace(/\)$/, '');
-    const colonIdx = s.indexOf(':');
-    if (colonIdx >= 0) s = s.slice(colonIdx + 1);
-    for (const m of s.split('/')) {
-      const id = m.trim();
-      if (id && !id.includes(' ') && !id.includes('…') && !id.includes('（')) {
-        out.add(id);
-      }
-    }
-  }
-  return Array.from(out);
-});
-
-// A key is required for hosted providers only. Local runtimes (Ollama, a
-// self-hosted OpenAI-compatible server) may have one — some people front
-// theirs with a reverse-proxy token — but must never be blocked without.
-const needsKey = computed(() => !currentProviderConfig.value?.keyless);
-/** The self-hosted OpenAI-compatible branch (llama.cpp / LM Studio / vLLM). */
-const isCompat = computed(() => props.provider === 'openai-compat');
+}
 
 // ---------------------------------------------------------------------------
 // Ollama detection cache (v4.0 Pillar 5)
@@ -229,11 +416,10 @@ let cachedDetectionUrl = '';
 const DETECT_TTL_MS = 30_000;
 
 /** The address we're probing, for the status pill and the error hint. */
-const probeUrl = computed(
-  () => (props.baseUrl || '').trim()
-    || currentProviderConfig.value?.defaultBaseUrl
-    || 'http://localhost:11434',
-);
+const probeUrl = computed(() => {
+  const ollamaProfile = settingsStore.aiProfiles.find((p) => p.provider === 'ollama');
+  return (ollamaProfile?.baseUrl || props.baseUrl || '').trim() || 'http://localhost:11434';
+});
 
 /** A remote server can't be fixed by installing Ollama locally, so the
  *  not-detected branch offers a reachability hint instead of that CTA. */
@@ -247,21 +433,9 @@ const probeIsRemote = computed(() => {
 
 const detection = ref<OllamaDetection | null>(null);
 const detecting = ref(false);
-// Pull progress state. `pullStatus` mirrors the Ollama status string
-// ("pulling abc123" / "verifying sha256 digest" / "success") so the user
-// sees what stage we're in; `pullPct` is 0–1 derived from completed/total.
-const pulling = ref(false);
-const pullStatus = ref('');
-const pullPct = ref<number | null>(null);
-const pullError = ref<string | null>(null);
-const pullDone = ref(false);
-let pullRequestId = '';
-let pullUnlisten: UnlistenFn | null = null;
 
 async function detectOllama(force = false): Promise<void> {
   const url = probeUrl.value;
-  // Hot-path: the same panel opening twice within TTL skips the IPC — but
-  // only while the address is unchanged.
   if (
     !force
     && cachedDetection
@@ -274,8 +448,6 @@ async function detectOllama(force = false): Promise<void> {
   detecting.value = true;
   try {
     const d = await invoke<OllamaDetection>('ollama_detect', { baseUrl: url });
-    // A slow remote probe can land after the user has typed a new address;
-    // drop the stale answer instead of flashing it.
     if (probeUrl.value !== url) return;
     detection.value = d;
     cachedDetection = d;
@@ -293,263 +465,11 @@ async function detectOllama(force = false): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// OpenAI-compatible server probe (v4.11.18)
-//
-// Same idea as the Ollama detection pill, one endpoint over: GET
-// {base}/models. It answers the two questions a self-hosted setup actually
-// fails on — "is anything listening at this address" and "what model names
-// does it want" — and when it fails it shows the server's own words
-// (HTTP 404 / connection refused) rather than a mute red dot.
-// ---------------------------------------------------------------------------
-
-interface ModelProbe {
-  ok: boolean;
-  models: string[];
-  url: string;
-  error?: string | null;
-}
-
-const probe = ref<ModelProbe | null>(null);
-const probing = ref(false);
-let probeDebounce: number | null = null;
-
-async function probeCompat(): Promise<void> {
-  const url = probeUrl.value;
-  probing.value = true;
-  try {
-    const p = await invoke<ModelProbe>('ai_list_models', {
-      provider: props.provider,
-      baseUrl: url,
-    });
-    if (probeUrl.value !== url) return;
-    probe.value = p;
-    // A self-hosted server names its own models; when the field is still
-    // empty (fresh switch to this provider) adopt the first one it lists,
-    // so "connected" and "usable" aren't two separate steps. A model the
-    // user typed themselves is never overwritten — it may be an alias the
-    // server accepts but doesn't advertise.
-    if (p.ok && p.models.length > 0 && !props.model.trim()) {
-      emit('update:model', p.models[0]);
-    }
-  } catch (e) {
-    if (probeUrl.value !== url) return;
-    probe.value = { ok: false, models: [], url, error: String(e) };
-  } finally {
-    probing.value = false;
-  }
-}
-
-function scheduleCompatProbe(delay = 700): void {
-  if (probeDebounce != null) window.clearTimeout(probeDebounce);
-  probeDebounce = window.setTimeout(() => {
-    probeDebounce = null;
-    void probeCompat();
-  }, delay);
-}
-
 async function openInstallPage(): Promise<void> {
   try {
     await invoke('open_ollama_install_page');
   } catch (e) {
-    status.value = { kind: 'err', msg: String(e) };
-  }
-}
-
-async function ensurePullListener(): Promise<void> {
-  if (pullUnlisten) return;
-  pullUnlisten = await listen<OllamaPullEvent>('solomd://ollama-pull', (ev) => {
-    if (ev.payload.request_id !== pullRequestId) return;
-    pullStatus.value = ev.payload.status;
-    const c = ev.payload.completed ?? null;
-    const t = ev.payload.total ?? null;
-    pullPct.value = c != null && t != null && t > 0 ? Math.min(1, c / t) : null;
-    if (ev.payload.done) {
-      pullDone.value = true;
-    }
-  });
-}
-
-async function pullRecommended(): Promise<void> {
-  if (pulling.value) return;
-  await ensurePullListener();
-  pulling.value = true;
-  pullDone.value = false;
-  pullError.value = null;
-  pullStatus.value = '';
-  pullPct.value = null;
-  pullRequestId = `pull-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  try {
-    await invoke('ollama_pull', {
-      model: OLLAMA_RECOMMENDED_MODEL,
-      requestId: pullRequestId,
-      baseUrl: probeUrl.value,
-    });
-    // After the pull resolves, re-detect so the model dropdown picks up
-    // the new entry without the user having to hit Refresh.
-    await detectOllama(true);
-  } catch (e) {
-    pullError.value = String(e);
-  } finally {
-    pulling.value = false;
-  }
-}
-
-async function cancelPull(): Promise<void> {
-  if (!pulling.value || !pullRequestId) return;
-  try {
-    await invoke('ollama_cancel_pull', { requestId: pullRequestId });
-  } catch {
-    /* idempotent — surface nothing */
-  }
-}
-
-/** Curated presets first, then any other locally-installed model the user
- *  pulled themselves (e.g. `llama3.2`). De-duped against the preset list. */
-const ollamaModelOptions = computed(() => {
-  const cfg = currentProviderConfig.value;
-  const presets = cfg?.presets ?? [];
-  const installed = detection.value?.models ?? [];
-  const presetModels = new Set(presets.map((p) => p.model));
-  const others = installed.filter((m) => !presetModels.has(m));
-  return { presets, others };
-});
-
-async function refreshHasKey(p: ProviderId): Promise<void> {
-  try {
-    const v = await invoke<boolean>('ai_has_key', { provider: p });
-    hasKey.value[p] = v;
-  } catch {
-    hasKey.value[p] = false;
-  }
-}
-
-async function refreshAll(): Promise<void> {
-  await Promise.all(PROVIDERS.map((p) => refreshHasKey(p.id)));
-}
-
-watch(
-  () => props.provider,
-  (p) => {
-    keyInput.value = '';
-    status.value = null;
-    fetchedModels.value = [];
-    fetchModelsStatus.value = null;
-    refreshHasKey(p);
-    // Re-probe Ollama on every switch INTO ollama (force = false uses
-    // the 30s cache so back-and-forth flips don't spam the server).
-    if (p === 'ollama') void detectOllama(false);
-    if (p === 'openai-compat') {
-      probe.value = null;
-      scheduleCompatProbe(0);
-    }
-  },
-);
-
-// v4.11.18 — re-probe when the user edits the Base URL. Debounced so a
-// typed-out LAN address doesn't fire a request per keystroke.
-let baseUrlDebounce: number | null = null;
-watch(
-  () => props.baseUrl,
-  () => {
-    if (isCompat.value) {
-      scheduleCompatProbe();
-      return;
-    }
-    if (props.provider !== 'ollama') return;
-    if (baseUrlDebounce != null) window.clearTimeout(baseUrlDebounce);
-    baseUrlDebounce = window.setTimeout(() => {
-      baseUrlDebounce = null;
-      void detectOllama(true);
-    }, 700);
-  },
-);
-
-onMounted(() => {
-  void refreshAll();
-  if (props.provider === 'ollama') void detectOllama(false);
-  if (isCompat.value) scheduleCompatProbe(0);
-});
-
-onUnmounted(() => {
-  if (probeDebounce != null) {
-    window.clearTimeout(probeDebounce);
-    probeDebounce = null;
-  }
-  if (baseUrlDebounce != null) {
-    window.clearTimeout(baseUrlDebounce);
-    baseUrlDebounce = null;
-  }
-  if (pullUnlisten) {
-    pullUnlisten();
-    pullUnlisten = null;
-  }
-});
-
-async function saveKey(): Promise<void> {
-  const key = keyInput.value.trim();
-  if (!key) return;
-  saving.value = true;
-  status.value = { kind: 'ok', msg: t('ai.verifying') };
-  try {
-    // Verify FIRST with the key the user just typed, before storing it
-    // in keychain. If verification fails, the user keeps their old key
-    // (if any) untouched, and we surface the exact provider error.
-    const cfg = currentProviderConfig.value;
-    let verifiedMsg: string;
-    try {
-      verifiedMsg = await invoke<string>('ai_verify_key', {
-        provider: props.provider,
-        key,
-        apiFormat: cfg?.apiFormat || 'openai',
-        baseUrl: props.baseUrl || cfg?.defaultBaseUrl || null,
-        // Endpoints without a GET /models list verify by chat ping instead
-        // (#261); that needs a model name to send.
-        model: props.model?.trim() || cfg?.defaultModel || null,
-      });
-    } catch (verifyErr) {
-      status.value = {
-        kind: 'err',
-        msg: t('ai.verifyFailed') + ': ' + String(verifyErr),
-      };
-      return;
-    }
-    // Verification passed — now save to keychain.
-    await invoke('ai_set_key', { provider: props.provider, key });
-    keyInput.value = '';
-    await refreshHasKey(props.provider);
-    status.value = { kind: 'ok', msg: t('ai.verified') + ' · ' + verifiedMsg };
-  } catch (e) {
-    status.value = { kind: 'err', msg: String(e) };
-  } finally {
-    saving.value = false;
-  }
-}
-
-/** Manual re-verify button — uses the key already in keychain. */
-async function verifyExisting(): Promise<void> {
-  // A keyless provider (local Ollama / self-hosted OpenAI-compatible
-  // server) verifies against the endpoint itself, no key involved.
-  if (needsKey.value && !hasKey.value[props.provider]) {
-    status.value = { kind: 'err', msg: t('ai.noKey') };
-    return;
-  }
-  saving.value = true;
-  status.value = { kind: 'ok', msg: t('ai.verifying') };
-  try {
-    const cfg = currentProviderConfig.value;
-    const ok = await invoke<string>('ai_verify_key', {
-      provider: props.provider,
-      key: null,
-      apiFormat: cfg?.apiFormat || 'openai',
-      baseUrl: props.baseUrl || cfg?.defaultBaseUrl || null,
-      model: props.model?.trim() || cfg?.defaultModel || null,
-    });
-    status.value = { kind: 'ok', msg: t('ai.verified') + ' · ' + ok };
-  } catch (e) {
-    status.value = { kind: 'err', msg: t('ai.verifyFailed') + ': ' + String(e) };
-  } finally {
-    saving.value = false;
+    console.error('failed to open ollama install page', e);
   }
 }
 
@@ -567,9 +487,6 @@ interface AgentRunMeta {
   provider?: string;
   model?: string;
   recipe?: { name: string } | null;
-  // v4.0 — populated by ai_proxy.rs after a run finishes; stays 0 for
-  // ollama / unknown (provider, model) pairs and for runs that
-  // predate the token-counting fix.
   tokens?: { input?: number; output?: number };
   cost_usd_estimate?: number;
   _dir?: string;
@@ -579,16 +496,8 @@ interface AgentRunMeta {
 const recentRuns = ref<AgentRunMeta[]>([]);
 const runsLoading = ref(false);
 
-/**
- * Re-arm the first-run wizard so App.vue's `agentWizardSeen` watcher
- * pops it open again. Used by the "Run setup wizard again" button.
- * The wizard itself calls `markAgentWizardSeen()` on close so we don't
- * loop.
- */
 function reopenWizard(): void {
   settingsStore.resetAgentWizard();
-  // Ask the app to open it. App.vue listens to a window-level event so
-  // we don't have to thread a prop through the whole settings tree.
   window.dispatchEvent(new CustomEvent('solomd:open-agent-wizard'));
 }
 
@@ -626,13 +535,6 @@ function fmtRunStartedAt(secs: number): string {
   }
 }
 
-/**
- * Render a compact "1.2k in · 3.4k out · $0.0042" summary for a run row.
- * Returns the empty string when no usage was captured (Ollama runs, runs
- * that predate the token-counting fix, or aborted runs that finish'd
- * with 0/0/0). The settings list stays clean rather than rendering
- * a misleading "$0.0000" badge for every entry.
- */
 function fmtRunUsage(r: AgentRunMeta): string {
   const tin = r.tokens?.input ?? 0;
   const tout = r.tokens?.output ?? 0;
@@ -648,8 +550,6 @@ function fmtRunUsage(r: AgentRunMeta): string {
 
 async function openRunMd(run: AgentRunMeta): Promise<void> {
   if (!run._run_md) return;
-  // Open the run.md as a file tab. Mirror the openPath flow used by
-  // QuickSwitcher / FileTree — read_file + tabs.openFromDisk.
   try {
     const result = await invoke<{
       content: string;
@@ -670,51 +570,37 @@ async function openRunMd(run: AgentRunMeta): Promise<void> {
 }
 
 onMounted(() => {
+  void refreshAllKeys();
   void refreshRuns();
+  const hasOllama = settingsStore.aiProfiles.some((p) => p.provider === 'ollama');
+  if (hasOllama) void detectOllama(false);
 });
 
-async function clearKey(): Promise<void> {
-  saving.value = true;
-  status.value = null;
-  try {
-    await invoke('ai_clear_key', { provider: props.provider });
-    await refreshHasKey(props.provider);
-    status.value = { kind: 'ok', msg: t('ai.keyCleared') };
-  } catch (e) {
-    status.value = { kind: 'err', msg: String(e) };
-  } finally {
-    saving.value = false;
-  }
-}
-
-/**
- * On provider change we ALWAYS reset model + baseUrl to the new provider's
- * defaults — leaving them stale was the source of a verify-against-wrong-
- * provider bug ("API key not valid" when an OpenAI base URL was carried
- * over after switching to Gemini). Power users who set a custom base URL
- * (e.g. self-hosted OpenAI-compat endpoint) just re-edit the field after
- * switching; that's the rare path.
- */
-function onProviderChange(ev: Event): void {
-  const sel = (ev.target as HTMLSelectElement).value as ProviderId;
-  emit('update:provider', sel);
-  const cfg = providerById(sel);
-  if (cfg) {
-    emit('update:model', cfg.defaultModel);
-    emit('update:baseUrl', cfg.defaultBaseUrl || '');
-  }
-  // Clear any stale verify status from the previous provider.
-  status.value = null;
-}
+watch(
+  () => settingsStore.aiProfiles,
+  () => {
+    void refreshAllKeys();
+  },
+  { deep: true },
+);
 </script>
 
 <template>
   <section class="ai-settings">
-    <!-- ① 全局 AI 模型与服务商配置 -->
+    <!-- ① 全局 AI 模型与多服务商配置 -->
     <div class="ai-settings__card">
-      <div class="ai-settings__card-header">
-        <h3 class="ai-settings__heading">{{ t('ai.settingsHeading') }}</h3>
-        <p class="ai-settings__desc">{{ t('ai.globalDesc') }}</p>
+      <div class="ai-settings__card-header-row">
+        <div>
+          <h3 class="ai-settings__heading">{{ t('ai.providerProfilesHeading') }}</h3>
+          <p class="ai-settings__desc">{{ t('ai.providerProfilesDesc') }}</p>
+        </div>
+        <button
+          type="button"
+          class="ai-settings__btn ai-settings__btn--primary"
+          @click="openAddProviderModal"
+        >
+          {{ t('ai.addProvider') }}
+        </button>
       </div>
 
       <label class="ai-settings__row ai-settings__row--toggle">
@@ -729,450 +615,395 @@ function onProviderChange(ev: Event): void {
         </span>
       </label>
 
-      <div class="ai-settings__group">
-      <div class="ai-settings__row">
-        <label class="ai-settings__label" for="ai-provider">{{ t('ai.provider') }}</label>
-        <select
-          id="ai-provider"
-          :value="provider"
-          class="ai-settings__input"
-          @change="onProviderChange"
-        >
-          <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
-        </select>
-      </div>
-
-      <div class="ai-settings__row">
-        <label class="ai-settings__label" for="ai-model">{{ t('ai.model') }}</label>
-        <div class="ai-settings__model-input-group">
-          <input
-            id="ai-model"
-            :value="model"
-            class="ai-settings__input"
-            :placeholder="currentProviderConfig?.defaultModel"
-            :list="`ai-model-options-${provider}`"
-            autocomplete="off"
-            spellcheck="false"
-            @input="emit('update:model', ($event.target as HTMLInputElement).value)"
-          />
-          <button
-            type="button"
-            class="ai-settings__btn ai-settings__btn--fetch"
-            :disabled="fetchingModels"
-            :title="t('ai.fetchModels')"
-            @click="onFetchModels"
-          >
-            <svg
-              v-if="fetchingModels"
-              class="ai-settings__spin"
-              width="13"
-              height="13"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="8" cy="8" r="6" stroke-dasharray="28" stroke-dashoffset="10" />
-            </svg>
-            <svg
-              v-else
-              width="13"
-              height="13"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M2.5 8a5.5 5.5 0 0 1 9.35-3.9M13.5 8a5.5 5.5 0 0 1-9.35 3.9" />
-              <polyline points="12 1.5 12 4.5 9 4.5" />
-              <polyline points="4 14.5 4 11.5 7 11.5" />
-            </svg>
-            {{ fetchingModels ? t('ai.fetchingModels') : t('ai.fetchModels') }}
-          </button>
-        </div>
-        <datalist :id="`ai-model-options-${provider}`">
-          <option v-for="m in modelChoices" :key="m" :value="m" />
-        </datalist>
-      </div>
-
-      <div v-if="fetchModelsStatus" class="ai-settings__keystatus">
-        <span
-          :class="[
-            'ai-settings__pill',
-            fetchModelsStatus.kind === 'ok' ? 'ai-settings__pill--ok' : 'ai-settings__pill--warn',
-          ]"
-        >
-          {{ fetchModelsStatus.kind === 'ok' ? '●' : '⚠️' }} {{ fetchModelsStatus.msg }}
-        </span>
-      </div>
-
-      <div v-if="fetchedModels.length > 0" class="ai-settings__row">
-        <label class="ai-settings__label" for="ai-model-select">{{ t('ai.selectFetchedModel') }}</label>
-        <select
-          id="ai-model-select"
-          class="ai-settings__input"
-          :value="fetchedModels.includes(model) ? model : ''"
-          @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
-        >
-          <option value="" disabled>-- {{ t('ai.selectFetchedModel') }} ({{ fetchedModels.length }}) --</option>
-          <option v-for="m in fetchedModels" :key="m" :value="m">{{ m }}</option>
-        </select>
-      </div>
-
-      <div v-if="hintModelList.length > 0" class="ai-settings__hint ai-settings__hints-list">
-        <span class="ai-settings__hints-label">{{ t('ai.modelHintPrefix') }}:</span>
-        <button
-          v-for="hm in hintModelList"
-          :key="hm"
-          type="button"
-          class="ai-settings__hint-chip"
-          :class="{ 'is-active': model === hm }"
-          :title="t('ai.clickToApplyModel')"
-          @click="emit('update:model', hm)"
-        >
-          {{ hm }}
-        </button>
-      </div>
-      <p v-if="currentProviderConfig?.signupUrl" class="ai-settings__hint">
-        <a :href="currentProviderConfig.signupUrl" target="_blank" rel="noopener">
-          {{ t('ai.getKey') }} ↗
-        </a>
-      </p>
-
-      <div class="ai-settings__row">
-        <label class="ai-settings__label" for="ai-baseurl">{{ t('ai.baseUrl') }}</label>
-        <input
-          id="ai-baseurl"
-          :value="baseUrl"
-          class="ai-settings__input"
-          :placeholder="currentProviderConfig?.defaultBaseUrl"
-          autocomplete="off"
-          spellcheck="false"
-          @input="emit('update:baseUrl', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
-
-      <div v-if="needsKey" class="ai-settings__keybox">
-        <div class="ai-settings__row">
-          <label class="ai-settings__label" for="ai-key">{{ t('ai.apiKey') }}</label>
-          <div class="ai-settings__keyrow">
-            <input
-              id="ai-key"
-              v-model="keyInput"
-              type="password"
-              class="ai-settings__input"
-              :placeholder="hasKey[provider] ? t('ai.keyStored') : t('ai.keyPlaceholder')"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button
-              type="button"
-              class="ai-settings__btn ai-settings__btn--primary"
-              :disabled="saving || !keyInput.trim()"
-              @click="saveKey"
-            >
-              {{ t('ai.saveKey') }}
-            </button>
-            <button
-              type="button"
-              class="ai-settings__btn"
-              :disabled="saving || (!hasKey[provider] && needsKey)"
-              @click="verifyExisting"
-            >
-              {{ t('ai.testConnection') }}
-            </button>
-            <button
-              type="button"
-              class="ai-settings__btn"
-              :disabled="saving || !hasKey[provider]"
-              @click="clearKey"
-            >
-              {{ t('ai.clearKey') }}
-            </button>
-          </div>
-        </div>
-        <div class="ai-settings__keystatus">
-          <span v-if="hasKey[provider]" class="ai-settings__pill ai-settings__pill--ok">
-            ● {{ t('ai.keyStored') }}
-          </span>
-          <span v-else class="ai-settings__pill ai-settings__pill--warn">
-            ○ {{ t('ai.keyMissing') }}
-          </span>
-          <span v-if="status" :class="['ai-settings__msg', `ai-settings__msg--${status.kind}`]">
-            {{ status.msg }}
-          </span>
-        </div>
-      </div>
-
-      <!-- v4.11.18 — self-hosted OpenAI-compatible server (llama.cpp's
-           llama-server, LM Studio, vLLM, an internal gateway…). No account,
-           so no key is required; what matters is whether the address
-           answers and which model names it wants. -->
-      <div v-else-if="isCompat" class="ai-settings__ollama">
-        <p class="ai-settings__note">{{ t('ai.compat.note') }}</p>
-
-        <div class="ai-settings__ollama-row">
-          <span v-if="!probe || probing" class="ai-settings__pill">
-            ◌ {{ t('ai.verifying') }}
-          </span>
-          <span
-            v-else-if="probe.ok && probe.models.length > 0"
-            class="ai-settings__pill ai-settings__pill--ok"
-          >
-            ● {{ t('ai.compat.connected', { n: probe.models.length }) }}
-          </span>
-          <span
-            v-else-if="probe.ok"
-            class="ai-settings__pill ai-settings__pill--warn"
-          >
-            ● {{ t('ai.compat.connectedNoModels') }}
-          </span>
-          <span v-else class="ai-settings__pill ai-settings__pill--err">
-            ● {{ t('ai.compat.failed') }}
-          </span>
-
-          <span v-if="probe && !probing" class="ai-settings__hint">
-            {{ t('ai.probedAt', { url: probe.url || probeUrl }) }}
-          </span>
-
-          <button
-            type="button"
-            class="ai-settings__btn"
-            :disabled="probing"
-            @click="probeCompat()"
-          >
-            {{ t('ai.ollama.refresh') }}
-          </button>
-        </div>
-
-        <!-- The server's own words. A self-hosted endpoint that "doesn't
-             work" is nearly always a wrong path or port, and this line is
-             what tells the two apart. -->
-        <p
-          v-if="probe && !probe.ok && probe.error && !probing"
-          class="ai-settings__msg ai-settings__msg--err"
-        >
-          {{ probe.error }}
-        </p>
-        <p v-if="probe && !probe.ok && !probing" class="ai-settings__hint">
-          {{ t('ai.compat.hint') }}
-        </p>
-
-        <!-- Model picker straight from GET /v1/models — a self-hosted
-             server names its own models and typing them by hand is the
-             other half of why this setup fails. -->
+      <!-- Multi-provider profiles list -->
+      <div class="ai-settings__profiles-list">
         <div
-          v-if="probe && probe.models.length > 0"
-          class="ai-settings__row"
+          v-for="profile in settingsStore.aiProfiles"
+          :key="profile.id"
+          class="ai-settings__profile-card"
+          :class="{ 'is-active': profile.id === settingsStore.activeProfileId }"
         >
-          <!-- Labelled as an action, not a second "Model" field — the
-               freeform model input above stays the source of truth. -->
-          <span class="ai-settings__label">{{ t('ai.compat.pickModel') }}</span>
-          <select
-            class="ai-settings__input"
-            :value="probe.models.includes(model) ? model : ''"
-            @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
-          >
-            <option value="" disabled>—</option>
-            <option v-for="m in probe.models" :key="m" :value="m">{{ m }}</option>
-          </select>
-        </div>
+          <!-- Top Row: Profile Header & Actions -->
+          <div class="ai-settings__profile-header">
+            <div class="ai-settings__profile-meta">
+              <span
+                v-if="profile.id === settingsStore.activeProfileId"
+                class="ai-settings__badge ai-settings__badge--active"
+              >
+                {{ t('ai.activeProfile') }}
+              </span>
+              <button
+                v-else
+                type="button"
+                class="ai-settings__btn ai-settings__btn--xs"
+                @click="settingsStore.setActiveProfile(profile.id)"
+              >
+                {{ t('ai.setActiveProfile') }}
+              </button>
 
-        <!-- Optional token, for a server behind a reverse proxy. -->
-        <div class="ai-settings__row">
-          <label class="ai-settings__label" for="ai-key-compat">
-            {{ t('ai.compat.keyOptional') }}
-          </label>
-          <div class="ai-settings__keyrow">
-            <input
-              id="ai-key-compat"
-              v-model="keyInput"
-              type="password"
-              class="ai-settings__input"
-              :placeholder="hasKey[provider] ? t('ai.keyStored') : t('ai.compat.keyPlaceholder')"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button
-              type="button"
-              class="ai-settings__btn"
-              :disabled="saving || !keyInput.trim()"
-              @click="saveKey"
-            >
-              {{ t('ai.saveKey') }}
-            </button>
-            <button
-              type="button"
-              class="ai-settings__btn"
-              :disabled="saving || !hasKey[provider]"
-              @click="clearKey"
-            >
-              {{ t('ai.clearKey') }}
-            </button>
+              <h4 class="ai-settings__profile-title">{{ profile.name }}</h4>
+              <span class="ai-settings__profile-tag">{{ profile.provider }}</span>
+            </div>
+
+            <div class="ai-settings__profile-actions">
+              <!-- Diagnose button -->
+              <button
+                type="button"
+                class="ai-settings__btn ai-settings__btn--xs"
+                :disabled="diagnosisMap[profile.id]?.loading"
+                :title="t('ai.diagnoseConnection')"
+                @click="onDiagnoseProfile(profile)"
+              >
+                {{ diagnosisMap[profile.id]?.loading ? t('ai.verifying') : t('ai.diagnoseConnection') }}
+              </button>
+
+              <!-- Edit toggle button -->
+              <button
+                type="button"
+                class="ai-settings__btn ai-settings__btn--xs"
+                :class="{ 'is-active': editingProfileId === profile.id }"
+                @click="editingProfileId = editingProfileId === profile.id ? null : profile.id"
+              >
+                {{ editingProfileId === profile.id ? (t('ai.cancel') || '收起') : t('ai.editProfile') }}
+              </button>
+
+              <!-- Delete button -->
+              <button
+                v-if="settingsStore.aiProfiles.length > 1"
+                type="button"
+                class="ai-settings__btn ai-settings__btn--xs ai-settings__btn--danger"
+                :title="t('ai.deleteProfile')"
+                @click="onDeleteProfile(profile)"
+              >
+                {{ t('ai.deleteProfile') }}
+              </button>
+            </div>
           </div>
-        </div>
-        <span v-if="status" :class="['ai-settings__msg', `ai-settings__msg--${status.kind}`]">
-          {{ status.msg }}
-        </span>
-      </div>
 
-      <!-- Ollama-specific block: detection pill, install / refresh / pull
-           buttons, and a model picker (presets + other-detected). v4.0 P5. -->
-      <div v-else class="ai-settings__ollama">
-        <p class="ai-settings__note">{{ t('ai.ollamaNote') }}</p>
-
-        <div class="ai-settings__ollama-row">
-          <span
-            v-if="!detection || detecting"
-            class="ai-settings__pill"
-          >
-            ◌ {{ t('ai.verifying') }}
-          </span>
-          <span
-            v-else-if="detection.ok && detection.models.length > 0"
-            class="ai-settings__pill ai-settings__pill--ok"
-          >
-            ● {{ t('ai.ollama.detected', { n: detection.models.length }) }}
-          </span>
-          <span
-            v-else-if="detection.ok"
-            class="ai-settings__pill ai-settings__pill--warn"
-          >
-            ● {{ t('ai.ollama.detectedNoModels') }}
-          </span>
-          <span v-else class="ai-settings__pill ai-settings__pill--err">
-            ● {{ t('ai.ollama.notDetected') }}
-          </span>
-
-          <span v-if="detection?.ok && detection.version" class="ai-settings__hint">
-            {{ t('ai.ollama.version', { version: detection.version }) }}
-          </span>
-          <!-- v4.11.18 — always say WHICH address was probed. A remote
-               server that answers on a LAN IP is indistinguishable from a
-               missing local one otherwise. -->
-          <span v-if="detection && !detecting" class="ai-settings__hint">
-            {{ t('ai.probedAt', { url: probeUrl }) }}
-          </span>
-
-          <button
-            type="button"
-            class="ai-settings__btn"
-            :disabled="detecting"
-            @click="detectOllama(true)"
-          >
-            {{ t('ai.ollama.refresh') }}
-          </button>
-          <button
-            v-if="detection && !detection.ok && !probeIsRemote"
-            type="button"
-            class="ai-settings__btn ai-settings__btn--primary"
-            @click="openInstallPage"
-          >
-            {{ t('ai.ollama.install') }}
-          </button>
-        </div>
-
-        <!-- A remote address that doesn't answer is almost always one of
-             two things: the server was started without OLLAMA_HOST, or the
-             port is firewalled. Installing Ollama locally fixes neither. -->
-        <p
-          v-if="detection && !detection.ok && probeIsRemote"
-          class="ai-settings__hint"
-        >
-          {{ t('ai.ollama.remoteHint') }}
-        </p>
-
-        <!-- Pull-recommended CTA when Ollama is up but has zero models. -->
-        <div
-          v-if="detection?.ok && detection.models.length === 0 && !pullDone"
-          class="ai-settings__ollama-row"
-        >
-          <button
-            type="button"
-            class="ai-settings__btn ai-settings__btn--primary"
-            :disabled="pulling"
-            @click="pullRecommended"
-          >
-            {{ pulling
-              ? t('ai.ollama.pulling', { model: OLLAMA_RECOMMENDED_MODEL })
-              : t('ai.ollama.pullRecommended', { model: OLLAMA_RECOMMENDED_MODEL })
-            }}
-          </button>
-          <button
-            v-if="pulling"
-            type="button"
-            class="ai-settings__btn"
-            @click="cancelPull"
-          >
-            {{ t('ai.ollama.cancelPull') }}
-          </button>
-        </div>
-
-        <!-- Pull progress bar + status line. Visible during the pull and
-             for one render after `pullDone` (so the user sees "Pulled —
-             ready" before the model picker block takes over). -->
-        <div v-if="pulling || pullDone || pullError" class="ai-settings__ollama-row ai-settings__pull">
-          <div class="ai-settings__pullbar" :aria-valuenow="pullPct ?? 0">
-            <div
-              class="ai-settings__pullbar-fill"
-              :style="{ width: pullPct != null ? `${(pullPct * 100).toFixed(1)}%` : '6%' }"
-              :class="{ 'ai-settings__pullbar-fill--indeterminate': pullPct == null && pulling }"
-            />
-          </div>
-          <span class="ai-settings__hint">
-            <template v-if="pullError">{{ t('ai.ollama.pullFailed') }}: {{ pullError }}</template>
-            <template v-else-if="pullDone">{{ t('ai.ollama.pulled') }}</template>
-            <template v-else>{{ pullStatus }}</template>
-          </span>
-        </div>
-
-        <!-- Model picker once we have at least one local model. Presets
-             are radio chips (cheap, scannable); "Other:" gives access to
-             everything else the user has pulled. -->
-        <div
-          v-if="detection?.ok && detection.models.length > 0"
-          class="ai-settings__ollama-models"
-        >
-          <span class="ai-settings__label">{{ t('ai.ollama.modelLabel') }}</span>
-          <div class="ai-settings__chips">
-            <label
-              v-for="p in ollamaModelOptions.presets"
-              :key="p.id"
-              class="ai-settings__chip"
-              :class="{
-                'ai-settings__chip--selected': model === p.model,
-                'ai-settings__chip--missing': !detection.models.includes(p.model),
-              }"
+          <!-- Diagnostic Result Bar if present -->
+          <div v-if="diagnosisMap[profile.id]" class="ai-settings__profile-diag">
+            <span
+              class="ai-settings__pill"
+              :class="diagnosisMap[profile.id].ok ? 'ai-settings__pill--ok' : 'ai-settings__pill--err'"
             >
+              {{ diagnosisMap[profile.id].ok ? '正常' : '异常' }}
+              <template v-if="diagnosisMap[profile.id].latency">
+                ({{ diagnosisMap[profile.id].latency }}ms)
+              </template>
+            </span>
+            <span class="ai-settings__diag-msg">{{ diagnosisMap[profile.id].msg }}</span>
+          </div>
+
+          <!-- Quick Info (BaseUrl & Key presence) -->
+          <div class="ai-settings__profile-quick-info">
+            <span class="ai-settings__info-item">
+              <span class="ai-settings__info-label">Base URL:</span>
+              <code class="ai-settings__info-code">{{ profile.baseUrl || providerById(profile.provider)?.defaultBaseUrl || '默认' }}</code>
+            </span>
+            <span v-if="profile.provider !== 'ollama' && profile.provider !== 'openai-compat'" class="ai-settings__info-item">
+              <span class="ai-settings__info-label">密钥:</span>
+              <span v-if="hasKey[profile.id]" class="ai-settings__pill ai-settings__pill--ok">已保存</span>
+              <span v-else class="ai-settings__pill ai-settings__pill--warn">未配置</span>
+            </span>
+          </div>
+
+          <!-- Collapsible Edit Drawer -->
+          <div v-if="editingProfileId === profile.id" class="ai-settings__profile-drawer">
+            <div class="ai-settings__row">
+              <label class="ai-settings__label">{{ t('ai.providerName') }}</label>
               <input
-                type="radio"
-                name="ollama-preset"
-                :value="p.model"
-                :checked="model === p.model"
-                @change="emit('update:model', p.model)"
+                class="ai-settings__input"
+                :value="profile.name"
+                @change="settingsStore.updateAiProfile(profile.id, { name: ($event.target as HTMLInputElement).value })"
               />
-              <span>{{ t(p.labelKey) }}</span>
-            </label>
+            </div>
+
+            <div class="ai-settings__row">
+              <label class="ai-settings__label">{{ t('ai.baseUrl') }}</label>
+              <input
+                class="ai-settings__input"
+                :value="profile.baseUrl || ''"
+                :placeholder="providerById(profile.provider)?.defaultBaseUrl || 'https://api.example.com/v1'"
+                @change="settingsStore.updateAiProfile(profile.id, { baseUrl: ($event.target as HTMLInputElement).value })"
+              />
+            </div>
+
+            <div v-if="profile.provider !== 'ollama'" class="ai-settings__row">
+              <label class="ai-settings__label">{{ t('ai.apiKey') }}</label>
+              <div class="ai-settings__keyrow">
+                <input
+                  v-model="profileKeyInputs[profile.id]"
+                  type="password"
+                  class="ai-settings__input"
+                  :placeholder="hasKey[profile.id] ? t('ai.keyStored') : t('ai.keyPlaceholder')"
+                  autocomplete="off"
+                />
+                <button
+                  type="button"
+                  class="ai-settings__btn ai-settings__btn--primary"
+                  :disabled="profileKeySaving[profile.id] || !profileKeyInputs[profile.id]?.trim()"
+                  @click="onSaveKeyForProfile(profile)"
+                >
+                  {{ t('ai.saveKey') }}
+                </button>
+                <button
+                  type="button"
+                  class="ai-settings__btn"
+                  :disabled="profileKeySaving[profile.id] || !hasKey[profile.id]"
+                  @click="onClearKeyForProfile(profile)"
+                >
+                  {{ t('ai.clearKey') }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Ollama specific controls in edit mode -->
+            <div v-if="profile.provider === 'ollama'" class="ai-settings__ollama">
+              <div class="ai-settings__ollama-row">
+                <span v-if="!detection || detecting" class="ai-settings__pill">{{ t('ai.verifying') }}</span>
+                <span v-else-if="detection.ok" class="ai-settings__pill ai-settings__pill--ok">
+                  {{ t('ai.ollama.detected', { n: detection.models.length }) }}
+                </span>
+                <span v-else class="ai-settings__pill ai-settings__pill--err">{{ t('ai.ollama.notDetected') }}</span>
+                <button type="button" class="ai-settings__btn ai-settings__btn--xs" :disabled="detecting" @click="detectOllama(true)">
+                  {{ t('ai.ollama.refresh') }}
+                </button>
+                <button v-if="detection && !detection.ok && !probeIsRemote" type="button" class="ai-settings__btn ai-settings__btn--xs ai-settings__btn--primary" @click="openInstallPage">
+                  {{ t('ai.ollama.install') }}
+                </button>
+              </div>
+            </div>
           </div>
-          <div v-if="ollamaModelOptions.others.length > 0" class="ai-settings__row">
-            <span class="ai-settings__label">{{ t('ai.ollama.otherModel') }}</span>
-            <select
-              class="ai-settings__input"
-              :value="ollamaModelOptions.others.includes(model) ? model : ''"
-              @change="emit('update:model', ($event.target as HTMLSelectElement).value)"
+
+          <!-- Configured Models List for this profile -->
+          <div class="ai-settings__models-section">
+            <div class="ai-settings__models-header">
+              <span class="ai-settings__models-title">
+                {{ t('ai.configuredModels') }}
+                <span class="ai-settings__models-count">({{ profile.models.length }})</span>
+              </span>
+              <span class="ai-settings__models-hint">{{ t('ai.clickToSetDefault') }}</span>
+            </div>
+
+            <!-- Model chips -->
+            <div class="ai-settings__models-chips">
+              <div
+                v-for="m in profile.models"
+                :key="m"
+                class="ai-settings__model-chip"
+                :class="{ 'is-selected': m === profile.selectedModel }"
+                :title="m === profile.selectedModel ? t('ai.currentDefaultModel') : t('ai.clickToSetDefault')"
+                @click="onSetDefaultModel(profile, m)"
+              >
+                <span v-if="m === profile.selectedModel" class="ai-settings__model-default-dot">{{ t('ai.defaultModelBadge') }}</span>
+                <span class="ai-settings__model-name">{{ m }}</span>
+                <button
+                  v-if="profile.models.length > 1"
+                  type="button"
+                  class="ai-settings__model-del"
+                  :title="t('ai.deleteModel')"
+                  @click.stop="onRemoveModel(profile, m)"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <!-- Add custom model input and Fetch online button -->
+            <div class="ai-settings__model-add-bar">
+              <div class="ai-settings__model-input-wrap">
+                <input
+                  v-model="profileNewModelInput[profile.id]"
+                  class="ai-settings__input ai-settings__input--sm"
+                  :placeholder="t('ai.customModelPlaceholder')"
+                  @keydown.enter.prevent="onAddCustomModel(profile)"
+                />
+                <button
+                  type="button"
+                  class="ai-settings__btn ai-settings__btn--sm"
+                  :disabled="!profileNewModelInput[profile.id]?.trim()"
+                  @click="onAddCustomModel(profile)"
+                >
+                  {{ t('ai.addModel') }}
+                </button>
+              </div>
+
+              <!-- Fetch Models Online Button -->
+              <button
+                type="button"
+                class="ai-settings__btn ai-settings__btn--sm ai-settings__btn--fetch"
+                :disabled="fetchStateMap[profile.id]?.loading"
+                @click="onFetchModelsForProfile(profile)"
+              >
+                {{ fetchStateMap[profile.id]?.loading ? t('ai.fetchingModels') : t('ai.fetchModels') }}
+              </button>
+            </div>
+
+            <!-- Preset Model Quick-Add Chips -->
+            <div
+              v-if="getHintModelsForProvider(profile.provider).filter((h) => !profile.models.includes(h)).length > 0"
+              class="ai-settings__preset-quick-row"
             >
-              <option value="" disabled>—</option>
-              <option v-for="m in ollamaModelOptions.others" :key="m" :value="m">
-                {{ m }}
-              </option>
-            </select>
+              <span class="ai-settings__preset-label">{{ t('ai.presetQuickAdd') }}:</span>
+              <button
+                v-for="hm in getHintModelsForProvider(profile.provider).filter((h) => !profile.models.includes(h))"
+                :key="hm"
+                type="button"
+                class="ai-settings__hint-chip"
+                @click="onAddPresetModel(profile, hm)"
+              >
+                {{ hm }}
+              </button>
+            </div>
+
+            <!-- Fetched Models Dropdown / Drawer -->
+            <div v-if="fetchStateMap[profile.id]" class="ai-settings__fetched-drawer">
+              <div class="ai-settings__fetched-header">
+                <span
+                  class="ai-settings__pill"
+                  :class="fetchStateMap[profile.id].error ? 'ai-settings__pill--err' : 'ai-settings__pill--ok'"
+                >
+                  {{ fetchStateMap[profile.id].error ? t('ai.fetchModelsFailed') : (fetchStateMap[profile.id].msg || t('ai.fetchModelsSuccess', { n: fetchStateMap[profile.id].models?.length || 0 })) }}
+                </span>
+                <button
+                  v-if="fetchStateMap[profile.id].models?.length"
+                  type="button"
+                  class="ai-settings__btn ai-settings__btn--xs ai-settings__btn--primary"
+                  @click="onImportAllFetchedModels(profile)"
+                >
+                  {{ t('ai.importAllFetched') }}
+                </button>
+              </div>
+              <div v-if="fetchStateMap[profile.id].error" class="ai-settings__msg ai-settings__msg--err">
+                {{ fetchStateMap[profile.id].error }}
+              </div>
+              <div v-else-if="fetchStateMap[profile.id].models?.length" class="ai-settings__fetched-chips">
+                <button
+                  v-for="fm in fetchStateMap[profile.id].models"
+                  :key="fm"
+                  type="button"
+                  class="ai-settings__hint-chip"
+                  :class="{ 'is-added': profile.models.includes(fm) }"
+                  :disabled="profile.models.includes(fm)"
+                  @click="onImportSingleFetchedModel(profile, fm)"
+                >
+                  {{ profile.models.includes(fm) ? fm + ' (已添加)' : fm }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Add Provider Modal Dialog -->
+    <div v-if="showAddModal" class="ai-settings__modal-backdrop" @click.self="showAddModal = false">
+      <div class="ai-settings__modal">
+        <div class="ai-settings__modal-header">
+          <h3 class="ai-settings__modal-title">{{ t('ai.addProviderModalTitle') }}</h3>
+          <button type="button" class="ai-settings__modal-close" @click="showAddModal = false">×</button>
+        </div>
+
+        <div class="ai-settings__modal-body">
+          <div class="ai-settings__row">
+            <label class="ai-settings__label">{{ t('ai.providerType') }}</label>
+            <select
+              class="ai-settings__input"
+              :value="newProviderTemplate"
+              @change="onAddModalTemplateChange"
+            >
+              <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
+            </select>
+          </div>
+
+          <div class="ai-settings__row">
+            <label class="ai-settings__label">{{ t('ai.providerName') }}</label>
+            <input
+              v-model="newProviderName"
+              class="ai-settings__input"
+              :placeholder="t('ai.providerNamePlaceholder')"
+            />
+          </div>
+
+          <div class="ai-settings__row">
+            <label class="ai-settings__label">{{ t('ai.baseUrl') }}</label>
+            <input
+              v-model="newProviderBaseUrl"
+              class="ai-settings__input"
+              :placeholder="providerById(newProviderTemplate)?.defaultBaseUrl || 'https://api.example.com/v1'"
+            />
+          </div>
+
+          <div v-if="newProviderTemplate !== 'ollama'" class="ai-settings__row">
+            <label class="ai-settings__label">{{ t('ai.apiKey') }}</label>
+            <input
+              v-model="newProviderKey"
+              type="password"
+              class="ai-settings__input"
+              :placeholder="t('ai.keyPlaceholder')"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="ai-settings__row ai-settings__row--block">
+            <label class="ai-settings__label">{{ t('ai.initialModels') }}</label>
+            <div class="ai-settings__modal-models-wrap">
+              <div class="ai-settings__modal-models-input-row">
+                <input
+                  v-model="newProviderModelInput"
+                  class="ai-settings__input ai-settings__input--sm"
+                  :placeholder="t('ai.modelPlaceholder')"
+                  @keydown.enter.prevent="addModelToNewProvider"
+                />
+                <button
+                  type="button"
+                  class="ai-settings__btn ai-settings__btn--sm"
+                  :disabled="!newProviderModelInput.trim()"
+                  @click="addModelToNewProvider"
+                >
+                  {{ t('ai.addModel') }}
+                </button>
+              </div>
+
+              <div class="ai-settings__models-chips">
+                <div
+                  v-for="m in newProviderModels"
+                  :key="m"
+                  class="ai-settings__model-chip"
+                >
+                  <span class="ai-settings__model-name">{{ m }}</span>
+                  <button
+                    type="button"
+                    class="ai-settings__model-del"
+                    @click="removeModelFromNewProvider(m)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="addError" class="ai-settings__msg ai-settings__msg--err">
+            {{ addError }}
+          </div>
+        </div>
+
+        <div class="ai-settings__modal-footer">
+          <button type="button" class="ai-settings__btn" @click="showAddModal = false">
+            {{ t('ai.cancel') }}
+          </button>
+          <button
+            type="button"
+            class="ai-settings__btn ai-settings__btn--primary"
+            :disabled="addingProvider"
+            @click="confirmAddProvider"
+          >
+            {{ addingProvider ? '保存中...' : t('ai.confirmAdd') }}
+          </button>
+        </div>
+      </div>
+    </div>
 
   <!-- ② 选中文本即时改写 -->
   <div class="ai-settings__card">
@@ -1181,7 +1012,7 @@ function onProviderChange(ev: Event): void {
       <p class="ai-settings__desc">{{ t('ai.rewriteDesc') }}</p>
     </div>
     <div class="ai-settings__tip-card">
-      <span class="ai-settings__tip-badge">💡 {{ t('ai.rewriteUsageTip') }}</span>
+      <span class="ai-settings__tip-badge">{{ t('ai.rewriteUsageTip') }}</span>
     </div>
   </div>
 
@@ -1651,5 +1482,339 @@ function onProviderChange(ev: Event): void {
   /* Preset model not yet pulled — still selectable so the user can pick
      it before pulling, but visually faded. */
   opacity: 0.55;
+}
+
+/* Multi-provider profile cards & model management */
+.ai-settings__card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ai-settings__profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+.ai-settings__profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ai-settings__profile-card.is-active {
+  border-color: var(--accent, #6366f1);
+  box-shadow: 0 0 0 1px var(--accent, #6366f1);
+}
+.ai-settings__profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-settings__profile-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-settings__profile-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ai-settings__profile-tag {
+  font-size: 10px;
+  font-family: monospace;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+.ai-settings__profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-settings__profile-diag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-hover);
+  border-radius: 6px;
+  font-size: 11px;
+}
+.ai-settings__diag-msg {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-settings__profile-quick-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.ai-settings__info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-settings__info-label {
+  color: var(--text-muted);
+}
+.ai-settings__info-code {
+  font-family: monospace;
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+.ai-settings__profile-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+.ai-settings__models-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.ai-settings__models-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+}
+.ai-settings__models-title {
+  font-weight: 600;
+  color: var(--text);
+}
+.ai-settings__models-count {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+.ai-settings__models-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.ai-settings__models-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ai-settings__model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.ai-settings__model-chip:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+.ai-settings__model-chip.is-selected {
+  border-color: var(--accent, #6366f1);
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
+  font-weight: 500;
+}
+.ai-settings__model-default-dot {
+  color: var(--accent, #6366f1);
+  font-weight: bold;
+  font-size: 11px;
+}
+.ai-settings__model-name {
+  color: var(--text);
+}
+.ai-settings__model-del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 3px;
+}
+.ai-settings__model-del:hover {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+.ai-settings__model-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-settings__model-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 320px;
+}
+.ai-settings__preset-quick-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.ai-settings__preset-label {
+  color: var(--text-muted);
+}
+.ai-settings__fetched-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-hover);
+  border-radius: 6px;
+  font-size: 11px;
+}
+.ai-settings__fetched-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ai-settings__fetched-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ai-settings__hint-chip.is-added {
+  opacity: 0.6;
+  cursor: default;
+}
+.ai-settings__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.ai-settings__badge--active {
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  border: 1px solid var(--accent, #6366f1);
+}
+.ai-settings__btn--xs {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+.ai-settings__btn--sm {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.ai-settings__btn--danger:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+/* Modal Dialog */
+.ai-settings__modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.ai-settings__modal {
+  width: 460px;
+  max-width: 90vw;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ai-settings__modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.ai-settings__modal-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.ai-settings__modal-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.ai-settings__modal-close:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.ai-settings__modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.ai-settings__modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-hover) 30%, transparent);
+}
+.ai-settings__modal-models-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.ai-settings__modal-models-input-row {
+  display: flex;
+  gap: 6px;
 }
 </style>

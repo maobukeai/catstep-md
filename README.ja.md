@@ -103,7 +103,7 @@ https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal
 または 1 行シェルインストール:
 
 ```bash
-curl -fsSL https://solomd.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
 ```
 
 ### Windows — x64
@@ -113,7 +113,7 @@ curl -fsSL https://solomd.app/install.sh | bash
 - [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — インストーラなし
 
 ```powershell
-irm https://solomd.app/install.ps1 | iex
+irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
 ```
 
 ```powershell
@@ -168,4 +168,4 @@ Issue や PR を歓迎 — [開いてください](https://github.com/maobukeai/
 
 ## ライセンス & クレジット
 
-[MIT](LICENSE) © 2026 xiangdong li。SoloMD は Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs`、`rmcp` の上に立っています。[GitHub Sponsors](https://github.com/maobukeai/catstep-md) または [solomd.app/#sponsor](https://solomd.app/#sponsor) で後援を。
+[MIT](LICENSE) © 2026 maobukeai。SoloMD は Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs`、`rmcp` の上に立っています。[GitHub Sponsors](https://github.com/maobukeai/catstep-md) または [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md) で後援を。

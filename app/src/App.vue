@@ -11,7 +11,6 @@ import { openNewWindow } from './lib/new-window';
 import { toggleFullscreen } from './lib/fullscreen';
 import Toolbar from './components/Toolbar.vue';
 import Icon from './components/Icons.vue';
-import TelemetryBanner from './components/TelemetryBanner.vue';
 import TileRoot from './components/TileRoot.vue';
 import StatusBar from './components/StatusBar.vue';
 import FileTree from './components/FileTree.vue';
@@ -86,7 +85,6 @@ import { useI18n } from './i18n';
 import { quickCaptureError } from './lib/quick-capture-status';
 import { tableEditor, closeTableEditor } from './lib/table-editor-bus';
 import { formulaEditor, closeFormulaEditor } from './lib/formula-editor-bus';
-import { track } from './lib/telemetry';
 import { openWelcomeTour, getWelcomeTourDocs } from './lib/welcome-tour';
 import { useWorkspaceStore } from './stores/workspace';
 import { useWorkspaceIndexStore } from './stores/workspaceIndex';
@@ -1375,12 +1373,6 @@ onMounted(async () => {
   window.addEventListener('focusin', onFocusIn);
   window.addEventListener('focusout', onFocusOut);
 
-  track('app_launched', {
-    locale: settings.language,
-    theme: settings.theme,
-    live_preview: settings.livePreview ? 1 : 0,
-  });
-
   // OS file association — an OS-level file-open always belongs in the current
   // window (this window was just spawned for it). Bypass new-window routing.
   try {
@@ -2255,7 +2247,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       @open-search="toggleGlobalSearch()"
       @open-about="aboutOpen = true"
     />
-    <TelemetryBanner />
     <div class="workspace">
         <!-- #168 — on a phone the side panes float over the editor instead of
              stealing its width; this catches the tap that dismisses them. -->

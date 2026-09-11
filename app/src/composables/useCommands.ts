@@ -74,24 +74,8 @@ export function useCommands(): Command[] {
     );
   }
 
-  /** Build a solomd.app/share/?repo=...&path=...&branch=main URL for the
-   *  active tab, if it's inside a workspace linked to a public-looking
-   *  GitHub remote. Returns null if any precondition fails — caller is
-   *  responsible for surfacing a helpful toast. */
   function activeShareUrl(): string | null {
-    const folder = ws.currentFolder;
-    const tab = tabs.activeTab;
-    if (!folder || !tab?.filePath) return null;
-    const remote = ghSync.status?.remote_url ?? '';
-    const m = remote.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/i);
-    if (!m) return null;
-    // Compute file path relative to the workspace root.
-    const sep = tab.filePath.includes('\\') ? '\\' : '/';
-    const folderNorm = folder.endsWith(sep) ? folder : folder + sep;
-    if (!tab.filePath.startsWith(folderNorm)) return null;
-    const rel = tab.filePath.slice(folderNorm.length).split('\\').join('/');
-    const lang = settings.language === 'zh' ? '/zh' : '';
-    return `https://solomd.app${lang}/share/?repo=${m[1]}/${m[2]}&path=${encodeURIComponent(rel)}`;
+    return activeGitUrl();
   }
 
   /**
@@ -663,7 +647,7 @@ export function useCommands(): Command[] {
     {
       id: 'sync.copyShareLink',
       title: 'GitHub Sync: Copy Share Link for This Note',
-      hint: 'Public share via solomd.app/share — works only for public repos',
+      hint: 'Copy GitHub URL for this note in the linked remote repository',
       run: async () => {
         const url = activeShareUrl();
         if (!url) {
@@ -673,7 +657,7 @@ export function useCommands(): Command[] {
           return;
         }
         await writeText(url);
-        toasts.success('Share link copied. Note must be in a public GitHub repo to render.');
+        toasts.success('GitHub share link copied.');
       },
     },
     {

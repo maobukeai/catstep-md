@@ -39,7 +39,7 @@
 | **本地 REST API** *(v4.0)* | 只监听 localhost,token 鉴权。和 MCP 同一套接口,给那些还没接 MCP 的客户端用 —— Alfred / Raycast / n8n / 你自己的脚本。 |
 | **BYOK 成本计** *(v4.0)* | 按 provider 累计 token 数,opt-in。设置 → 集成。 |
 | **云盘联动** | 工作区在 `~/Library/Mobile Documents/...` 或 `~/Dropbox/...` 里时,SoloMD 自动识别,并在此之上加一层跨设备会话恢复 —— 文件级同步交给系统。 |
-| **公开只读分享** | 命令面板 → 复制 `solomd.app/share/?repo=...&path=...` 链接。任何人在浏览器里就能阅读你公库里这篇笔记,不用装 SoloMD。 |
+| **公开只读分享** | 命令面板 → 复制 GitHub 文件链接。在浏览器里就能直接查看你公库里这篇笔记。 |
 
 ## 怎么用
 
@@ -156,4 +156,4 @@ MCP server 是独立 crate,在 `mcp-server/` 目录;端到端测试用的 dev MC
 
 ## 开源协议与致谢
 
-[MIT](LICENSE) © 2026 maobukeai / xiangdong li。猫步 MD (Catstep MD) 站在 Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs` 和 `rmcp` 的肩膀上。开源仓库：[GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)。
+[MIT](LICENSE) © 2026 maobukeai。猫步 MD (Catstep MD) 站在 Tauri 2、Vue 3、CodeMirror 6、markdown-it、KaTeX、Mermaid、libgit2、Pandoc、Hunspell、`keyring-rs` 和 `rmcp` 的肩膀上。开源仓库：[GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md)。

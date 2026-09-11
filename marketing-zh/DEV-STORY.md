@@ -401,6 +401,6 @@ SoloMD 可能永远不会有 Obsidian 那样的生态，但对于「只是想安
 
 ---
 
-*作者：xiangdong li*
+*作者：maobukeai*
 *首发于：[填写发布平台]*
 *协议：本文采用 CC BY-NC-SA 4.0 协议*

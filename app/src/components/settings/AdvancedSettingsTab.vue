@@ -220,16 +220,7 @@ function openThemeMarketplace() {
       </div>
     </section>
 
-    <!-- Telemetry -->
-    <section class="settings-section">
-      <label>
-        <input type="checkbox" :checked="settings.telemetryEnabled" @change="settings.toggleTelemetry()" />
-        {{ t('settings.telemetry') }}
-      </label>
-      <div style="font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5;">
-        {{ t('settings.telemetryHint') }}
-      </div>
-    </section>
+
 
     <!-- Custom CSS -->
     <section class="settings-section">

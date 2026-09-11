@@ -1515,8 +1515,8 @@ mod url_owner_tests {
     #[test]
     fn extracts_the_account_segment() {
         assert_eq!(
-            owner_from_url("https://gitee.com/zhitong45/notes.git").as_deref(),
-            Some("zhitong45")
+            owner_from_url("https://gitee.com/catstep/notes.git").as_deref(),
+            Some("catstep")
         );
         assert_eq!(
             owner_from_url("https://github.com/octocat/hello.git").as_deref(),

@@ -40,7 +40,7 @@ export const tr: I18n = {
     globalSearch: 'Klasörde ara…',
     settings: 'Ayarlar…',
     mdHelp: 'Markdown hızlı başvuru',
-    about: 'SoloMD Hakkında',
+    about: 'Catstep MD Hakkında',
     minimize: 'Simge Durumuna Küçült',
     maximize: 'Ekranı Kapla',
     restore: 'Geri Yükle',
@@ -328,7 +328,7 @@ export const tr: I18n = {
       codeThemeDark: 'Her zaman koyu',
       frontmatterHint: 'Belge başına YAML ön bilgisindeki `pdf:` bloğu ile geçersiz kılın (pageSize / margin / font / fontSize / footer).',
     },
-    imageExportBranding: 'Görsel olarak dışa aktarırken "SoloMD ile oluşturuldu" alt bilgisini ekle',
+    imageExportBranding: 'Görsel olarak dışa aktarırken "Catstep MD ile oluşturuldu" alt bilgisini ekle',
     imageExportBrandingHint: 'Varsayılan açık — paylaşılan ekran görüntülerinde hafif bir tanıtım. Filigran istemiyorsanız kapatın; kısa notlar da arka kart olmadan daha derli toplu dışa aktarılır.',
     attachmentMode: 'Where to save pasted/dropped images',
     attachmentModeShared: 'Shared `_assets/` folder per directory',
@@ -356,9 +356,9 @@ export const tr: I18n = {
     customCssReloadFailed: 'Özel CSS teması yeniden yüklenemedi',
     clear: 'Temizle',
     fileAssoc: 'Dosya İlişkilendirme',
-    setDefault: '⭐ SoloMD\'yi varsayılan Markdown düzenleyici yap',
+    setDefault: '⭐ Catstep MD\'yi varsayılan Markdown düzenleyici yap',
     settingDefault: 'Ayarlanıyor…',
-    setDefaultHint: 'SoloMD\'yi .md / .markdown / .mdown / .mkd dosyaları için varsayılan uygulama olarak kaydeder. Windows\'ta SoloMD\'yi "Birlikte aç" menüsüne de ekler. Linux\'ta xdg-utils gerektirir.',
+    setDefaultHint: 'Catstep MD\'yi .md / .markdown / .mdown / .mkd dosyaları için varsayılan uygulama olarak kaydeder. Windows\'ta Catstep MD\'yi "Birlikte aç" menüsüne de ekler. Linux\'ta xdg-utils gerektirir.',
     language: 'Dil / 语言',
     restoreSession: 'Başlangıçta önceki sekmeleri ve panelleri geri yükle',
     restoreSessionHint: 'Her seferinde boş bir pencereyle başlamak için kapatın.',
@@ -378,20 +378,13 @@ export const tr: I18n = {
     revealInFileTreeOnOpen: 'Açılan dosyayı dosya ağacında göster',
     revealInFileTreeOnOpenHint: 'Açıkken bir dosya açıldığında kenar çubuğu üst klasöre ayarlanır (gizliyse kenar çubuğu da gösterilir).',
     openLinkedFilesExternally: 'Bağlantılı dosyaları varsayılan uygulamayla aç',
-    openLinkedFilesExternallyHint: 'Açıkken, Markdown içindeki yerel bir PDF / Office / başka belgeye giden bağlantıya tıklamak onu sistemin varsayılan uygulamasında açar. Bunun yerine Markdown\'a dönüştürmek için kapatın. .md / metin / görsel bağlantıları her zaman SoloMD içinde açılır.',
+    openLinkedFilesExternallyHint: 'Açıkken, Markdown içindeki yerel bir PDF / Office / başka belgeye giden bağlantıya tıklamak onu sistemin varsayılan uygulamasında açar. Bunun yerine Markdown\'a dönüştürmek için kapatın. .md / metin / görsel bağlantıları her zaman Catstep MD içinde açılır.',
     autoCheckUpdate: 'Güncellemeleri otomatik denetle',
     checkUpdate: 'Şimdi güncelleme denetle',
     checkingUpdate: 'Denetleniyor…',
     updateAvailable: 'Yeni sürüm {version} mevcut',
     upToDate: 'Güncelsiniz',
-    updateCheckFailed: 'Güncelleme sunucusuna ulaşılamadı — ağınızı denetleyip yeniden deneyin',
-    telemetry: 'Anonim kullanım verisi gönder',
-    telemetryHint:
-      'SoloMD\'yi geliştirmeye yardımcı olur. IP adresi, dosya içeriği veya kişisel bilgi gönderilmez.',
-    telemetryNotice:
-      'SoloMD, ürünü geliştirmeye yardımcı olmak için anonim kullanım verisi (özellik kullanımı, sürüm, işletim sistemi) toplar. IP adresi, dosya içeriği veya kişisel bilgi toplanmaz. Bunu istediğiniz zaman ayarlardan kapatabilirsiniz.',
-    telemetryNoticeOk: 'Anladım',
-    telemetryNoticeDisable: 'Şimdi kapat',
+    updateCheckFailed: 'Güncelleme sunucusuna ulaşılamadı — ağınızı denetleyip yeniden deneyin',
     imageUploaderSection: 'Görsel yükleme (görsel barındırma)',
     imageUploader: 'Görselleri şuraya yükle',
     imageUploaderNone: 'Yükleme — yerel olarak kaydet',
@@ -460,7 +453,7 @@ export const tr: I18n = {
     desc: 'Hafif, çapraz platform Markdown + düz metin düzenleyici.',
   },
   help: {
-    about: 'SoloMD Hakkında',
+    about: 'Catstep MD Hakkında',
     markdownGuide: 'Markdown Kılavuzu',
     keyboardShortcuts: 'Klavye Kısayolları',
   },
@@ -650,7 +643,7 @@ export const tr: I18n = {
   integrations: {
     heading: 'Entegrasyonlar',
     intro:
-      'SoloMD, terminalinizle ve MCP destekli YZ istemcileriyle (Claude Desktop, Codex CLI, Cursor) konuşur; böylece notlarınızı uygulama dışından okuyabilir/yazabilirsiniz.',
+      'Catstep MD, terminalinizle ve MCP destekli YZ istemcileriyle (Claude Desktop, Codex CLI, Cursor) konuşur; böylece notlarınızı uygulama dışından okuyabilir/yazabilirsiniz.',
     cliTitle: 'CLI (solomd)',
     cliInstalled: 'Kurulu: {path}',
     cliNotInstalled: 'Kurulu değil',
@@ -663,7 +656,7 @@ export const tr: I18n = {
       'Bunu terminalinizde çalıştırın — /usr/local/bin için sudo gerekir:',
     cliSubcommandsHeading: 'Neler yapabilir?',
     cliSubcommands: {
-      open: 'open <başlık|yol> — SoloMD\'de bir not aç',
+      open: 'open <başlık|yol> — Catstep MD\'de bir not aç',
       new: 'new <başlık> [metin] — yeni not oluştur ve aç',
       list: 'list [klasör] — markdown dosyalarını listele',
       search: 'search <sorgu> — notlarınızda grep yap',
@@ -699,9 +692,9 @@ export const tr: I18n = {
     mcpWriteNote:
       'write_note + append_to_note varsayılan olarak kapalıdır. Etkinleştirmek için --allow-write geçirin.',
     // ---- v4.4.5: MCP auto-install across 6 AI clients (EN backfill) ----
-    aiClientsTitle: 'Hook SoloMD into your AI clients',
+    aiClientsTitle: 'Hook Catstep MD into your AI clients',
     aiClientsIntro:
-      'One click and SoloMD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
+      'One click and Catstep MD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
     aiClientsNotInstalled: 'not installed',
     aiClientsAlreadyConfigured: 'configured ✓',
     aiClientsReady: 'ready to inject',
@@ -709,11 +702,11 @@ export const tr: I18n = {
     aiClientsRemoveBtn: 'Remove',
     aiClientsAllowWrite:
       'Allow writes (--allow-write on the MCP server)',
-    aiClientsInjectBtn: 'Inject SoloMD into {n} client(s)',
+    aiClientsInjectBtn: 'Inject Catstep MD into {n} client(s)',
     aiClientsInjectBtnZero: 'Nothing to inject',
     aiClientsInjectedToast:
-      '✓ Injected SoloMD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
-    aiClientsRemovedToast: '✓ Removed SoloMD entry from {name}.',
+      '✓ Injected Catstep MD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
+    aiClientsRemovedToast: '✓ Removed Catstep MD entry from {name}.',
     aiClientsRestartHint:
       'After injecting, restart the AI client (or use its "Reload MCP servers" command if it has one) for the new server to load.'
 ,
@@ -993,7 +986,7 @@ export const tr: I18n = {
     captureHeading: 'HTTP yakalama uç noktası',
     enableCapture: 'Yakalama uç noktasını etkinleştir',
     enableCaptureHint:
-      'Varsayılan olarak kapalı. Açıkken SoloMD, tarayıcı uzantısı, iOS Kısayolu, kabuk betiği veya curl\'dan gelen yeni-not POST\'larını dinlemek için 127.0.0.1\'i (yalnızca loopback) dinler. Notlar, YAML\'lerinde `inbox: true` ile çalışma alanının gelen kutusu klasörüne düşer.',
+      'Varsayılan olarak kapalı. Açıkken Catstep MD, tarayıcı uzantısı, iOS Kısayolu, kabuk betiği veya curl\'dan gelen yeni-not POST\'larını dinlemek için 127.0.0.1\'i (yalnızca loopback) dinler. Notlar, YAML\'lerinde `inbox: true` ile çalışma alanının gelen kutusu klasörüne düşer.',
     endpoint: 'Uç nokta',
     statusRunning: 'çalışıyor',
     statusStarting: 'başlatılıyor…',
@@ -1019,7 +1012,7 @@ export const tr: I18n = {
       'MCP ile aynı vault araçlarını yayınlayan yalnızca-localhost HTTP yüzeyi. Alfred, Raycast, n8n, kabuk betikleri, iOS Kısayolları — MCP konuşmayan her şey için kullanışlıdır.',
     enable: 'REST API\'yi etkinleştir',
     enableHint:
-      'Varsayılan olarak kapalı. Açıkken SoloMD 127.0.0.1\'i (yalnızca loopback) dinler. Genel banner dışındaki her rota aşağıdaki bearer belirtecini gerektirir.',
+      'Varsayılan olarak kapalı. Açıkken Catstep MD 127.0.0.1\'i (yalnızca loopback) dinler. Genel banner dışındaki her rota aşağıdaki bearer belirtecini gerektirir.',
     endpoint: 'Uç nokta',
     statusRunning: 'çalışıyor',
     statusStarting: 'başlatılıyor…',
@@ -1046,7 +1039,7 @@ export const tr: I18n = {
     close: 'Kapat',
     chooseTitle: 'YZ asistanınızı kurun',
     chooseSub:
-      'SoloMD YZ olmadan da çalışır, ancak aracı paneli ve tarifler bir model gerektirir. Bir yol seçin — istediğiniz zaman Ayarlar → YZ\'den değiştirebilirsiniz.',
+      'Catstep MD YZ olmadan da çalışır, ancak aracı paneli ve tarifler bir model gerektirir. Bir yol seçin — istediğiniz zaman Ayarlar → YZ\'den değiştirebilirsiniz.',
     cloudTitle: 'Bulut (BYOK)',
     cloudBadge: '14+ Sağlayıcı',
     cloudBody:
@@ -1062,7 +1055,7 @@ export const tr: I18n = {
     localDetecting: 'Çalışan bir Ollama sunucusu aranıyor…',
     localNotRunning: 'localhost:11434 adresinde Ollama sunucusu algılanmadı.',
     localNotRunningHint:
-      'Ollama\'yı kurun (~80 MB), başlatın, sonra Yeniden Dene\'ye tıklayın. SoloMD Ollama\'yı paketle birlikte sunmaz.',
+      'Ollama\'yı kurun (~80 MB), başlatın, sonra Yeniden Dene\'ye tıklayın. Catstep MD Ollama\'yı paketle birlikte sunmaz.',
     localInstallBtn: 'Ollama\'yı kur',
     localRetryBtn: 'Algılamayı yeniden dene',
     localRunningNoModel:
@@ -1182,7 +1175,7 @@ export const tr: I18n = {
     autoEngageFocusHint: 'Bir Pomodoro başlatmak süre boyunca odak modunu açar; oturum bittiğinde önceki durumunuz geri yüklenir.',
     defaultDuration: 'Varsayılan süre',
     customDurationLabel: 'Özel (dakika)',
-    notificationTitle: 'SoloMD — odak oturumu tamamlandı',
+    notificationTitle: 'Catstep MD — odak oturumu tamamlandı',
     notificationBody: '{minutes} dk · {words} kelime yazıldı',
   },
   quickSwitcher: {
@@ -1250,7 +1243,7 @@ export const tr: I18n = {
   cloudSync: {
     detectedTitle: 'Çalışma alanı {label} içinde',
     detectedHint:
-      'Buraya kaydedilen dosyalar bulut sağlayıcınız aracılığıyla diğer cihazlarınıza otomatik yayılır. SoloMD bunun üstüne cihazlar arası oturum geri yüklemesi ekler — aynı çalışma alanını başka bir makinede açın, aynı sekmeler geri gelir.',
+      'Buraya kaydedilen dosyalar bulut sağlayıcınız aracılığıyla diğer cihazlarınıza otomatik yayılır. Catstep MD bunun üstüne cihazlar arası oturum geri yüklemesi ekler — aynı çalışma alanını başka bir makinede açın, aynı sekmeler geri gelir.',
     siblingCount: 'Bu çalışma alanını {n} başka cihaz açtı.',
     restoreTitle: 'Kaldığınız yerden devam edilsin mi?',
     restoreLead:
@@ -1268,7 +1261,7 @@ export const tr: I18n = {
   githubSync: {
     heading: 'GitHub eşitleme',
     intro:
-      'Vault\'unuzu özel bir GitHub deposuna gönderin; cihazlar arası takip edilsin. Verileriniz hesabınızda kalır — SoloMD yalnızca git push ve git pull çalıştırır.',
+      'Vault\'unuzu özel bir GitHub deposuna gönderin; cihazlar arası takip edilsin. Verileriniz hesabınızda kalır — Catstep MD yalnızca git push ve git pull çalıştırır.',
     signInTitle: 'GitHub ile bağlan',
     signInHint:
       'Bir Personal Access Token yapıştırın. İşletim sisteminizin anahtarlığında saklanır — api.github.com dışında hiçbir yere gönderilmez.',
@@ -1358,11 +1351,11 @@ export const tr: I18n = {
     conflictResolveFailed: 'Çözüm başarısız',
     keychainHintTitle: 'macOS parolanızı isteyecek — "Her Zaman İzin Ver"e tıklayın',
     keychainHintBody:
-      'SoloMD GitHub\'a ilk push yaptığında macOS, kayıtlı belirtecinizi okuyabilmesi için bir Keychain iletişim kutusu açar. Uçtan uca şifreleme açıksa şifreleme anahtarı için ikinci bir istem görürsünüz. Her birinde "Her Zaman İzin Ver"e tıklayın (sadece "İzin Ver" değil) — bu, SoloMD\'yi kalıcı olarak beyaz listeye alır ve bu Mac\'te bu istemi bir daha görmezsiniz. Yalnızca "İzin Ver"e tıklarsanız her push\'ta yeniden sorulur.',
+      'Catstep MD GitHub\'a ilk push yaptığında macOS, kayıtlı belirtecinizi okuyabilmesi için bir Keychain iletişim kutusu açar. Uçtan uca şifreleme açıksa şifreleme anahtarı için ikinci bir istem görürsünüz. Her birinde "Her Zaman İzin Ver"e tıklayın (sadece "İzin Ver" değil) — bu, Catstep MD\'yi kalıcı olarak beyaz listeye alır ve bu Mac\'te bu istemi bir daha görmezsiniz. Yalnızca "İzin Ver"e tıklarsanız her push\'ta yeniden sorulur.',
     proxyTitle: 'HTTPS proxy (GFW / kurumsal ağlar için)',
     proxyPlaceholder: 'http://127.0.0.1:7897 veya socks5://127.0.0.1:1080',
     proxyHint:
-      'git push / pull\'u bu proxy üzerinden yönlendirir. Doğrudan bağlantı için boş bırakın. macOS GUI uygulamaları kabuğun HTTPS_PROXY ortam değişkenini devralmaz, bu yüzden SoloMD için özel olarak burada ayarlayın. github.com\'a doğrudan ulaşılamadığında "Operation timed out" sorununu da çözer.',
+      'git push / pull\'u bu proxy üzerinden yönlendirir. Doğrudan bağlantı için boş bırakın. macOS GUI uygulamaları kabuğun HTTPS_PROXY ortam değişkenini devralmaz, bu yüzden Catstep MD için özel olarak burada ayarlayın. github.com\'a doğrudan ulaşılamadığında "Operation timed out" sorununu da çözer.',
     proxySaveBtn: 'Proxy\'i kaydet',
     proxySaving: 'Kaydediliyor…',
     proxySavedToast: 'Proxy kaydedildi.',
@@ -1382,7 +1375,7 @@ export const tr: I18n = {
     upgradeRowBtn: 'Şifrelemeyi etkinleştir',
     upgradeFormTitle: 'Uçtan uca şifrelemeyi etkinleştir',
     upgradeFormBody:
-      'Bir parola belirleyin. SoloMD bir anahtar türetecek (Argon2id) ve tekrar gönderilmeden önce her dosyayı yeniden şifreleyecek.',
+      'Bir parola belirleyin. Catstep MD bir anahtar türetecek (Argon2id) ve tekrar gönderilmeden önce her dosyayı yeniden şifreleyecek.',
     upgradeForcePushWarning:
       'Bu işlem şifreli geçmişi uzak depoya zorla gönderir — eski düz metin commit\'lere GitHub\'da artık ulaşılamaz. Bu depoyu daha önce klonlayan herkesin yeniden klonlaması gerekir. Parolayı unutursanız verileriniz kurtarılamaz.',
     upgradePassphrasePlaceholder: 'Vault parolası (en az 8 karakter)',
@@ -1425,7 +1418,7 @@ export const tr: I18n = {
       'Push your vault to a Gitea server. Enter your server URL and a Personal Access Token to get started.',
     giteaUrlTitle: 'Gitea server URL',
     giteaUrlHint:
-      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). SoloMD will append /api/v1 automatically.',
+      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). Catstep MD will append /api/v1 automatically.',
     giteaUrlValidateBtn: 'Validate URL',
     giteaUrlValidating: 'Validating...',
     giteaTokenTitle: 'Gitea Personal Access Token',

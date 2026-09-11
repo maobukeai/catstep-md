@@ -43,7 +43,6 @@ function toggleMode() {
       </button>
 
       <div class="mobile-agent-view__title">
-        <span class="mobile-agent-view__brand-paw">🐾</span>
         <span class="mobile-agent-view__brand-text">猫步智能体</span>
         <span
           class="mobile-agent-view__status-dot"
@@ -60,7 +59,7 @@ function toggleMode() {
           @click="toggleMode"
           :title="settings.agentAllowWrite ? '智能体模式：允许自动修改文档' : '建议模式：仅输出修改建议'"
         >
-          <span>{{ settings.agentAllowWrite ? '⚡ 智能体' : '🛡️ 建议' }}</span>
+          <span>{{ settings.agentAllowWrite ? '智能体模式' : '建议模式' }}</span>
         </button>
       </div>
     </header>
@@ -68,11 +67,10 @@ function toggleMode() {
     <!-- 2. 文档上下文提示条 -->
     <div class="mobile-agent-view__context-bar">
       <div class="mobile-agent-view__context-doc">
-        <span class="mobile-agent-view__context-icon">📄</span>
         <span class="mobile-agent-view__context-name" :title="docTitle">{{ docTitle }}</span>
       </div>
       <span v-if="selectionCount > 0" class="mobile-agent-view__selection-badge">
-        📌 选区 ({{ selectionCount }}字)
+        选区 ({{ selectionCount }}字)
       </span>
     </div>
 

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref } from 'vue';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { DsModal } from '../ui';
@@ -26,7 +26,7 @@ let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
 const links = {
   githubSponsor: 'https://github.com/sponsors/maobukeai',
-  email: 'maobukeai.lilan@gmail.com',
+  email: '2026958851@qq.com',
 };
 
 async function openExternal(url: string) {
@@ -169,7 +169,7 @@ function close() {
             <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>{{ copied ? '已复制作者邮箱' : '复制作者邮箱 (maobukeai.lilan@gmail.com)' }}</span>
+            <span>{{ copied ? '已复制作者邮箱' : `复制作者邮箱 (${links.email})` }}</span>
           </button>
         </div>
       </div>

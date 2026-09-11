@@ -40,7 +40,7 @@ export const ko: I18n = {
     globalSearch: '폴더에서 검색…',
     settings: '설정…',
     mdHelp: 'Markdown 치트 시트',
-    about: 'SoloMD 정보',
+    about: 'Catstep MD 정보',
     minimize: '최소화',
     maximize: '최대화',
     restore: '이전 크기로 복원',
@@ -328,7 +328,7 @@ export const ko: I18n = {
       codeThemeDark: '항상 다크',
       frontmatterHint: 'YAML 프런트매터의 `pdf:` 블록으로 문서별 재정의 가능 (pageSize / margin / font / fontSize / footer).',
     },
-    imageExportBranding: '이미지로 내보낼 때 "Created with SoloMD" 푸터 추가',
+    imageExportBranding: '이미지로 내보낼 때 "Created with Catstep MD" 푸터 추가',
     imageExportBrandingHint: '기본값은 켜짐 — 공유 스크린샷에 가벼운 자기 홍보. 워터마크가 싫으면 끄세요. 짧은 노트는 트레일링 카드 없이 더 컴팩트하게 출력됩니다.',
     attachmentMode: 'Where to save pasted/dropped images',
     attachmentModeShared: 'Shared `_assets/` folder per directory',
@@ -356,9 +356,9 @@ export const ko: I18n = {
     customCssReloadFailed: '사용자 지정 CSS 테마를 다시 로드하지 못했습니다',
     clear: '지우기',
     fileAssoc: '파일 연결',
-    setDefault: '⭐ SoloMD를 기본 Markdown 에디터로 설정',
+    setDefault: '⭐ Catstep MD를 기본 Markdown 에디터로 설정',
     settingDefault: '설정 중…',
-    setDefaultHint: '.md / .markdown / .mdown / .mkd 파일의 기본 앱으로 SoloMD 등록. Windows에서는 "연결 프로그램" 메뉴에도 추가됩니다. Linux는 xdg-utils 필요.',
+    setDefaultHint: '.md / .markdown / .mdown / .mkd 파일의 기본 앱으로 Catstep MD 등록. Windows에서는 "연결 프로그램" 메뉴에도 추가됩니다. Linux는 xdg-utils 필요.',
     language: '언어 / Language',
     restoreSession: '시작 시 이전 탭과 패널 복원',
     restoreSessionHint: '꺼두면 매번 빈 창으로 시작합니다.',
@@ -378,20 +378,13 @@ export const ko: I18n = {
     revealInFileTreeOnOpen: '파일 열 때 파일 트리에서 표시',
     revealInFileTreeOnOpenHint: '켜두면 파일을 열 때 사이드바가 상위 폴더로 이동합니다(숨겨져 있으면 표시).',
     openLinkedFilesExternally: '링크된 파일을 기본 앱으로 열기',
-    openLinkedFilesExternallyHint: '켜면 Markdown 안의 로컬 PDF / Office / 기타 문서 링크를 클릭할 때 OS 기본 앱으로 엽니다. 끄면 대신 Markdown으로 변환해 엽니다. .md / 텍스트 / 이미지 링크는 항상 SoloMD 안에서 열립니다.',
+    openLinkedFilesExternallyHint: '켜면 Markdown 안의 로컬 PDF / Office / 기타 문서 링크를 클릭할 때 OS 기본 앱으로 엽니다. 끄면 대신 Markdown으로 변환해 엽니다. .md / 텍스트 / 이미지 링크는 항상 Catstep MD 안에서 열립니다.',
     autoCheckUpdate: '업데이트 자동 확인',
     checkUpdate: '지금 업데이트 확인',
     checkingUpdate: '확인 중…',
     updateAvailable: '새 버전 {version} 사용 가능',
     upToDate: '최신 버전입니다',
-    updateCheckFailed: '업데이트 서버에 연결할 수 없습니다 — 네트워크를 확인하고 다시 시도하세요',
-    telemetry: '익명 사용 데이터 전송',
-    telemetryHint:
-      'SoloMD 개선에 도움이 됩니다. IP 주소, 파일 내용, 개인정보는 포함되지 않습니다.',
-    telemetryNotice:
-      'SoloMD는 제품 개선을 위해 익명 사용 데이터(기능 사용, 버전, OS)를 수집합니다. IP 주소, 파일 내용, 개인정보는 포함되지 않습니다. 설정에서 언제든 끌 수 있습니다.',
-    telemetryNoticeOk: '확인',
-    telemetryNoticeDisable: '지금 끄기',
+    updateCheckFailed: '업데이트 서버에 연결할 수 없습니다 — 네트워크를 확인하고 다시 시도하세요',
     imageUploaderSection: '이미지 업로드 (이미지 호스팅)',
     imageUploader: '이미지 업로드 위치',
     imageUploaderNone: '업로드 안 함 — 로컬에 저장',
@@ -460,7 +453,7 @@ export const ko: I18n = {
     desc: '가볍고 크로스 플랫폼인 Markdown + 일반 텍스트 에디터.',
   },
   help: {
-    about: 'SoloMD 정보',
+    about: 'Catstep MD 정보',
     markdownGuide: 'Markdown 가이드',
     keyboardShortcuts: '키보드 단축키',
   },
@@ -650,7 +643,7 @@ export const ko: I18n = {
   integrations: {
     heading: '통합',
     intro:
-      'SoloMD는 터미널과 MCP 지원 AI 클라이언트(Claude Desktop, Codex CLI, Cursor)와 통신합니다. 앱 밖에서 노트를 읽고 쓸 수 있어요.',
+      'Catstep MD는 터미널과 MCP 지원 AI 클라이언트(Claude Desktop, Codex CLI, Cursor)와 통신합니다. 앱 밖에서 노트를 읽고 쓸 수 있어요.',
     cliTitle: 'CLI(solomd)',
     cliInstalled: '{path}에 설치됨',
     cliNotInstalled: '설치되지 않음',
@@ -663,7 +656,7 @@ export const ko: I18n = {
       '터미널에서 실행하세요 — /usr/local/bin에는 sudo가 필요합니다:',
     cliSubcommandsHeading: '무엇을 할 수 있나요?',
     cliSubcommands: {
-      open: 'open <title|path> — SoloMD에서 노트 열기',
+      open: 'open <title|path> — Catstep MD에서 노트 열기',
       new: 'new <title> [text] — 새 노트 생성하고 열기',
       list: 'list [folder] — Markdown 파일 목록',
       search: 'search <query> — 노트 grep',
@@ -699,9 +692,9 @@ export const ko: I18n = {
     mcpWriteNote:
       'write_note + append_to_note는 기본 꺼짐. --allow-write로 옵트인하세요.',
     // ---- v4.4.5: MCP auto-install across 6 AI clients (EN backfill) ----
-    aiClientsTitle: 'Hook SoloMD into your AI clients',
+    aiClientsTitle: 'Hook Catstep MD into your AI clients',
     aiClientsIntro:
-      'One click and SoloMD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
+      'One click and Catstep MD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
     aiClientsNotInstalled: 'not installed',
     aiClientsAlreadyConfigured: 'configured ✓',
     aiClientsReady: 'ready to inject',
@@ -709,11 +702,11 @@ export const ko: I18n = {
     aiClientsRemoveBtn: 'Remove',
     aiClientsAllowWrite:
       'Allow writes (--allow-write on the MCP server)',
-    aiClientsInjectBtn: 'Inject SoloMD into {n} client(s)',
+    aiClientsInjectBtn: 'Inject Catstep MD into {n} client(s)',
     aiClientsInjectBtnZero: 'Nothing to inject',
     aiClientsInjectedToast:
-      '✓ Injected SoloMD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
-    aiClientsRemovedToast: '✓ Removed SoloMD entry from {name}.',
+      '✓ Injected Catstep MD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
+    aiClientsRemovedToast: '✓ Removed Catstep MD entry from {name}.',
     aiClientsRestartHint:
       'After injecting, restart the AI client (or use its "Reload MCP servers" command if it has one) for the new server to load.'
 ,
@@ -990,7 +983,7 @@ export const ko: I18n = {
     captureHeading: 'HTTP 캡처 엔드포인트',
     enableCapture: '캡처 엔드포인트 활성화',
     enableCaptureHint:
-      '기본 꺼짐. 켜면 SoloMD가 127.0.0.1(루프백 전용)에서 브라우저 확장, iOS 단축어, 셸 스크립트, curl로부터 새 노트 POST를 수신합니다. 노트는 워크스페이스의 inbox 폴더에 `inbox: true`와 함께 저장됩니다.',
+      '기본 꺼짐. 켜면 Catstep MD가 127.0.0.1(루프백 전용)에서 브라우저 확장, iOS 단축어, 셸 스크립트, curl로부터 새 노트 POST를 수신합니다. 노트는 워크스페이스의 inbox 폴더에 `inbox: true`와 함께 저장됩니다.',
     endpoint: '엔드포인트',
     statusRunning: '실행 중',
     statusStarting: '시작 중…',
@@ -1016,7 +1009,7 @@ export const ko: I18n = {
       'MCP와 동일한 vault 도구를 노출하는 localhost 전용 HTTP 인터페이스. Alfred, Raycast, n8n, 셸, iOS 단축어 등 MCP를 말하지 않는 클라이언트에 유용.',
     enable: 'REST API 활성화',
     enableHint:
-      '기본값은 꺼짐. 켜면 SoloMD가 127.0.0.1(루프백 전용)에서 수신 대기합니다. 공개 배너 외 모든 경로는 아래 Bearer 토큰이 필요합니다.',
+      '기본값은 꺼짐. 켜면 Catstep MD가 127.0.0.1(루프백 전용)에서 수신 대기합니다. 공개 배너 외 모든 경로는 아래 Bearer 토큰이 필요합니다.',
     endpoint: '엔드포인트',
     statusRunning: '실행 중',
     statusStarting: '시작 중…',
@@ -1043,7 +1036,7 @@ export const ko: I18n = {
     close: '닫기',
     chooseTitle: 'AI 어시스턴트 설정',
     chooseSub:
-      'SoloMD는 AI 없이도 동작하지만, Agent 패널과 Recipes는 모델이 필요합니다. 둘 중 하나를 고르세요 — 언제든지 설정 → AI에서 변경 가능.',
+      'Catstep MD는 AI 없이도 동작하지만, Agent 패널과 Recipes는 모델이 필요합니다. 둘 중 하나를 고르세요 — 언제든지 설정 → AI에서 변경 가능.',
     cloudTitle: '클라우드(BYOK)',
     cloudBadge: '14+ 프로바이더',
     cloudBody:
@@ -1059,7 +1052,7 @@ export const ko: I18n = {
     localDetecting: '실행 중인 Ollama 서버를 찾는 중…',
     localNotRunning: 'localhost:11434에서 Ollama 서버가 발견되지 않습니다.',
     localNotRunningHint:
-      'Ollama(약 80 MB)를 설치하고 실행한 뒤 「재시도」를 눌러주세요. SoloMD는 Ollama를 동봉하지 않습니다.',
+      'Ollama(약 80 MB)를 설치하고 실행한 뒤 「재시도」를 눌러주세요. Catstep MD는 Ollama를 동봉하지 않습니다.',
     localInstallBtn: 'Ollama 설치',
     localRetryBtn: '재시도',
     localRunningNoModel:
@@ -1179,7 +1172,7 @@ export const ko: I18n = {
     autoEngageFocusHint: 'Pomodoro 시작 시 집중 모드가 켜지고, 세션 종료 시 이전 상태로 복원됩니다.',
     defaultDuration: '기본 시간',
     customDurationLabel: '사용자 지정(분)',
-    notificationTitle: 'SoloMD — 집중 세션 완료',
+    notificationTitle: 'Catstep MD — 집중 세션 완료',
     notificationBody: '{minutes}분 · {words} 단어 작성',
   },
   quickSwitcher: {
@@ -1247,7 +1240,7 @@ export const ko: I18n = {
   cloudSync: {
     detectedTitle: '워크스페이스가 {label}에 있습니다',
     detectedHint:
-      '여기에 저장된 파일은 클라우드 제공자를 통해 다른 기기로 자동 전파됩니다. SoloMD는 그 위에 크로스 디바이스 세션 복원을 추가 — 다른 머신에서 같은 워크스페이스를 열면 같은 탭이 돌아옵니다.',
+      '여기에 저장된 파일은 클라우드 제공자를 통해 다른 기기로 자동 전파됩니다. Catstep MD는 그 위에 크로스 디바이스 세션 복원을 추가 — 다른 머신에서 같은 워크스페이스를 열면 같은 탭이 돌아옵니다.',
     siblingCount: '다른 {n}대의 기기가 이 워크스페이스를 열었습니다.',
     restoreTitle: '이어서 작업하시겠습니까?',
     restoreLead:
@@ -1265,7 +1258,7 @@ export const ko: I18n = {
   githubSync: {
     heading: 'GitHub 동기화',
     intro:
-      'vault를 비공개 GitHub 저장소에 push하여 기기 간 따라다니게 합니다. 데이터는 본인 계정에 남아있고 SoloMD는 git push와 git pull을 실행할 뿐입니다.',
+      'vault를 비공개 GitHub 저장소에 push하여 기기 간 따라다니게 합니다. 데이터는 본인 계정에 남아있고 Catstep MD는 git push와 git pull을 실행할 뿐입니다.',
     signInTitle: 'GitHub에 연결',
     signInHint:
       'Personal Access Token을 붙여넣으세요. OS 키체인에 저장되며 api.github.com 외 다른 곳으로 전송되지 않습니다.',
@@ -1349,11 +1342,11 @@ export const ko: I18n = {
     conflictResolveFailed: '해결 실패',
     keychainHintTitle: 'macOS가 비밀번호를 요구합니다 — 「항상 허용」을 클릭하세요',
     keychainHintBody:
-      'SoloMD가 처음 GitHub에 push할 때 macOS가 저장된 토큰을 읽기 위한 키체인 대화상자를 띄웁니다. 엔드투엔드 암호화가 켜져 있다면 암호화 키용 두 번째 프롬프트도 표시됩니다. 각 프롬프트에서 「허용」이 아닌 「항상 허용」을 클릭하세요 — 이렇게 하면 SoloMD가 영구적으로 허용 목록에 등록되어 이 Mac에서 다시 묻지 않습니다. 「허용」만 한 번 클릭하면 push할 때마다 다시 묻습니다.',
+      'Catstep MD가 처음 GitHub에 push할 때 macOS가 저장된 토큰을 읽기 위한 키체인 대화상자를 띄웁니다. 엔드투엔드 암호화가 켜져 있다면 암호화 키용 두 번째 프롬프트도 표시됩니다. 각 프롬프트에서 「허용」이 아닌 「항상 허용」을 클릭하세요 — 이렇게 하면 Catstep MD가 영구적으로 허용 목록에 등록되어 이 Mac에서 다시 묻지 않습니다. 「허용」만 한 번 클릭하면 push할 때마다 다시 묻습니다.',
     proxyTitle: 'HTTPS 프록시(GFW / 기업 네트워크용)',
     proxyPlaceholder: 'http://127.0.0.1:7897 또는 socks5://127.0.0.1:1080',
     proxyHint:
-      'git push / pull을 이 프록시로 라우팅합니다. 직접 연결할 때는 비워두세요. macOS GUI 앱은 셸의 HTTPS_PROXY 환경 변수를 상속하지 않으므로 SoloMD 전용으로 여기서 설정하세요. github.com에 직접 연결할 수 없을 때의 "Operation timed out"도 해결합니다.',
+      'git push / pull을 이 프록시로 라우팅합니다. 직접 연결할 때는 비워두세요. macOS GUI 앱은 셸의 HTTPS_PROXY 환경 변수를 상속하지 않으므로 Catstep MD 전용으로 여기서 설정하세요. github.com에 직접 연결할 수 없을 때의 "Operation timed out"도 해결합니다.',
     proxySaveBtn: '프록시 저장',
     proxySaving: '저장 중…',
     proxySavedToast: '프록시를 저장했습니다.',
@@ -1371,7 +1364,7 @@ export const ko: I18n = {
     upgradeRowBtn: '암호화 활성화',
     upgradeFormTitle: '엔드투엔드 암호화 활성화',
     upgradeFormBody:
-      '암호 구문을 설정하세요. SoloMD는 키(Argon2id)를 도출하고 다시 push하기 전에 모든 파일을 재암호화합니다.',
+      '암호 구문을 설정하세요. Catstep MD는 키(Argon2id)를 도출하고 다시 push하기 전에 모든 파일을 재암호화합니다.',
     upgradeForcePushWarning:
       '암호화된 기록을 원격에 force push합니다 — GitHub 상의 이전 평문 커밋은 도달 불가능해집니다. 이미 이 저장소를 클론한 사람은 다시 클론해야 합니다. 암호 구문을 잊으면 데이터를 복구할 수 없습니다.',
     upgradePassphrasePlaceholder: 'vault 암호 구문(최소 8자)',
@@ -1412,7 +1405,7 @@ export const ko: I18n = {
       'Push your vault to a Gitea server. Enter your server URL and a Personal Access Token to get started.',
     giteaUrlTitle: 'Gitea server URL',
     giteaUrlHint:
-      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). SoloMD will append /api/v1 automatically.',
+      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). Catstep MD will append /api/v1 automatically.',
     giteaUrlValidateBtn: 'Validate URL',
     giteaUrlValidating: 'Validating...',
     giteaTokenTitle: 'Gitea Personal Access Token',

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- SoloMD collects zero user data. No tracking, no third-party SDKs. -->
+	<!-- Catstep MD collects zero user data. No tracking, no third-party SDKs. -->
 	<key>NSPrivacyTracking</key>
 	<false/>
 	<key>NSPrivacyTrackingDomains</key>
@@ -28,7 +28,7 @@
 				<string>DDA9.1</string>
 			</array>
 		</dict>
-		<!-- All of SoloMD's settings + window state + recent files live in
+		<!-- All of Catstep MD's settings + window state + recent files live in
 		     LocalStorage / UserDefaults inside the app container. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
@@ -54,10 +54,7 @@
 				<string>85F4.1</string>
 			</array>
 		</dict>
-		<!-- System boot time is used by recent telemetry plumbing (still
-		     opt-in, content-free) to detect cold launches versus relaunches.
-		     If telemetry stays off it's a no-op, but the API is technically
-		     reachable, so we declare it. -->
+		<!-- System boot time may be queried to detect cold launches versus relaunches. -->
 		<dict>
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>

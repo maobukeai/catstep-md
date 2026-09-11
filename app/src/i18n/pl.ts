@@ -40,7 +40,7 @@ export const pl: I18n = {
     globalSearch: 'Szukaj w folderze…',
     settings: 'Ustawienia…',
     mdHelp: 'Ściąga Markdown',
-    about: 'O SoloMD',
+    about: 'O Catstep MD',
     minimize: 'Minimalizuj',
     maximize: 'Maksymalizuj',
     restore: 'Przywróć',
@@ -328,7 +328,7 @@ export const pl: I18n = {
       codeThemeDark: 'Zawsze ciemny',
       frontmatterHint: 'Nadpisz dla pojedynczego dokumentu blokiem `pdf:` w nagłówku YAML (pageSize / margin / font / fontSize / footer).',
     },
-    imageExportBranding: 'Dołącz stopkę „Created with SoloMD” przy eksporcie do obrazu',
+    imageExportBranding: 'Dołącz stopkę „Created with Catstep MD” przy eksporcie do obrazu',
     imageExportBrandingHint: 'Domyślnie włączone — łagodna autopromocja na udostępnianych zrzutach. Wyłącz, jeśli nie chcesz znaku wodnego, a krótkie notatki będą eksportowane zwięźlej, bez doczepionej karty.',
     attachmentMode: 'Where to save pasted/dropped images',
     attachmentModeShared: 'Shared `_assets/` folder per directory',
@@ -356,9 +356,9 @@ export const pl: I18n = {
     customCssReloadFailed: 'Nie udało się przeładować niestandardowego motywu CSS',
     clear: 'Wyczyść',
     fileAssoc: 'Skojarzenia plików',
-    setDefault: '⭐ Ustaw SoloMD jako domyślny edytor Markdown',
+    setDefault: '⭐ Ustaw Catstep MD jako domyślny edytor Markdown',
     settingDefault: 'Ustawianie…',
-    setDefaultHint: 'Rejestruje SoloMD jako domyślną aplikację dla plików .md / .markdown / .mdown / .mkd. W systemie Windows dodaje też SoloMD do menu „Otwórz za pomocą”. W systemie Linux wymaga xdg-utils.',
+    setDefaultHint: 'Rejestruje Catstep MD jako domyślną aplikację dla plików .md / .markdown / .mdown / .mkd. W systemie Windows dodaje też Catstep MD do menu „Otwórz za pomocą”. W systemie Linux wymaga xdg-utils.',
     language: 'Język / Language',
     restoreSession: 'Przywróć poprzednie karty i panele przy starcie',
     restoreSessionHint: 'Wyłącz, aby zawsze startować z pustym oknem.',
@@ -378,20 +378,13 @@ export const pl: I18n = {
     revealInFileTreeOnOpen: 'Pokaż plik w drzewie plików przy otwieraniu',
     revealInFileTreeOnOpenHint: 'Gdy włączone, otwarcie pliku ustawia panel boczny na jego folder nadrzędny (i odsłania panel, jeśli był ukryty).',
     openLinkedFilesExternally: 'Otwieraj powiązane pliki w domyślnej aplikacji',
-    openLinkedFilesExternallyHint: 'Gdy włączone, kliknięcie linku Markdown do lokalnego pliku PDF / Office / innego dokumentu otwiera go w domyślnej aplikacji systemu. Wyłącz, aby zamiast tego przekonwertować na Markdown. Linki do .md / tekstu / obrazów zawsze otwierają się w SoloMD.',
+    openLinkedFilesExternallyHint: 'Gdy włączone, kliknięcie linku Markdown do lokalnego pliku PDF / Office / innego dokumentu otwiera go w domyślnej aplikacji systemu. Wyłącz, aby zamiast tego przekonwertować na Markdown. Linki do .md / tekstu / obrazów zawsze otwierają się w Catstep MD.',
     autoCheckUpdate: 'Automatycznie sprawdzaj aktualizacje',
     checkUpdate: 'Sprawdź aktualizacje teraz',
     checkingUpdate: 'Sprawdzanie…',
     updateAvailable: 'Dostępna nowa wersja {version}',
     upToDate: 'Masz najnowszą wersję',
-    updateCheckFailed: 'Nie udało się połączyć z serwerem aktualizacji — sprawdź sieć i spróbuj ponownie',
-    telemetry: 'Wysyłaj anonimowe dane użytkowania',
-    telemetryHint:
-      'Pomaga ulepszać SoloMD. Bez adresu IP, bez treści plików, bez danych osobowych.',
-    telemetryNotice:
-      'SoloMD zbiera anonimowe dane użytkowania (używane funkcje, wersja, system) aby pomóc ulepszać produkt. Bez adresu IP, treści plików ani danych osobowych. Możesz to wyłączyć w każdej chwili w ustawieniach.',
-    telemetryNoticeOk: 'OK',
-    telemetryNoticeDisable: 'Wyłącz teraz',
+    updateCheckFailed: 'Nie udało się połączyć z serwerem aktualizacji — sprawdź sieć i spróbuj ponownie',
     imageUploaderSection: 'Przesyłanie obrazów (hosting obrazów)',
     imageUploader: 'Przesyłaj obrazy do',
     imageUploaderNone: 'Nie przesyłaj — zapisz lokalnie',
@@ -460,7 +453,7 @@ export const pl: I18n = {
     desc: 'Lekki, wieloplatformowy edytor Markdown i zwykłego tekstu.',
   },
   help: {
-    about: 'O SoloMD',
+    about: 'O Catstep MD',
     markdownGuide: 'Przewodnik po Markdown',
     keyboardShortcuts: 'Skróty klawiszowe',
   },
@@ -650,7 +643,7 @@ export const pl: I18n = {
   integrations: {
     heading: 'Integracje',
     intro:
-      'SoloMD współpracuje z terminalem oraz klientami AI obsługującymi MCP (Claude Desktop, Codex CLI, Cursor), dzięki czemu możesz odczytywać i zapisywać notatki spoza aplikacji.',
+      'Catstep MD współpracuje z terminalem oraz klientami AI obsługującymi MCP (Claude Desktop, Codex CLI, Cursor), dzięki czemu możesz odczytywać i zapisywać notatki spoza aplikacji.',
     cliTitle: 'CLI (solomd)',
     cliInstalled: 'Zainstalowane w {path}',
     cliNotInstalled: 'Nie zainstalowane',
@@ -663,7 +656,7 @@ export const pl: I18n = {
       'Uruchom to w terminalu — sudo jest wymagane dla /usr/local/bin:',
     cliSubcommandsHeading: 'Co potrafi?',
     cliSubcommands: {
-      open: 'open <tytuł|ścieżka> — otwórz notatkę w SoloMD',
+      open: 'open <tytuł|ścieżka> — otwórz notatkę w Catstep MD',
       new: 'new <tytuł> [tekst] — utwórz i otwórz nową notatkę',
       list: 'list [folder] — wypisz pliki Markdown',
       search: 'search <zapytanie> — przeszukaj notatki',
@@ -699,9 +692,9 @@ export const pl: I18n = {
     mcpWriteNote:
       'write_note + append_to_note są domyślnie wyłączone. Przekaż --allow-write, aby je włączyć.',
     // ---- v4.4.5: MCP auto-install across 6 AI clients (EN backfill) ----
-    aiClientsTitle: 'Hook SoloMD into your AI clients',
+    aiClientsTitle: 'Hook Catstep MD into your AI clients',
     aiClientsIntro:
-      'One click and SoloMD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
+      'One click and Catstep MD writes its MCP server entry into the config of every AI client we recognise on this machine. Each write is JSON-merged in place (existing entries are preserved) and the original config is backed up to <path>.bak.<timestamp> before any change.',
     aiClientsNotInstalled: 'not installed',
     aiClientsAlreadyConfigured: 'configured ✓',
     aiClientsReady: 'ready to inject',
@@ -709,11 +702,11 @@ export const pl: I18n = {
     aiClientsRemoveBtn: 'Remove',
     aiClientsAllowWrite:
       'Allow writes (--allow-write on the MCP server)',
-    aiClientsInjectBtn: 'Inject SoloMD into {n} client(s)',
+    aiClientsInjectBtn: 'Inject Catstep MD into {n} client(s)',
     aiClientsInjectBtnZero: 'Nothing to inject',
     aiClientsInjectedToast:
-      '✓ Injected SoloMD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
-    aiClientsRemovedToast: '✓ Removed SoloMD entry from {name}.',
+      '✓ Injected Catstep MD into {n} client(s). Restart the AI client(s) for the new MCP server to load.',
+    aiClientsRemovedToast: '✓ Removed Catstep MD entry from {name}.',
     aiClientsRestartHint:
       'After injecting, restart the AI client (or use its "Reload MCP servers" command if it has one) for the new server to load.'
 ,
@@ -993,7 +986,7 @@ export const pl: I18n = {
     captureHeading: 'Punkt końcowy HTTP do przechwytywania',
     enableCapture: 'Włącz punkt końcowy przechwytywania',
     enableCaptureHint:
-      'Domyślnie wyłączone. Po włączeniu SoloMD nasłuchuje na 127.0.0.1 (tylko loopback) na żądania POST z nową notatką z rozszerzenia przeglądarki, skrótu iOS, skryptu powłoki lub curl. Notatki trafiają do folderu skrzynki obszaru roboczego z `inbox: true` w YAML.',
+      'Domyślnie wyłączone. Po włączeniu Catstep MD nasłuchuje na 127.0.0.1 (tylko loopback) na żądania POST z nową notatką z rozszerzenia przeglądarki, skrótu iOS, skryptu powłoki lub curl. Notatki trafiają do folderu skrzynki obszaru roboczego z `inbox: true` w YAML.',
     endpoint: 'Punkt końcowy',
     statusRunning: 'działa',
     statusStarting: 'uruchamianie…',
@@ -1019,7 +1012,7 @@ export const pl: I18n = {
       'Tylko-lokalny interfejs HTTP udostępniający te same narzędzia skarbca co MCP. Przydatne dla Alfred, Raycast, n8n, skryptów powłoki, skrótów iOS — wszystkiego, co nie obsługuje MCP.',
     enable: 'Włącz REST API',
     enableHint:
-      'Domyślnie wyłączone. Po włączeniu SoloMD nasłuchuje na 127.0.0.1 (tylko loopback). Każda trasa oprócz publicznego bannera wymaga tokena bearer poniżej.',
+      'Domyślnie wyłączone. Po włączeniu Catstep MD nasłuchuje na 127.0.0.1 (tylko loopback). Każda trasa oprócz publicznego bannera wymaga tokena bearer poniżej.',
     endpoint: 'Punkt końcowy',
     statusRunning: 'działa',
     statusStarting: 'uruchamianie…',
@@ -1046,7 +1039,7 @@ export const pl: I18n = {
     close: 'Zamknij',
     chooseTitle: 'Skonfiguruj asystenta AI',
     chooseSub:
-      'SoloMD działa bez AI, ale panel agenta i przepisy potrzebują modelu. Wybierz jedną drogę — możesz ją zmienić w każdej chwili w Ustawienia → AI.',
+      'Catstep MD działa bez AI, ale panel agenta i przepisy potrzebują modelu. Wybierz jedną drogę — możesz ją zmienić w każdej chwili w Ustawienia → AI.',
     cloudTitle: 'Chmura (BYOK)',
     cloudBadge: '14+ Dostawców',
     cloudBody:
@@ -1062,7 +1055,7 @@ export const pl: I18n = {
     localDetecting: 'Szukam działającego serwera Ollama…',
     localNotRunning: 'Nie wykryto serwera Ollama na localhost:11434.',
     localNotRunningHint:
-      'Zainstaluj Ollama (~80 MB), uruchom, a następnie kliknij Spróbuj ponownie. SoloMD nie zawiera Ollama.',
+      'Zainstaluj Ollama (~80 MB), uruchom, a następnie kliknij Spróbuj ponownie. Catstep MD nie zawiera Ollama.',
     localInstallBtn: 'Zainstaluj Ollama',
     localRetryBtn: 'Spróbuj wykryć ponownie',
     localRunningNoModel:
@@ -1182,7 +1175,7 @@ export const pl: I18n = {
     autoEngageFocusHint: 'Rozpoczęcie Pomodoro włącza tryb skupienia na czas trwania; zakończenie sesji przywraca poprzedni stan.',
     defaultDuration: 'Domyślny czas trwania',
     customDurationLabel: 'Niestandardowy (minuty)',
-    notificationTitle: 'SoloMD — sesja skupienia ukończona',
+    notificationTitle: 'Catstep MD — sesja skupienia ukończona',
     notificationBody: '{minutes} min · napisano {words} słów',
   },
   quickSwitcher: {
@@ -1250,7 +1243,7 @@ export const pl: I18n = {
   cloudSync: {
     detectedTitle: 'Obszar roboczy znajduje się w {label}',
     detectedHint:
-      'Pliki zapisane tutaj są automatycznie propagowane na inne urządzenia przez dostawcę chmury. SoloMD dodaje przywracanie sesji między urządzeniami — otwórz ten sam obszar roboczy na innej maszynie, a wrócą te same karty.',
+      'Pliki zapisane tutaj są automatycznie propagowane na inne urządzenia przez dostawcę chmury. Catstep MD dodaje przywracanie sesji między urządzeniami — otwórz ten sam obszar roboczy na innej maszynie, a wrócą te same karty.',
     siblingCount: '{n} innych urządzeń otworzyło ten obszar roboczy.',
     restoreTitle: 'Wrócić do tego, na czym skończono?',
     restoreLead:
@@ -1268,7 +1261,7 @@ export const pl: I18n = {
   githubSync: {
     heading: 'Synchronizacja GitHub',
     intro:
-      'Wypchnij swój skarbiec do prywatnego repozytorium GitHub, aby był z Tobą na różnych urządzeniach. Dane pozostają na Twoim koncie — SoloMD wykonuje tylko git push i git pull.',
+      'Wypchnij swój skarbiec do prywatnego repozytorium GitHub, aby był z Tobą na różnych urządzeniach. Dane pozostają na Twoim koncie — Catstep MD wykonuje tylko git push i git pull.',
     signInTitle: 'Połącz z GitHub',
     signInHint:
       'Wklej osobisty token dostępu (PAT). Przechowywany w pęku kluczy systemu — nigdy nie wysyłany nigdzie poza api.github.com.',
@@ -1358,11 +1351,11 @@ export const pl: I18n = {
     conflictResolveFailed: 'Rozwiązanie nie powiodło się',
     keychainHintTitle: 'macOS poprosi o hasło — kliknij „Zawsze zezwalaj”',
     keychainHintBody:
-      'Przy pierwszym wypchnięciu na GitHub, macOS wyświetli okno Keychain, aby odczytać zapisany token. Jeśli włączone jest szyfrowanie end-to-end, zobaczysz drugi monit o klucz szyfrowania. Kliknij „Zawsze zezwalaj” (nie tylko „Zezwól”) za każdym razem — to dodaje SoloMD do białej listy na stałe i nigdy więcej nie zobaczysz tego monitu na tym Macu. Jeśli klikniesz „Zezwól” raz, monit pojawi się przy każdym pushu.',
+      'Przy pierwszym wypchnięciu na GitHub, macOS wyświetli okno Keychain, aby odczytać zapisany token. Jeśli włączone jest szyfrowanie end-to-end, zobaczysz drugi monit o klucz szyfrowania. Kliknij „Zawsze zezwalaj” (nie tylko „Zezwól”) za każdym razem — to dodaje Catstep MD do białej listy na stałe i nigdy więcej nie zobaczysz tego monitu na tym Macu. Jeśli klikniesz „Zezwól” raz, monit pojawi się przy każdym pushu.',
     proxyTitle: 'Proxy HTTPS (dla GFW / sieci korporacyjnych)',
     proxyPlaceholder: 'http://127.0.0.1:7897 lub socks5://127.0.0.1:1080',
     proxyHint:
-      'Kieruje git push / pull przez to proxy. Zostaw puste dla połączenia bezpośredniego. Aplikacje GUI na macOS nie dziedziczą zmiennej HTTPS_PROXY z powłoki, więc ustaw to tu specjalnie dla SoloMD. Naprawia też „Operation timed out”, gdy github.com jest niedostępny bezpośrednio.',
+      'Kieruje git push / pull przez to proxy. Zostaw puste dla połączenia bezpośredniego. Aplikacje GUI na macOS nie dziedziczą zmiennej HTTPS_PROXY z powłoki, więc ustaw to tu specjalnie dla Catstep MD. Naprawia też „Operation timed out”, gdy github.com jest niedostępny bezpośrednio.',
     proxySaveBtn: 'Zapisz proxy',
     proxySaving: 'Zapisywanie…',
     proxySavedToast: 'Proxy zapisane.',
@@ -1382,7 +1375,7 @@ export const pl: I18n = {
     upgradeRowBtn: 'Włącz szyfrowanie',
     upgradeFormTitle: 'Włącz szyfrowanie end-to-end',
     upgradeFormBody:
-      'Ustaw frazę. SoloMD wyprowadzi klucz (Argon2id) i ponownie zaszyfruje każdy plik przed kolejnym pushem.',
+      'Ustaw frazę. Catstep MD wyprowadzi klucz (Argon2id) i ponownie zaszyfruje każdy plik przed kolejnym pushem.',
     upgradeForcePushWarning:
       'To wymusi push zaszyfrowanej historii ponad zdalną — stare commity z tekstem jawnym staną się nieosiągalne na GitHub. Każdy, kto sklonował to repo wcześniej, będzie musiał sklonować ponownie. Jeśli zapomnisz frazy, dane są nieodzyskiwalne.',
     upgradePassphrasePlaceholder: 'Fraza skarbca (min 8 znaków)',
@@ -1425,7 +1418,7 @@ export const pl: I18n = {
       'Push your vault to a Gitea server. Enter your server URL and a Personal Access Token to get started.',
     giteaUrlTitle: 'Gitea server URL',
     giteaUrlHint:
-      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). SoloMD will append /api/v1 automatically.',
+      'The base URL of your Gitea instance (e.g. https://gitea.com or your own server). Catstep MD will append /api/v1 automatically.',
     giteaUrlValidateBtn: 'Validate URL',
     giteaUrlValidating: 'Validating...',
     giteaTokenTitle: 'Gitea Personal Access Token',

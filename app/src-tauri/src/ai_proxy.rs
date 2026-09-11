@@ -242,6 +242,8 @@ pub struct ChatRequest {
     pub workspace: Option<String>,
     #[serde(default)]
     pub tool_loop_cap: Option<u32>,
+    #[serde(default)]
+    pub key_id: Option<String>,
     /// Optional caller-provided request id. When present, the backend uses
     /// this instead of `make_request_id()` so the frontend can wire its
     /// event listeners BEFORE invoking the command — closes a race where
@@ -434,15 +436,19 @@ pub async fn ai_verify_key(
     // `GET /models`. Optional — callers that don't know one yet just get
     // the original error back.
     model: Option<String>,
+    key_id: Option<String>,
 ) -> Result<String, String> {
+    let key_slot = key_id.as_deref().unwrap_or(&provider);
     let format = wire_format(&api_format.unwrap_or_else(|| provider.clone()));
     let key_str = match key {
         Some(k) if !k.trim().is_empty() => k,
         // A keyless provider (local Ollama / self-hosted OpenAI-compatible
         // server) verifies fine with no key at all — don't fail the probe
         // just because the keychain has nothing for it.
-        _ if is_keyless_provider(&provider) => read_key(&provider).unwrap_or_default(),
-        _ => match read_key(&provider) {
+        _ if is_keyless_provider(&provider) => {
+            read_key(key_slot).or_else(|_| read_key(&provider)).unwrap_or_default()
+        }
+        _ => match read_key(key_slot).or_else(|_| read_key(&provider)) {
             Ok(k) => k,
             Err(e) => return Err(e),
         },
@@ -637,7 +643,9 @@ pub async fn ai_list_models(
     provider: String,
     base_url: Option<String>,
     key: Option<String>,
+    key_id: Option<String>,
 ) -> ModelProbe {
+    let key_slot = key_id.as_deref().unwrap_or(&provider);
     let default_base = default_base_for_provider(&provider);
     let raw_base = match base_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(b) => b,
@@ -652,7 +660,7 @@ pub async fn ai_list_models(
 
     let key_str = match key {
         Some(k) if !k.trim().is_empty() => k.trim().to_string(),
-        _ => read_key(&provider).unwrap_or_default(),
+        _ => read_key(key_slot).or_else(|_| read_key(&provider)).unwrap_or_default(),
     };
 
     let client = match reqwest::Client::builder()
@@ -846,14 +854,16 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
             .unwrap_or_else(|| request.provider.clone()),
     );
 
+    let key_slot = request.key_id.as_deref().unwrap_or(&request.provider);
+
     // Ollama and self-hosted OpenAI-compatible servers have no account
     // behind them: an absent key is the normal case, not a failure.
     let api_key = if format == "ollama" {
         String::new()
     } else if is_keyless_provider(&request.provider) {
-        read_key(&request.provider).unwrap_or_default()
+        read_key(key_slot).or_else(|_| read_key(&request.provider)).unwrap_or_default()
     } else {
-        match read_key(&request.provider) {
+        match read_key(key_slot).or_else(|_| read_key(&request.provider)) {
             Ok(k) => k,
             Err(e) => {
                 drop_cancel_flag(&request_id);
@@ -2937,6 +2947,7 @@ mod tests {
             run_id: None,
             workspace: None,
             tool_loop_cap: None,
+            key_id: None,
             request_id: None,
         }
     }
@@ -3165,6 +3176,7 @@ mod tests {
             Some("openai".into()),
             Some(format!("http://{addr}/v1")),
             model.map(|m| m.to_string()),
+            None,
         )
         .await
     }

@@ -12,7 +12,6 @@ import { rewriteLinkUrls, rewriteImageUrls } from '../lib/image-resolve';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
-import { track } from '../lib/telemetry';
 import {
   resolvePdfOptions,
   userTouchedPdfDefaults,
@@ -400,7 +399,6 @@ export function useExport() {
   }
 
   async function exportHtml() {
-    track('file_exported', { format: 'html' });
     const ctx = activeOr();
     if (!ctx) return;
     const filename = `${ctx.baseName}.html`;
@@ -425,7 +423,6 @@ export function useExport() {
   }
 
   async function exportDocx() {
-    track('file_exported', { format: 'docx' });
     const ctx = activeOr();
     if (!ctx) return;
     const filename = `${ctx.baseName}.docx`;
@@ -455,7 +452,6 @@ export function useExport() {
 
   /** Native-feel PDF export: build a real .pdf file via html2pdf.js. */
   async function exportPdf() {
-    track('file_exported', { format: 'pdf' });
     const ctx = activeOr();
     if (!ctx) return;
     const filename = `${ctx.baseName}.pdf`;
@@ -494,7 +490,6 @@ export function useExport() {
    * WebKitGTK print on Linux).
    */
   async function exportPdfPrint() {
-    track('file_exported', { format: 'pdf_print' });
     const ctx = activeOr();
     if (!ctx) return;
 
@@ -639,7 +634,6 @@ export function useExport() {
    * of the whole document.
    */
   async function exportImage() {
-    track('file_exported', { format: 'image' });
     const ctx = activeOr();
     if (!ctx) return;
     const sel = getEditorSelectionMd(ctx.content);

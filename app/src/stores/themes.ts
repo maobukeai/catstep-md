@@ -6,8 +6,8 @@ import { invoke } from '@tauri-apps/api/core';
  *
  * Two slabs of state:
  *
- *   1. The curator manifest (read-only) — fetched from
- *      https://solomd.app/themes/index.json and cached in memory for
+ *   1. The curator manifest (read-only) — fetched from local
+ *      /themes/index.json and cached in memory for
  *      MANIFEST_TTL_MS. Refresh button bypasses the cache.
  *
  *   2. The installed-theme list (mirror of <config_dir>/themes/) — pulled
@@ -42,7 +42,7 @@ export interface InstalledTheme {
   path: string;
 }
 
-const MANIFEST_URL = 'https://solomd.app/themes/index.json';
+const MANIFEST_URL = '/themes/index.json';
 const MANIFEST_TTL_MS = 5 * 60 * 1000; // 5 min
 
 interface State {
