@@ -199,6 +199,10 @@ function recallLastTurn() {
     if (recalled.images && recalled.images.length) {
       activeImages.value = [...recalled.images];
     }
+    if (recalled.selectionContext?.targetText) {
+      activeSelectionText.value = recalled.selectionContext.targetText;
+      isSelectionDismissed.value = false;
+    }
     toasts.success(t('agent.msgRecallTitle'));
     nextTick(() => {
       inputRef.value?.focus();
@@ -211,6 +215,10 @@ function recallMessage(msg: any) {
   const content = msg.content;
   const refs = msg.references ? [...msg.references] : [];
   const imgs = msg.images ? [...msg.images] : [];
+  if (msg.selectionContext?.targetText) {
+    activeSelectionText.value = msg.selectionContext.targetText;
+    isSelectionDismissed.value = false;
+  }
   agent.truncateFrom(msg.id);
   draft.value = content;
   activeReferences.value = refs;
@@ -594,7 +602,11 @@ function buildActiveNoteContext(): string {
   const rawSel = (!isSelectionDismissed.value && activeSelectionText.value)
     ? activeSelectionText.value.trim()
     : (window.getSelection()?.toString().trim() || '');
-  const path = tab.filePath || tab.fileName || '(untitled)';
+  const folder = workspace.currentFolder;
+  let relPath = tab.filePath || tab.fileName || '(untitled)';
+  if (folder && tab.filePath && tab.filePath.startsWith(folder)) {
+    relPath = tab.filePath.slice(folder.length).replace(/^[/\\]+/, '');
+  }
   const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)' : content;
 
   if (rawSel.length > 0) {
@@ -602,10 +614,10 @@ function buildActiveNoteContext(): string {
       rawSel.length > ACTIVE_NOTE_CHAR_LIMIT
         ? rawSel.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)'
         : rawSel;
-    return `Active note content (${path}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\nUser's current selected text in ${path}:\n\`\`\`markdown\n${truncatedSelection}\n\`\`\``;
+    return `Active note (${relPath}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\nUser's current selected text in ${relPath}:\n\`\`\`markdown\n${truncatedSelection}\n\`\`\``;
   }
 
-  return `Active note content (${path}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\``;
+  return `Active note (${relPath}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\``;
 }
 
 const hasFolder = computed(() => !!workspace.currentFolder);
@@ -764,13 +776,14 @@ function getSelectionForMessage(assistantMsg: any): string {
     for (let i = idx - 1; i >= 0; i--) {
       const prev = agent.messages[i];
       if (prev.role === 'user') {
+        if (prev.selectionContext?.targetText) return prev.selectionContext.targetText;
         const selRef = prev.references?.find((r) => r.type === 'selection');
         if (selRef?.preview) return selRef.preview;
         break;
       }
     }
   }
-  return activeSelectionText.value || '';
+  return (!isSelectionDismissed.value && activeSelectionText.value) ? activeSelectionText.value : '';
 }
 
 function hasSelectionForMessage(assistantMsg: any): boolean {
@@ -790,29 +803,57 @@ async function applyPolishedTextToDoc(assistantMsgContent: string, targetSelecti
   const tab = tabs.activeTab;
   const target = (targetSelection || activeSelectionText.value || '').trim();
 
-  // 1. Try to patch directly via active tab content
-  if (tab && tab.content && target && tab.content.includes(target)) {
-    const newContent = tab.content.replace(target, cleanSnippet);
-    if (typeof tab.id === 'string') {
-      tabs.applyExternalSave(tab.id, newContent);
-      if (tab.filePath) {
-        try {
-          await invoke('write_file', {
-            path: tab.filePath,
-            content: newContent,
-            encoding: 'UTF-8',
-            workspace: workspace.currentFolder,
-          });
-        } catch (e) {
-          console.warn('Failed to persist patched note to disk:', e);
+  if (tab && tab.content && target) {
+    // Tier 1: Exact match in current content
+    const idx = tab.content.indexOf(target);
+    if (idx !== -1) {
+      const newContent = tab.content.slice(0, idx) + cleanSnippet + tab.content.slice(idx + target.length);
+      if (typeof tab.id === 'string') {
+        tabs.applyExternalSave(tab.id, newContent);
+        if (tab.filePath && workspace.currentFolder) {
+          try {
+            await invoke('write_file', {
+              path: tab.filePath,
+              content: newContent,
+              encoding: 'UTF-8',
+              workspace: workspace.currentFolder,
+            });
+          } catch (e) {
+            console.warn('Failed to persist patched note to disk:', e);
+          }
         }
+        toasts.success(t('agent.msgAcceptReplaceSuccess'));
+        return;
       }
-      toasts.success(t('agent.replacedSelectionSuccess'));
-      return;
+    }
+
+    // Tier 2: Normalized match (CRLF vs LF, trimmed lines)
+    const normTarget = target.replace(/\r\n/g, '\n').trim();
+    const normDoc = tab.content.replace(/\r\n/g, '\n');
+    const normIdx = normDoc.indexOf(normTarget);
+    if (normIdx !== -1) {
+      const newContent = normDoc.slice(0, normIdx) + cleanSnippet + normDoc.slice(normIdx + normTarget.length);
+      if (typeof tab.id === 'string') {
+        tabs.applyExternalSave(tab.id, newContent);
+        if (tab.filePath && workspace.currentFolder) {
+          try {
+            await invoke('write_file', {
+              path: tab.filePath,
+              content: newContent,
+              encoding: 'UTF-8',
+              workspace: workspace.currentFolder,
+            });
+          } catch (e) {
+            console.warn('Failed to persist patched note to disk:', e);
+          }
+        }
+        toasts.success(t('agent.msgAcceptReplaceSuccess'));
+        return;
+      }
     }
   }
 
-  // 2. Fallback to CodeMirror editor selection replacement via solomd:insert-markdown
+  // 3. Fallback to CodeMirror editor selection replacement via solomd:insert-markdown
   const paneId = tiles.focusedPaneId || tiles.allLeaves[0]?.id;
   if (paneId && tabs.activeTab) {
     window.dispatchEvent(
@@ -820,7 +861,7 @@ async function applyPolishedTextToDoc(assistantMsgContent: string, targetSelecti
         detail: { snippet: cleanSnippet, paneId },
       }),
     );
-    toasts.success(t('agent.replacedSelectionSuccess'));
+    toasts.success(t('agent.msgAcceptReplaceSuccess'));
   } else {
     toasts.warning(t('agent.msgInsertNoEditor'));
   }
@@ -868,12 +909,13 @@ async function send() {
   const refsToSend = [...activeReferences.value];
   const imagesToSend = [...activeImages.value];
 
-  const hasActiveSel = !!(activeSelectionText.value && !isSelectionDismissed.value);
+  const activeSel = (!isSelectionDismissed.value && activeSelectionText.value) ? activeSelectionText.value.trim() : '';
+  const hasActiveSel = !!activeSel;
   if (hasActiveSel) {
     refsToSend.push({
       type: 'selection',
-      name: `${t('agent.refSelection')} (${activeSelectionText.value.length}字)`,
-      preview: activeSelectionText.value,
+      name: `${t('agent.refSelection')} (${activeSel.length}字)`,
+      preview: activeSel,
     });
   }
 
@@ -884,11 +926,16 @@ async function send() {
     content: prompt,
     references: refsToSend.length > 0 ? refsToSend : undefined,
     images: imagesToSend.length > 0 ? imagesToSend : undefined,
+    selectionContext: hasActiveSel ? {
+      path: tabs.activeTab?.filePath || tabs.activeTab?.fileName,
+      targetText: activeSel,
+    } : undefined,
   });
   agent.addMessage({ role: 'assistant', content: '' });
   draft.value = '';
   activeReferences.value = [];
   activeImages.value = [];
+  isSelectionDismissed.value = true;
   showMentionMenu.value = false;
   autoscroll();
 
@@ -2137,14 +2184,13 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
                       type="button"
                       :disabled="!canInsertIntoEditor"
-                      :title="t('agent.msgReplaceSelectionTitle')"
+                      :title="t('agent.msgAcceptReplaceTitle')"
                       @click="applyPolishedTextToDoc(block.msg.content, getSelectionForMessage(block.msg))"
                     >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M13 2L14 3L4 13L2 14L3 12L13 2Z"/>
-                        <path d="M10 5L12 7"/>
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 9 6 12 13 4" />
                       </svg>
-                      <span>{{ t('agent.msgReplaceSelection') }}</span>
+                      <span>{{ t('agent.msgAcceptReplace') }}</span>
                     </button>
                     <button
                       class="agent-panel__msg-action-btn"
@@ -3163,15 +3209,15 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   background: rgba(16, 185, 129, 0.08);
 }
 .agent-panel__msg-action-btn--replace {
-  color: var(--accent, #ff9f40);
-  border-color: color-mix(in srgb, var(--accent, #ff9f40) 40%, var(--border));
-  background: color-mix(in srgb, var(--accent, #ff9f40) 8%, var(--bg));
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
   font-weight: 500;
 }
 .agent-panel__msg-action-btn--replace:hover:not(:disabled) {
-  background: var(--accent, #ff9f40);
+  background: #10b981;
   color: #fff;
-  border-color: var(--accent, #ff9f40);
+  border-color: #10b981;
 }
 .agent-panel__msg-refs {
   display: flex;

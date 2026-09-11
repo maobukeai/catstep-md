@@ -50,6 +50,11 @@ export interface AgentMessage {
   references?: AgentReference[];
   /** Attached images (base64 data URL or asset URLs for vision models). */
   images?: string[];
+  /** Active selection context (for targeted rewrite / in-place patch). */
+  selectionContext?: {
+    path?: string;
+    targetText: string;
+  };
   createdAt: number;
 }
 
@@ -296,20 +301,21 @@ export const useAgentPanelStore = defineStore('agentPanel', {
      * last user message, returning its text, references, and images so the UI
      * can restore them into the composer.
      */
-    recallLastTurn(): { content: string; references?: AgentReference[]; images?: string[] } | null {
+    recallLastTurn(): { content: string; references?: AgentReference[]; images?: string[]; selectionContext?: { path?: string; targetText: string } } | null {
       for (let i = this.messages.length - 1; i >= 0; i--) {
         const m = this.messages[i];
         if (m.role === 'user') {
           const content = m.content;
           const references = m.references ? [...m.references] : undefined;
           const images = m.images ? [...m.images] : undefined;
+          const selectionContext = m.selectionContext ? { ...m.selectionContext } : undefined;
           this.messages.splice(i);
           this.isStreaming = false;
           this.agentPhase = 'idle';
           this.agentPhaseDetail = '';
           this.currentRunId = null;
           this.syncCurrentSession();
-          return { content, references, images };
+          return { content, references, images, selectionContext };
         }
       }
       return null;

@@ -344,15 +344,16 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
             return Err(format!("path traversal (..) is not allowed: {arg_path}"));
         }
     }
-    // (2) reject absolute paths — agent tools are workspace-scoped.
-    if raw.is_absolute() {
-        return Err(format!("absolute path not allowed: {arg_path}"));
-    }
-
     let workspace_canon = workspace
         .canonicalize()
         .map_err(|e| format!("workspace not accessible: {e}"))?;
-    let candidate = workspace_canon.join(&raw);
+
+    // (2) Candidate path: allow relative paths joined to workspace, or absolute paths within workspace.
+    let candidate = if raw.is_absolute() {
+        raw
+    } else {
+        workspace_canon.join(&raw)
+    };
 
     // (3) Resolve safely whether or not the leaf / its parent exists. Walk
     // up the candidate's ancestors until we find one that exists on disk,
@@ -1610,7 +1611,19 @@ mod tests {
     fn resolve_in_workspace_rejects_absolute_path() {
         let ws = make_workspace();
         let res = resolve_in_workspace(&ws, "/etc/passwd");
-        assert!(res.is_err(), "must reject absolute paths");
+        assert!(res.is_err(), "must reject absolute paths outside workspace");
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn resolve_in_workspace_allows_in_workspace_absolute_path() {
+        let ws = make_workspace();
+        let target = ws.join("sub").join("doc.md");
+        fs::create_dir_all(ws.join("sub")).unwrap();
+        fs::write(&target, "hello").unwrap();
+        let res = resolve_in_workspace(&ws, target.to_str().unwrap()).unwrap();
+        let ws_canon = ws.canonicalize().unwrap();
+        assert!(res.starts_with(&ws_canon));
         let _ = fs::remove_dir_all(&ws);
     }
 
