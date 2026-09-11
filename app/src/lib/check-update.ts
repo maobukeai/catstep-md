@@ -92,9 +92,9 @@ async function fetchFromGitHubWebRedirect(): Promise<{ tag: string; url: string 
   }
 }
 
-/** Fetch repository latest package version from jsDelivr / GitHub Raw mirror */
+/** Fetch repository latest package version from GitHub Raw / jsDelivr mirror */
 async function fetchFromRepoMirror(): Promise<{ tag: string; url: string } | null> {
-  for (const url of [JSDELIVR_MIRROR_URL, GITHUB_RAW_URL]) {
+  for (const url of [GITHUB_RAW_URL, JSDELIVR_MIRROR_URL]) {
     try {
       const res = await fetch(url, { cache: 'no-store' });
       if (res.ok) {
