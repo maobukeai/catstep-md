@@ -791,6 +791,9 @@ function load(): Settings {
         }
         merged.quickCaptureConflictMigrated = true;
       }
+      if (merged.leftSidebarTab === 'search') {
+        merged.leftSidebarTab = 'files';
+      }
       if (typeof parsed.catstepTourV2Migrated === 'boolean') {
         merged.catstepTourV2Migrated = parsed.catstepTourV2Migrated;
       }
@@ -957,7 +960,7 @@ export const useSettingsStore = defineStore('settings', {
       this.persist();
     },
     setLeftSidebarTab(tab: 'files' | 'outline' | 'search') {
-      this.leftSidebarTab = tab;
+      this.leftSidebarTab = tab === 'search' ? 'files' : tab;
       this.showFileTree = true;
       this.persist();
     },
@@ -1233,6 +1236,10 @@ export const useSettingsStore = defineStore('settings', {
     },
     toggleAgentAllowWrite() {
       this.agentAllowWrite = !this.agentAllowWrite;
+      this.persist();
+    },
+    setAgentAllowWrite(val: boolean) {
+      this.agentAllowWrite = !!val;
       this.persist();
     },
     setAgentToolLoopCap(n: number) {

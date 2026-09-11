@@ -786,7 +786,7 @@ onBeforeUnmount(() => {
             <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
             <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
           </svg>
-          <span class="segmented-text">{{ t('toolbar.preview') }}</span>
+          <span class="segmented-text">{{ t('toolbar.read') }}</span>
         </button>
         <button
           class="segmented-btn"
@@ -798,7 +798,7 @@ onBeforeUnmount(() => {
             <polyline points="16 18 22 12 16 6" />
             <polyline points="8 6 2 12 8 18" />
           </svg>
-          <span class="segmented-text">{{ t('toolbar.edit') === '编辑' ? '源码' : 'Source' }}</span>
+          <span class="segmented-text">{{ t('toolbar.source') }}</span>
         </button>
       </div>
 
@@ -822,33 +822,33 @@ onBeforeUnmount(() => {
         class="killer-capsule killer-capsule--ai"
         :class="{ 'is-active': isAiDrawerActive, 'is-dark': isDarkTheme }"
         @click="toggleAiDrawer"
-        :title="(isZh ? '猫步 AI 助手' : 'CatStep AI') + ' (Ctrl+J / Ctrl+Shift+A)'"
+        :title="t('toolbar.aiAssistant') + ' (Ctrl+J / Ctrl+Shift+A)'"
       >
         <svg class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M10 2L12.5 8.5L19 11L12.5 13.5L10 20L7.5 13.5L1 11L7.5 8.5L10 2Z" />
           <path d="M19 16L20.2 19L23 20L20.2 21L19 24L17.8 21L15 20L17.8 19L19 16Z" opacity="0.85" />
         </svg>
-        <span class="killer-capsule__label">{{ isZh ? '猫步 AI' : 'AI' }}</span>
+        <span class="killer-capsule__label">{{ t('toolbar.aiLabel') }}</span>
       </button>
 
       <!-- 3. [快捷键] Keybindings & Shortcuts Panel Button -->
       <button
         class="killer-capsule killer-capsule--shortcuts"
         @click="emit('open-help')"
-        title="快捷键面板 (Typora 全面兼容) / F1"
+        :title="t('toolbar.shortcutsPanel')"
       >
         <svg class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="3" />
           <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8" />
         </svg>
-        <span class="killer-capsule__label">快捷键</span>
+        <span class="killer-capsule__label">{{ t('toolbar.shortcuts') }}</span>
       </button>
 
       <!-- 4. [主题浅色/深色切换] Theme Light/Dark Toggle Button -->
       <button
         class="killer-capsule killer-capsule--theme"
         @click="toggleDayNight"
-        :title="isDarkTheme ? (isZh ? '当前为深色，点击切换为浅色主题' : 'Current: Dark. Click for Light theme') : (isZh ? '当前为浅色，点击切换为深色主题' : 'Current: Light. Click for Dark theme')"
+        :title="isDarkTheme ? t('toolbar.switchToLight') : t('toolbar.switchToDark')"
       >
         <!-- Sun icon in light mode -->
         <svg v-if="!isDarkTheme" class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -859,20 +859,20 @@ onBeforeUnmount(() => {
         <svg v-else class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>
-        <span class="killer-capsule__label">{{ isDarkTheme ? (isZh ? '深色' : 'Dark') : (isZh ? '浅色' : 'Light') }}</span>
+        <span class="killer-capsule__label">{{ isDarkTheme ? t('toolbar.darkMode') : t('toolbar.lightMode') }}</span>
       </button>
 
       <!-- 5. [设置] Preferences -->
       <button
         class="killer-capsule killer-capsule--settings"
         @click="emit('open-settings')"
-        title="偏好设置 (Ctrl+,)"
+        :title="t('toolbar.preferencesTitle')"
       >
         <svg class="killer-capsule__svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
           <circle cx="12" cy="12" r="3"/>
         </svg>
-        <span class="killer-capsule__label">设置</span>
+        <span class="killer-capsule__label">{{ t('toolbar.settings') }}</span>
       </button>
 
       <PomodoroPopover :open="pomoOpen" @close="pomoOpen = false" />

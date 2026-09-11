@@ -185,41 +185,134 @@ export interface MathSpan {
 export function findMathSpanAt(text: string, offset: number): MathSpan | null {
   const spans: MathSpan[] = [];
   let i = 0;
+  let inFencedCode = false;
+  let fenceChar = '';
+  let fenceLen = 0;
+
   while (i < text.length) {
     if (text[i] === '\\') {
       i += 2;
       continue;
     }
+
+    // Track fenced code blocks (``` or ~~~ at start of line)
+    const isLineStart = i === 0 || text[i - 1] === '\n';
+    if (isLineStart) {
+      let k = i;
+      while (k < text.length && text[k] === ' ' && k - i < 3) k++;
+      const char = text[k];
+      if (char === '`' || char === '~') {
+        let count = 0;
+        while (k + count < text.length && text[k + count] === char) count++;
+        if (count >= 3) {
+          if (!inFencedCode) {
+            inFencedCode = true;
+            fenceChar = char;
+            fenceLen = count;
+            i = k + count;
+            continue;
+          } else if (char === fenceChar && count >= fenceLen) {
+            inFencedCode = false;
+            fenceChar = '';
+            fenceLen = 0;
+            i = k + count;
+            continue;
+          }
+        }
+      }
+    }
+
+    if (inFencedCode) {
+      i++;
+      continue;
+    }
+
+    // Track inline code (`...`) outside fenced blocks
+    if (text[i] === '`') {
+      let count = 0;
+      while (i + count < text.length && text[i + count] === '`') count++;
+      const ticks = text.slice(i, i + count);
+      const closeTicks = text.indexOf(ticks, i + count);
+      if (closeTicks !== -1) {
+        i = closeTicks + count;
+        continue;
+      }
+      i += count;
+      continue;
+    }
+
     if (text[i] !== '$') {
       i++;
       continue;
     }
+
     const isBlock = text[i + 1] === '$';
-    const delim = isBlock ? '$$' : '$';
-    const start = i;
-    let j = i + delim.length;
-    let close = -1;
-    while (j < text.length) {
-      if (text[j] === '\\') {
-        j += 2;
+    if (isBlock) {
+      const start = i;
+      let j = i + 2;
+      let close = -1;
+      while (j < text.length) {
+        if (text[j] === '\\') {
+          j += 2;
+          continue;
+        }
+        if (text.startsWith('$$', j)) {
+          close = j;
+          break;
+        }
+        j++;
+      }
+      if (close < 0) break;
+      const end = close + 2;
+      spans.push({
+        from: start,
+        to: end,
+        body: text.slice(start + 2, close).trim(),
+        display: true,
+      });
+      i = end;
+    } else {
+      // Inline math: $ ... $
+      // Pandoc/Typora/GFM rules: opening $ must NOT be followed by whitespace or newline
+      const nextChar = text[i + 1];
+      if (!nextChar || /\s/.test(nextChar) || nextChar === '$') {
+        i++;
         continue;
       }
-      if (text.startsWith(delim, j)) {
-        // For inline math, `$$` here means the span was empty — not a match.
-        close = j;
-        break;
+
+      const start = i;
+      let j = i + 1;
+      let close = -1;
+      // Inline math cannot cross a newline
+      while (j < text.length && text[j] !== '\n') {
+        if (text[j] === '\\') {
+          j += 2;
+          continue;
+        }
+        if (text[j] === '$') {
+          const prevChar = text[j - 1];
+          if (!/\s/.test(prevChar) && text[j + 1] !== '$') {
+            close = j;
+            break;
+          }
+        }
+        j++;
       }
-      j++;
+
+      if (close > start + 1) {
+        const end = close + 1;
+        spans.push({
+          from: start,
+          to: end,
+          body: text.slice(start + 1, close).trim(),
+          display: false,
+        });
+        i = end;
+      } else {
+        i++;
+      }
     }
-    if (close < 0) break;
-    const end = close + delim.length;
-    spans.push({
-      from: start,
-      to: end,
-      body: text.slice(start + delim.length, close).trim(),
-      display: isBlock,
-    });
-    i = end;
   }
+
   return spans.find((s) => offset >= s.from && offset <= s.to) ?? null;
 }

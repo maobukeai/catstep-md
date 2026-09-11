@@ -12,6 +12,8 @@ import { useToastsStore } from '../stores/toasts';
 import { useGithubSyncStore } from '../stores/githubSync';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { useTabsStore } from '../stores/tabs';
+import { useTilesStore } from '../stores/tiles';
+import { useGlobalSearch, type SearchHit } from '../composables/useGlobalSearch';
 import { useI18n } from '../i18n';
 import { isMobile, isMacOS } from '../lib/platform';
 import { usePendingDeletes, isDeletePending, UNDO_WINDOW_MS } from '../composables/usePendingDeletes';
@@ -84,6 +86,253 @@ const { t } = useI18n();
 const pendingDeletes = usePendingDeletes();
 
 const root = ref<Node | null>(null);
+const search = useGlobalSearch();
+const tiles = useTilesStore();
+
+const searchQuery = ref('');
+const searchMode = ref<'name' | 'content'>('name');
+const filterInputRef = ref<HTMLInputElement | null>(null);
+const hits = ref<SearchHit[]>([]);
+const searchLoading = ref(false);
+const selectedHitIdx = ref(0);
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const preSearchExpanded = ref<Set<string> | null>(null);
+
+function saveCurrentExpanded() {
+  const set = new Set<string>();
+  function walk(n: Node | null | undefined) {
+    if (!n) return;
+    if (n.is_dir && n.expanded) set.add(n.path);
+    n.children?.forEach(walk);
+  }
+  walk(root.value);
+  preSearchExpanded.value = set;
+}
+
+function restoreSavedExpanded() {
+  if (!preSearchExpanded.value) return;
+  const saved = preSearchExpanded.value;
+  function walk(n: Node | null | undefined) {
+    if (!n) return;
+    if (n.is_dir) {
+      n.expanded = saved.has(n.path);
+    }
+    n.children?.forEach(walk);
+  }
+  walk(root.value);
+  preSearchExpanded.value = null;
+}
+
+const matchingInfo = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q || searchMode.value !== 'name') {
+    return { matchingPaths: null as Set<string> | null, matchCount: 0 };
+  }
+  const matchingSet = new Set<string>();
+  let count = 0;
+
+  function checkNode(n: Node): boolean {
+    const isSelfMatch = n.name.toLowerCase().includes(q);
+    let hasChildMatch = false;
+
+    if (n.is_dir && n.children) {
+      for (const child of n.children) {
+        if (checkNode(child)) {
+          hasChildMatch = true;
+        }
+      }
+    }
+
+    if (isSelfMatch || hasChildMatch) {
+      matchingSet.add(n.path);
+      if (!n.is_dir && isSelfMatch) {
+        count++;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  if (root.value && root.value.children) {
+    for (const c of root.value.children) {
+      checkNode(c);
+    }
+  }
+
+  return { matchingPaths: matchingSet, matchCount: count };
+});
+
+const matchingPaths = computed(() => matchingInfo.value.matchingPaths);
+const matchCount = computed(() => matchingInfo.value.matchCount);
+
+watch(
+  [searchQuery, searchMode],
+  ([q, mode], [oldQ]) => {
+    if (mode === 'name') {
+      const query = q.trim();
+      if (query) {
+        if (!preSearchExpanded.value) {
+          saveCurrentExpanded();
+        }
+        const set = matchingPaths.value;
+        if (set && root.value) {
+          function expandMatches(n: Node) {
+            if (n.is_dir && set?.has(n.path)) {
+              n.expanded = true;
+            }
+            n.children?.forEach(expandMatches);
+          }
+          expandMatches(root.value);
+        }
+      } else if (oldQ && oldQ.trim()) {
+        restoreSavedExpanded();
+      }
+    } else if (mode === 'content') {
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        void doContentSearch();
+      }, 200);
+    }
+  },
+  { deep: true },
+);
+
+async function doContentSearch() {
+  const q = searchQuery.value.trim();
+  if (!q) {
+    hits.value = [];
+    return;
+  }
+  searchLoading.value = true;
+  try {
+    hits.value = await search.search(q);
+    selectedHitIdx.value = 0;
+  } finally {
+    searchLoading.value = false;
+  }
+}
+
+const groupedContentHits = computed(() => {
+  const map = new Map<string, SearchHit[]>();
+  for (const h of hits.value) {
+    if (!map.has(h.file)) map.set(h.file, []);
+    map.get(h.file)!.push(h);
+  }
+  return Array.from(map.entries());
+});
+
+async function openSearchHit(hit: SearchHit) {
+  try {
+    await files.openPath(hit.file);
+    nextTick(() => {
+      window.dispatchEvent(
+        new CustomEvent('solomd:outline-goto', {
+          detail: { line: hit.line, paneId: tiles.focusedPaneId },
+        }),
+      );
+    });
+  } catch (e) {
+    console.error('FileTree: openSearchHit failed', e);
+  }
+}
+
+function shortFilePath(p: string) {
+  const folder = workspace.currentFolder;
+  if (folder && p.startsWith(folder)) {
+    return p.slice(folder.length).replace(/^[\\/]/, '');
+  }
+  return p.split(/[\\/]/).slice(-2).join('/');
+}
+
+function highlightSnippet(snippet: string): string {
+  const q = searchQuery.value.trim();
+  if (!q) return escapeHtml(snippet);
+  const re = new RegExp(`(${escapeRe(q)})`, 'gi');
+  return escapeHtml(snippet).replace(re, '<mark class="ftree__mark">$1</mark>');
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
+}
+function escapeRe(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  restoreSavedExpanded();
+  if (searchMode.value === 'content') {
+    hits.value = [];
+  }
+}
+
+function setSearchMode(mode: 'name' | 'content') {
+  if (searchMode.value === mode) return;
+  searchMode.value = mode;
+  if (mode === 'content' && searchQuery.value.trim()) {
+    void doContentSearch();
+  } else if (mode === 'name') {
+    hits.value = [];
+  }
+}
+
+function onSearchInputKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    clearSearch();
+    filterInputRef.value?.blur();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (searchMode.value === 'name') {
+      if (matchCount.value === 0 && searchQuery.value.trim()) {
+        setSearchMode('content');
+      } else if (matchingPaths.value && root.value) {
+        let firstFile: Node | null = null;
+        function findFirst(n: Node) {
+          if (firstFile) return;
+          if (!n.is_dir && matchingPaths.value?.has(n.path)) {
+            firstFile = n;
+            return;
+          }
+          n.children?.forEach(findFirst);
+        }
+        findFirst(root.value);
+        if (firstFile) {
+          void files.openPath((firstFile as Node).path);
+        }
+      }
+    } else if (searchMode.value === 'content') {
+      if (hits.value.length > 0) {
+        const hit = hits.value[selectedHitIdx.value] || hits.value[0];
+        if (hit) void openSearchHit(hit);
+      }
+    }
+  } else if (searchMode.value === 'content') {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedHitIdx.value = Math.min(selectedHitIdx.value + 1, hits.value.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedHitIdx.value = Math.max(selectedHitIdx.value - 1, 0);
+    }
+  }
+}
+
+function onFocusFileSearch() {
+  nextTick(() => {
+    filterInputRef.value?.focus();
+    filterInputRef.value?.select();
+  });
+}
+
+onMounted(() => {
+  window.addEventListener('solomd:focus-file-search', onFocusFileSearch);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('solomd:focus-file-search', onFocusFileSearch);
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+});
 
 // v2.4 inbox filter — when on, the FileTreeNode subtree below prunes
 // non-inbox files (and dirs whose subtree contains no inbox docs).
@@ -129,6 +378,26 @@ async function loadDir(path: string): Promise<{ children: Node[]; truncated: boo
     return { children: filtered, truncated };
   } catch (e) {
     console.error('list_dir failed', e);
+    if (import.meta.env.DEV && typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
+      const demoChildren: Node[] = [
+        {
+          name: '3D建模',
+          path: `${path}/3D建模`,
+          is_dir: true,
+          expanded: true,
+          children: [
+            { name: 'Blender 进阶与实战技巧.md', path: `${path}/3D建模/Blender 进阶与实战技巧.md`, is_dir: false },
+            { name: 'LowPoly 场景建模.md', path: `${path}/3D建模/LowPoly 场景建模.md`, is_dir: false },
+          ],
+        },
+        { name: '_assets', path: `${path}/_assets`, is_dir: true, expanded: false },
+        { name: 'inbox', path: `${path}/inbox`, is_dir: true, expanded: false },
+        { name: '待整理速记.md', path: `${path}/待整理速记.md`, is_dir: false },
+        { name: 'Blender 进阶与实战技巧.md', path: `${path}/Blender 进阶与实战技巧.md`, is_dir: false },
+        { name: 'Vue3 与 Vite 性能调优指南.md', path: `${path}/Vue3 与 Vite 性能调优指南.md`, is_dir: false },
+      ];
+      return { children: demoChildren, truncated: false };
+    }
     // Only the root's disappearance is worth a special state; a subfolder that
     // vanished mid-expand just lists as empty.
     if (path === workspace.currentFolder) {
@@ -690,163 +959,268 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- Instant Filter & Search Bar -->
+    <div v-if="root" class="ftree__filter-box">
+      <div class="ftree__filter-input-wrap">
+        <svg class="ftree__filter-icon" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7" cy="7" r="4.5" />
+          <line x1="10.5" y1="10.5" x2="14" y2="14" />
+        </svg>
+        <input
+          ref="filterInputRef"
+          v-model="searchQuery"
+          class="ftree__filter-input"
+          :placeholder="searchMode === 'content' ? (t('explorer.searchContentPlaceholder') || '全文搜索…') : (t('explorer.filterPlaceholder') || '过滤文件… (Esc 清空)')"
+          @keydown="onSearchInputKeydown"
+        />
+        <span v-if="searchQuery && (searchMode === 'name' ? matchCount >= 0 : hits.length >= 0)" class="ftree__filter-badge">
+          {{ searchMode === 'name' ? matchCount : hits.length }}
+        </span>
+        <button
+          v-if="searchQuery"
+          class="ftree__filter-clear"
+          type="button"
+          :title="'Esc'"
+          @click="clearSearch"
+        >
+          <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+            <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
+          </svg>
+        </button>
+      </div>
+      <div class="ftree__mode-toggle">
+        <button
+          type="button"
+          class="ftree__mode-btn"
+          :class="{ active: searchMode === 'name' }"
+          :title="t('explorer.modeNameTooltip') || '文件名实时过滤'"
+          @click="setSearchMode('name')"
+        >
+          {{ t('explorer.modeName') || '名称' }}
+        </button>
+        <button
+          type="button"
+          class="ftree__mode-btn"
+          :class="{ active: searchMode === 'content' }"
+          :title="t('explorer.modeContentTooltip') || '全文内容搜索'"
+          @click="setSearchMode('content')"
+        >
+          {{ t('explorer.modeContent') || '全文' }}
+        </button>
+      </div>
+    </div>
+
     <div v-if="!root" class="ftree__empty">
       <button class="ftree__open-btn" @click="files.openFolder">{{ t('explorer.openFolder') }}</button>
     </div>
     <div v-else class="ftree__body">
-      <!-- v4.3.5: root display doubles as the workspace switcher. Click
-           opens a dropdown listing recent folders + "Open folder…". -->
-      <div class="ftree__root-wrap">
-        <button
-          class="ftree__root ftree__root--btn"
-          :class="{ 'ftree__root--open': switcherOpen }"
-          :title="t('explorer.switchWorkspace') + ' · ' + root.path"
-          @click.stop="toggleSwitcher"
-          @contextmenu.prevent="openCtx($event, root)"
-        >
-          <svg class="ftree__root-vicon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
-          </svg>
-          <span class="ftree__root-name">{{ root.name }}</span>
-          <svg class="ftree__root-caret" viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M4 6l4 4 4-4" />
-          </svg>
-        </button>
-        <div v-if="switcherOpen" class="ftree__switcher" @click.stop>
-          <div class="ftree__switcher-label">{{ t('explorer.recentFolders') }}</div>
-          <button
-            v-for="folder in switcherList"
-            :key="folder.path"
-            class="ftree__switcher-item"
-            :class="{ 'ftree__switcher-item--active': folder.path === root.path }"
-            :title="folder.path"
-            @click="pickRecentFolder(folder.path)"
-          >
-            <span class="ftree__switcher-name">{{ folder.name }}</span>
-            <span class="ftree__switcher-path">{{ folder.parent }}</span>
+      <!-- Content Full-Text Search Hits List View -->
+      <template v-if="searchMode === 'content' && searchQuery.trim()">
+        <div v-if="searchLoading" class="ftree__loading">
+          <span class="ftree__spinner" aria-hidden="true"></span>
+          <span>{{ t('explorer.loading') }}</span>
+        </div>
+        <div v-else-if="hits.length === 0" class="ftree__empty-search">
+          <p class="ftree__empty-msg">{{ t('explorer.noMatchingFiles') || '未找到匹配内容' }}</p>
+          <button type="button" class="ftree__empty-action" @click="setSearchMode('name')">
+            {{ t('explorer.backToFileTree') || '返回文件树' }}
           </button>
-          <div v-if="switcherList.length === 0" class="ftree__switcher-empty">
-            {{ t('explorer.noRecentFolders') }}
+        </div>
+        <div v-else class="ftree__search-results">
+          <div
+            v-for="[file, fileHits] in groupedContentHits"
+            :key="file"
+            class="ftree__search-group"
+          >
+            <div class="ftree__search-group-head" :title="file" @click="files.openPath(file)">
+              <svg class="ftree__type-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" />
+                <path d="M9.5 1.5V5H13" />
+              </svg>
+              <span class="ftree__search-file-name">{{ shortFilePath(file) }}</span>
+              <span class="ftree__search-badge">{{ fileHits.length }}</span>
+            </div>
+            <ul class="ftree__search-hit-list">
+              <li
+                v-for="h in fileHits"
+                :key="`${h.file}:${h.line}`"
+                class="ftree__search-hit"
+                @click="openSearchHit(h)"
+              >
+                <span class="ftree__search-line">行 {{ h.line }}</span>
+                <span class="ftree__search-snippet" v-html="highlightSnippet(h.snippet)"></span>
+              </li>
+            </ul>
           </div>
-          <div class="ftree__switcher-sep"></div>
-          <button class="ftree__switcher-item ftree__switcher-item--cta" @click="openFolderAndClose">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+        </div>
+      </template>
+
+      <!-- Normal Tree or Name-Filtered Tree View -->
+      <template v-else>
+        <!-- v4.3.5: root display doubles as the workspace switcher. Click
+             opens a dropdown listing recent folders + "Open folder…". -->
+        <div class="ftree__root-wrap">
+          <button
+            class="ftree__root ftree__root--btn"
+            :class="{ 'ftree__root--open': switcherOpen }"
+            :title="t('explorer.switchWorkspace') + ' · ' + root.path"
+            @click.stop="toggleSwitcher"
+            @contextmenu.prevent="openCtx($event, root)"
+          >
+            <svg class="ftree__root-vicon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
             </svg>
-            {{ t('explorer.openFolder') }}
-          </button>
-        </div>
-      </div>
-
-      <!-- The folder itself is gone (moved in Finder, deleted, drive
-           unmounted). Saying so beats an empty tree under its own name,
-           which reads as "my notes are gone". -->
-      <div v-if="rootMissing" class="ftree__missing">
-        <p class="ftree__missing-title">{{ t('explorer.folderMissing') }}</p>
-        <p class="ftree__missing-path">{{ root.path }}</p>
-        <div class="ftree__missing-actions">
-          <button class="ftree__open-btn" @click="files.openFolder">
-            {{ t('explorer.folderMissingLocate') }}
-          </button>
-          <button class="ftree__missing-secondary" @click="workspace.setFolder(null)">
-            {{ t('explorer.closeFolder') }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Inline new/rename input — appears at the top of the tree. -->
-      <div v-if="editing" class="ftree__edit">
-        <span class="ftree__chevron-wrap ftree__chevron-wrap--leaf"></span>
-        <svg class="ftree__type-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path v-if="editing.kind === 'new-dir'" d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
-          <path v-else d="M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z M9.5 1.5V5H13" />
-        </svg>
-        <input
-          ref="editInput"
-          v-model="editing.name"
-          class="ftree__edit-input"
-          spellcheck="false"
-          @keydown="onRenameKey"
-          @keydown.escape.prevent="cancelEdit"
-          @blur="commitEdit"
-        />
-      </div>
-
-      <!-- v2.4 / v4.6 F6: Inbox row. The chevron toggles the inbox-only tree
-           filter (so the tree below shows only `inbox: true` docs); clicking
-           the name opens the dedicated InboxView workflow. Gated on the
-           v4.6 inbox-workflow opt-out. -->
-      <div
-        v-if="settings.inboxWorkflowEnabled"
-        class="ftree__inbox"
-        :class="{ 'ftree__inbox--active': showInboxOnly }"
-      >
-        <button
-          class="ftree__inbox-toggle"
-          :title="showInboxOnly ? t('inbox.filterOff') : t('inbox.filterOn')"
-          @click="inbox.toggleFilter()"
-        >
-          <span class="ftree__chevron-wrap">
-            <svg
-              class="ftree__chevron"
-              viewBox="0 0 16 16"
-              width="10"
-              height="10"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              :style="{
-                transition: 'transform 0.15s ease',
-                transform: showInboxOnly ? 'rotate(90deg)' : 'none',
-              }"
-            >
-              <path d="M5.5 3.5l4.5 4.5L5.5 12.5" />
+            <span class="ftree__root-name">{{ root.name }}</span>
+            <svg class="ftree__root-caret" viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 6l4 4 4-4" />
             </svg>
-          </span>
-        </button>
-        <button
-          class="ftree__inbox-open"
-          :title="t('inbox.openView')"
-          @click="inboxView.openInbox()"
-        >
-          <svg class="ftree__type-icon ftree__type-icon--inbox" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="14.5 9 11 9 9.5 11 6.5 11 5 9 1.5 9" />
-            <path d="M2.5 4.5h11l1 4.5v5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-5l1-4.5z" />
-          </svg>
-          <span class="ftree__name">{{ t('inbox.heading') }}</span>
-          <svg class="ftree__inbox-popout" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <polyline points="15 3 21 3 21 9" />
-            <line x1="10" y1="14" x2="21" y2="3" />
-          </svg>
-        </button>
-        <span class="ftree__badge" v-if="inbox.inboxCount.value > 0">
-          {{ inbox.inboxCount.value }}
-        </span>
-      </div>
+          </button>
+          <div v-if="switcherOpen" class="ftree__switcher" @click.stop>
+            <div class="ftree__switcher-label">{{ t('explorer.recentFolders') }}</div>
+            <button
+              v-for="folder in switcherList"
+              :key="folder.path"
+              class="ftree__switcher-item"
+              :class="{ 'ftree__switcher-item--active': folder.path === root.path }"
+              :title="folder.path"
+              @click="pickRecentFolder(folder.path)"
+            >
+              <span class="ftree__switcher-name">{{ folder.name }}</span>
+              <span class="ftree__switcher-path">{{ folder.parent }}</span>
+            </button>
+            <div v-if="switcherList.length === 0" class="ftree__switcher-empty">
+              {{ t('explorer.noRecentFolders') }}
+            </div>
+            <div class="ftree__switcher-sep"></div>
+            <button class="ftree__switcher-item ftree__switcher-item--cta" @click="openFolderAndClose">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                <path d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
+              </svg>
+              {{ t('explorer.openFolder') }}
+            </button>
+          </div>
+        </div>
 
-      <div v-if="root.loading" class="ftree__loading">
-        <span class="ftree__spinner" aria-hidden="true"></span>
-        <span>{{ t('explorer.loading') }}</span>
-      </div>
-      <ul v-else class="ftree__list">
-        <FileTreeNode
-          v-for="child in root.children"
-          :key="child.path"
-          :node="child"
-          :depth="0"
-          :inbox-only="showInboxOnly"
-          :inbox-paths="inbox.inboxPaths.value"
-          :ctx-path="ctx?.node?.path || ''"
-          @toggle="toggle"
-          @contextmenu="openCtx"
-        />
-        <li v-if="root.truncated" class="ftree__truncated" :title="t('explorer.folderTruncatedHint')">
-          {{ t('explorer.folderTruncated') }}
-        </li>
-      </ul>
+        <!-- The folder itself is gone (moved in Finder, deleted, drive
+             unmounted). Saying so beats an empty tree under its own name,
+             which reads as "my notes are gone". -->
+        <div v-if="rootMissing" class="ftree__missing">
+          <p class="ftree__missing-title">{{ t('explorer.folderMissing') }}</p>
+          <p class="ftree__missing-path">{{ root.path }}</p>
+          <div class="ftree__missing-actions">
+            <button class="ftree__open-btn" @click="files.openFolder">
+              {{ t('explorer.folderMissingLocate') }}
+            </button>
+            <button class="ftree__missing-secondary" @click="closeFolder">
+              {{ t('explorer.closeFolder') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline new/rename input — appears at the top of the tree. -->
+        <div v-if="editing" class="ftree__edit">
+          <span class="ftree__chevron-wrap ftree__chevron-wrap--leaf"></span>
+          <svg class="ftree__type-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path v-if="editing.kind === 'new-dir'" d="M1.5 13.5v-9a1 1 0 0 1 1-1h3.5l1.5 1.5h6a1 1 0 0 1 1 1v7.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1z" />
+            <path v-else d="M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z M9.5 1.5V5H13" />
+          </svg>
+          <input
+            ref="editInput"
+            v-model="editing.name"
+            class="ftree__edit-input"
+            spellcheck="false"
+            @keydown="onRenameKey"
+            @keydown.escape.prevent="cancelEdit"
+            @blur="commitEdit"
+          />
+        </div>
+
+        <!-- v2.4 / v4.6 F6: Inbox row. The chevron toggles the inbox-only tree
+             filter (so the tree below shows only `inbox: true` docs); clicking
+             the name opens the dedicated InboxView workflow. Gated on the
+             v4.6 inbox-workflow opt-out. -->
+        <div
+          v-if="settings.inboxWorkflowEnabled"
+          class="ftree__inbox"
+          :class="{ 'ftree__inbox--active': showInboxOnly }"
+        >
+          <button
+            class="ftree__inbox-toggle"
+            :title="showInboxOnly ? t('inbox.filterOff') : t('inbox.filterOn')"
+            @click="inbox.toggleFilter()"
+          >
+            <span class="ftree__chevron-wrap">
+              <svg
+                class="ftree__chevron"
+                viewBox="0 0 16 16"
+                width="10"
+                height="10"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                :style="{
+                  transition: 'transform 0.15s ease',
+                  transform: showInboxOnly ? 'rotate(90deg)' : 'none',
+                }"
+              >
+                <path d="M5.5 3.5l4.5 4.5L5.5 12.5" />
+              </svg>
+            </span>
+          </button>
+          <button
+            class="ftree__inbox-open"
+            :title="t('inbox.openView')"
+            @click="inboxView.openInbox()"
+          >
+            <svg class="ftree__type-icon ftree__type-icon--inbox" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="14.5 9 11 9 9.5 11 6.5 11 5 9 1.5 9" />
+              <path d="M2.5 4.5h11l1 4.5v5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-5l1-4.5z" />
+            </svg>
+            <span class="ftree__name">{{ t('inbox.heading') }}</span>
+            <svg class="ftree__inbox-popout" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </button>
+          <span class="ftree__badge" v-if="inbox.inboxCount.value > 0">
+            {{ inbox.inboxCount.value }}
+          </span>
+        </div>
+
+        <div v-if="searchMode === 'name' && searchQuery.trim() && matchCount === 0" class="ftree__empty-search">
+          <p class="ftree__empty-msg">{{ t('explorer.noMatchingFiles') || '未找到匹配文件' }}</p>
+          <button type="button" class="ftree__empty-action" @click="setSearchMode('content')">
+            👉 {{ (t('explorer.searchInContentAction') || '在全文内容中检索 “{query}” (Enter)').replace('{query}', searchQuery) }}
+          </button>
+        </div>
+
+        <div v-else-if="root.loading" class="ftree__loading">
+          <span class="ftree__spinner" aria-hidden="true"></span>
+          <span>{{ t('explorer.loading') }}</span>
+        </div>
+        <ul v-else class="ftree__list">
+          <FileTreeNode
+            v-for="child in root.children"
+            :key="child.path"
+            :node="child"
+            :depth="0"
+            :inbox-only="showInboxOnly"
+            :inbox-paths="inbox.inboxPaths.value"
+            :ctx-path="ctx?.node?.path || ''"
+            :search-query="searchQuery"
+            :matching-paths="matchingPaths"
+            @toggle="toggle"
+            @contextmenu="openCtx"
+          />
+          <li v-if="root.truncated" class="ftree__truncated" :title="t('explorer.folderTruncatedHint')">
+            {{ t('explorer.folderTruncated') }}
+          </li>
+        </ul>
+      </template>
     </div>
 
     <!-- Context menu — Teleported to body for global overlay z-index and no clipping -->
@@ -913,6 +1287,8 @@ export const FileTreeNode = defineComponent({
     inboxOnly: { type: Boolean, default: false },
     inboxPaths: { type: Object as () => Set<string>, default: () => new Set() },
     ctxPath: { type: String, default: '' },
+    searchQuery: { type: String, default: '' },
+    matchingPaths: { type: Object as () => Set<string> | null, default: null },
   },
   emits: ['toggle', 'contextmenu'],
   setup(props, { emit }) {
@@ -1158,6 +1534,9 @@ export const FileTreeNode = defineComponent({
         if (!n.is_dir && !props.inboxPaths.has(n.path)) return [];
         if (n.is_dir && n.children && !subtreeHasInbox(n)) return [];
       }
+      if (props.matchingPaths && !props.matchingPaths.has(n.path)) {
+        return [];
+      }
       const indent = 6 + props.depth * 14;
 
       // Use truncated name for display, full name in tooltip. #182 — the
@@ -1165,6 +1544,20 @@ export const FileTreeNode = defineComponent({
       const displayName =
         !n.is_dir && !nodeSettings.explorerFullNames ? truncateFileName(n.name) : n.name;
       const isActive = !n.is_dir && nodeTabs.activeTab?.filePath === n.path;
+
+      const renderDisplayName = () => {
+        const q = props.searchQuery ? props.searchQuery.trim() : '';
+        if (!q) return displayName;
+        const lower = displayName.toLowerCase();
+        const lowerQ = q.toLowerCase();
+        const idx = lower.indexOf(lowerQ);
+        if (idx === -1) return displayName;
+        return [
+          displayName.slice(0, idx),
+          h('mark', { class: 'ftree__mark' }, displayName.slice(idx, idx + q.length)),
+          displayName.slice(idx + q.length),
+        ];
+      };
 
       const items: any[] = [
         h(
@@ -1214,7 +1607,7 @@ export const FileTreeNode = defineComponent({
                 : []
             ),
             renderTypeIcon(n),
-            h('span', { class: 'ftree__name' }, displayName),
+            h('span', { class: 'ftree__name' }, renderDisplayName()),
             !n.is_dir && props.inboxPaths.has(n.path)
               ? h('span', { class: 'ftree__inbox-dot', title: 'inbox' }, '●')
               : null,
@@ -1230,6 +1623,8 @@ export const FileTreeNode = defineComponent({
               inboxOnly: props.inboxOnly,
               inboxPaths: props.inboxPaths,
               ctxPath: props.ctxPath,
+              searchQuery: props.searchQuery,
+              matchingPaths: props.matchingPaths,
               onToggle: (target: any) => emit('toggle', target),
               onContextmenu: (event: MouseEvent, target: any) => emit('contextmenu', event, target),
             })
@@ -1300,6 +1695,234 @@ export const FileTreeNode = defineComponent({
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* Filter & Search Bar */
+.ftree__filter-box {
+  padding: 6px 8px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ftree__filter-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 26px;
+  padding: 0 6px;
+  transition: all 0.15s ease;
+  min-width: 0;
+}
+
+.ftree__filter-input-wrap:focus-within {
+  border-color: var(--accent, #0366d6);
+  box-shadow: 0 0 0 2px var(--accent-ring, rgba(3, 102, 214, 0.2));
+}
+
+.ftree__filter-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-right: 5px;
+}
+
+.ftree__filter-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 11.5px;
+  outline: none;
+  padding: 0;
+  line-height: 1;
+}
+
+.ftree__filter-input::placeholder {
+  color: var(--text-faint, #888);
+}
+
+.ftree__filter-badge {
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #0366d6) 15%, transparent);
+  color: var(--accent, #0366d6);
+  font-weight: 600;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+.ftree__filter-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.1s ease;
+}
+
+.ftree__filter-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.ftree__mode-toggle {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.ftree__mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.ftree__mode-btn:hover {
+  color: var(--text);
+}
+
+.ftree__mode-btn.active {
+  background: var(--accent, #0366d6);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Highlight matching keyword in tree */
+:deep(.ftree__mark) {
+  background: color-mix(in srgb, var(--accent, #0366d6) 28%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+
+/* Empty search state */
+.ftree__empty-search {
+  padding: 20px 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ftree__empty-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.ftree__empty-action {
+  font-size: 11.5px;
+  color: var(--accent, #0366d6);
+  background: color-mix(in srgb, var(--accent, #0366d6) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #0366d6) 25%, transparent);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ftree__empty-action:hover {
+  background: color-mix(in srgb, var(--accent, #0366d6) 20%, transparent);
+}
+
+/* Full-text search hits */
+.ftree__search-results {
+  padding: 6px 0;
+}
+
+.ftree__search-group {
+  margin-bottom: 8px;
+}
+
+.ftree__search-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ftree__search-group-head:hover {
+  background: var(--bg-hover);
+}
+
+.ftree__search-file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ftree__search-hit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ftree__search-hit {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 10px 4px 24px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 1px 4px;
+}
+
+.ftree__search-hit:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.ftree__search-line {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.ftree__search-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
 .ftree__missing {
   padding: 16px 14px;
   text-align: center;

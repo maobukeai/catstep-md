@@ -149,3 +149,38 @@ test('a multi-line block is found from inside', () => {
 test('an unterminated formula is not a span', () => {
   assert.equal(findMathSpanAt('text $a+b', 7), null);
 });
+
+test('code block with template literal dollar does not span to later lines', () => {
+  const doc = [
+    '```typescript',
+    'const msg = `${name}!`;',
+    '```',
+    '',
+    '## 分割线',
+    '',
+    '公式块（$$ … $$）',
+  ].join('\n');
+  const caretAtHeading = doc.indexOf('## 分割线') + 2;
+  assert.equal(findMathSpanAt(doc, caretAtHeading), null);
+  const caretInCode = doc.indexOf('${name}');
+  assert.equal(findMathSpanAt(doc, caretInCode), null);
+});
+
+test('inline code with dollar sign is not recognized as math', () => {
+  const doc = 'Run `echo $VAR` in terminal and see $E=mc^2$.';
+  assert.equal(findMathSpanAt(doc, doc.indexOf('$VAR')), null);
+  const mathSpan = findMathSpanAt(doc, doc.indexOf('mc^2'))!;
+  assert.ok(mathSpan);
+  assert.equal(mathSpan.body, 'E=mc^2');
+});
+
+test('inline math cannot span across newlines', () => {
+  const doc = 'Line one $a\nLine two b$ and text';
+  assert.equal(findMathSpanAt(doc, doc.indexOf('Line two')), null);
+});
+
+test('currency or dollar followed by space is not an inline math delimiter', () => {
+  const doc = 'Price is $10 or $ 20 dollars.';
+  assert.equal(findMathSpanAt(doc, doc.indexOf('10')), null);
+});
+

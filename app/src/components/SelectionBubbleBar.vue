@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import Icon from './Icons.vue';
+import { useI18n } from '../i18n';
+
+const { t } = useI18n();
 
 defineProps<{
   visible: boolean;
@@ -147,8 +150,8 @@ onBeforeUnmount(() => {
             >
               <span class="ai-item-icon">✨</span>
               <div class="ai-item-text">
-                <span class="ai-item-title">猫步润色</span>
-                <span class="ai-item-desc">精修句式节奏，提升文采韵律</span>
+                <span class="ai-item-title">{{ t('ai.catstepPolish').replace(/^[^\w]*\s*/, '') }}</span>
+                <span class="ai-item-desc">{{ t('ai.catstepPolishDesc') }}</span>
               </div>
             </button>
 
@@ -158,8 +161,8 @@ onBeforeUnmount(() => {
             >
               <span class="ai-item-icon">📝</span>
               <div class="ai-item-text">
-                <span class="ai-item-title">扩展内容</span>
-                <span class="ai-item-desc">充实论据，丰富细节与阐述</span>
+                <span class="ai-item-title">{{ t('ai.catstepExpand').replace(/^[^\w]*\s*/, '') }}</span>
+                <span class="ai-item-desc">{{ t('ai.catstepExpandDesc') }}</span>
               </div>
             </button>
 
@@ -169,8 +172,8 @@ onBeforeUnmount(() => {
             >
               <span class="ai-item-icon">🔍</span>
               <div class="ai-item-text">
-                <span class="ai-item-title">语法纠错</span>
-                <span class="ai-item-desc">错别字、标点与语病一键修正</span>
+                <span class="ai-item-title">{{ t('ai.catstepFix').replace(/^[^\w]*\s*/, '') }}</span>
+                <span class="ai-item-desc">{{ t('ai.catstepFixDesc') }}</span>
               </div>
             </button>
 
@@ -180,8 +183,8 @@ onBeforeUnmount(() => {
             >
               <span class="ai-item-icon">🍃</span>
               <div class="ai-item-text">
-                <span class="ai-item-title">一键去AI味</span>
-                <span class="ai-item-desc">去除机械套话，注入真实人类温度</span>
+                <span class="ai-item-title">{{ t('ai.catstepDeAI').replace(/^[^\w]*\s*/, '') }}</span>
+                <span class="ai-item-desc">{{ t('ai.catstepDeAIDesc') }}</span>
               </div>
             </button>
           </div>

@@ -10,13 +10,16 @@ withDefaults(
   { grip: false, closable: true, collapsed: false },
 );
 
+import { useI18n } from '../i18n';
+const { t } = useI18n();
+
 const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
 </script>
 
 <template>
   <section class="ds-panel">
     <header class="ds-panel__head">
-      <div class="rs-pane-title-group ds-panel__title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+      <div class="rs-pane-title-group ds-panel__title-group" :title="collapsed ? t('panel.expand') : t('panel.collapse')">
         <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
           <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <polyline points="4 6 8 10 12 6" />
@@ -32,7 +35,7 @@ const emit = defineEmits<{ close: []; 'toggle-collapse': [] }>();
           v-if="closable"
           class="ds-panel__close"
           type="button"
-          aria-label="Close"
+          :aria-label="t('panel.close')"
           @click.stop="emit('close')"
         >
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">

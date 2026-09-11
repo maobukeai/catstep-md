@@ -149,7 +149,10 @@ export function useShortcuts(hooks: Hooks = {}) {
     'view.toggleSidebar': () => settings.toggleLeftSidebar(),
     'view.sidebarOutline': () => settings.setLeftSidebarTab('outline'),
     'view.sidebarFiles': () => settings.setLeftSidebarTab('files'),
-    'view.sidebarSearch': () => settings.setLeftSidebarTab('search'),
+    'view.sidebarSearch': () => {
+      settings.setLeftSidebarTab('files');
+      window.dispatchEvent(new CustomEvent('solomd:focus-file-search'));
+    },
     'view.toggleSourceMode': () => settings.toggleLivePreview(),
     'view.toggleFocusMode': () => settings.toggleFocusMode(),
     'view.toggleTypewriter': () => settings.toggleTypewriterMode(),

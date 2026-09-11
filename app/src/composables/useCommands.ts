@@ -177,8 +177,15 @@ export function useCommands(): Command[] {
     // ---- View / Typora Navigation ----
     { id: 'view.toggleSidebar', title: 'View: Toggle Sidebar', shortcut: kb('view.toggleSidebar'), run: () => settings.toggleLeftSidebar() },
     { id: 'view.sidebarOutline', title: 'View: Sidebar Outline', shortcut: kb('view.sidebarOutline'), run: () => settings.setLeftSidebarTab('outline') },
-    { id: 'view.sidebarFiles', title: 'View: Sidebar File Tree', shortcut: kb('view.sidebarFiles'), run: () => settings.setLeftSidebarTab('files') },
-    { id: 'view.sidebarSearch', title: 'View: Sidebar Search', shortcut: kb('view.sidebarSearch'), run: () => settings.setLeftSidebarTab('search') },
+    {
+      id: 'view.sidebarSearch',
+      title: 'View: Sidebar Search',
+      shortcut: kb('view.sidebarSearch'),
+      run: () => {
+        settings.setLeftSidebarTab('files');
+        window.dispatchEvent(new CustomEvent('solomd:focus-file-search'));
+      },
+    },
     { id: 'view.toggleSourceMode', title: 'View: Toggle Source Code Mode / Live Preview', shortcut: kb('view.toggleSourceMode'), run: () => settings.toggleLivePreview() },
     { id: 'view.toggleFullscreen', title: 'View: Toggle Fullscreen', shortcut: kb('view.toggleFullscreen'), run: () => void toggleFullscreen() },
     { id: 'file.new', title: 'New Markdown File', shortcut: kb('file.new'), run: () => files.newFile() },

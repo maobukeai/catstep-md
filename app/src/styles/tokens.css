@@ -49,11 +49,11 @@
   --dur-fast: 120ms;
   --dur: 180ms;
 
-  /* Accent — warm orange brand, locked */
-  --accent: #ff9f40;
-  --accent-fg: #1a1a1a;
-  --accent-soft: rgba(255, 159, 64, 0.1);
-  --accent-ring: rgba(255, 159, 64, 0.45);
+  /* Accent */
+  --accent: #0366d6;
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 45%, transparent);
 
   /* Focus ring — 2px gap then 2px accent halo (the "premium" detail) */
   --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent-ring);

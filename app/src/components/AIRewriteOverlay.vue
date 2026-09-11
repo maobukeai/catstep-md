@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
           :class="{ 'ai-overlay__action--active': action?.id === a.id }"
           @click="startAction(a)"
         >
-          {{ a.label || t(a.labelKey) }}
+          {{ t(a.labelKey) }}
         </button>
         <div v-if="action?.custom" class="ai-overlay__custom">
           <label class="ai-overlay__label">{{ t('ai.customPrompt') }}</label>

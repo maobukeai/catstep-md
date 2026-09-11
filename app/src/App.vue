@@ -1177,7 +1177,10 @@ function dispatchMenuAction(id: string) {
       settings.setLeftSidebarTab('files');
       break;
     case 'view.sidebarSearch':
-      settings.setLeftSidebarTab('search');
+      settings.setLeftSidebarTab('files');
+      nextTick(() => {
+        window.dispatchEvent(new CustomEvent('solomd:focus-file-search'));
+      });
       break;
     case 'view.toggleSourceMode':
       settings.toggleLivePreview();
@@ -2198,15 +2201,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               <span>{{ t('toolbar.outline') }}</span>
             </button>
             <button
-              class="typora-sidebar__tab"
-              :class="{ active: settings.leftSidebarTab === 'search' }"
-              @click="settings.setLeftSidebarTab('search')"
-              :title="t('toolbar.searchTooltip') + ' (Ctrl+Shift+3)'"
-            >
-              <Icon name="search" :size="13" />
-              <span>{{ t('toolbar.search') }}</span>
-            </button>
-            <button
               class="typora-sidebar__tab-close"
               @click="settings.toggleLeftSidebar()"
               :title="t('toolbar.closeSidebar') + ' (Ctrl+Shift+L)'"
@@ -2218,15 +2212,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             </button>
           </div>
           <div class="typora-sidebar__body">
-            <template v-if="settings.leftSidebarTab === 'files'">
+            <template v-if="settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
               <FileTree v-if="settings.showFileTree" />
               <ViewsPanel v-if="settings.showViewsPanel" />
             </template>
             <template v-else-if="settings.leftSidebarTab === 'outline'">
               <Outline :cursor-line="cursorLine" @goto="onOutlineGoto" />
-            </template>
-            <template v-else-if="settings.leftSidebarTab === 'search'">
-              <GlobalSearch :prefill="searchPrefill" @close="settings.showFileTree = false" />
             </template>
           </div>
         </div>

@@ -977,8 +977,13 @@ function emitPlainCursorAndSelection() {
     const lines = before.split('\n');
     const line = lines.length;
     const col = lines[lines.length - 1]?.length ?? 0;
+    const selText = plainSelectionText();
+    const sel = plainAbsoluteSelection();
     emit('cursor', line, col + 1);
-    emit('selection', plainSelectionText());
+    emit('selection', selText);
+    tabs.setActiveSelection(
+      selText ? { text: selText, tabId: props.tab.id, filePath: props.tab.filePath, from: sel?.from ?? 0, to: sel?.to ?? 0 } : null
+    );
     maybeTypewriterScroll();
     updateInPlaceOverlaysPlain();
     updateSelectionBubblePlain();
@@ -990,8 +995,13 @@ function emitPlainCursorAndSelection() {
   const lines = el.value.slice(0, head).split('\n');
   const line = lines.length;
   const col = lines[lines.length - 1]?.length ?? 0;
+  const selText = plainSelectionText();
+  const sel = plainAbsoluteSelection();
   emit('cursor', line, col + 1);
-  emit('selection', plainSelectionText());
+  emit('selection', selText);
+  tabs.setActiveSelection(
+    selText ? { text: selText, tabId: props.tab.id, filePath: props.tab.filePath, from: sel?.from ?? 0, to: sel?.to ?? 0 } : null
+  );
   maybePlainTypewriterScroll(line);
   updateInPlaceOverlaysPlain();
   updateSelectionBubblePlain();
@@ -2447,11 +2457,11 @@ const fontSizeTheme = (px: number, family: string) =>
     // by default it's the same translucent color as the other matches so the
     // user can't tell which one they're on. Brighten it to the accent color
     // and tint the others down so the current one pops.
-    '.cm-searchMatch': { backgroundColor: 'rgba(255,159,64,0.22)', borderRadius: '2px' },
+    '.cm-searchMatch': { backgroundColor: 'color-mix(in srgb, var(--accent, #0366d6) 24%, transparent)', borderRadius: '2px' },
     '.cm-searchMatch.cm-searchMatch-selected': {
-      backgroundColor: 'var(--accent, #ff9f40)',
+      backgroundColor: 'var(--accent, #0366d6)',
       color: 'var(--accent-fg, #fff)',
-      outline: '1px solid var(--accent, #ff9f40)',
+      outline: '1px solid var(--accent, #0366d6)',
     },
   });
 
@@ -2712,7 +2722,11 @@ function buildExtensions() {
         // v4.3.0 issue #70: emit selection text so StatusBar can show
         // selected word/char count. Empty string when nothing's selected.
         const sel = u.state.selection.main;
-        emit('selection', sel.empty ? '' : u.state.sliceDoc(sel.from, sel.to));
+        const text = sel.empty ? '' : u.state.sliceDoc(sel.from, sel.to);
+        emit('selection', text);
+        tabs.setActiveSelection(
+          text ? { text, tabId: props.tab.id, filePath: props.tab.filePath, from: sel.from, to: sel.to } : null
+        );
       }
       if (u.selectionSet || u.docChanged) {
         updateInPlaceOverlays(u.view);
@@ -5485,7 +5499,8 @@ const cls = computed(() => ({
 .plain-find {
   position: absolute;
   top: 8px;
-  right: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -5512,7 +5527,8 @@ const cls = computed(() => ({
   outline: none;
 }
 .plain-find__input:focus {
-  border-color: var(--accent, #ff9f40);
+  border-color: var(--accent, #0366d6);
+  box-shadow: 0 0 0 2px var(--accent-ring, rgba(3, 102, 214, 0.2));
 }
 .plain-find__count {
   font-size: 12px;
@@ -5536,8 +5552,8 @@ const cls = computed(() => ({
   background: var(--bg-hover, rgba(127, 127, 127, 0.15));
 }
 .plain-find__btn--on {
-  color: var(--accent, #ff9f40);
-  border-color: var(--accent, #ff9f40);
+  color: var(--accent, #0366d6);
+  border-color: var(--accent, #0366d6);
 }
 .plain-find__btn--text {
   font-size: 12px;

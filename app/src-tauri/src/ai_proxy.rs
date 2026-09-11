@@ -1420,6 +1420,61 @@ async fn run_anthropic(
     Ok(full)
 }
 
+pub(crate) fn normalize_anthropic_messages(messages: &[ChatMessage]) -> Vec<Value> {
+    let non_system: Vec<&ChatMessage> = messages.iter().filter(|m| m.role != "system").collect();
+    if non_system.is_empty() {
+        return vec![serde_json::json!({"role": "user", "content": "Hello"})];
+    }
+    let mut normalized: Vec<Value> = Vec::new();
+    for m in non_system {
+        let is_tool = m.role == "tool";
+        let role = if is_tool { "user" } else { &m.role };
+        let content_val = if is_tool {
+            serde_json::json!([{
+                "type": "tool_result",
+                "tool_use_id": m.tool_call_id.clone().unwrap_or_default(),
+                "content": m.content.clone(),
+            }])
+        } else {
+            serde_json::json!(m.content)
+        };
+
+        if let Some(last) = normalized.last_mut() {
+            let last_role = last.get("role").and_then(|r| r.as_str()).unwrap_or("");
+            if last_role == role && !is_tool {
+                // Merge consecutive messages with the same role
+                if let (Some(last_content), Some(new_content)) = (last.get_mut("content"), content_val.as_str()) {
+                    if let Some(last_str) = last_content.as_str() {
+                        *last_content = Value::String(format!("{last_str}\n\n{new_content}"));
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // Anthropic requires the first message to have role "user"
+        if normalized.is_empty() && role != "user" {
+            normalized.push(serde_json::json!({
+                "role": "user",
+                "content": "Continue."
+            }));
+        }
+
+        normalized.push(serde_json::json!({
+            "role": role,
+            "content": content_val,
+        }));
+    }
+
+    if normalized.is_empty() {
+        normalized.push(serde_json::json!({
+            "role": "user",
+            "content": "Hello"
+        }));
+    }
+    normalized
+}
+
 /// Legacy single-turn Anthropic chat — retained for callers still routed
 /// outside the tool-call loop. Panel goes through `run_chat_anthropic_loop`.
 #[allow(dead_code)]
@@ -1440,8 +1495,7 @@ async fn run_chat_anthropic(
 
     // Anthropic separates `system` from `messages`. Pull every system-role
     // message out of the chat history into a single concatenated system
-    // string; everything else stays in `messages`. (Adjacent user / assistant
-    // alternation is the caller's responsibility.)
+    // string; everything else stays in `messages`.
     let system_str = req
         .messages
         .iter()
@@ -1449,12 +1503,7 @@ async fn run_chat_anthropic(
         .map(|m| m.content.clone())
         .collect::<Vec<_>>()
         .join("\n\n");
-    let chat_msgs: Vec<serde_json::Value> = req
-        .messages
-        .iter()
-        .filter(|m| m.role != "system")
-        .map(|m| serde_json::json!({"role": m.role, "content": m.content}))
-        .collect();
+    let chat_msgs = normalize_anthropic_messages(&req.messages);
 
     let body = serde_json::json!({
         "model": req.model,
@@ -1859,31 +1908,7 @@ pub async fn run_chat_anthropic_loop(
         .map(|m| m.content.clone())
         .collect::<Vec<_>>()
         .join("\n\n");
-    // Build initial chat history. Each item is a serde_json `Value` so we
-    // can append assistant tool_use blocks + tool_result blocks across turns
-    // without re-typing structs.
-    let mut history: Vec<Value> = req
-        .messages
-        .iter()
-        .filter(|m| m.role != "system")
-        .map(|m| {
-            // Tool messages are special — Anthropic represents them as a
-            // user message with a `tool_result` content block. The frontend
-            // doesn't usually pre-fill these (the loop generates them).
-            if m.role == "tool" {
-                serde_json::json!({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": m.tool_call_id.clone().unwrap_or_default(),
-                        "content": m.content.clone(),
-                    }]
-                })
-            } else {
-                serde_json::json!({"role": m.role, "content": m.content})
-            }
-        })
-        .collect();
+    let mut history: Vec<Value> = normalize_anthropic_messages(&req.messages);
 
     let tools = build_anthropic_tools(req);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
@@ -2599,20 +2624,29 @@ async fn openai_one_turn(
 
     if !resp.status().is_success() {
         let status = resp.status();
-        // Retry once without `stream_options` if the server complained
-        // about it — single substring match keeps detection cheap and
-        // robust across "unknown body param", "unknown field",
-        // "include_usage not supported", etc. Cache the result so we
-        // skip the bad first request next time.
-        if status == reqwest::StatusCode::BAD_REQUEST && include_stream_options {
+        if status == reqwest::StatusCode::BAD_REQUEST {
             let txt = resp.text().await.unwrap_or_default();
             let lower = txt.to_lowercase();
-            if lower.contains("stream_options")
+            if (lower.contains("stream_options")
                 || lower.contains("include_usage")
-                || lower.contains("unknown")
+                || lower.contains("unknown")) && include_stream_options
             {
                 mark_stream_options_unsupported(&cache_key);
                 resp = send_once(build_body(false)).await?;
+                if !resp.status().is_success() {
+                    let s = resp.status();
+                    let t = resp.text().await.unwrap_or_default();
+                    return Err(format!("openai {s}: {t}"));
+                }
+            } else if (lower.contains("tools") || lower.contains("tool_calls") || lower.contains("functions"))
+                && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false)
+            {
+                // Fallback for models/endpoints that reject the tools parameter
+                let mut body_no_tools = build_body(false);
+                if let Some(obj) = body_no_tools.as_object_mut() {
+                    obj.remove("tools");
+                }
+                resp = send_once(body_no_tools).await?;
                 if !resp.status().is_success() {
                     let s = resp.status();
                     let t = resp.text().await.unwrap_or_default();
@@ -3129,5 +3163,33 @@ mod tests {
         let addr = serve_openai_ish(404, 200).await;
         let err = verify_against(addr, None).await.expect_err("should fail");
         assert!(err.contains("no model name"), "got {err}");
+    }
+
+    #[test]
+    fn test_normalize_anthropic_messages_merges_consecutive_user() {
+        use crate::ai_proxy::ChatMessage;
+        let msgs = vec![
+            ChatMessage { role: "system".into(), content: "sys".into(), tool_call_id: None },
+            ChatMessage { role: "user".into(), content: "hello".into(), tool_call_id: None },
+            ChatMessage { role: "user".into(), content: "world".into(), tool_call_id: None },
+        ];
+        let norm = super::normalize_anthropic_messages(&msgs);
+        assert_eq!(norm.len(), 1);
+        assert_eq!(norm[0]["role"], "user");
+        assert_eq!(norm[0]["content"], "hello\n\nworld");
+    }
+
+    #[test]
+    fn test_normalize_anthropic_messages_prepends_user_if_starts_with_assistant() {
+        use crate::ai_proxy::ChatMessage;
+        let msgs = vec![
+            ChatMessage { role: "assistant".into(), content: "I am ready".into(), tool_call_id: None },
+            ChatMessage { role: "user".into(), content: "hi".into(), tool_call_id: None },
+        ];
+        let norm = super::normalize_anthropic_messages(&msgs);
+        assert_eq!(norm.len(), 3);
+        assert_eq!(norm[0]["role"], "user");
+        assert_eq!(norm[1]["role"], "assistant");
+        assert_eq!(norm[2]["role"], "user");
     }
 }

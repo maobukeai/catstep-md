@@ -52,10 +52,22 @@ function inferLanguage(name: string): Language {
   return 'plaintext';
 }
 
+export interface ActiveEditorSelection {
+  text: string;
+  tabId?: string;
+  filePath?: string;
+  from?: number;
+  to?: number;
+}
+
 interface PersistedState {
   tabs: Tab[];
   activeId: string;
   recentlyClosedTabs?: Tab[];
+}
+
+export interface TabsState extends PersistedState {
+  activeEditorSelection: ActiveEditorSelection | null;
 }
 
 /** Read-only check for the "restore previous session" setting, inlined
@@ -165,7 +177,10 @@ function loadPersisted(): PersistedState {
 }
 
 export const useTabsStore = defineStore('tabs', {
-  state: (): PersistedState => loadPersisted(),
+  state: (): TabsState => ({
+    ...loadPersisted(),
+    activeEditorSelection: null,
+  }),
   getters: {
     activeTab(state): Tab | undefined {
       return state.tabs.find((t) => t.id === state.activeId);
@@ -315,6 +330,7 @@ export const useTabsStore = defineStore('tabs', {
       this.tabs.splice(idx, 1);
       if (this.activeId === id) {
         this.activeId = this.tabs[idx]?.id ?? this.tabs[idx - 1]?.id ?? '';
+        this.activeEditorSelection = null;
       }
       // Clean up any pane references to the closed tab
       try {
@@ -336,15 +352,28 @@ export const useTabsStore = defineStore('tabs', {
       if (!last) return null;
       const existing = this.tabs.find((t) => (last.filePath && t.filePath === last.filePath) || t.id === last.id);
       if (existing) {
-        this.activeId = existing.id;
+        if (this.activeId !== existing.id) {
+          this.activeId = existing.id;
+          this.activeEditorSelection = null;
+        }
         return existing;
       }
       this.tabs.push(last);
       this.activeId = last.id;
+      this.activeEditorSelection = null;
       return last;
     },
     activate(id: string) {
-      this.activeId = id;
+      if (this.activeId !== id) {
+        this.activeId = id;
+        this.activeEditorSelection = null;
+      }
+    },
+    setActiveSelection(sel: ActiveEditorSelection | null) {
+      this.activeEditorSelection = sel;
+    },
+    clearActiveSelection() {
+      this.activeEditorSelection = null;
     },
     /** #86 — move tab `tabId` to `intendedIndex` (the position in the list
      *  where the user wants it dropped). Handles the shift caused by removing

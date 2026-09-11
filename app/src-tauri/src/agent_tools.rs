@@ -399,7 +399,30 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
             workspace_canon.display()
         ));
     }
-    Ok(resolved)
+    Ok(strip_unc_prefix(&resolved))
+}
+
+pub fn strip_unc_prefix(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(stripped) = s.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{}", stripped))
+    } else if let Some(stripped) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(stripped)
+    } else {
+        path.to_path_buf()
+    }
+}
+
+pub fn normalize_path_str(p: &Path) -> String {
+    let s = p.to_string_lossy();
+    let without_unc = if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{}", rest)
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        s.to_string()
+    };
+    without_unc.replace('\\', "/")
 }
 
 /// Validate a user-supplied agent-run identifier.
@@ -737,7 +760,7 @@ fn tool_list_notes(workspace: &Path, args: &Value) -> Result<Value, String> {
         };
         if let Some(err) = &fm_error {
             frontmatter_errors.push(json!({
-                "path": path.to_string_lossy(),
+                "path": normalize_path_str(&path),
                 "error": err,
             }));
         }
@@ -814,7 +837,7 @@ fn tool_read_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     tags.dedup();
     let wikilinks = extract_wikilinks(body);
     let mut out = json!({
-        "path": path.to_string_lossy(),
+        "path": normalize_path_str(&path),
         "content": raw,
         "frontmatter": fm_v,
         "headings": headings,
@@ -859,7 +882,7 @@ fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
                 if re.is_match(line) {
                     let snippet: String = line.chars().take(200).collect();
                     hits.push(json!({
-                        "file": path.to_string_lossy(),
+                        "file": normalize_path_str(&path),
                         "line": i + 1,
                         "snippet": snippet,
                     }));
@@ -914,7 +937,7 @@ fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
                     .unwrap_or("")
                     .to_string();
                 out.push(json!({
-                    "from_path": path.to_string_lossy(),
+                    "from_path": normalize_path_str(&path),
                     "from_name": from_name,
                     "line": link.line,
                     "context": context,
@@ -944,7 +967,7 @@ fn tool_list_tags(workspace: &Path, _args: &Value) -> Result<Value, String> {
                 Ok(v) => v,
                 Err(e) => {
                     frontmatter_errors.push(json!({
-                        "path": path.to_string_lossy(),
+                        "path": normalize_path_str(&path),
                         "error": format!("yaml parse: {e}"),
                     }));
                     Value::Null
@@ -963,7 +986,7 @@ fn tool_list_tags(workspace: &Path, _args: &Value) -> Result<Value, String> {
         for tag in tags {
             let entry = by_tag.entry(tag).or_insert_with(|| (0, vec![]));
             entry.0 += 1;
-            entry.1.push(path.to_string_lossy().to_string());
+            entry.1.push(normalize_path_str(&path));
         }
     }
     let mut out: Vec<Value> = by_tag
@@ -1051,7 +1074,7 @@ fn tool_autogit_diff(workspace: &Path, args: &Value) -> Result<Value, String> {
         "sha": diff.to_sha,
         "base": diff.from_sha,
         "diff": diff.unified,
-        "path": abs.to_string_lossy(),
+        "path": normalize_path_str(&abs),
     }))
 }
 
@@ -1096,8 +1119,8 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     Ok(json!({
         "ok": true,
         "bytes_written": content.as_bytes().len(),
-        "path": abs.to_string_lossy(),
-        "backup_path": backup_path_str
+        "path": normalize_path_str(&abs),
+        "backup_path": backup_path_str.map(|s| normalize_path_str(Path::new(&s)))
     }))
 }
 
@@ -1125,7 +1148,7 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
     Ok(json!({
         "ok": true,
         "bytes_written": content.as_bytes().len(),
-        "path": abs.to_string_lossy(),
+        "path": normalize_path_str(&abs),
     }))
 }
 
@@ -1221,8 +1244,8 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         "ok": true,
         "matches_replaced": matches,
         "bytes_written": modified.len(),
-        "path": abs.to_string_lossy(),
-        "backup_path": backup_path.to_string_lossy()
+        "path": normalize_path_str(&abs),
+        "backup_path": normalize_path_str(&backup_path)
     }))
 }
 
@@ -1253,8 +1276,8 @@ fn tool_delete_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     
     Ok(json!({
         "ok": true,
-        "path": abs.to_string_lossy(),
-        "trashed_to": trash_path.to_string_lossy(),
+        "path": normalize_path_str(&abs),
+        "trashed_to": normalize_path_str(&trash_path),
     }))
 }
 
@@ -1306,7 +1329,7 @@ fn tool_restore_note_backup(workspace: &Path, args: &Value) -> Result<Value, Str
 
     Ok(json!({
         "ok": true,
-        "path": abs.to_string_lossy(),
+        "path": normalize_path_str(&abs),
         "restored": true
     }))
 }
@@ -1622,7 +1645,7 @@ mod tests {
         fs::create_dir_all(ws.join("sub")).unwrap();
         fs::write(&target, "hello").unwrap();
         let res = resolve_in_workspace(&ws, target.to_str().unwrap()).unwrap();
-        let ws_canon = ws.canonicalize().unwrap();
+        let ws_canon = strip_unc_prefix(&ws.canonicalize().unwrap());
         assert!(res.starts_with(&ws_canon));
         let _ = fs::remove_dir_all(&ws);
     }
@@ -1634,7 +1657,7 @@ mod tests {
         // write_note can mkdir_p + create.
         let ws = make_workspace();
         let res = resolve_in_workspace(&ws, "subdir/new.md").unwrap();
-        let ws_canon = ws.canonicalize().unwrap();
+        let ws_canon = strip_unc_prefix(&ws.canonicalize().unwrap());
         assert!(
             res.starts_with(&ws_canon),
             "{} must live under workspace {}",

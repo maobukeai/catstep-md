@@ -23,6 +23,8 @@ import { renderMarkdown } from '../lib/markdown';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useFiles } from '../composables/useFiles';
 import { useI18n } from '../i18n';
+import { getPlainSelection } from '../lib/plain-selection';
+import type { Tab } from '../types';
 
 defineProps<{ collapsed?: boolean }>();
 
@@ -68,6 +70,7 @@ let ollamaTimer: ReturnType<typeof setInterval> | null = null;
 // --- Stage 2: Message Edit, Recall, Regenerate, Delete & Quote Selection ---
 const editingMsgId = ref<string | null>(null);
 const editingMsgContent = ref('');
+let quoteJustOpened = false;
 const quoteTooltip = ref<{ visible: boolean; x: number; y: number; text: string }>({
   visible: false,
   x: 0,
@@ -75,6 +78,30 @@ const quoteTooltip = ref<{ visible: boolean; x: number; y: number; text: string 
   text: '',
 });
 const hasPastUserMessage = computed(() => agent.messages.some((m) => m.role === 'user'));
+
+// Synchronize selection tracking from editor store
+watch(
+  () => tabs.activeEditorSelection,
+  (newSel, oldSel) => {
+    if (newSel && newSel.text && newSel.text.trim()) {
+      activeSelectionText.value = newSel.text.trim();
+      isSelectionDismissed.value = false;
+    } else if (!newSel && oldSel) {
+      activeSelectionText.value = '';
+    }
+  },
+  { deep: true },
+);
+
+// Clear ghost selection on active tab change
+watch(
+  () => tabs.activeId,
+  () => {
+    activeSelectionText.value = '';
+    isSelectionDismissed.value = true;
+    tabs.clearActiveSelection();
+  },
+);
 
 watch(
   () => agent.isStreaming,
@@ -180,7 +207,7 @@ function onWindowClick(e?: MouseEvent) {
   if (showMentionMenu.value) {
     showMentionMenu.value = false;
   }
-  if (quoteTooltip.value.visible) {
+  if (quoteTooltip.value.visible && !quoteJustOpened) {
     if (!e || !(e.target as HTMLElement)?.closest?.('.agent-panel__quote-tooltip')) {
       quoteTooltip.value.visible = false;
     }
@@ -194,7 +221,7 @@ function recallLastTurn() {
   if (recalled) {
     draft.value = recalled.content;
     if (recalled.references && recalled.references.length) {
-      activeReferences.value = [...recalled.references];
+      activeReferences.value = recalled.references.filter((r) => r.type !== 'selection');
     }
     if (recalled.images && recalled.images.length) {
       activeImages.value = [...recalled.images];
@@ -212,8 +239,15 @@ function recallLastTurn() {
 
 function recallMessage(msg: any) {
   if (agent.isStreaming) return;
+  const msgIdx = agent.messages.findIndex((m) => m.id === msg.id);
+  if (msgIdx === -1) return;
+  const subsequentCount = agent.messages.length - 1 - msgIdx;
+  if (subsequentCount > 1) {
+    const ok = window.confirm('撤回此历史消息将清除其后的所有回复，是否继续？');
+    if (!ok) return;
+  }
   const content = msg.content;
-  const refs = msg.references ? [...msg.references] : [];
+  const refs = msg.references ? msg.references.filter((r: any) => r.type !== 'selection') : [];
   const imgs = msg.images ? [...msg.images] : [];
   if (msg.selectionContext?.targetText) {
     activeSelectionText.value = msg.selectionContext.targetText;
@@ -230,6 +264,7 @@ function recallMessage(msg: any) {
 }
 
 function startEditUserMessage(msg: any) {
+  if (agent.isStreaming) return;
   editingMsgId.value = msg.id;
   editingMsgContent.value = msg.content;
 }
@@ -242,8 +277,12 @@ function cancelEditUserMessage() {
 async function saveAndResendUserMessage(msg: any) {
   const newContent = editingMsgContent.value.trim();
   if (!newContent || agent.isStreaming) return;
-  const refs = msg.references ? [...msg.references] : [];
+  const refs = msg.references ? msg.references.filter((r: any) => r.type !== 'selection') : [];
   const imgs = msg.images ? [...msg.images] : [];
+  if (msg.selectionContext?.targetText) {
+    activeSelectionText.value = msg.selectionContext.targetText;
+    isSelectionDismissed.value = false;
+  }
   agent.truncateFrom(msg.id);
   editingMsgId.value = null;
   editingMsgContent.value = '';
@@ -257,6 +296,11 @@ async function regenerateAssistant(msg: any) {
   if (agent.isStreaming) return;
   const msgIdx = agent.messages.findIndex((m) => m.id === msg.id);
   if (msgIdx === -1) return;
+  const subsequentCount = agent.messages.length - 1 - msgIdx;
+  if (subsequentCount > 0) {
+    const ok = window.confirm('重新生成此历史回复将清除其后的所有对话，是否继续？');
+    if (!ok) return;
+  }
   let prevUserIdx = -1;
   for (let i = msgIdx - 1; i >= 0; i--) {
     if (agent.messages[i].role === 'user') {
@@ -267,12 +311,17 @@ async function regenerateAssistant(msg: any) {
   if (prevUserIdx === -1) return;
   const userMsg = agent.messages[prevUserIdx];
   const prompt = userMsg.content;
-  const refs = userMsg.references ? [...userMsg.references] : [];
+  const refs = userMsg.references ? userMsg.references.filter((r: any) => r.type !== 'selection') : [];
   const imgs = userMsg.images ? [...userMsg.images] : [];
 
-  // Truncate from the message immediately following the user message
-  agent.messages.splice(prevUserIdx + 1);
-  agent.syncCurrentSession();
+  if (userMsg.selectionContext?.targetText) {
+    activeSelectionText.value = userMsg.selectionContext.targetText;
+    isSelectionDismissed.value = false;
+  }
+
+  // Truncate from userMsg so send() re-adds it cleanly without duplicate user turns (solves Claude 400)
+  agent.truncateFrom(userMsg.id);
+  editingMsgId.value = null;
 
   draft.value = prompt;
   activeReferences.value = refs;
@@ -281,11 +330,15 @@ async function regenerateAssistant(msg: any) {
 }
 
 function deleteTurn(msg: any) {
+  if (agent.isStreaming) return;
+  const ok = window.confirm(t('agent.confirmDeleteTurn') || '确定删除此轮对话吗？');
+  if (!ok) return;
   agent.deleteTurn(msg.id);
   toasts.success(t('agent.msgDeleteTurnTitle'));
 }
 
 function deleteAssistantMessage(msg: any) {
+  if (agent.isStreaming) return;
   agent.deleteMessage(msg.id);
   toasts.success(t('agent.msgDeleteMsgTitle'));
 }
@@ -305,6 +358,10 @@ function onAssistantMouseUp(e: MouseEvent) {
           y: Math.max(10, rect.top - 36),
           text,
         };
+        quoteJustOpened = true;
+        setTimeout(() => {
+          quoteJustOpened = false;
+        }, 200);
         return;
       }
     }
@@ -331,12 +388,35 @@ function insertQuote(text: string) {
   });
 }
 
-// Check selection in active editor
+// Check selection in active editor (handles CodeMirror, Windows plain textarea, and DOM)
 function checkSelection() {
-  const sel = window.getSelection()?.toString().trim() || '';
-  if (sel && sel !== activeSelectionText.value) {
-    activeSelectionText.value = sel;
-    isSelectionDismissed.value = false;
+  if (tabs.activeEditorSelection && tabs.activeEditorSelection.tabId === tabs.activeId && tabs.activeEditorSelection.text.trim()) {
+    const s = tabs.activeEditorSelection.text.trim();
+    if (s !== activeSelectionText.value) {
+      activeSelectionText.value = s;
+      isSelectionDismissed.value = false;
+    }
+    return;
+  }
+  const plain = getPlainSelection()?.selection?.trim();
+  if (plain) {
+    if (plain !== activeSelectionText.value) {
+      activeSelectionText.value = plain;
+      isSelectionDismissed.value = false;
+    }
+    return;
+  }
+  const domSel = window.getSelection();
+  const domText = domSel?.toString().trim() || '';
+  if (domText) {
+    const anchorNode = domSel?.anchorNode;
+    const el = anchorNode instanceof HTMLElement ? anchorNode : anchorNode?.parentElement;
+    if (el?.closest('.cm-editor, .plain-editor, .plain-block-editor, .editor-container')) {
+      if (domText !== activeSelectionText.value) {
+        activeSelectionText.value = domText;
+        isSelectionDismissed.value = false;
+      }
+    }
   }
 }
 
@@ -499,7 +579,7 @@ function openReferencedNote(relPath?: string) {
 
 // Save Assistant reply as a new note (F15)
 async function saveAssistantAsNote(content: string) {
-  if (!content) return;
+  if (!content || agent.isStreaming) return;
   if (!workspace.currentFolder) {
     toasts.warning('请先打开一个工作区文件夹');
     return;
@@ -564,6 +644,24 @@ const ACTIVE_NOTE_CHAR_LIMIT = 8192;
 const SYSTEM_PROMPT =
   'You are a thoughtful, intelligent assistant inside SoloMD, a local-first markdown editor.\n\n【思考与输出规范】\n在回答前，请务必先在 <think> 与 </think> 标签中展示你的思考与推演逻辑（包括：意图理解、核心要点梳理、推演步骤、行文结构规划）。\n思考推演完成后闭合 </think> 标签，并在其后输出正式且排版优雅的 Markdown 回答。如果用户询问某具体笔记而你未获得内容，请在思考后提示用户。';
 
+function normalizePath(p?: string | null): string {
+  if (!p) return '';
+  let s = p.replace(/\\/g, '/');
+  if (s.startsWith('//?/UNC/')) {
+    s = '//' + s.slice(8);
+  } else if (s.startsWith('//?/')) {
+    s = s.slice(4);
+  }
+  return s.toLowerCase();
+}
+
+function matchesTabPath(tab: any, targetPath: string): boolean {
+  const tp = normalizePath(tab.filePath || tab.fileName || '');
+  const np = normalizePath(targetPath);
+  if (!tp || !np) return false;
+  return tp === np || tp.endsWith('/' + np) || np.endsWith('/' + tp);
+}
+
 /**
  * Build a workspace-context system message describing where the user is.
  * The agent gets vault path, active file, total note count — enough to
@@ -592,16 +690,18 @@ function buildVaultContext(): string {
  * tab, or the tab is unsaved/empty. Truncates to ACTIVE_NOTE_CHAR_LIMIT to
  * keep prompts bounded.
  */
-function buildActiveNoteContext(): string {
+function buildActiveNoteContext(explicitSelection?: string): string {
   if (!includeActiveNote.value) return '';
   const tab = tabs.activeTab;
   if (!tab || tab.language !== 'markdown') return '';
   const content = (tab.content || '').trim();
   if (!content) return '';
 
-  const rawSel = (!isSelectionDismissed.value && activeSelectionText.value)
-    ? activeSelectionText.value.trim()
-    : (window.getSelection()?.toString().trim() || '');
+  const rawSel = explicitSelection !== undefined
+    ? explicitSelection.trim()
+    : (!isSelectionDismissed.value && activeSelectionText.value
+      ? activeSelectionText.value.trim()
+      : '');
   const folder = workspace.currentFolder;
   let relPath = tab.filePath || tab.fileName || '(untitled)';
   if (folder && tab.filePath && tab.filePath.startsWith(folder)) {
@@ -712,13 +812,14 @@ function applyPromptSuggestion(prompt: string) {
  */
 function extractCleanPolishedText(raw: string): string {
   if (!raw) return '';
-  const trimmed = raw.trim();
+  // Strip thought traces (<think> ... </think>) first
+  let working = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-  // 1. Look for fenced code blocks ```markdown ... ``` or ```...```
-  const codeBlockRegex = /```(?:markdown|md|txt)?\s*([\s\S]*?)```/gi;
+  // 1. Look for fenced code blocks ```...``` (any language tag or none)
+  const codeBlockRegex = /```[a-zA-Z0-9_-]*\s*([\s\S]*?)```/g;
   const matches: string[] = [];
   let match: RegExpExecArray | null;
-  while ((match = codeBlockRegex.exec(trimmed)) !== null) {
+  while ((match = codeBlockRegex.exec(working)) !== null) {
     if (match[1] && match[1].trim()) {
       matches.push(match[1].trim());
     }
@@ -728,29 +829,33 @@ function extractCleanPolishedText(raw: string): string {
     return matches[0];
   }
 
-  // 2. Look for explicit transition markers
+  // 2. Look for explicit transition markers (Chinese & English)
   const splitMarkers = [
-    /以下是(?:更新后|润色后|修改后|优化后|改写后|处理后)[^：:\n]*[：:]\s*/i,
+    /以下是(?:更新后|润色后|修改后|优化后|改写后|处理后|最终版)[^：:\n]*[：:]\s*/i,
     /【(?:润色后|修改后|优化后|更新后|最终版|润色结果)[^】]*】\s*/i,
+    /here is the (?:revised|polished|updated|improved|corrected|new) (?:text|version|content|snippet)?[^:\n]*:\s*/i,
+    /(?:revised|polished|updated|improved) version:\s*/i,
     /---\s*\n(?=[^#*-])/i,
   ];
   for (const marker of splitMarkers) {
-    const parts = trimmed.split(marker);
+    const parts = working.split(marker);
     if (parts.length > 1) {
       const candidate = parts[parts.length - 1].trim();
       if (candidate.length > 10) {
-        return candidate;
+        working = candidate;
+        break;
       }
     }
   }
 
-  // 3. If lines start with chit-chat ("好的", "我已经为你...", "✨ 润色亮点"), filter out commentary lines
-  const lines = trimmed.split('\n');
+  // 3. Strip leading commentary lines
+  const lines = working.split('\n');
   let startIndex = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (
       /^(好的|我已经|为你|这是一份|润色亮点|修改要点|优化说明|以下是)/i.test(line) ||
+      /^(sure|certainly|here is|here's|i have|below is|polished|revised)/i.test(line) ||
       /^[\d\.\-\*]\s*(语言风格|结构层次|表达精简|用词|语法|逻辑|要点)/.test(line)
     ) {
       startIndex = i + 1;
@@ -763,115 +868,165 @@ function extractCleanPolishedText(raw: string): string {
   if (startIndex > 0 && startIndex < lines.length) {
     const remaining = lines.slice(startIndex).join('\n').trim();
     if (remaining.length > 0) {
-      return remaining;
+      working = remaining;
     }
   }
 
-  return trimmed;
+  // 4. Strip trailing commentary lines
+  const hrIndex = working.search(/\n\s*---\s*\n(?=[^\n]*(修改|说明|优化|亮点|要点|改动|希望|以上|如果|changes|note|explanation))/i);
+  if (hrIndex !== -1) {
+    working = working.slice(0, hrIndex).trim();
+  }
+
+  const endLines = working.split('\n');
+  let cutEnd = endLines.length;
+  for (let i = endLines.length - 1; i >= 0; i--) {
+    const line = endLines[i].trim();
+    if (line === '') continue;
+    if (
+      /^(希望对你|如果有任何|如有疑问|以上是|如有其他|祝写作愉快|修改说明|优化说明|修改亮点|改动点|修改要点)/i.test(line) ||
+      /^(hope this helps|let me know|feel free|changes made|explanation|summary of changes|notes?:)/i.test(line) ||
+      /^[\d\.\-\*]\s*(语言风格|结构层次|表达精简|用词|语法|逻辑|要点|修改|优化|修正)/.test(line) ||
+      /^#{1,4}\s*(修改说明|优化说明|改动说明|改动要点|润色说明|修改内容|changes|notes|explanation)/i.test(line)
+    ) {
+      cutEnd = i;
+    } else {
+      break;
+    }
+  }
+  if (cutEnd < endLines.length && cutEnd > 0) {
+    const candidate = endLines.slice(0, cutEnd).join('\n').trim();
+    if (candidate.length > 0) {
+      working = candidate;
+    }
+  }
+
+  return working;
 }
 
-function getSelectionForMessage(assistantMsg: any): string {
+function getSelectionContextForMessage(assistantMsg: any): { targetText: string; path?: string } | null {
   const idx = agent.messages.findIndex((m) => m.id === assistantMsg.id);
   if (idx !== -1) {
     for (let i = idx - 1; i >= 0; i--) {
       const prev = agent.messages[i];
       if (prev.role === 'user') {
-        if (prev.selectionContext?.targetText) return prev.selectionContext.targetText;
+        if (prev.selectionContext?.targetText) {
+          return {
+            targetText: prev.selectionContext.targetText,
+            path: prev.selectionContext.path,
+          };
+        }
         const selRef = prev.references?.find((r) => r.type === 'selection');
-        if (selRef?.preview) return selRef.preview;
+        if (selRef?.preview) {
+          return {
+            targetText: selRef.preview,
+            path: selRef.path,
+          };
+        }
         break;
       }
     }
   }
-  return (!isSelectionDismissed.value && activeSelectionText.value) ? activeSelectionText.value : '';
+  if (!isSelectionDismissed.value && activeSelectionText.value) {
+    return {
+      targetText: activeSelectionText.value,
+      path: tabs.activeTab?.filePath || tabs.activeTab?.fileName,
+    };
+  }
+  return null;
 }
 
 function hasSelectionForMessage(assistantMsg: any): boolean {
-  return !!getSelectionForMessage(assistantMsg);
+  return !!getSelectionContextForMessage(assistantMsg);
 }
 
 /**
  * 1-Click apply clean polished text directly to active selection in the editor.
  */
-async function applyPolishedTextToDoc(assistantMsgContent: string, targetSelection?: string) {
+async function applyPolishedTextToDoc(assistantMsgContent: string, targetContext?: { targetText: string; path?: string } | string | null) {
+  if (agent.isStreaming) return;
   const cleanSnippet = extractCleanPolishedText(assistantMsgContent);
   if (!cleanSnippet) {
     toasts.warning('未能从回答中提取到有效的润色内容');
     return;
   }
 
-  const tab = tabs.activeTab;
-  const target = (targetSelection || activeSelectionText.value || '').trim();
+  let targetText = '';
+  let targetPath = '';
+  if (typeof targetContext === 'string') {
+    targetText = targetContext.trim();
+  } else if (targetContext && typeof targetContext === 'object') {
+    targetText = (targetContext.targetText || '').trim();
+    targetPath = targetContext.path || '';
+  }
+  if (!targetText && !isSelectionDismissed.value && activeSelectionText.value) {
+    targetText = activeSelectionText.value.trim();
+  }
 
-  if (tab && tab.content && target) {
+  // Find target tab: prefer explicit note path recorded at turn creation
+  let targetTab: Tab | undefined;
+  if (targetPath) {
+    targetTab = tabs.tabs.find((t) => matchesTabPath(t, targetPath));
+    if (!targetTab) {
+      // If target tab is not currently open, try to open it
+      const fullPath = workspace.currentFolder && !targetPath.includes(':') && !targetPath.startsWith('/')
+        ? `${workspace.currentFolder}/${targetPath}`
+        : targetPath;
+      await files.openPath(fullPath);
+      targetTab = tabs.tabs.find((t) => matchesTabPath(t, targetPath)) || tabs.activeTab;
+    }
+  } else {
+    targetTab = tabs.activeTab;
+  }
+
+  if (!targetTab) {
+    toasts.warning(t('agent.msgInsertNoEditor'));
+    return;
+  }
+
+  if (targetTab.id !== tabs.activeId) {
+    tabs.activate(targetTab.id);
+  }
+
+  if (targetTab.content && targetText) {
     // Tier 1: Exact match in current content
-    const idx = tab.content.indexOf(target);
+    const idx = targetTab.content.indexOf(targetText);
     if (idx !== -1) {
-      const newContent = tab.content.slice(0, idx) + cleanSnippet + tab.content.slice(idx + target.length);
-      if (typeof tab.id === 'string') {
-        tabs.applyExternalSave(tab.id, newContent);
-        if (tab.filePath && workspace.currentFolder) {
-          try {
-            await invoke('write_file', {
-              path: tab.filePath,
-              content: newContent,
-              encoding: 'UTF-8',
-              workspace: workspace.currentFolder,
-            });
-          } catch (e) {
-            console.warn('Failed to persist patched note to disk:', e);
-          }
-        }
-        toasts.success(t('agent.msgAcceptReplaceSuccess'));
-        return;
-      }
+      const newContent = targetTab.content.slice(0, idx) + cleanSnippet + targetTab.content.slice(idx + targetText.length);
+      targetTab.content = newContent;
+      targetTab.savedContent = newContent;
+      tabs.applyExternalSave(targetTab.id, newContent);
+      await files.saveTab(targetTab, { silent: true });
+      activeSelectionText.value = '';
+      tabs.clearActiveSelection();
+      toasts.success(t('agent.msgAcceptReplaceSuccess'));
+      return;
     }
 
     // Tier 2: Normalized match (CRLF vs LF, trimmed lines)
-    const normTarget = target.replace(/\r\n/g, '\n').trim();
-    const normDoc = tab.content.replace(/\r\n/g, '\n');
+    const normTarget = targetText.replace(/\r\n/g, '\n').trim();
+    const normDoc = targetTab.content.replace(/\r\n/g, '\n');
     const normIdx = normDoc.indexOf(normTarget);
     if (normIdx !== -1) {
       const newContent = normDoc.slice(0, normIdx) + cleanSnippet + normDoc.slice(normIdx + normTarget.length);
-      if (typeof tab.id === 'string') {
-        tabs.applyExternalSave(tab.id, newContent);
-        if (tab.filePath && workspace.currentFolder) {
-          try {
-            await invoke('write_file', {
-              path: tab.filePath,
-              content: newContent,
-              encoding: 'UTF-8',
-              workspace: workspace.currentFolder,
-            });
-          } catch (e) {
-            console.warn('Failed to persist patched note to disk:', e);
-          }
-        }
-        toasts.success(t('agent.msgAcceptReplaceSuccess'));
-        return;
-      }
+      targetTab.content = newContent;
+      targetTab.savedContent = newContent;
+      tabs.applyExternalSave(targetTab.id, newContent);
+      await files.saveTab(targetTab, { silent: true });
+      activeSelectionText.value = '';
+      tabs.clearActiveSelection();
+      toasts.success(t('agent.msgAcceptReplaceSuccess'));
+      return;
     }
   }
 
-  // 3. Fallback to CodeMirror editor selection replacement via solomd:insert-markdown
-  const paneId = tiles.focusedPaneId || tiles.allLeaves[0]?.id;
-  if (paneId && tabs.activeTab) {
-    window.dispatchEvent(
-      new CustomEvent('solomd:insert-markdown', {
-        detail: { snippet: cleanSnippet, paneId },
-      }),
-    );
-    toasts.success(t('agent.msgAcceptReplaceSuccess'));
-  } else {
-    toasts.warning(t('agent.msgInsertNoEditor'));
-  }
+  // Target text was not found in document! Safety guard: never blind-insert at random cursor!
+  toasts.warning(t('agent.msgTargetSelectionNotFound'));
 }
 
-/** Insert a finished assistant reply into the focused editor pane.
- *  Uses clean snippet extraction so chit-chat banter is stripped. */
+/** Insert a finished assistant reply into the focused editor pane (full text). */
 function insertAssistantMessage(content: string) {
-  if (!content) return;
-  const cleanSnippet = extractCleanPolishedText(content);
+  if (!content || agent.isStreaming) return;
   const paneId = tiles.focusedPaneId || tiles.allLeaves[0]?.id;
   if (!paneId || !tabs.activeTab) {
     toasts.warning(t('agent.msgInsertNoEditor'));
@@ -879,7 +1034,7 @@ function insertAssistantMessage(content: string) {
   }
   window.dispatchEvent(
     new CustomEvent('solomd:insert-markdown', {
-      detail: { snippet: cleanSnippet, paneId },
+      detail: { snippet: content, paneId },
     }),
   );
   toasts.success(t('agent.msgInserted'));
@@ -906,12 +1061,21 @@ async function send() {
   lastPrompt.value = prompt;
   resetThinkingState();
 
+  // Auto-save active note if dirty so disk content matches editor before tool calls (D06)
+  if (tabs.activeTab && tabs.activeTab.filePath && tabs.isDirty(tabs.activeTab.id)) {
+    try {
+      await files.saveTab(tabs.activeTab, { silent: true });
+    } catch (e) {
+      console.warn('Auto-save active tab before agent send failed:', e);
+    }
+  }
+
   const refsToSend = [...activeReferences.value];
   const imagesToSend = [...activeImages.value];
 
   const activeSel = (!isSelectionDismissed.value && activeSelectionText.value) ? activeSelectionText.value.trim() : '';
   const hasActiveSel = !!activeSel;
-  if (hasActiveSel) {
+  if (hasActiveSel && !refsToSend.some((r) => r.type === 'selection')) {
     refsToSend.push({
       type: 'selection',
       name: `${t('agent.refSelection')} (${activeSel.length}字)`,
@@ -935,7 +1099,6 @@ async function send() {
   draft.value = '';
   activeReferences.value = [];
   activeImages.value = [];
-  isSelectionDismissed.value = true;
   showMentionMenu.value = false;
   autoscroll();
 
@@ -943,18 +1106,36 @@ async function send() {
   const apiFormat = cfg?.apiFormat || 'openai';
   const model = settings.aiModel || cfg?.defaultModel || '';
   const baseUrl = settings.aiBaseUrl || cfg?.defaultBaseUrl || null;
+  const isOllama = apiFormat === 'ollama';
+  const isToolAllowed = settings.agentAllowWrite && !isOllama;
 
   // Compose conversation: system + history (excluding the empty placeholder).
-  const history = agent.messages
+  const rawHistory = agent.messages
     .slice(0, -1)
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => ({ role: m.role, content: m.content }));
 
+  const history: { role: string; content: string }[] = [];
+  for (const m of rawHistory) {
+    if (history.length === 0) {
+      if (m.role === 'user') {
+        history.push({ ...m });
+      }
+    } else {
+      const last = history[history.length - 1];
+      if (last.role === m.role) {
+        last.content = `${last.content}\n\n${m.content}`;
+      } else {
+        history.push({ ...m });
+      }
+    }
+  }
+
   const ctx = buildVaultContext();
-  const noteCtx = buildActiveNoteContext();
+  const noteCtx = buildActiveNoteContext(activeSel);
   const systemParts = [SYSTEM_PROMPT];
 
-  if (settings.agentAllowWrite) {
+  if (isToolAllowed) {
     if (hasActiveSel) {
       systemParts.push(
         "【核心指令：自动替换所选片段】\n" +
@@ -973,14 +1154,14 @@ async function send() {
     if (hasActiveSel) {
       systemParts.push(
         "【只读建议模式重要须知】\n" +
-        "当前处于【只读建议模式】，你没有直接写盘修改文件的权限，因此绝对严禁在回答中声称“已为你自动修改文件”或“已自动同步到工作区”。\n" +
+        "当前处于【只读建议模式】" + (isOllama ? "（本地 Ollama 模型）" : "") + "，你没有直接写盘修改文件的权限，因此绝对严禁在回答中声称“已为你自动修改文件”或“已自动同步到工作区”。\n" +
         "当用户要求润色或修改所选文本片段时：\n" +
         "1. 请在回复中用单个 markdown 代码块（```markdown ... ```）完整输出润色后的纯正文，严禁夹杂任何客套寒暄或修改列表在正文里；\n" +
         "2. 代码块外面可以附带简要的修改亮点；用户可以直接点击面板上的【⚡ 替换选区】一键应用到当前选区。"
       );
     } else {
       systemParts.push(
-        "【只读建议模式】当前处于只读建议模式，你没有直接修改笔记库的物理权限。请在回复中给出修改建议或完整代码块，绝对严禁虚假声称“已自动同步到工作区”。"
+        "【只读建议模式】当前处于只读建议模式" + (isOllama ? "（本地 Ollama 模型）" : "") + "，你没有直接修改笔记库的物理权限。请在回复中给出修改建议或完整代码块，绝对严禁虚假声称“已自动同步到工作区”。"
       );
     }
   }
@@ -1009,10 +1190,13 @@ async function send() {
   }
 
   // Stage 1: Explicit selection context
-  if (activeSelectionText.value && !isSelectionDismissed.value && !includeActiveNote.value) {
-    const truncatedSel = activeSelectionText.value.length > 8192 ? activeSelectionText.value.slice(0, 8192) + '\n…(截断)' : activeSelectionText.value;
+  if (hasActiveSel && !includeActiveNote.value) {
+    const truncatedSel = activeSel.length > 8192 ? activeSel.slice(0, 8192) + '\n…(截断)' : activeSel;
     systemParts.push(`【用户当前划选的高亮文本片段】\n\`\`\`markdown\n${truncatedSel}\n\`\`\``);
   }
+
+  // Now dismiss the badge after full prompt construction (D02)
+  isSelectionDismissed.value = true;
 
   const messages = [
     { role: 'system', content: systemParts.join('\n\n') },
@@ -1441,8 +1625,7 @@ onMounted(async () => {
       const payloadResult = e.payload.result as any;
       if (payloadResult.ok && payloadResult.path) {
         const path = payloadResult.path;
-        
-        const tab = tabs.tabs.find((t) => t.filePath === path || t.fileName === path);
+        const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
         if (payloadResult.backup_path) {
           reverts.value[e.payload.tool_call_id] = { type: 'path', data: payloadResult.backup_path };
         } else if (tab) {
@@ -2024,6 +2207,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       <button
                         class="agent-panel__bubble-action-btn"
                         type="button"
+                        :disabled="agent.isStreaming"
                         :title="t('agent.msgEditTitle')"
                         @click="startEditUserMessage(block.msg)"
                       >
@@ -2032,6 +2216,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       <button
                         class="agent-panel__bubble-action-btn"
                         type="button"
+                        :disabled="agent.isStreaming"
                         :title="t('agent.msgRecallTitle')"
                         @click="recallMessage(block.msg)"
                       >
@@ -2040,6 +2225,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       <button
                         class="agent-panel__bubble-action-btn agent-panel__bubble-action-btn--del"
                         type="button"
+                        :disabled="agent.isStreaming"
                         :title="t('agent.msgDeleteTurnTitle')"
                         @click="deleteTurn(block.msg)"
                       >
@@ -2180,12 +2366,23 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
                     </button>
                     <button
+                      class="agent-panel__msg-action-btn"
+                      type="button"
+                      :title="t('agent.msgQuoteTitle')"
+                      @click="insertQuote(block.msg.content)"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M3 8h3l-1.5 5h-2L3 8zm7 0h3l-1.5 5h-2L10 8zM3 4h4v3H3V4zm7 0h4v3h-4V4z"/>
+                      </svg>
+                      <span>{{ t('agent.msgQuote') }}</span>
+                    </button>
+                    <button
                       v-if="hasSelectionForMessage(block.msg)"
                       class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
                       type="button"
-                      :disabled="!canInsertIntoEditor"
+                      :disabled="!canInsertIntoEditor || agent.isStreaming"
                       :title="t('agent.msgAcceptReplaceTitle')"
-                      @click="applyPolishedTextToDoc(block.msg.content, getSelectionForMessage(block.msg))"
+                      @click="applyPolishedTextToDoc(block.msg.content, getSelectionContextForMessage(block.msg))"
                     >
                       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 9 6 12 13 4" />
@@ -2195,7 +2392,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     <button
                       class="agent-panel__msg-action-btn"
                       type="button"
-                      :disabled="!canInsertIntoEditor"
+                      :disabled="!canInsertIntoEditor || agent.isStreaming"
                       :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
                       @click="insertAssistantMessage(block.msg.content)"
                     >
@@ -2207,6 +2404,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     <button
                       class="agent-panel__msg-action-btn agent-panel__msg-action-btn--save"
                       type="button"
+                      :disabled="agent.isStreaming"
                       :title="t('agent.msgSaveAsNoteTitle')"
                       @click="saveAssistantAsNote(block.msg.content)"
                     >
@@ -2371,7 +2569,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             class="agent-panel__ref-tip-btn"
             :title="t('agent.enableAutoWriteTip')"
-            @click="settings.agentAllowWrite = true"
+            @click="settings.setAgentAllowWrite(true)"
           >
             <span class="agent-panel__ref-tip-icon">⚡</span>
             <span>{{ t('agent.enableAutoWriteHint') }}</span>
@@ -2406,7 +2604,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               type="button"
               class="agent-panel__mode-opt"
               :class="{ 'is-active': settings.agentAllowWrite }"
-              @click.stop="settings.agentAllowWrite = true"
+              @click.stop="settings.setAgentAllowWrite(true)"
             >
               ✏️ 编辑
             </button>
@@ -2414,7 +2612,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               type="button"
               class="agent-panel__mode-opt"
               :class="{ 'is-active': !settings.agentAllowWrite }"
-              @click.stop="settings.agentAllowWrite = false"
+              @click.stop="settings.setAgentAllowWrite(false)"
             >
               📖 只读
             </button>

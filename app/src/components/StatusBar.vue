@@ -23,7 +23,7 @@ const inbox = useInbox();
 const { t } = useI18n();
 
 const macChord = isMacOS();
-const isZh = computed(() => settings.language?.startsWith('zh') ?? true);
+
 function withChord(key: string, actionId: string): string {
   return t(key, { key: shortcutLabel(actionId, settings.keybindings, macChord) || '—' });
 }
@@ -50,10 +50,7 @@ const selStats = computed(() => {
 });
 
 const cursorText = computed(() => {
-  if (isZh.value) {
-    return `行 ${props.line}，列 ${props.col}`;
-  }
-  return `Ln ${props.line}, Col ${props.col}`;
+  return t('statusbar.cursorLine', { line: props.line, col: props.col });
 });
 
 // Interactive metric cycle: auto (words/cjk) -> chars -> lines -> readingTime
@@ -69,24 +66,24 @@ function cycleMetric() {
 const mainStatText = computed(() => {
   if (selStats.value) {
     if (selStats.value.cjk > 0) {
-      return isZh.value ? `已选 ${selStats.value.cjk} 字` : `${selStats.value.cjk} CJK selected`;
+      return t('statusbar.cjkSelected', { count: selStats.value.cjk });
     }
-    return isZh.value ? `已选 ${selStats.value.total} 词` : `${selStats.value.total} words selected`;
+    return t('statusbar.wordsSelected', { count: selStats.value.total });
   }
 
   switch (metricMode.value) {
     case 'chars':
-      return isZh.value ? `${charCount.value.toLocaleString()} 字符` : `${charCount.value.toLocaleString()} chars`;
+      return t('statusbar.charsUnit', { count: charCount.value.toLocaleString() });
     case 'lines':
-      return isZh.value ? `${lineCount.value.toLocaleString()} 行` : `${lineCount.value.toLocaleString()} lines`;
+      return t('statusbar.linesUnit', { count: lineCount.value.toLocaleString() });
     case 'readingTime':
-      return isZh.value ? `~${readingTime.value} 分钟阅读` : `~${readingTime.value} min read`;
+      return t('statusbar.readingTimeUnit', { min: readingTime.value });
     case 'auto':
     default:
       if (cjkCount.value > 0) {
-        return isZh.value ? `${cjkCount.value.toLocaleString()} 字` : `${cjkCount.value.toLocaleString()} CJK`;
+        return t('statusbar.cjkUnit', { count: cjkCount.value.toLocaleString() });
       }
-      return isZh.value ? `${wordCount.value.toLocaleString()} 词` : `${wordCount.value.toLocaleString()} words`;
+      return t('statusbar.wordsUnit', { count: wordCount.value.toLocaleString() });
   }
 });
 
@@ -151,17 +148,17 @@ function onPillClick() {
       v-if="tabs.activeTab?.language === 'markdown'"
       class="seg seg--source-toggle"
       :class="{ 'is-source-active': !settings.livePreview }"
-      :title="settings.livePreview ? (isZh ? '切换到源码模式 (Ctrl+/)' : 'Switch to Source Mode (Ctrl+/)') : (isZh ? '返回实时编辑 (Ctrl+/)' : 'Return to Live Edit (Ctrl+/)')"
+      :title="settings.livePreview ? t('statusbar.switchToSource') : t('statusbar.returnToLive')"
       @click="settings.toggleLivePreview()"
     >
       <span class="source-icon">&lt;/&gt;</span>
-      <span class="source-label">{{ !settings.livePreview ? (isZh ? '源码' : 'Source') : (isZh ? '实时' : 'Live') }}</span>
+      <span class="source-label">{{ !settings.livePreview ? t('statusbar.sourceLabel') : t('statusbar.liveLabel') }}</span>
     </button>
 
     <span class="sep sep--mode">|</span>
 
     <!-- Cursor Position -->
-    <span class="seg seg--cursor" :title="isZh ? '当前光标行列位置' : 'Current cursor line and column'">
+    <span class="seg seg--cursor" :title="t('statusbar.cursorTooltip')">
       {{ cursorText }}
     </span>
 
@@ -176,7 +173,7 @@ function onPillClick() {
       <button
         class="seg seg--stats-btn"
         :class="{ 'seg--selection-active': !!selStats }"
-        :title="isZh ? '点击切换显示单位 (字数/字符/行数/阅读时间)，悬浮查看详细统计卡片' : 'Click to cycle units (words/chars/lines/reading time), hover for full statistics'"
+        :title="t('statusbar.statsTooltip')"
         @click="cycleMetric"
       >
         <span>{{ mainStatText }}</span>
@@ -196,55 +193,55 @@ function onPillClick() {
               <svg class="stats-popover__icon" viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
                 <path d="M2 3.75C2 2.784 2.784 2 3.75 2h8.5c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 12.25 14h-8.5A1.75 1.75 0 0 1 2 12.25Zm1.75-.25a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25ZM4.5 5.5h7v1.25h-7Zm0 2.5h7v1.25h-7Zm0 2.5h4.5v1.25H4.5Z"/>
               </svg>
-              <span class="stats-popover__title">{{ isZh ? '字数与文档统计' : 'Document Statistics' }}</span>
+              <span class="stats-popover__title">{{ t('statusbar.docStats') }}</span>
             </div>
-            <button class="stats-popover__close" :title="isZh ? '关闭' : 'Close'" @click="showStatsPopover = false">×</button>
+            <button class="stats-popover__close" :title="t('statusbar.close')" @click="showStatsPopover = false">×</button>
           </div>
 
           <div class="stats-popover__grid">
             <div class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '总词数' : 'Total Words' }}</span>
+              <span class="stats-popover__label">{{ t('statusbar.totalWords') }}</span>
               <span class="stats-popover__val">{{ wordCount.toLocaleString() }}</span>
             </div>
             <div v-if="cjkCount > 0" class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '中文字数' : 'CJK Characters' }}</span>
+              <span class="stats-popover__label">{{ t('statusbar.cjkChars') }}</span>
               <span class="stats-popover__val stats-popover__val--accent">{{ cjkCount.toLocaleString() }}</span>
             </div>
             <div class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '字符数 (不计空格)' : 'Characters (no spaces)' }}</span>
+              <span class="stats-popover__label">{{ t('statusbar.charsNoSpaces') }}</span>
               <span class="stats-popover__val">{{ charCount.toLocaleString() }}</span>
             </div>
             <div class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '字符数 (计空格)' : 'Characters (with spaces)' }}</span>
+              <span class="stats-popover__label">{{ t('statusbar.charsWithSpaces') }}</span>
               <span class="stats-popover__val">{{ charWithSpaces.toLocaleString() }}</span>
             </div>
             <div class="stats-popover__row">
-              <span class="stats-popover__label">{{ isZh ? '总行数' : 'Total Lines' }}</span>
+              <span class="stats-popover__label">{{ t('statusbar.totalLines') }}</span>
               <span class="stats-popover__val">{{ lineCount.toLocaleString() }}</span>
             </div>
             <div class="stats-popover__row stats-popover__row--footer">
-              <span class="stats-popover__label">{{ isZh ? '预计阅读时间' : 'Reading Time' }}</span>
-              <span class="stats-popover__val">~{{ readingTime }} {{ isZh ? '分钟' : 'min' }}</span>
+              <span class="stats-popover__label">{{ t('statusbar.readingTime') }}</span>
+              <span class="stats-popover__val">~{{ readingTime }} {{ t('statusbar.minuteUnit') }}</span>
             </div>
 
             <!-- Selection stats if active -->
             <div v-if="selStats" class="stats-popover__selection-box">
-              <div class="stats-popover__selection-title">{{ isZh ? '当前选中文本' : 'Selected Text' }}</div>
+              <div class="stats-popover__selection-title">{{ t('statusbar.selectedText') }}</div>
               <div class="stats-popover__row">
-                <span class="stats-popover__label">{{ isZh ? '选中字词' : 'Selected Words' }}</span>
+                <span class="stats-popover__label">{{ t('statusbar.selectedWords') }}</span>
                 <span class="stats-popover__val stats-popover__val--accent">
-                  {{ (selStats.cjk > 0 ? `${selStats.cjk} 字` : `${selStats.total} 词`) }}
+                  {{ selStats.cjk > 0 ? t('statusbar.cjkWordUnit', { count: selStats.cjk }) : t('statusbar.wordUnit', { count: selStats.total }) }}
                 </span>
               </div>
               <div class="stats-popover__row">
-                <span class="stats-popover__label">{{ isZh ? '选中字符数' : 'Selected Chars' }}</span>
+                <span class="stats-popover__label">{{ t('statusbar.selectedChars') }}</span>
                 <span class="stats-popover__val">{{ selStats.chars.toLocaleString() }}</span>
               </div>
             </div>
           </div>
 
           <div class="stats-popover__hint">
-            {{ isZh ? '点击底栏数值可切换常驻显示单位' : 'Click status number to cycle metric units' }}
+            {{ t('statusbar.statsHint') }}
           </div>
         </div>
       </Transition>
@@ -265,18 +262,18 @@ function onPillClick() {
     <button
       v-if="settings.focusMode"
       class="seg seg--badge"
-      :title="isZh ? '专注模式 (F8)' : 'Focus Mode (F8)'"
+      :title="t('statusbar.focusModeLabel')"
       @click="settings.toggleFocusMode()"
     >
-      🎯 {{ isZh ? '专注' : 'Focus' }}
+      🎯 {{ t('menubar.focusMode') }}
     </button>
     <button
       v-if="settings.typewriterMode"
       class="seg seg--badge seg--typewriter"
-      :title="isZh ? '打字机模式 (光标居中 · F9)' : 'Typewriter Mode (F9)'"
+      :title="t('statusbar.typewriterModeLabel')"
       @click="settings.toggleTypewriterMode()"
     >
-      ⌨️ {{ isZh ? '打字机' : 'Typewriter' }}
+      ⌨️ {{ t('menubar.typewriterMode') }}
     </button>
 
     <span class="spacer"></span>

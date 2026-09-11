@@ -31,8 +31,10 @@
   --text: #37352f;
   --text-muted: #787774;
   --text-faint: #b4b4b4;
-  --accent: #ff9f40;
-  --accent-fg: #1a1a1a;
+  --accent: #0366d6;
+  --accent-fg: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 45%, transparent);
   --danger: #d64545;
 
   /* v4.6 F2 — type-section accent palette (types-as-lenses). Six fixed
@@ -314,6 +316,8 @@
   --text-faint: #8b949e;
   --accent: #0366d6;
   --accent-fg: #ffffff;
+  --accent-soft: rgba(3, 102, 214, 0.08);
+  --accent-ring: rgba(3, 102, 214, 0.45);
   --selection-bg: rgba(3, 102, 214, 0.15);
   --md-h1: inherit; --md-h2: inherit; --md-h3: inherit;
   --md-h4: inherit; --md-h5: inherit; --md-h6: inherit;
@@ -1486,6 +1490,39 @@ body.solomd-printing--dark {
   border-radius: 4px;
 }
 
+/* Interactive table cell hover — clean soft blue highlight */
+.cm-interactive-table th:hover,
+.cm-interactive-table td:hover,
+.cm-live-block--table th:hover,
+.cm-live-block--table td:hover,
+.tbl__grid th:hover,
+.tbl__grid td:hover {
+  background: color-mix(in srgb, var(--accent, #0366d6) 8%, var(--bg-elev, #ffffff));
+  outline: 1px solid color-mix(in srgb, var(--accent, #0366d6) 45%, transparent);
+  outline-offset: -1px;
+  cursor: text;
+}
+
+/* Interactive table cell active / focus — clear theme blue ring */
+.cm-interactive-table th:focus,
+.cm-interactive-table td:focus,
+.cm-interactive-table th[contenteditable="true"]:focus,
+.cm-interactive-table td[contenteditable="true"]:focus,
+.cm-interactive-table .is-editing,
+.cm-live-block--table th:focus,
+.cm-live-block--table td:focus,
+.cm-live-block--table th[contenteditable="true"]:focus,
+.cm-live-block--table td[contenteditable="true"]:focus,
+.tbl__grid th.tbl__focus,
+.tbl__grid td.tbl__focus,
+.tbl__cell:focus {
+  outline: 1.5px solid var(--accent, #0366d6) !important;
+  outline-offset: -1px !important;
+  background: color-mix(in srgb, var(--accent, #0366d6) 12%, var(--bg-elev, #ffffff)) !important;
+  z-index: 2;
+  position: relative;
+}
+
 /* Typora-grade comfortable text selection across the entire app and inside tables */
 ::selection {
   background: var(--selection-bg, rgba(56, 139, 253, 0.24));
@@ -1526,11 +1563,14 @@ body.solomd-printing--dark {
   background: var(--bg-elev, #fcfbf9) !important;
   z-index: 50 !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
 }
 
 .cm-panel.cm-search {
   display: grid !important;
-  grid-template-columns: 150px auto auto auto auto auto !important;
+  grid-template-columns: 160px auto auto auto auto auto !important;
   align-items: center !important;
   gap: 5px 6px !important;
   padding: 6px 36px 6px 12px !important;
@@ -1542,13 +1582,14 @@ body.solomd-printing--dark {
   position: relative !important;
   width: fit-content !important;
   max-width: 100% !important;
+  margin: 0 auto !important;
 }
 
 /* Row 1: Search input and query navigation */
 .cm-panel.cm-search input[name="search"] {
   grid-column: 1 !important;
   grid-row: 1 !important;
-  width: 150px !important;
+  width: 160px !important;
 }
 .cm-panel.cm-search button[name="next"] {
   grid-column: 2 !important;
@@ -1570,7 +1611,7 @@ body.solomd-printing--dark {
 .cm-panel.cm-search input[name="replace"] {
   grid-column: 1 !important;
   grid-row: 2 !important;
-  width: 150px !important;
+  width: 160px !important;
 }
 .cm-panel.cm-search button[name="replace"] {
   grid-column: 2 !important;
@@ -1609,8 +1650,8 @@ body.solomd-printing--dark {
 }
 
 .cm-panel.cm-search input.cm-textfield:focus {
-  border-color: var(--accent, #ff9f40) !important;
-  box-shadow: 0 0 0 2px var(--accent-ring, rgba(255, 159, 64, 0.25)) !important;
+  border-color: var(--accent, #0366d6) !important;
+  box-shadow: 0 0 0 2px var(--accent-ring, rgba(3, 102, 214, 0.25)) !important;
 }
 
 .cm-panel.cm-search input.cm-textfield::placeholder {
@@ -1670,7 +1711,7 @@ body.solomd-printing--dark {
 }
 
 .cm-panel.cm-search label input[type="checkbox"] {
-  accent-color: var(--accent, #ff9f40) !important;
+  accent-color: var(--accent, #0366d6) !important;
   cursor: pointer !important;
   width: 13px !important;
   height: 13px !important;

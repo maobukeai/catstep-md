@@ -22,7 +22,11 @@ const tabs = useTabsStore();
 const settings = useSettingsStore();
 const { t } = useI18n();
 const listRef = ref<HTMLUListElement | null>(null);
+const filterInputRef = ref<HTMLInputElement | null>(null);
 const collapsedByTab = ref<Record<string, number[]>>({});
+
+// Search filter state
+const searchQuery = ref('');
 
 // ---------------------------------------------------------------------------
 // v3.1.x keyboard jump (vimium-style)
@@ -102,15 +106,31 @@ function buildTree(list: OutlineItem[]): OutlineNode[] {
   return roots;
 }
 
+function filterTree(nodes: OutlineNode[], q: string): OutlineNode[] {
+  const result: OutlineNode[] = [];
+  for (const node of nodes) {
+    const isSelfMatch = node.item.text.toLowerCase().includes(q);
+    const matchingChildren = filterTree(node.children, q);
+    if (isSelfMatch || matchingChildren.length > 0) {
+      result.push({
+        item: node.item,
+        children: matchingChildren,
+      });
+    }
+  }
+  return result;
+}
+
 function flattenVisible(
   nodes: OutlineNode[],
   collapsed: Set<number>,
+  isSearching: boolean,
   depth = 0,
 ): VisibleOutlineItem[] {
   const out: VisibleOutlineItem[] = [];
   for (const node of nodes) {
     const hasChildren = node.children.length > 0;
-    const isCollapsed = hasChildren && collapsed.has(node.item.line);
+    const isCollapsed = !isSearching && hasChildren && collapsed.has(node.item.line);
     out.push({
       ...node.item,
       hasChildren,
@@ -118,7 +138,7 @@ function flattenVisible(
       depth,
     });
     if (hasChildren && !isCollapsed) {
-      out.push(...flattenVisible(node.children, collapsed, depth + 1));
+      out.push(...flattenVisible(node.children, collapsed, isSearching, depth + 1));
     }
   }
   return out;
@@ -126,9 +146,117 @@ function flattenVisible(
 
 const visibleItems = computed(() => {
   const tree = buildTree(items.value);
+  const q = searchQuery.value.trim().toLowerCase();
   const collapsed = new Set(collapsedLinesFor(activeMarkdownTab.value?.id));
-  return flattenVisible(tree, collapsed);
+  if (q) {
+    const filtered = filterTree(tree, q);
+    return flattenVisible(filtered, collapsed, true);
+  }
+  return flattenVisible(tree, collapsed, false);
 });
+
+const matchCount = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return 0;
+  return items.value.filter((it) => it.text.toLowerCase().includes(q)).length;
+});
+
+function collectParentLines(nodes: OutlineNode[]): number[] {
+  const lines: number[] = [];
+  function walk(n: OutlineNode) {
+    if (n.children.length > 0) {
+      lines.push(n.item.line);
+      n.children.forEach(walk);
+    }
+  }
+  nodes.forEach(walk);
+  return lines;
+}
+
+const allParentLines = computed(() => {
+  const tree = buildTree(items.value);
+  return collectParentLines(tree);
+});
+
+const isAllCollapsed = computed(() => {
+  const tabId = activeMarkdownTab.value?.id;
+  if (!tabId || allParentLines.value.length === 0) return false;
+  const current = new Set(collapsedLinesFor(tabId));
+  return allParentLines.value.every((line) => current.has(line));
+});
+
+function toggleCollapseAll() {
+  const tabId = activeMarkdownTab.value?.id;
+  if (!tabId || allParentLines.value.length === 0) return;
+  if (isAllCollapsed.value) {
+    setCollapsedLines(tabId, []);
+  } else {
+    setCollapsedLines(tabId, [...allParentLines.value]);
+  }
+}
+
+const countBadgeText = computed(() => {
+  const total = items.value.length;
+  if (searchQuery.value.trim()) {
+    return `${matchCount.value}/${total}`;
+  }
+  return String(total);
+});
+
+const countTooltip = computed(() => {
+  const total = items.value.length;
+  if (searchQuery.value.trim()) {
+    return t('outline.filteredCount', { matched: matchCount.value, total });
+  }
+  return t('outline.headingCount', { count: total });
+});
+
+
+function splitMatch(text: string, query: string): { text: string; isMatch: boolean }[] {
+  const q = query.trim();
+  if (!q) return [{ text, isMatch: false }];
+  const lowerText = text.toLowerCase();
+  const lowerQ = q.toLowerCase();
+  const idx = lowerText.indexOf(lowerQ);
+  if (idx === -1) return [{ text, isMatch: false }];
+  const res: { text: string; isMatch: boolean }[] = [];
+  let start = 0;
+  let pos = idx;
+  while (pos !== -1) {
+    if (pos > start) {
+      res.push({ text: text.slice(start, pos), isMatch: false });
+    }
+    res.push({ text: text.slice(pos, pos + q.length), isMatch: true });
+    start = pos + q.length;
+    pos = lowerText.indexOf(lowerQ, start);
+  }
+  if (start < text.length) {
+    res.push({ text: text.slice(start), isMatch: false });
+  }
+  return res;
+}
+
+function onFilterKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (visibleItems.value.length > 0) {
+      const q = searchQuery.value.trim().toLowerCase();
+      const match = visibleItems.value.find((it) => it.text.toLowerCase().includes(q)) || visibleItems.value[0];
+      if (match) {
+        emit('goto', match.line);
+      }
+    }
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    searchQuery.value = '';
+    filterInputRef.value?.blur();
+  }
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  filterInputRef.value?.focus();
+}
 
 function toggleCollapsed(line: number) {
   const tabId = activeMarkdownTab.value?.id;
@@ -278,13 +406,72 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
       </button>
     </div>
     <div v-show="!collapsed" class="outline__body">
-      <div v-if="!visibleItems.length" class="outline__empty">{{ t('outline.empty') }}</div>
+      <!-- Instant Search Filter & Actions Bar (Single combined row) -->
+      <div v-if="items.length > 0" class="outline__filter-box">
+        <div class="outline__filter-input-wrap">
+          <svg class="outline__filter-icon" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="6.5" cy="6.5" r="4.5" />
+            <line x1="10" y1="10" x2="14.5" y2="14.5" />
+          </svg>
+          <input
+            ref="filterInputRef"
+            v-model="searchQuery"
+            type="text"
+            class="outline__filter-input"
+            :placeholder="t('outline.filterPlaceholder')"
+            @keydown="onFilterKeydown"
+          />
+          <span class="outline__filter-badge" :title="countTooltip">
+            {{ countBadgeText }}
+          </span>
+          <button
+            v-if="searchQuery.trim()"
+            class="outline__filter-clear"
+            :title="t('outline.clearFilter')"
+            @click="clearSearch"
+          >
+            <svg viewBox="0 0 16 16" width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+              <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="outline__filter-actions">
+          <!-- Collapse / Expand All -->
+          <button
+            class="outline__tool-btn"
+            :title="isAllCollapsed ? t('outline.expandAll') : t('outline.collapseAll')"
+            :disabled="!allParentLines.length"
+            @click="toggleCollapseAll"
+          >
+            <!-- Parallel up/down arrows -->
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="2 5 5 2 8 5" />
+              <line x1="5" y1="2" x2="5" y2="14" />
+              <polyline points="8 11 11 14 14 11" />
+              <line x1="11" y1="2" x2="11" y2="14" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty state when 0 headings in document -->
+      <div v-if="!items.length" class="outline__empty">{{ t('outline.empty') }}</div>
+
+      <!-- Empty search state -->
+      <div v-else-if="!visibleItems.length && searchQuery.trim()" class="outline__empty-search">
+        <p class="outline__empty-msg">{{ t('outline.noMatchingHeadings') }}</p>
+        <button class="outline__empty-action" @click="clearSearch">{{ t('outline.clearFilter') }}</button>
+      </div>
+
+      <!-- Headings list -->
       <ul ref="listRef" class="outline__list" v-else>
         <li
           v-for="(it, i) in visibleItems"
           :key="`${it.line}-${it.text}`"
           :class="['outline__item', { 'outline__item--active': i === activeIndex }]"
-          :style="{ '--outline-pl': 4 + it.depth * 5 + 'px' }"
+          :style="{ '--outline-pl': 4 + it.depth * 8 + 'px' }"
         >
           <button
             v-if="it.hasChildren"
@@ -322,10 +509,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
             @click="emit('goto', it.line)"
             :title="it.text"
           >
-            {{ it.text }}
+            <template v-if="searchQuery.trim()">
+              <template v-for="(part, pIdx) in splitMatch(it.text, searchQuery)" :key="pIdx">
+                <mark v-if="part.isMatch" class="outline__mark">{{ part.text }}</mark>
+                <span v-else>{{ part.text }}</span>
+              </template>
+            </template>
+            <template v-else>{{ it.text }}</template>
           </button>
         </li>
       </ul>
+
+      <!-- Jump hints status bar -->
       <div v-if="jumpMode === 'line-jump'" class="outline__statusbar">
         <span class="outline__statusbar-prefix">: g</span><span class="outline__statusbar-buf">{{ lineBuffer || '_' }}</span>
         <span class="outline__statusbar-hint">{{ t('outline.lineJumpHint') }}</span>
@@ -348,6 +543,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   flex-direction: column;
   user-select: none;
 }
+
 .outline__header {
   height: 34px;
   min-height: 34px;
@@ -359,6 +555,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
 }
+
 .outline__body {
   flex: 1;
   min-height: 0;
@@ -366,6 +563,170 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   flex-direction: column;
   overflow: hidden;
 }
+
+.outline__filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.outline__tool-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  transition: all 0.12s ease;
+}
+
+.outline__tool-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+.outline__tool-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+
+/* Filter Box */
+.outline__filter-box {
+  padding: 6px 8px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.outline__filter-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 26px;
+  padding: 0 6px;
+  transition: all 0.15s ease;
+  min-width: 0;
+}
+
+.outline__filter-input-wrap:focus-within {
+  border-color: var(--accent, #0366d6);
+  box-shadow: 0 0 0 2px var(--accent-ring, rgba(3, 102, 214, 0.2));
+}
+
+.outline__filter-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-right: 5px;
+}
+
+.outline__filter-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 11.5px;
+  outline: none;
+  padding: 0;
+  line-height: 1;
+}
+
+.outline__filter-input::placeholder {
+  color: var(--text-faint, #888);
+}
+
+.outline__filter-badge {
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #0366d6) 15%, transparent);
+  color: var(--accent, #0366d6);
+  font-weight: 600;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+.outline__filter-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.1s ease;
+}
+
+.outline__filter-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* Matching Highlight */
+:deep(.outline__mark) {
+  background: color-mix(in srgb, var(--accent, #0366d6) 28%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+
+/* Empty Search State */
+.outline__empty-search {
+  padding: 20px 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.outline__empty-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.outline__empty-action {
+  font-size: 11.5px;
+  color: var(--accent, #0366d6);
+  background: color-mix(in srgb, var(--accent, #0366d6) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, #0366d6) 25%, transparent);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.outline__empty-action:hover {
+  background: color-mix(in srgb, var(--accent, #0366d6) 20%, transparent);
+}
+
 .outline__empty {
   padding: 14px 16px;
   text-align: center;
@@ -373,6 +734,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   font-size: 12px;
   line-height: 1.6;
 }
+
 .outline__title {
   font-size: 11px;
   font-weight: 600;
@@ -381,6 +743,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   color: var(--text-muted);
   line-height: 1;
 }
+
 .outline__close {
   width: 22px;
   height: 22px;
@@ -395,11 +758,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   padding: 0;
   transition: all 0.12s ease;
 }
+
 .outline__close:hover {
   color: var(--text);
   background: var(--bg-hover);
   border-color: var(--border);
 }
+
 .outline__list {
   list-style: none;
   margin: 0;
@@ -407,6 +772,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   overflow-y: auto;
   flex: 1;
 }
+
 .outline__item {
   font-size: 12px;
   line-height: 1.45;
@@ -417,10 +783,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   color: var(--text);
   transition: background 0.1s ease, color 0.1s ease;
 }
+
 .outline__item:hover {
   background: var(--bg-hover);
   color: var(--accent);
 }
+
 .outline__item--active {
   background: var(--bg-active);
   color: var(--accent);
@@ -428,6 +796,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   border-left: 2px solid var(--accent);
   padding-left: calc(var(--outline-pl, 4px) - 2px);
 }
+
+@keyframes outline-pulse {
+  0% {
+    box-shadow: inset 0 0 0 2px var(--accent, #0366d6);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+}
+
+.outline__item--highlight-pulse {
+  animation: outline-pulse 1.2s ease-out;
+}
+
 .outline__twisty {
   width: 8px;
   height: 14px;
@@ -443,23 +825,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   border: none;
   cursor: pointer;
 }
+
 .outline__twisty:hover {
   color: var(--accent);
 }
+
 .outline__twisty-icon {
   width: 6.5px;
   height: 6.5px;
   transition: transform 0.15s ease;
   transform-origin: center;
 }
+
 .outline__twisty-icon.is-expanded {
   transform: rotate(90deg);
 }
+
 .outline__twisty--spacer {
   width: 8px;
   flex: 0 0 8px;
   pointer-events: none;
 }
+
 .outline__label {
   min-width: 0;
   flex: 1;
@@ -470,12 +857,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   word-break: break-word;
   overflow-wrap: break-word;
   line-height: 1.45;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
-.outline__empty {
-  padding: 14px;
-  font-size: 12px;
-  color: var(--text-faint);
-}
+
 .outline__keylabel {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 10px;
@@ -490,11 +877,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   user-select: none;
   margin-top: 1.5px;
 }
+
 .outline__item:hover .outline__keylabel,
 .outline__item--active .outline__keylabel {
   background: var(--accent);
   color: var(--accent-fg, #1a1a1a);
 }
+
 .outline__statusbar {
   border-top: 1px solid var(--border);
   padding: 6px 10px;
@@ -506,18 +895,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   align-items: center;
   gap: 8px;
 }
+
 .outline__statusbar--idle {
   color: var(--text-faint);
   background: transparent;
 }
+
 .outline__statusbar-prefix {
   color: var(--accent);
   font-weight: 600;
 }
+
 .outline__statusbar-buf {
   flex: 1;
   font-weight: 600;
 }
+
 .outline__statusbar-hint {
   margin-left: auto;
   color: var(--text-faint);

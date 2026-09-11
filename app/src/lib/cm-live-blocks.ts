@@ -1491,10 +1491,16 @@ export const liveBlocksTheme = EditorView.theme({
     padding: '0.15em 0.4em',
     borderRadius: '4px',
   },
-  '.cm-live-block--table th[contenteditable="true"]:focus, .cm-live-block--table td[contenteditable="true"]:focus': {
-    outline: '1.5px solid var(--accent-ring, rgba(56, 139, 253, 0.55))',
+  '.cm-live-block--table th:hover, .cm-live-block--table td:hover, .cm-interactive-table th:hover, .cm-interactive-table td:hover': {
+    background: 'color-mix(in srgb, var(--accent, #0366d6) 8%, var(--bg-elev, #ffffff))',
+    outline: '1px solid color-mix(in srgb, var(--accent, #0366d6) 45%, transparent)',
     outlineOffset: '-1px',
-    background: 'var(--accent-soft, rgba(56, 139, 253, 0.05))',
+    cursor: 'text',
+  },
+  '.cm-live-block--table th[contenteditable="true"]:focus, .cm-live-block--table td[contenteditable="true"]:focus, .cm-interactive-table th[contenteditable="true"]:focus, .cm-interactive-table td[contenteditable="true"]:focus, .cm-interactive-table .is-editing': {
+    outline: '1.5px solid var(--accent, #0366d6)',
+    outlineOffset: '-1px',
+    background: 'color-mix(in srgb, var(--accent, #0366d6) 12%, var(--bg-elev, #ffffff)) !important',
     zIndex: '2',
     position: 'relative',
   },
