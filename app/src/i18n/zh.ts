@@ -1719,7 +1719,11 @@ export const zh: I18n = {
     msgAcceptReplaceTitle: '采纳此润色结果并替换正文中的原选区',
     msgAcceptReplaceSuccess: '已采纳并替换正文内容',
     msgTargetSelectionNotFound: '未在当前笔记中找到原始段落，请手动选择替换',
-    enableAutoWriteTip: '⚡ 开启自动修改',
+    msgMore: '更多',
+    msgMoreTitle: '更多操作',
+    msgInsertAtCursor: '插入到光标处',
+    msgInsertAtCursorTitle: '把这条回复插入到当前笔记的光标位置',
+    enableAutoWriteTip: '开启自动修改',
     enableAutoWriteHint: '当前为只读模式，点击切换为编辑模式以允许 AI 直接修改正文',
   },
   rightSidebar: {

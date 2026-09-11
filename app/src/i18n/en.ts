@@ -1739,7 +1739,11 @@ export const en = {
     msgAcceptReplaceTitle: 'Accept this polished text and replace original selection in note',
     msgAcceptReplaceSuccess: 'Replaced text in active note',
     msgTargetSelectionNotFound: 'Original text not found in active note, please select and replace manually',
-    enableAutoWriteTip: '⚡ Enable Auto-Edit',
+    msgMore: 'More',
+    msgMoreTitle: 'More actions',
+    msgInsertAtCursor: 'Insert at Cursor',
+    msgInsertAtCursorTitle: 'Insert this reply at current cursor position in active note',
+    enableAutoWriteTip: 'Enable Auto-Edit',
     enableAutoWriteHint: 'Currently read-only. Click to enable Edit mode so AI can modify text directly',
   },
   rightSidebar: {

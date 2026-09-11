@@ -195,12 +195,34 @@ function retryLastPrompt() {
   void send();
 }
 
+const activeMoreMenuMsgId = ref<string | null>(null);
+
+function toggleMoreMenu(msgId: string, e?: MouseEvent) {
+  if (e) {
+    e.stopPropagation();
+  }
+  if (activeMoreMenuMsgId.value === msgId) {
+    activeMoreMenuMsgId.value = null;
+  } else {
+    activeMoreMenuMsgId.value = msgId;
+  }
+}
+
+function closeMoreMenu() {
+  activeMoreMenuMsgId.value = null;
+}
+
 function onWindowClick(e?: MouseEvent) {
   if (showHistoryDropdown.value) {
     showHistoryDropdown.value = false;
   }
   if (showMentionMenu.value) {
     showMentionMenu.value = false;
+  }
+  if (activeMoreMenuMsgId.value) {
+    if (!e || !(e.target as HTMLElement)?.closest?.('.agent-panel__more-wrap')) {
+      activeMoreMenuMsgId.value = null;
+    }
   }
   if (quoteTooltip.value.visible && !quoteJustOpened) {
     if (!e || !(e.target as HTMLElement)?.closest?.('.agent-panel__quote-tooltip')) {
@@ -1336,6 +1358,7 @@ function resetThinkingState() {
 
 function cleanupListeners() {
   agentMountToken++;
+  activeMoreMenuMsgId.value = null;
   while (activeUnlistens.length) {
     const fn = activeUnlistens.pop();
     try {
@@ -2389,69 +2412,165 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     v-if="block.msg.content && !(agent.isStreaming && block.idx === agent.messages.length - 1)"
                     class="agent-panel__msg-actions"
                   >
-                    <button
-                      class="agent-panel__msg-action-btn"
-                      type="button"
-                      :disabled="agent.isStreaming"
-                      :title="t('agent.msgRegenerateTitle')"
-                      @click="regenerateAssistant(block.msg)"
-                    >
-                      <span>{{ t('agent.msgRegenerate') }}</span>
-                    </button>
-                    <button
-                      class="agent-panel__msg-action-btn"
-                      :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
-                      type="button"
-                      :title="t('agent.msgCopyTitle')"
-                      @click="copyAssistantMessage(block.msg.content, block.msg.id)"
-                    >
-                      <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
-                    </button>
-                    <button
-                      class="agent-panel__msg-action-btn"
-                      type="button"
-                      :title="t('agent.msgQuoteTitle')"
-                      @click="insertQuote(block.msg.content)"
-                    >
-                      <span>{{ t('agent.msgQuote') }}</span>
-                    </button>
-                    <button
-                      v-if="hasSelectionForMessage(block.msg)"
-                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
-                      type="button"
-                      :disabled="!canInsertIntoEditor || agent.isStreaming"
-                      :title="t('agent.msgAcceptReplaceTitle')"
-                      @click="applyPolishedTextToDoc(block.msg.content, getSelectionContextForMessage(block.msg))"
-                    >
-                      <span>{{ t('agent.msgAcceptReplace') }}</span>
-                    </button>
-                    <button
-                      class="agent-panel__msg-action-btn"
-                      type="button"
-                      :disabled="!canInsertIntoEditor || agent.isStreaming"
-                      :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
-                      @click="insertAssistantMessage(block.msg.content)"
-                    >
-                      <span>{{ t('agent.msgInsert') }}</span>
-                    </button>
-                    <button
-                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--save"
-                      type="button"
-                      :disabled="agent.isStreaming"
-                      :title="t('agent.msgSaveAsNoteTitle')"
-                      @click="saveAssistantAsNote(block.msg.content)"
-                    >
-                      <span>{{ t('agent.msgSaveAsNote') }}</span>
-                    </button>
-                    <button
-                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--del"
-                      type="button"
-                      :disabled="agent.isStreaming"
-                      :title="t('agent.msgDeleteMsgTitle')"
-                      @click="deleteAssistantMessage(block.msg)"
-                    >
-                      <span>{{ t('agent.msgDelete') }}</span>
-                    </button>
+                    <!-- Mode 1: Read-Only Mode (agentAllowWrite === false) -->
+                    <template v-if="!settings.agentAllowWrite">
+                      <!-- Scene 1.1: Selection Context present -> Primary action is "Accept & Replace" -->
+                      <button
+                        v-if="hasSelectionForMessage(block.msg)"
+                        class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
+                        type="button"
+                        :disabled="!canInsertIntoEditor || agent.isStreaming"
+                        :title="t('agent.msgAcceptReplaceTitle')"
+                        @click="applyPolishedTextToDoc(block.msg.content, getSelectionContextForMessage(block.msg))"
+                      >
+                        <span>{{ t('agent.msgAcceptReplace') }}</span>
+                      </button>
+
+                      <!-- Scene 1.2: No Selection Context -> Primary action is "Insert" -->
+                      <button
+                        v-else
+                        class="agent-panel__msg-action-btn"
+                        type="button"
+                        :disabled="!canInsertIntoEditor || agent.isStreaming"
+                        :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
+                        @click="insertAssistantMessage(block.msg.content)"
+                      >
+                        <span>{{ t('agent.msgInsert') }}</span>
+                      </button>
+
+                      <!-- Primary common actions -->
+                      <button
+                        class="agent-panel__msg-action-btn"
+                        :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
+                        type="button"
+                        :title="t('agent.msgCopyTitle')"
+                        @click="copyAssistantMessage(block.msg.content, block.msg.id)"
+                      >
+                        <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
+                      </button>
+                      <button
+                        class="agent-panel__msg-action-btn"
+                        type="button"
+                        :disabled="agent.isStreaming"
+                        :title="t('agent.msgRegenerateTitle')"
+                        @click="regenerateAssistant(block.msg)"
+                      >
+                        <span>{{ t('agent.msgRegenerate') }}</span>
+                      </button>
+
+                      <!-- "More" dropdown menu for Read-Only mode -->
+                      <div class="agent-panel__more-wrap">
+                        <button
+                          class="agent-panel__msg-action-btn agent-panel__msg-action-btn--more"
+                          :class="{ 'agent-panel__msg-action-btn--active': activeMoreMenuMsgId === block.msg.id }"
+                          type="button"
+                          :title="t('agent.msgMoreTitle')"
+                          @click.stop="toggleMoreMenu(block.msg.id, $event)"
+                        >
+                          <span>{{ t('agent.msgMore') }}</span>
+                        </button>
+
+                        <div
+                          v-if="activeMoreMenuMsgId === block.msg.id"
+                          class="agent-panel__more-menu"
+                        >
+                          <button
+                            v-if="hasSelectionForMessage(block.msg)"
+                            class="agent-panel__more-item"
+                            type="button"
+                            :disabled="!canInsertIntoEditor || agent.isStreaming"
+                            :title="canInsertIntoEditor ? t('agent.msgInsertAtCursorTitle') : t('agent.msgInsertNoEditor')"
+                            @click="closeMoreMenu(); insertAssistantMessage(block.msg.content)"
+                          >
+                            <span>{{ t('agent.msgInsertAtCursor') }}</span>
+                          </button>
+                          <button
+                            class="agent-panel__more-item"
+                            type="button"
+                            :disabled="agent.isStreaming"
+                            :title="t('agent.msgSaveAsNoteTitle')"
+                            @click="closeMoreMenu(); saveAssistantAsNote(block.msg.content)"
+                          >
+                            <span>{{ t('agent.msgSaveAsNote') }}</span>
+                          </button>
+                          <button
+                            class="agent-panel__more-item"
+                            type="button"
+                            :title="t('agent.msgQuoteTitle')"
+                            @click="closeMoreMenu(); insertQuote(block.msg.content)"
+                          >
+                            <span>{{ t('agent.msgQuote') }}</span>
+                          </button>
+                          <button
+                            class="agent-panel__more-item agent-panel__more-item--del"
+                            type="button"
+                            :disabled="agent.isStreaming"
+                            :title="t('agent.msgDeleteMsgTitle')"
+                            @click="closeMoreMenu(); deleteAssistantMessage(block.msg)"
+                          >
+                            <span>{{ t('agent.msgDelete') }}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Mode 2: Edit / Agent Mode (settings.agentAllowWrite === true) -->
+                    <template v-else>
+                      <button
+                        class="agent-panel__msg-action-btn"
+                        :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
+                        type="button"
+                        :title="t('agent.msgCopyTitle')"
+                        @click="copyAssistantMessage(block.msg.content, block.msg.id)"
+                      >
+                        <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
+                      </button>
+                      <button
+                        class="agent-panel__msg-action-btn"
+                        type="button"
+                        :disabled="agent.isStreaming"
+                        :title="t('agent.msgRegenerateTitle')"
+                        @click="regenerateAssistant(block.msg)"
+                      >
+                        <span>{{ t('agent.msgRegenerate') }}</span>
+                      </button>
+
+                      <!-- "More" dropdown menu for Edit mode -->
+                      <div class="agent-panel__more-wrap">
+                        <button
+                          class="agent-panel__msg-action-btn agent-panel__msg-action-btn--more"
+                          :class="{ 'agent-panel__msg-action-btn--active': activeMoreMenuMsgId === block.msg.id }"
+                          type="button"
+                          :title="t('agent.msgMoreTitle')"
+                          @click.stop="toggleMoreMenu(block.msg.id, $event)"
+                        >
+                          <span>{{ t('agent.msgMore') }}</span>
+                        </button>
+
+                        <div
+                          v-if="activeMoreMenuMsgId === block.msg.id"
+                          class="agent-panel__more-menu"
+                        >
+                          <button
+                            class="agent-panel__more-item"
+                            type="button"
+                            :title="t('agent.msgQuoteTitle')"
+                            @click="closeMoreMenu(); insertQuote(block.msg.content)"
+                          >
+                            <span>{{ t('agent.msgQuote') }}</span>
+                          </button>
+                          <button
+                            class="agent-panel__more-item agent-panel__more-item--del"
+                            type="button"
+                            :disabled="agent.isStreaming"
+                            :title="t('agent.msgDeleteMsgTitle')"
+                            @click="closeMoreMenu(); deleteAssistantMessage(block.msg)"
+                          >
+                            <span>{{ t('agent.msgDelete') }}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -3492,6 +3611,61 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   background: #10b981;
   color: #fff;
   border-color: #10b981;
+}
+.agent-panel__msg-action-btn--active {
+  background: var(--bg-hover);
+  border-color: var(--accent, #ff9f40);
+  color: var(--text);
+}
+.agent-panel__more-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.agent-panel__more-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  z-index: 1000;
+  min-width: 108px;
+  background: var(--bg-elev, #252525);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: agent-panel-pop 0.1s ease-out;
+}
+.agent-panel__more-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+.agent-panel__more-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.agent-panel__more-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.agent-panel__more-item--del:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
 }
 .agent-panel__msg-refs {
   display: flex;
