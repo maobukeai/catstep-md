@@ -195,6 +195,34 @@ const spotlightField = StateField.define<DecorationSet>({
   provide: (f) => EditorView.decorations.from(f),
 });
 
+const setAgentJumpEffect = StateEffect.define<{ from: number; to: number } | null>();
+const agentJumpField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(underlines, tr) {
+    if (tr.docChanged) {
+      return Decoration.none;
+    }
+    underlines = underlines.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setAgentJumpEffect)) {
+        if (!e.value) {
+          underlines = Decoration.none;
+        } else {
+          const mark = Decoration.mark({
+            class: 'cm-agent-jump-spotlight',
+          });
+          const safeEnd = Math.max(e.value.from + 1, e.value.to);
+          underlines = Decoration.set([mark.range(e.value.from, safeEnd)]);
+        }
+      }
+    }
+    return underlines;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
 type PlainBlock = {
   id: string;
   start: number;
@@ -2534,6 +2562,7 @@ function buildExtensions() {
           search({ top: true }),
           incrementalFindScroll,
           spotlightField,
+          agentJumpField,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         ]),
     keymap.of([
@@ -3016,6 +3045,17 @@ let isDraggingSelection = false;
 let spotlightTimer: any = null;
 let tableSpotlightTimer: any = null;
 let pulseTimer: any = null;
+let agentJumpTimer: any = null;
+
+function clearAgentJumpSpotlight() {
+  if (agentJumpTimer) {
+    clearTimeout(agentJumpTimer);
+    agentJumpTimer = null;
+  }
+  if (view) {
+    view.dispatch({ effects: setAgentJumpEffect.of(null) });
+  }
+}
 
 const selectionBubbleState = ref<{
   visible: boolean;
@@ -4566,7 +4606,7 @@ watch(
   },
 );
 
-function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string) {
+function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false) {
   if (heading && (!line || isNaN(line) || line < 1)) {
     const hNorm = heading.trim().toLowerCase().replace(/^#+\s*/, '');
     if (!usePlainWindowsEditor && view) {
@@ -4639,7 +4679,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
         plainSetCaret(plainLineStartOffset(safeLine));
         plainScrollToLine(safeLine);
       }
-      if (isProofread) {
+      if (isProofread || isAgentJump) {
         triggerJumpPulse();
       }
       return;
@@ -4652,7 +4692,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
       plainSetCaret(plainLineStartOffset(safeLine));
       plainScrollToLine(safeLine);
     }
-    if (isProofread) {
+    if (isProofread || isAgentJump) {
       triggerJumpPulse();
     }
     return;
@@ -4761,7 +4801,16 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
   ];
 
-  if (isProofread) {
+  if (isAgentJump) {
+    effects.push(setSpotlightEffect.of(null));
+    effects.push(setAgentJumpEffect.of({ from: finalFrom, to: finalTo }));
+    if (agentJumpTimer) clearTimeout(agentJumpTimer);
+    agentJumpTimer = setTimeout(() => {
+      view?.dispatch({ effects: setAgentJumpEffect.of(null) });
+      agentJumpTimer = null;
+    }, 2500);
+  } else if (isProofread) {
+    effects.push(setAgentJumpEffect.of(null));
     effects.push(setSpotlightEffect.of({ from: finalFrom, to: finalTo }));
     // If target falls within a rendered table widget, highlight and focus the cell directly
     const targetLine = line ?? view.state.doc.lineAt(finalFrom).number;
@@ -4775,6 +4824,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     // Regular navigation (Outline / Chapter jump, Search, Backlinks):
     // Dismiss any existing proofread spotlight so it never falsely labels chapters
     effects.push(setSpotlightEffect.of(null));
+    effects.push(setAgentJumpEffect.of(null));
     if (tableSpotlightTimer) {
       clearTimeout(tableSpotlightTimer);
       const existing = view.dom.querySelectorAll('.cm-table-cell-spotlight');
@@ -5328,8 +5378,8 @@ const cls = computed(() => ({
 </script>
 
 <template>
-  <div v-if="!usePlainWindowsEditor" :class="cls" ref="host" @contextmenu="onEditorContextMenu"></div>
-  <div v-else class="plain-host" @contextmenu="onEditorContextMenu">
+  <div v-if="!usePlainWindowsEditor" :class="cls" ref="host" @contextmenu="onEditorContextMenu" @mousedown="clearAgentJumpSpotlight"></div>
+  <div v-else class="plain-host" @contextmenu="onEditorContextMenu" @mousedown="clearAgentJumpSpotlight">
     <div
       v-if="plainLiveEnabled"
       ref="plainLiveHost"
@@ -6011,6 +6061,28 @@ const cls = computed(() => ({
     box-shadow: 0 0 0 1px var(--accent, #6366f1), 0 0 6px rgba(99, 102, 241, 0.25);
   }
   100% {
+    box-shadow: none;
+  }
+}
+
+/* Elegant Breathing Glow for AI Agent Modification Navigation (NO warning badges!) */
+:deep(.cm-agent-jump-spotlight) {
+  background: rgba(16, 185, 129, 0.2) !important;
+  box-shadow: 0 0 0 1.5px rgba(16, 185, 129, 0.5), 0 0 14px rgba(16, 185, 129, 0.28) !important;
+  border-radius: 4px;
+  animation: agentJumpFade 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes agentJumpFade {
+  0% {
+    background: rgba(16, 185, 129, 0.35);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.65), 0 0 16px rgba(16, 185, 129, 0.4);
+  }
+  65% {
+    background: rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3), 0 0 8px rgba(16, 185, 129, 0.2);
+  }
+  100% {
+    background: transparent;
     box-shadow: none;
   }
 }

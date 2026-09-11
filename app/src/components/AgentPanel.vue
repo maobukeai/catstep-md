@@ -1624,74 +1624,162 @@ function isFileTool(name?: string): boolean {
   );
 }
 
-function getToolFileName(tool?: any): string {
-  if (!tool) return '未知文件';
-  const p = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
-  if (!p) return '未知文件';
-  const norm = p.replace(/\\/g, '/');
-  return norm.split('/').pop() || norm;
-}
-
 function getToolFileRelativePath(tool?: any): string {
   if (!tool) return '';
   return ((tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string);
 }
 
-interface DiffBadge {
-  text: string;
-  type: 'add' | 'modify' | 'del';
+function getToolFileDirectory(tool?: any): string {
+  const p = getToolFileRelativePath(tool);
+  if (!p) return '';
+  const norm = p.replace(/\\/g, '/');
+  const lastSlash = norm.lastIndexOf('/');
+  if (lastSlash === -1) return '';
+  return norm.slice(0, lastSlash + 1);
 }
 
-function getToolDiffBadge(tool?: any): DiffBadge | null {
-  if (!tool) return null;
-  if (tool.name === 'write_note') {
-    const content = (tool.args?.content as string) || '';
-    const lineCount = content ? content.split('\n').length : 1;
-    return { text: `+${lineCount} 行 (新建)`, type: 'add' };
+function getToolFileBaseName(tool?: any): string {
+  const p = getToolFileRelativePath(tool);
+  if (!p) return '未知文件';
+  const norm = p.replace(/\\/g, '/');
+  const lastSlash = norm.lastIndexOf('/');
+  return lastSlash === -1 ? norm : norm.slice(lastSlash + 1);
+}
+
+function getToolActionTag(tool?: any): { label: string; icon: string; cls: string } {
+  if (!tool) return { label: '操作', icon: '📝', cls: 'edit' };
+  switch (tool.name) {
+    case 'patch_note':
+      return { label: '已编辑', icon: '✏️', cls: 'edit' };
+    case 'write_note':
+      return { label: '新建', icon: '📄', cls: 'create' };
+    case 'append_to_note':
+      return { label: '追加', icon: '➕', cls: 'append' };
+    case 'delete_note':
+      return { label: '删除', icon: '🗑️', cls: 'delete' };
+    case 'move_note':
+      return { label: '移动', icon: '📦', cls: 'move' };
+    case 'create_folder':
+      return { label: '目录', icon: '📁', cls: 'create' };
+    case 'delete_folder':
+      return { label: '删目录', icon: '🗑️', cls: 'delete' };
+    case 'copy_note':
+      return { label: '复制', icon: '📋', cls: 'copy' };
+    default:
+      return { label: '操作', icon: '⚡', cls: 'default' };
   }
+}
+
+function getToolDiffCounts(tool?: any): { add: number; del: number } | null {
+  if (!tool) return null;
+  const res = getToolResultData(tool);
   if (tool.name === 'patch_note') {
-    const repl = (tool.args?.replacement_content as string) || '';
-    const targ = (tool.args?.target_content as string) || '';
-    const addCount = repl ? repl.split('\n').length : 1;
-    const delCount = targ ? targ.split('\n').length : 1;
-    return { text: `+${addCount} -${delCount} 行 (修改)`, type: 'modify' };
+    const add = typeof res?.added_count === 'number' ? res.added_count : ((tool.args?.replacement_content as string) || '').split(/\r?\n/).length;
+    const del = typeof res?.deleted_count === 'number' ? res.deleted_count : ((tool.args?.target_content as string) || '').split(/\r?\n/).length;
+    return { add, del };
+  }
+  if (tool.name === 'write_note') {
+    const add = typeof res?.lines_count === 'number' ? res.lines_count : ((tool.args?.content as string) || '').split(/\r?\n/).length;
+    return { add, del: 0 };
   }
   if (tool.name === 'append_to_note') {
-    const content = (tool.args?.content as string) || '';
-    const lineCount = content ? content.split('\n').length : 1;
-    return { text: `+${lineCount} 行 (追加)`, type: 'add' };
-  }
-  if (tool.name === 'delete_note') {
-    return { text: '已移入回收站', type: 'del' };
-  }
-  if (tool.name === 'move_note') {
-    return { text: '移动归档', type: 'modify' };
-  }
-  if (tool.name === 'create_folder') {
-    return { text: '新建目录', type: 'add' };
-  }
-  if (tool.name === 'delete_folder') {
-    return { text: '移入回收站', type: 'del' };
-  }
-  if (tool.name === 'copy_note') {
-    return { text: '复制副本', type: 'add' };
+    const add = typeof res?.added_count === 'number' ? res.added_count : ((tool.args?.content as string) || '').split(/\r?\n/).length;
+    return { add, del: 0 };
   }
   return null;
 }
 
-function formatDiffLines(diffStr?: any): Array<{ type: 'add' | 'del' | 'context'; sign: string; text: string }> {
-  if (!diffStr || typeof diffStr !== 'string') return [];
-  return diffStr.split(/\r?\n/).map((line) => {
-    if (line.startsWith('+')) {
-      return { type: 'add', sign: '+', text: line.slice(1) };
-    }
-    if (line.startsWith('-')) {
-      return { type: 'del', sign: '-', text: line.slice(1) };
-    }
-    return { type: 'context', sign: ' ', text: line.startsWith(' ') ? line.slice(1) : line };
-  });
+interface UnifiedDiffRow {
+  lineNum: number | string;
+  type: 'del' | 'add' | 'context';
+  sign: string;
+  text: string;
 }
 
+function formatUnifiedDiff(tool?: any): UnifiedDiffRow[] {
+  if (!tool) return [];
+  const res = getToolResultData(tool);
+  const diffStr = res?.diff;
+  const startLine = (typeof res?.start_line === 'number' && res.start_line > 0) ? res.start_line : 1;
+
+  if (tool.name === 'patch_note') {
+    if (diffStr && typeof diffStr === 'string') {
+      const rows: UnifiedDiffRow[] = [];
+      let currentDelLine = startLine;
+      let currentAddLine = startLine;
+      const rawLines = diffStr.split(/\r?\n/);
+      for (const line of rawLines) {
+        if (!line && rows.length > 0 && rawLines[rawLines.length - 1] === line) continue;
+        if (line.startsWith('+')) {
+          rows.push({
+            lineNum: currentAddLine++,
+            type: 'add',
+            sign: '+',
+            text: line.slice(1),
+          });
+        } else if (line.startsWith('-')) {
+          rows.push({
+            lineNum: currentDelLine++,
+            type: 'del',
+            sign: '-',
+            text: line.slice(1),
+          });
+        } else {
+          rows.push({
+            lineNum: currentAddLine++,
+            type: 'context',
+            sign: ' ',
+            text: line.startsWith(' ') ? line.slice(1) : line,
+          });
+          currentDelLine++;
+        }
+      }
+      return rows;
+    }
+
+    // Fallback if diffStr isn't present: build from target_content & replacement_content
+    const rows: UnifiedDiffRow[] = [];
+    const targ = (tool.args?.target_content as string) || '';
+    const repl = (tool.args?.replacement_content as string) || '';
+    let delLine = startLine;
+    let addLine = startLine;
+    if (targ) {
+      for (const line of targ.split(/\r?\n/)) {
+        rows.push({ lineNum: delLine++, type: 'del', sign: '-', text: line });
+      }
+    }
+    if (repl) {
+      for (const line of repl.split(/\r?\n/)) {
+        rows.push({ lineNum: addLine++, type: 'add', sign: '+', text: line });
+      }
+    }
+    return rows;
+  }
+
+  if (tool.name === 'write_note') {
+    const content = (res?.new_content || tool.args?.content || '') as string;
+    if (!content) return [];
+    return content.split(/\r?\n/).map((line, idx) => ({
+      lineNum: idx + 1,
+      type: 'add',
+      sign: '+',
+      text: line,
+    }));
+  }
+
+  if (tool.name === 'append_to_note') {
+    const content = (res?.new_content || tool.args?.content || '') as string;
+    if (!content) return [];
+    return content.split(/\r?\n/).map((line, idx) => ({
+      lineNum: startLine + idx,
+      type: 'add',
+      sign: '+',
+      text: line,
+    }));
+  }
+
+  return [];
+}
 
 function getToolResultData(tool?: any): { diff?: string; newContent?: string; [key: string]: any } | null {
   if (!tool?.result) return null;
@@ -1712,12 +1800,16 @@ function isToolExpanded(tool?: any): boolean {
   if (typeof tool.expanded === 'boolean') {
     return tool.expanded;
   }
-  // Default to true for patch_note when diff is available
+  // Default to true for file tools when diff/content is available
   const data = getToolResultData(tool);
-  return !!(tool.name === 'patch_note' && data?.diff);
+  return !!(
+    (tool.name === 'patch_note' && data?.diff) ||
+    tool.name === 'write_note' ||
+    tool.name === 'append_to_note'
+  );
 }
 
-async function jumpToToolModification(tool?: any, specificSnippet?: string) {
+async function jumpToToolModification(tool?: any, specificSnippet?: string, specificLine?: number | string) {
   if (!tool) return;
   const targetPath = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
   if (!targetPath) return;
@@ -1725,7 +1817,20 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string) {
   // 1. Activate or open the tab containing the file
   await files.openPath(targetPath, { bypassNewWindow: true });
 
-  // 2. Determine target snippet to spotlight
+  // 2. Determine target line number
+  const resultData = getToolResultData(tool);
+  let lineNum: number | undefined = undefined;
+  if (typeof specificLine === 'number') {
+    lineNum = specificLine;
+  } else if (typeof specificLine === 'string' && !isNaN(Number(specificLine))) {
+    lineNum = Number(specificLine);
+  } else if (resultData && typeof resultData.start_line === 'number') {
+    lineNum = resultData.start_line;
+  } else if (tool.name === 'write_note') {
+    lineNum = 1;
+  }
+
+  // 3. Determine target snippet to spotlight
   let snippet = '';
   if (specificSnippet && typeof specificSnippet === 'string') {
     const trimmed = specificSnippet.trim();
@@ -1740,14 +1845,17 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string) {
     if (tool.name === 'patch_note') {
       const repl = (tool.args?.replacement_content as string) || '';
       if (repl.trim()) {
-        snippet = repl.trim();
+        const firstRepl = repl.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+        snippet = firstRepl || repl.trim();
       } else {
         const targ = (tool.args?.target_content as string) || '';
-        snippet = targ.trim();
+        const firstTarg = targ.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+        snippet = firstTarg || targ.trim();
       }
     } else if (tool.name === 'append_to_note') {
       const content = (tool.args?.content as string) || '';
-      snippet = content.trim();
+      const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+      snippet = firstLine || content.trim();
     } else if (tool.name === 'write_note') {
       const content = (tool.args?.content as string) || '';
       const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
@@ -1755,13 +1863,14 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string) {
     }
   }
 
-  // 3. Dispatch navigation with isProofread: true for spotlight & jump pulse
+  // 4. Dispatch navigation with isAgentJump: true (NEVER isProofread: true!)
   const doDispatch = () => {
     window.dispatchEvent(
       new CustomEvent('solomd:outline-goto', {
         detail: {
+          line: lineNum,
           original: snippet,
-          isProofread: true,
+          isAgentJump: true,
           paneId: tiles.focusedPaneId || undefined,
         },
       }),
@@ -2594,7 +2703,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
                 <div v-if="isGroupExpanded(block.id, block.tools)" class="agent-panel__tool-group-content">
                   <div v-for="m in block.tools" :key="m.id" class="agent-panel__tool-group-item">
-                    <!-- File Action Card -->
+                    <!-- File Action Card (Cursor / Claude Unified Diff IDE Container) -->
                     <div v-if="isFileTool(m.tool?.name)" class="agent-panel__file-action-card">
                       <div class="agent-panel__file-action-head">
                         <div
@@ -2603,38 +2712,31 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                           title="在编辑器中定位此修改"
                           @click="jumpToToolModification(m.tool)"
                         >
-                          <span class="agent-panel__file-action-tag">
-                            <template v-if="m.tool?.name === 'delete_note'">删除</template>
-                            <template v-else-if="m.tool?.name === 'patch_note'">修改</template>
-                            <template v-else-if="m.tool?.name === 'move_note'">移动</template>
-                            <template v-else-if="m.tool?.name === 'create_folder'">目录</template>
-                            <template v-else-if="m.tool?.name === 'delete_folder'">删目录</template>
-                            <template v-else-if="m.tool?.name === 'copy_note'">复制</template>
-                            <template v-else>新建</template>
+                          <!-- Action Capsule -->
+                          <span class="agent-panel__file-action-tag" :class="`agent-panel__file-action-tag--${getToolActionTag(m.tool).cls}`">
+                            <span class="agent-panel__file-action-tag-icon">{{ getToolActionTag(m.tool).icon }}</span>
+                            <span class="agent-panel__file-action-tag-text">{{ getToolActionTag(m.tool).label }}</span>
                           </span>
+
+                          <!-- File Title & Directory Breadcrumb -->
                           <div class="agent-panel__file-action-titles">
-                            <span class="agent-panel__file-action-name">{{ getToolFileName(m.tool) }}</span>
-                            <span class="agent-panel__file-action-path">{{ getToolFileRelativePath(m.tool) }}</span>
+                            <div class="agent-panel__file-action-title-row">
+                              <svg class="agent-panel__file-icon-svg" viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+                                <path d="M4 1.5A1.5 1.5 0 0 0 2.5 3v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V6.414a1.5 1.5 0 0 0-.44-1.06L9.647 1.94A1.5 1.5 0 0 0 8.586 1.5H4zm0 1h4.586a.5.5 0 0 1 .353.146l3.414 3.415a.5.5 0 0 1 .147.353V13a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5z"/>
+                              </svg>
+                              <span class="agent-panel__file-action-name">{{ getToolFileBaseName(m.tool) }}</span>
+                            </div>
+                            <span v-if="getToolFileDirectory(m.tool)" class="agent-panel__file-action-path">{{ getToolFileDirectory(m.tool) }}</span>
                           </div>
-                          <span
-                            v-if="getToolDiffBadge(m.tool)"
-                            class="agent-panel__diff-badge"
-                            :class="`agent-panel__diff-badge--${getToolDiffBadge(m.tool)!.type}`"
-                          >
-                            {{ getToolDiffBadge(m.tool)!.text }}
-                          </span>
+
+                          <!-- Diff Counts (+N -M) -->
+                          <div v-if="getToolDiffCounts(m.tool)" class="agent-panel__diff-counts">
+                            <span v-if="getToolDiffCounts(m.tool)!.add > 0" class="agent-panel__diff-counts-add">+{{ getToolDiffCounts(m.tool)!.add }}</span>
+                            <span v-if="getToolDiffCounts(m.tool)!.del > 0" class="agent-panel__diff-counts-del">-{{ getToolDiffCounts(m.tool)!.del }}</span>
+                          </div>
                         </div>
 
                         <div class="agent-panel__file-action-btns">
-                          <button
-                            v-if="!m.tool?.error && m.tool?.name !== 'delete_note' && m.tool?.name !== 'delete_folder'"
-                            class="agent-panel__action-pill agent-panel__action-pill--goto"
-                            type="button"
-                            title="在编辑器中定位并高亮此修改"
-                            @click.stop="jumpToToolModification(m.tool)"
-                          >
-                            定位修改
-                          </button>
                           <button
                             v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
                             class="agent-panel__action-pill agent-panel__action-pill--revert"
@@ -2642,45 +2744,44 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                             title="撤销修改并恢复备份"
                             @click.stop="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
                           >
-                            撤销
+                            ↩ 撤销
                           </button>
                           <button
-                            class="agent-panel__action-pill agent-panel__action-pill--expand"
+                            class="agent-panel__action-pill agent-panel__action-pill--caret"
                             type="button"
-                            :title="isToolExpanded(m.tool) ? '折叠详情' : '展开详情'"
+                            :title="isToolExpanded(m.tool) ? '折叠代码' : '展开代码'"
                             @click.stop="agent.toggleToolExpand(m.tool!.toolCallId)"
                           >
-                            {{ isToolExpanded(m.tool) ? '收起' : '详情' }}
+                            <span class="agent-panel__caret-arrow">{{ isToolExpanded(m.tool) ? '▲' : '▼' }}</span>
                           </button>
                         </div>
                       </div>
 
-                      <!-- Expanded Details (Diff / Results) -->
+                      <!-- Expanded Details (IDE Unified Diff Container) -->
                       <div v-if="isToolExpanded(m.tool)" class="agent-panel__file-action-body">
-                        <!-- Render Diff If Available -->
-                        <div v-if="getToolResultData(m.tool)?.diff" class="agent-panel__diff-view">
-                          <div class="agent-panel__diff-lines">
-                            <div
-                              v-for="(dLine, dIdx) in formatDiffLines(getToolResultData(m.tool)?.diff)"
-                              :key="dIdx"
-                              class="agent-panel__diff-line"
-                              :class="`agent-panel__diff-line--${dLine.type}`"
-                              :title="dLine.type === 'del' ? '已从文档中删除' : '点击在编辑器中定位并高亮此行'"
-                              @click.stop="dLine.type !== 'del' && jumpToToolModification(m.tool, dLine.text)"
-                            >
-                              <span class="agent-panel__diff-sign">{{ dLine.sign }}</span>
-                              <span class="agent-panel__diff-text">{{ dLine.text }}</span>
-                            </div>
+                        <!-- Render Unified Diff If Available -->
+                        <div v-if="formatUnifiedDiff(m.tool).length > 0" class="agent-panel__diff-ide">
+                          <div class="agent-panel__diff-ide-scroll">
+                            <table class="agent-panel__diff-table">
+                              <tbody>
+                                <tr
+                                  v-for="(row, rIdx) in formatUnifiedDiff(m.tool)"
+                                  :key="rIdx"
+                                  class="agent-panel__diff-row"
+                                  :class="`agent-panel__diff-row--${row.type}`"
+                                  :title="row.type === 'del' ? '已删除内容（点击定位上下文）' : '点击在编辑器中定位此行'"
+                                  @click.stop="jumpToToolModification(m.tool, row.text, row.lineNum)"
+                                >
+                                  <td class="agent-panel__diff-gutter">{{ row.lineNum }}</td>
+                                  <td class="agent-panel__diff-sign">{{ row.sign }}</td>
+                                  <td class="agent-panel__diff-code"><code>{{ row.text }}</code></td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         </div>
-                        <div v-else-if="getToolResultData(m.tool)?.newContent" class="agent-panel__diff-view">
-                          <div class="agent-panel__diff-preview-label">写入内容预览（点击定位）：</div>
-                          <pre
-                            class="agent-panel__file-preview-content"
-                            title="点击在编辑器中定位此笔记"
-                            @click="jumpToToolModification(m.tool)"
-                          >{{ (getToolResultData(m.tool)?.newContent || '').slice(0, 500) }}{{ (getToolResultData(m.tool)?.newContent?.length ?? 0) > 500 ? '…' : '' }}</pre>
-                        </div>
+
+                        <!-- Fallback Error Message -->
                         <div v-else-if="m.tool?.error" class="agent-panel__tool-error">
                           {{ m.tool.error }}
                         </div>
@@ -4837,12 +4938,12 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
 /* --- Codex / Cursor File Action Cards --------------------------------- */
 .agent-panel__file-action-card {
-  background: var(--bg-elev);
+  background: var(--bg-elev, #232326);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
   margin: 6px 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 .agent-panel__file-action-head {
   display: flex;
@@ -4872,14 +4973,71 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--accent, #ff9f40);
   text-decoration: underline;
 }
-.agent-panel__file-action-icon {
-  font-size: 15px;
+
+/* Action Capsule Tag */
+.agent-panel__file-action-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  border-radius: 5px;
   flex-shrink: 0;
+  white-space: nowrap;
+  user-select: none;
 }
+.agent-panel__file-action-tag--edit {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.agent-panel__file-action-tag--create {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.agent-panel__file-action-tag--append {
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.agent-panel__file-action-tag--delete {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.agent-panel__file-action-tag--move,
+.agent-panel__file-action-tag--copy {
+  background: rgba(168, 85, 247, 0.12);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+.agent-panel__file-action-tag--default {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.agent-panel__file-action-tag-icon {
+  font-size: 11px;
+}
+
+/* File Titles & Breadcrumbs */
 .agent-panel__file-action-titles {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  gap: 1px;
+}
+.agent-panel__file-action-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.agent-panel__file-icon-svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
 }
 .agent-panel__file-action-name {
   font-size: 12.5px;
@@ -4896,30 +5054,25 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agent-panel__diff-badge {
-  font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 1.5px 6px;
-  border-radius: 5px;
+
+/* Diff Counts (+N -M) */
+.agent-panel__diff-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
   flex-shrink: 0;
-  white-space: nowrap;
+  margin-left: 2px;
 }
-.agent-panel__diff-badge--add {
-  background: rgba(16, 185, 129, 0.12);
+.agent-panel__diff-counts-add {
   color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
 }
-.agent-panel__diff-badge--modify {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-.agent-panel__diff-badge--del {
-  background: rgba(239, 68, 68, 0.12);
+.agent-panel__diff-counts-del {
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
 }
+
 .agent-panel__file-action-btns {
   display: flex;
   align-items: center;
@@ -4941,113 +5094,110 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--text);
   border-color: var(--accent, #ff9f40);
 }
-.agent-panel__action-pill--goto {
-  color: var(--accent, #ff9f40);
-  font-weight: 500;
-}
-.agent-panel__action-pill--goto:hover {
-  background: color-mix(in srgb, var(--accent, #ff9f40) 15%, var(--bg));
-  border-color: var(--accent, #ff9f40);
-  color: var(--accent, #ff9f40);
+.agent-panel__action-pill--revert {
+  color: #ef4444;
 }
 .agent-panel__action-pill--revert:hover {
   color: #dc2626;
   border-color: #dc2626;
   background: rgba(220, 38, 38, 0.08);
 }
+.agent-panel__action-pill--caret {
+  padding: 2.5px 6px;
+  font-size: 10px;
+}
+.agent-panel__caret-arrow {
+  display: inline-block;
+  font-size: 9px;
+  line-height: 1;
+}
+
 .agent-panel__file-action-body {
   margin-top: 8px;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--border);
 }
-.agent-panel__diff-view {
-  margin-top: 4px;
-}
-.agent-panel__diff-lines {
-  background: var(--bg-soft, #1e1e1e);
+
+/* IDE Unified Diff Container (Cursor / Claude style) */
+.agent-panel__diff-ide {
+  background: var(--bg-soft, #18181b);
   border: 1px solid var(--border);
   border-radius: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-  font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  padding: 4px 0;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
-.agent-panel__diff-line {
-  display: flex;
-  align-items: baseline;
-  padding: 1.5px 8px;
+.agent-panel__diff-ide-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+.agent-panel__diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "JetBrains Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.agent-panel__diff-row {
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.1s ease, filter 0.1s ease;
   user-select: text;
 }
-.agent-panel__diff-line:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
+.agent-panel__diff-row:hover {
+  filter: brightness(1.2);
 }
-.agent-panel__diff-line--add {
-  background: rgba(16, 185, 129, 0.08);
-  color: #10b981;
-}
-.agent-panel__diff-line--add:hover {
-  background: rgba(16, 185, 129, 0.16);
-}
-.agent-panel__diff-line--del {
-  background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
-}
-.agent-panel__diff-line--del:hover {
-  background: rgba(239, 68, 68, 0.16);
-}
-.agent-panel__diff-line--context {
-  color: var(--text-muted);
+.agent-panel__diff-gutter {
+  width: 44px;
+  min-width: 44px;
+  padding: 1px 8px 1px 4px;
+  text-align: right;
+  color: var(--text-muted, #71717a);
+  font-size: 10.5px;
+  user-select: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: top;
 }
 .agent-panel__diff-sign {
-  width: 14px;
-  flex-shrink: 0;
+  width: 16px;
+  min-width: 16px;
+  text-align: center;
   font-weight: 700;
   user-select: none;
-}
-.agent-panel__diff-text {
-  flex: 1;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-.agent-panel__diff-preview-label {
-  font-size: 10.5px;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-.agent-panel__file-preview-content {
-  margin: 0;
-  background: var(--bg-soft, #1e1e1e);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--text);
-  max-height: 180px;
-  overflow-y: auto;
-  cursor: pointer;
-  transition: border-color 0.12s ease;
-}
-.agent-panel__file-preview-content:hover {
-  border-color: var(--accent, #ff9f40);
+  vertical-align: top;
+  padding: 1px 2px;
 }
 .agent-panel__diff-code {
-  margin: 0;
-  font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 11px;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--text);
-  max-height: 180px;
-  overflow-y: auto;
+  padding: 1px 8px;
+  white-space: pre;
+  word-break: normal;
+  vertical-align: top;
+}
+.agent-panel__diff-code code {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+/* Row types */
+.agent-panel__diff-row--add {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+.agent-panel__diff-row--add .agent-panel__diff-gutter {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+.agent-panel__diff-row--del {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.agent-panel__diff-row--del .agent-panel__diff-gutter {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+.agent-panel__diff-row--context {
+  color: var(--text, #e4e4e7);
 }
 
 .agent-panel__error {

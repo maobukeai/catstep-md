@@ -1181,9 +1181,12 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
     fs::write(&abs, content).map_err(|e| format!("write: {e}"))?;
+    let lines_count = content.lines().count();
     Ok(json!({
         "ok": true,
         "bytes_written": content.as_bytes().len(),
+        "lines_count": lines_count,
+        "new_content": content,
         "path": normalize_path_str(&abs),
         "backup_path": backup_path_str.map(|s| normalize_path_str(Path::new(&s)))
     }))
@@ -1203,6 +1206,9 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
+    let prev_lines = fs::read_to_string(&abs).map(|s| s.lines().count()).unwrap_or(0);
+    let start_line = prev_lines + 1;
+    let added_count = content.lines().count();
     let mut f = fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -1213,6 +1219,9 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
     Ok(json!({
         "ok": true,
         "bytes_written": content.as_bytes().len(),
+        "start_line": start_line,
+        "added_count": added_count,
+        "new_content": content,
         "path": normalize_path_str(&abs),
     }))
 }
@@ -1245,12 +1254,15 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     // Tier 1: Exact match
     let mut modified = original.clone();
     let mut matches = 0;
+    let mut start_line = 1;
     
     if original.contains(target) {
         let count = original.matches(target).count();
         if count > 1 && !allow_multiple {
             return Err("target_content matches multiple locations. Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
         }
+        let match_idx = original.find(target).unwrap_or(0);
+        start_line = original[..match_idx].matches('\n').count() + 1;
         modified = original.replace(target, replacement);
         matches = count;
     }
@@ -1277,6 +1289,9 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
                 if count > 1 && !allow_multiple {
                     return Err("target_content matches multiple locations (after normalization). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
                 }
+                if let Some(m) = re.find(&original) {
+                    start_line = original[..m.start()].matches('\n').count() + 1;
+                }
                 // We use replace_all with a closure to avoid `$` getting interpreted as capture groups.
                 modified = re.replace_all(&original, |_caps: &regex_lite::Captures| replacement.to_string()).to_string();
                 matches = count;
@@ -1294,6 +1309,19 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     if matches == 0 {
         return Err("target_content not found in file".into());
     }
+
+    let deleted_lines: Vec<&str> = target.lines().collect();
+    let added_lines: Vec<&str> = replacement.lines().collect();
+    let deleted_count = deleted_lines.len();
+    let added_count = added_lines.len();
+
+    let mut diff = String::new();
+    for line in &deleted_lines {
+        diff.push_str(&format!("-{line}\n"));
+    }
+    for line in &added_lines {
+        diff.push_str(&format!("+{line}\n"));
+    }
     
     // Save backup for revert
     let backup_dir = workspace.join(".backup");
@@ -1310,7 +1338,11 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         "matches_replaced": matches,
         "bytes_written": modified.len(),
         "path": normalize_path_str(&abs),
-        "backup_path": normalize_path_str(&backup_path)
+        "backup_path": normalize_path_str(&backup_path),
+        "start_line": start_line,
+        "added_count": added_count,
+        "deleted_count": deleted_count,
+        "diff": diff
     }))
 }
 

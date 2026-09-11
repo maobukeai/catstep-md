@@ -56,11 +56,11 @@ function onSelection(text: string) {
   }
 }
 
-function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string) {
+function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false) {
   if (settings.viewMode === 'preview') {
     if (line) previewRef.value?.scrollToLine(line);
   } else {
-    editorRef.value?.gotoLine(line, from, to, original, isProofread, heading);
+    editorRef.value?.gotoLine(line, from, to, original, isProofread, heading, isAgentJump);
   }
 }
 
@@ -344,9 +344,9 @@ onBeforeUnmount(() => {
 defineExpose({ gotoLine, editorRef });
 
 function onOutlineGotoEvent(e: Event) {
-  const { line, paneId, from, to, original, isProofread, heading } = (e as CustomEvent).detail || {};
+  const { line, paneId, from, to, original, isProofread, heading, isAgentJump } = (e as CustomEvent).detail || {};
   if (paneId && paneId !== props.paneId) return;
-  gotoLine(line, from, to, original, !!isProofread, heading);
+  gotoLine(line, from, to, original, !!isProofread, heading, !!isAgentJump);
 }
 
 function onInsertMarkdownEvent(e: Event) {
