@@ -1167,24 +1167,89 @@ async function send() {
   const isOllama = apiFormat === 'ollama';
   const isToolAllowed = settings.agentAllowWrite && !isOllama;
 
-  // Compose conversation: system + history (excluding the empty placeholder).
-  const rawHistory = agent.messages
-    .slice(0, -1)
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role, content: m.content }));
+  // Compose conversation: system + history with physical tool actions for context memory.
+  const rawTurnHistory: { role: string; content: string }[] = [];
+  let currentTurnUser: { role: string; content: string } | null = null;
+  let currentTurnAssistantParts: string[] = [];
+  let currentTurnToolSummaries: string[] = [];
 
+  const msgsToProcess = agent.messages.slice(0, -1);
+
+  for (let i = 0; i < msgsToProcess.length; i++) {
+    const m = msgsToProcess[i];
+    if (m.role === 'user') {
+      if (currentTurnUser) {
+        rawTurnHistory.push(currentTurnUser);
+        let assistantContent = currentTurnAssistantParts.filter(Boolean).join('\n\n').trim();
+        if (currentTurnToolSummaries.length > 0) {
+          const toolLog = `【本轮执行的操作记录】\n` + currentTurnToolSummaries.join('\n');
+          assistantContent = assistantContent ? `${assistantContent}\n\n${toolLog}` : toolLog;
+        }
+        if (!assistantContent) {
+          assistantContent = '（已完成相关操作）';
+        }
+        rawTurnHistory.push({ role: 'assistant', content: assistantContent });
+      }
+      currentTurnUser = { role: 'user', content: m.content || '' };
+      currentTurnAssistantParts = [];
+      currentTurnToolSummaries = [];
+    } else if (m.role === 'assistant') {
+      if (m.content && m.content.trim()) {
+        currentTurnAssistantParts.push(m.content.trim());
+      }
+    } else if (m.role === 'tool' && m.tool) {
+      const tool = m.tool;
+      const tName = tool.name;
+      const tPath = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
+      const tFileName = tPath ? tPath.replace(/\\/g, '/').split('/').pop() : '';
+      if (tName === 'write_note') {
+        currentTurnToolSummaries.push(`- 新建/写入笔记: ${tPath} (${tFileName})`);
+      } else if (tName === 'patch_note') {
+        currentTurnToolSummaries.push(`- 局部修改笔记: ${tPath} (${tFileName})`);
+      } else if (tName === 'append_to_note') {
+        currentTurnToolSummaries.push(`- 追加内容至笔记: ${tPath} (${tFileName})`);
+      } else if (tName === 'delete_note') {
+        currentTurnToolSummaries.push(`- 删除笔记: ${tPath} (${tFileName})`);
+      } else if (tName === 'move_note') {
+        currentTurnToolSummaries.push(`- 移动笔记: 从 ${tool.args?.source_path} 移动至 ${tool.args?.target_path}`);
+      } else if (tName === 'create_folder') {
+        currentTurnToolSummaries.push(`- 创建文件夹: ${tool.args?.path}`);
+      } else if (tName === 'delete_folder') {
+        currentTurnToolSummaries.push(`- 删除文件夹: ${tool.args?.path}`);
+      } else if (tName === 'copy_note') {
+        currentTurnToolSummaries.push(`- 复制笔记: 从 ${tool.args?.source_path} 复制到 ${tool.args?.target_path}`);
+      } else {
+        currentTurnToolSummaries.push(`- 执行了工具: ${tName}`);
+      }
+    }
+  }
+
+  if (currentTurnUser) {
+    rawTurnHistory.push(currentTurnUser);
+    let assistantContent = currentTurnAssistantParts.filter(Boolean).join('\n\n').trim();
+    if (currentTurnToolSummaries.length > 0) {
+      const toolLog = `【本轮执行的操作记录】\n` + currentTurnToolSummaries.join('\n');
+      assistantContent = assistantContent ? `${assistantContent}\n\n${toolLog}` : toolLog;
+    }
+    if (assistantContent) {
+      rawTurnHistory.push({ role: 'assistant', content: assistantContent });
+    }
+  }
+
+  // Strictly normalize alternating user/assistant roles and strip empties
   const history: { role: string; content: string }[] = [];
-  for (const m of rawHistory) {
+  for (const m of rawTurnHistory) {
+    if (!m.content || !m.content.trim()) continue;
     if (history.length === 0) {
       if (m.role === 'user') {
-        history.push({ ...m });
+        history.push({ role: m.role, content: m.content.trim() });
       }
     } else {
       const last = history[history.length - 1];
       if (last.role === m.role) {
-        last.content = `${last.content}\n\n${m.content}`;
+        last.content = `${last.content}\n\n${m.content.trim()}`;
       } else {
-        history.push({ ...m });
+        history.push({ role: m.role, content: m.content.trim() });
       }
     }
   }
@@ -1627,11 +1692,71 @@ function formatDiffLines(diffStr?: any): Array<{ type: 'add' | 'del' | 'context'
   });
 }
 
-async function openToolFile(tool?: any) {
+
+function isToolExpanded(tool?: any): boolean {
+  if (!tool) return false;
+  if (typeof tool.expanded === 'boolean') {
+    return tool.expanded;
+  }
+  // Default to true for patch_note when diff is available
+  return !!(tool.name === 'patch_note' && tool.result?.diff);
+}
+
+async function jumpToToolModification(tool?: any, specificSnippet?: string) {
   if (!tool) return;
-  const p = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
-  if (!p) return;
-  await files.openPath(p, { bypassNewWindow: true });
+  const targetPath = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
+  if (!targetPath) return;
+
+  // 1. Activate or open the tab containing the file
+  await files.openPath(targetPath, { bypassNewWindow: true });
+
+  // 2. Determine target snippet to spotlight
+  let snippet = '';
+  if (specificSnippet && typeof specificSnippet === 'string') {
+    const trimmed = specificSnippet.trim();
+    // Strip leading diff markers (+ or -)
+    const cleanLine = trimmed.replace(/^[+-]\s*/, '').trim();
+    if (cleanLine.length > 0) {
+      snippet = cleanLine;
+    }
+  }
+
+  if (!snippet) {
+    if (tool.name === 'patch_note') {
+      const repl = (tool.args?.replacement_content as string) || '';
+      if (repl.trim()) {
+        snippet = repl.trim();
+      } else {
+        const targ = (tool.args?.target_content as string) || '';
+        snippet = targ.trim();
+      }
+    } else if (tool.name === 'append_to_note') {
+      const content = (tool.args?.content as string) || '';
+      snippet = content.trim();
+    } else if (tool.name === 'write_note') {
+      const content = (tool.args?.content as string) || '';
+      const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
+      snippet = firstLine || content.trim();
+    }
+  }
+
+  // 3. Dispatch navigation with isProofread: true for spotlight & jump pulse
+  const doDispatch = () => {
+    window.dispatchEvent(
+      new CustomEvent('solomd:outline-goto', {
+        detail: {
+          original: snippet,
+          isProofread: true,
+          paneId: tiles.focusedPaneId || undefined,
+        },
+      }),
+    );
+  };
+
+  // Immediate dispatch for already-active editor, and staggered dispatch if editor is mounting
+  doDispatch();
+  setTimeout(doDispatch, 120);
+  setTimeout(doDispatch, 320);
 }
 
 onMounted(async () => {
@@ -1950,13 +2075,16 @@ watch(stateKey, (k) => {
 
 const expandedToolGroups = ref<Record<string, boolean>>({});
 
-function toggleGroupExpand(groupId: string) {
-  expandedToolGroups.value[groupId] = !isGroupExpanded(groupId);
+function toggleGroupExpand(groupId: string, tools?: any[]) {
+  expandedToolGroups.value[groupId] = !isGroupExpanded(groupId, tools);
 }
 
-function isGroupExpanded(groupId: string): boolean {
+function isGroupExpanded(groupId: string, tools?: any[]): boolean {
   if (typeof expandedToolGroups.value[groupId] === 'boolean') {
     return expandedToolGroups.value[groupId];
+  }
+  if (tools && tools.some((t: any) => isFileTool(t.tool?.name))) {
+    return true;
   }
   return false;
 }
@@ -2437,7 +2565,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 <button
                   class="agent-panel__tool-group-bar"
                   type="button"
-                  @click="toggleGroupExpand(block.id)"
+                  @click="toggleGroupExpand(block.id, block.tools)"
                 >
                   <div class="agent-panel__tool-group-left">
                     <span class="agent-panel__tool-group-title">{{ getGroupSummaryText(block.tools) }}</span>
@@ -2445,16 +2573,21 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   <div class="agent-panel__tool-group-right">
                     <span v-if="block.tools.some((t: any) => !t.tool?.result && !t.tool?.error)" class="agent-panel__tool-spinner" />
                     <span class="agent-panel__tool-group-count">{{ block.tools.length }} 步</span>
-                    <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id) ? '收起' : '展开' }}</span>
+                    <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id, block.tools) ? '收起' : '展开' }}</span>
                   </div>
                 </button>
 
-                <div v-if="isGroupExpanded(block.id)" class="agent-panel__tool-group-content">
+                <div v-if="isGroupExpanded(block.id, block.tools)" class="agent-panel__tool-group-content">
                   <div v-for="m in block.tools" :key="m.id" class="agent-panel__tool-group-item">
                     <!-- File Action Card -->
                     <div v-if="isFileTool(m.tool?.name)" class="agent-panel__file-action-card">
                       <div class="agent-panel__file-action-head">
-                        <div class="agent-panel__file-action-info">
+                        <div
+                          class="agent-panel__file-action-info"
+                          :class="{ 'agent-panel__file-action-info--clickable': !m.tool?.error && m.tool?.name !== 'delete_note' && m.tool?.name !== 'delete_folder' }"
+                          title="在编辑器中定位此修改"
+                          @click="jumpToToolModification(m.tool)"
+                        >
                           <span class="agent-panel__file-action-tag">
                             <template v-if="m.tool?.name === 'delete_note'">删除</template>
                             <template v-else-if="m.tool?.name === 'patch_note'">修改</template>
@@ -2480,35 +2613,35 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         <div class="agent-panel__file-action-btns">
                           <button
                             v-if="!m.tool?.error && m.tool?.name !== 'delete_note' && m.tool?.name !== 'delete_folder'"
-                            class="agent-panel__action-pill"
+                            class="agent-panel__action-pill agent-panel__action-pill--goto"
                             type="button"
-                            title="在编辑器中打开此笔记"
-                            @click="openToolFile(m.tool)"
+                            title="在编辑器中定位并高亮此修改"
+                            @click.stop="jumpToToolModification(m.tool)"
                           >
-                            打开
+                            定位修改
                           </button>
                           <button
                             v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
                             class="agent-panel__action-pill agent-panel__action-pill--revert"
                             type="button"
                             title="撤销修改并恢复备份"
-                            @click="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
+                            @click.stop="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
                           >
                             撤销
                           </button>
                           <button
                             class="agent-panel__action-pill agent-panel__action-pill--expand"
                             type="button"
-                            :title="m.tool?.expanded ? '折叠详情' : '展开详情'"
-                            @click="agent.toggleToolExpand(m.tool!.toolCallId)"
+                            :title="isToolExpanded(m.tool) ? '折叠详情' : '展开详情'"
+                            @click.stop="agent.toggleToolExpand(m.tool!.toolCallId)"
                           >
-                            {{ m.tool?.expanded ? '收起' : '详情' }}
+                            {{ isToolExpanded(m.tool) ? '收起' : '详情' }}
                           </button>
                         </div>
                       </div>
 
                       <!-- Expanded Details (Diff / Results) -->
-                      <div v-if="m.tool?.expanded" class="agent-panel__file-action-body">
+                      <div v-if="isToolExpanded(m.tool)" class="agent-panel__file-action-body">
                         <!-- Render Diff If Available -->
                         <div v-if="m.tool?.result?.diff" class="agent-panel__diff-view">
                           <div class="agent-panel__diff-lines">
@@ -2517,6 +2650,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                               :key="dIdx"
                               class="agent-panel__diff-line"
                               :class="`agent-panel__diff-line--${dLine.type}`"
+                              title="点击在编辑器中定位并高亮此行"
+                              @click.stop="jumpToToolModification(m.tool, dLine.text)"
                             >
                               <span class="agent-panel__diff-sign">{{ dLine.sign }}</span>
                               <span class="agent-panel__diff-text">{{ dLine.text }}</span>
@@ -2524,8 +2659,12 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                           </div>
                         </div>
                         <div v-else-if="m.tool?.result?.newContent" class="agent-panel__diff-view">
-                          <div class="agent-panel__diff-preview-label">写入内容预览：</div>
-                          <pre class="agent-panel__file-preview-content">{{ m.tool.result.newContent.slice(0, 500) }}{{ m.tool.result.newContent.length > 500 ? '…' : '' }}</pre>
+                          <div class="agent-panel__diff-preview-label">写入内容预览（点击定位）：</div>
+                          <pre
+                            class="agent-panel__file-preview-content"
+                            title="点击在编辑器中定位此笔记"
+                            @click="jumpToToolModification(m.tool)"
+                          >{{ m.tool.result.newContent.slice(0, 500) }}{{ m.tool.result.newContent.length > 500 ? '…' : '' }}</pre>
                         </div>
                         <div v-else-if="m.tool?.error" class="agent-panel__tool-error">
                           {{ m.tool.error }}
@@ -4704,6 +4843,20 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   flex: 1;
   min-width: 0;
 }
+.agent-panel__file-action-info--clickable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  transition: background 0.12s ease;
+}
+.agent-panel__file-action-info--clickable:hover {
+  background: var(--bg-hover);
+}
+.agent-panel__file-action-info--clickable:hover .agent-panel__file-action-name {
+  color: var(--accent, #ff9f40);
+  text-decoration: underline;
+}
 .agent-panel__file-action-icon {
   font-size: 15px;
   flex-shrink: 0;
@@ -4773,6 +4926,15 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--text);
   border-color: var(--accent, #ff9f40);
 }
+.agent-panel__action-pill--goto {
+  color: var(--accent, #ff9f40);
+  font-weight: 500;
+}
+.agent-panel__action-pill--goto:hover {
+  background: color-mix(in srgb, var(--accent, #ff9f40) 15%, var(--bg));
+  border-color: var(--accent, #ff9f40);
+  color: var(--accent, #ff9f40);
+}
 .agent-panel__action-pill--revert:hover {
   color: #dc2626;
   border-color: #dc2626;
@@ -4783,34 +4945,83 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
-.agent-panel__diff-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.agent-panel__diff-view {
+  margin-top: 4px;
 }
-.agent-panel__diff-section {
-  padding: 6px 8px;
+.agent-panel__diff-lines {
+  background: var(--bg-soft, #1e1e1e);
+  border: 1px solid var(--border);
   border-radius: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: "JetBrains Mono", Consolas, monospace;
   font-size: 11px;
+  line-height: 1.45;
+  padding: 4px 0;
 }
-.agent-panel__diff-section--del {
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+.agent-panel__diff-line {
+  display: flex;
+  align-items: baseline;
+  padding: 1.5px 8px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  user-select: text;
 }
-.agent-panel__diff-section--add {
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+.agent-panel__diff-line:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.08));
 }
-.agent-panel__diff-label {
-  font-size: 10px;
-  font-weight: 700;
-  margin-bottom: 3px;
-}
-.agent-panel__diff-section--del .agent-panel__diff-label {
-  color: #dc2626;
-}
-.agent-panel__diff-section--add .agent-panel__diff-label {
+.agent-panel__diff-line--add {
+  background: rgba(16, 185, 129, 0.08);
   color: #10b981;
+}
+.agent-panel__diff-line--add:hover {
+  background: rgba(16, 185, 129, 0.16);
+}
+.agent-panel__diff-line--del {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+.agent-panel__diff-line--del:hover {
+  background: rgba(239, 68, 68, 0.16);
+}
+.agent-panel__diff-line--context {
+  color: var(--text-muted);
+}
+.agent-panel__diff-sign {
+  width: 14px;
+  flex-shrink: 0;
+  font-weight: 700;
+  user-select: none;
+}
+.agent-panel__diff-text {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.agent-panel__diff-preview-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.agent-panel__file-preview-content {
+  margin: 0;
+  background: var(--bg-soft, #1e1e1e);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text);
+  max-height: 180px;
+  overflow-y: auto;
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+.agent-panel__file-preview-content:hover {
+  border-color: var(--accent, #ff9f40);
 }
 .agent-panel__diff-code {
   margin: 0;

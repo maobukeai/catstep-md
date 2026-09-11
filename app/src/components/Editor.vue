@@ -4602,6 +4602,35 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   }
 
   if (usePlainWindowsEditor) {
+    if (from == null && original) {
+      const fullText = plainLiveEnabled.value ? (plainText.value || '') : (plainEditor.value?.value || '');
+      let idx = fullText.indexOf(original);
+      if (idx === -1) {
+        idx = fullText.indexOf(original.trim());
+      }
+      if (idx === -1) {
+        const normDoc = fullText.replace(/\r\n/g, '\n');
+        const normOrig = original.replace(/\r\n/g, '\n').trim();
+        const nIdx = normDoc.indexOf(normOrig);
+        if (nIdx !== -1) {
+          idx = nIdx;
+        } else {
+          const lines = normOrig.split('\n').map((l) => l.trim()).filter((l) => l.length >= 3);
+          for (const line of lines) {
+            const lIdx = normDoc.indexOf(line);
+            if (lIdx !== -1) {
+              idx = lIdx;
+              original = line;
+              break;
+            }
+          }
+        }
+      }
+      if (idx !== -1) {
+        from = idx;
+        to = idx + (original.trim() ? original.trim().length : original.length);
+      }
+    }
     const safeLine = (!line || isNaN(line) || line < 1) ? 1 : line;
     if (plainLiveEnabled.value) {
       if (from != null) {
@@ -4609,6 +4638,9 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
       } else {
         plainSetCaret(plainLineStartOffset(safeLine));
         plainScrollToLine(safeLine);
+      }
+      if (isProofread) {
+        triggerJumpPulse();
       }
       return;
     }
@@ -4619,6 +4651,9 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     } else {
       plainSetCaret(plainLineStartOffset(safeLine));
       plainScrollToLine(safeLine);
+    }
+    if (isProofread) {
+      triggerJumpPulse();
     }
     return;
   }
@@ -4678,6 +4713,37 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   if (targetFrom == null && from != null) {
     targetFrom = Math.max(0, Math.min(from, docLen));
     targetTo = to != null ? Math.max(targetFrom, Math.min(to, docLen)) : targetFrom;
+  }
+
+  // 4.5 Global document search for original text snippet
+  if (targetFrom == null && original) {
+    const docText = view.state.doc.toString();
+    let docIdx = docText.indexOf(original);
+    if (docIdx === -1) {
+      docIdx = docText.indexOf(original.trim());
+    }
+    if (docIdx !== -1) {
+      targetFrom = docIdx;
+      targetTo = docIdx + (original.trim() ? original.trim().length : original.length);
+    } else {
+      const normDoc = docText.replace(/\r\n/g, '\n');
+      const normOrig = original.replace(/\r\n/g, '\n').trim();
+      const nIdx = normDoc.indexOf(normOrig);
+      if (nIdx !== -1) {
+        targetFrom = nIdx;
+        targetTo = nIdx + normOrig.length;
+      } else {
+        const lines = normOrig.split('\n').map((l) => l.trim()).filter((l) => l.length >= 3);
+        for (const line of lines) {
+          const lIdx = normDoc.indexOf(line);
+          if (lIdx !== -1) {
+            targetFrom = lIdx;
+            targetTo = lIdx + line.length;
+            break;
+          }
+        }
+      }
+    }
   }
 
   // 5. Fallback to line start

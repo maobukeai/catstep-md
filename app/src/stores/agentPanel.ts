@@ -286,6 +286,9 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         if (m.role === 'tool' && m.tool && m.tool.toolCallId === payload.toolCallId) {
           m.tool.result = payload.result;
           m.tool.error = payload.error;
+          if (!payload.error && (m.tool.name === 'patch_note' || m.tool.name === 'write_note')) {
+            m.tool.expanded = true;
+          }
           break;
         }
       }
@@ -295,7 +298,10 @@ export const useAgentPanelStore = defineStore('agentPanel', {
     toggleToolExpand(toolCallId: string) {
       for (const m of this.messages) {
         if (m.role === 'tool' && m.tool && m.tool.toolCallId === toolCallId) {
-          m.tool.expanded = !m.tool.expanded;
+          const current = typeof m.tool.expanded === 'boolean'
+            ? m.tool.expanded
+            : !!(m.tool.name === 'patch_note' && (m.tool.result as any)?.diff);
+          m.tool.expanded = !current;
           return;
         }
       }
