@@ -591,23 +591,21 @@ function buildActiveNoteContext(): string {
   const content = (tab.content || '').trim();
   if (!content) return '';
 
-  const selectedText = window.getSelection()?.toString().trim() || '';
-  if (selectedText.length > 0) {
+  const rawSel = (!isSelectionDismissed.value && activeSelectionText.value)
+    ? activeSelectionText.value.trim()
+    : (window.getSelection()?.toString().trim() || '');
+  const path = tab.filePath || tab.fileName || '(untitled)';
+  const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)' : content;
+
+  if (rawSel.length > 0) {
     const truncatedSelection =
-      selectedText.length > ACTIVE_NOTE_CHAR_LIMIT
-        ? selectedText.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)'
-        : selectedText;
-    const path = tab.filePath || tab.fileName || '(untitled)';
-    const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)' : content;
-    return `Active note content (${path}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\nUser's current selection:\n\`\`\`markdown\n${truncatedSelection}\n\`\`\``;
+      rawSel.length > ACTIVE_NOTE_CHAR_LIMIT
+        ? rawSel.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)'
+        : rawSel;
+    return `Active note content (${path}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\nUser's current selected text in ${path}:\n\`\`\`markdown\n${truncatedSelection}\n\`\`\``;
   }
 
-  const truncated =
-    content.length > ACTIVE_NOTE_CHAR_LIMIT
-      ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)'
-      : content;
-  const path = tab.filePath || tab.fileName || '(untitled)';
-  return `Active note content (${path}):\n\`\`\`markdown\n${truncated}\n\`\`\``;
+  return `Active note content (${path}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\``;
 }
 
 const hasFolder = computed(() => !!workspace.currentFolder);
@@ -696,21 +694,151 @@ function applyPromptSuggestion(prompt: string) {
   });
 }
 
+/**
+ * Extract clean rewritten/polished content from an assistant reply,
+ * filtering out polite remarks, bullet-point changelogs, and conversational chatter.
+ */
+function extractCleanPolishedText(raw: string): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+
+  // 1. Look for fenced code blocks ```markdown ... ``` or ```...```
+  const codeBlockRegex = /```(?:markdown|md|txt)?\s*([\s\S]*?)```/gi;
+  const matches: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = codeBlockRegex.exec(trimmed)) !== null) {
+    if (match[1] && match[1].trim()) {
+      matches.push(match[1].trim());
+    }
+  }
+  if (matches.length > 0) {
+    matches.sort((a, b) => b.length - a.length);
+    return matches[0];
+  }
+
+  // 2. Look for explicit transition markers
+  const splitMarkers = [
+    /以下是(?:更新后|润色后|修改后|优化后|改写后|处理后)[^：:\n]*[：:]\s*/i,
+    /【(?:润色后|修改后|优化后|更新后|最终版|润色结果)[^】]*】\s*/i,
+    /---\s*\n(?=[^#*-])/i,
+  ];
+  for (const marker of splitMarkers) {
+    const parts = trimmed.split(marker);
+    if (parts.length > 1) {
+      const candidate = parts[parts.length - 1].trim();
+      if (candidate.length > 10) {
+        return candidate;
+      }
+    }
+  }
+
+  // 3. If lines start with chit-chat ("好的", "我已经为你...", "✨ 润色亮点"), filter out commentary lines
+  const lines = trimmed.split('\n');
+  let startIndex = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (
+      /^(好的|我已经|为你|这是一份|润色亮点|修改要点|优化说明|以下是)/i.test(line) ||
+      /^[\d\.\-\*]\s*(语言风格|结构层次|表达精简|用词|语法|逻辑|要点)/.test(line)
+    ) {
+      startIndex = i + 1;
+    } else if (line === '' && startIndex > 0) {
+      // skip empty lines between comments
+    } else if (startIndex > 0 && line.length > 0) {
+      break;
+    }
+  }
+  if (startIndex > 0 && startIndex < lines.length) {
+    const remaining = lines.slice(startIndex).join('\n').trim();
+    if (remaining.length > 0) {
+      return remaining;
+    }
+  }
+
+  return trimmed;
+}
+
+function getSelectionForMessage(assistantMsg: any): string {
+  const idx = agent.messages.findIndex((m) => m.id === assistantMsg.id);
+  if (idx !== -1) {
+    for (let i = idx - 1; i >= 0; i--) {
+      const prev = agent.messages[i];
+      if (prev.role === 'user') {
+        const selRef = prev.references?.find((r) => r.type === 'selection');
+        if (selRef?.preview) return selRef.preview;
+        break;
+      }
+    }
+  }
+  return activeSelectionText.value || '';
+}
+
+function hasSelectionForMessage(assistantMsg: any): boolean {
+  return !!getSelectionForMessage(assistantMsg);
+}
+
+/**
+ * 1-Click apply clean polished text directly to active selection in the editor.
+ */
+async function applyPolishedTextToDoc(assistantMsgContent: string, targetSelection?: string) {
+  const cleanSnippet = extractCleanPolishedText(assistantMsgContent);
+  if (!cleanSnippet) {
+    toasts.warning('未能从回答中提取到有效的润色内容');
+    return;
+  }
+
+  const tab = tabs.activeTab;
+  const target = (targetSelection || activeSelectionText.value || '').trim();
+
+  // 1. Try to patch directly via active tab content
+  if (tab && tab.content && target && tab.content.includes(target)) {
+    const newContent = tab.content.replace(target, cleanSnippet);
+    if (typeof tab.id === 'string') {
+      tabs.applyExternalSave(tab.id, newContent);
+      if (tab.filePath) {
+        try {
+          await invoke('write_file', {
+            path: tab.filePath,
+            content: newContent,
+            encoding: 'UTF-8',
+            workspace: workspace.currentFolder,
+          });
+        } catch (e) {
+          console.warn('Failed to persist patched note to disk:', e);
+        }
+      }
+      toasts.success(t('agent.replacedSelectionSuccess'));
+      return;
+    }
+  }
+
+  // 2. Fallback to CodeMirror editor selection replacement via solomd:insert-markdown
+  const paneId = tiles.focusedPaneId || tiles.allLeaves[0]?.id;
+  if (paneId && tabs.activeTab) {
+    window.dispatchEvent(
+      new CustomEvent('solomd:insert-markdown', {
+        detail: { snippet: cleanSnippet, paneId },
+      }),
+    );
+    toasts.success(t('agent.replacedSelectionSuccess'));
+  } else {
+    toasts.warning(t('agent.msgInsertNoEditor'));
+  }
+}
+
 /** Insert a finished assistant reply into the focused editor pane.
- *  Reuses the existing `solomd:insert-markdown` event that PaneContent
- *  already listens for — replaces the current selection if any, else
- *  inserts at the cursor; the caret lands at the end of the inserted
- *  text. */
+ *  Uses clean snippet extraction so chit-chat banter is stripped. */
 function insertAssistantMessage(content: string) {
   if (!content) return;
-  const paneId = tiles.focusedPaneId;
+  const cleanSnippet = extractCleanPolishedText(content);
+  const paneId = tiles.focusedPaneId || tiles.allLeaves[0]?.id;
   if (!paneId || !tabs.activeTab) {
     toasts.warning(t('agent.msgInsertNoEditor'));
     return;
   }
   window.dispatchEvent(
     new CustomEvent('solomd:insert-markdown', {
-      detail: { snippet: content, paneId },
+      detail: { snippet: cleanSnippet, paneId },
     }),
   );
   toasts.success(t('agent.msgInserted'));
@@ -739,6 +867,15 @@ async function send() {
 
   const refsToSend = [...activeReferences.value];
   const imagesToSend = [...activeImages.value];
+
+  const hasActiveSel = !!(activeSelectionText.value && !isSelectionDismissed.value);
+  if (hasActiveSel) {
+    refsToSend.push({
+      type: 'selection',
+      name: `${t('agent.refSelection')} (${activeSelectionText.value.length}字)`,
+      preview: activeSelectionText.value,
+    });
+  }
 
   // Push user message + empty assistant placeholder. Chunks stream into the
   // placeholder via the `solomd://ai-chunk` listener below.
@@ -769,9 +906,38 @@ async function send() {
   const ctx = buildVaultContext();
   const noteCtx = buildActiveNoteContext();
   const systemParts = [SYSTEM_PROMPT];
+
   if (settings.agentAllowWrite) {
-    systemParts.push("你具备修改笔记库的物理权限。当用户要求你修改、优化某段文字时，必须调用 `patch_note`；当用户要求你创建、新建、保存为笔记时，必须调用 `write_note`。");
+    if (hasActiveSel) {
+      systemParts.push(
+        "【核心指令：自动替换所选片段】\n" +
+        "当前处于【智能体/编辑模式】，用户已在当前笔记中明确划选了具体文本片段（见下方的 User's current selected text）。\n" +
+        "当用户的请求是润色、改写、修正或优化这段文字时：\n" +
+        "1. 必须直接调用 `patch_note` 工具自动替换文档中的选区内容！\n" +
+        "2. `patch_note` 参数中，`path` 填写当前笔记路径，`target_content` 必须完全匹配用户划选的原文本片段，`replacement_content` 填入润色后的优质纯正文。\n" +
+        "3. 严禁只在对话框口头回复“我已经为你修改了”却不调用 `patch_note`！只有成功调用 `patch_note` 工具，用户的编辑器才会真正更新。"
+      );
+    } else {
+      systemParts.push(
+        "你具备修改笔记库的物理权限。当用户要求你修改、优化某段文字时，必须调用 `patch_note`；当用户要求你创建、新建、保存为笔记时，必须调用 `write_note`。严禁在没有调用工具的情况下虚假声称已修改文件。"
+      );
+    }
+  } else {
+    if (hasActiveSel) {
+      systemParts.push(
+        "【只读建议模式重要须知】\n" +
+        "当前处于【只读建议模式】，你没有直接写盘修改文件的权限，因此绝对严禁在回答中声称“已为你自动修改文件”或“已自动同步到工作区”。\n" +
+        "当用户要求润色或修改所选文本片段时：\n" +
+        "1. 请在回复中用单个 markdown 代码块（```markdown ... ```）完整输出润色后的纯正文，严禁夹杂任何客套寒暄或修改列表在正文里；\n" +
+        "2. 代码块外面可以附带简要的修改亮点；用户可以直接点击面板上的【⚡ 替换选区】一键应用到当前选区。"
+      );
+    } else {
+      systemParts.push(
+        "【只读建议模式】当前处于只读建议模式，你没有直接修改笔记库的物理权限。请在回复中给出修改建议或完整代码块，绝对严禁虚假声称“已自动同步到工作区”。"
+      );
+    }
   }
+
   if (ctx) systemParts.push(ctx);
   if (noteCtx) systemParts.push(noteCtx);
 
@@ -1782,13 +1948,14 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     <div v-if="block.msg.references && block.msg.references.length" class="agent-panel__msg-refs">
                       <button
                         v-for="r in block.msg.references"
-                        :key="r.path"
+                        :key="r.path || r.name"
                         class="agent-panel__msg-ref-pill"
+                        :class="{ 'agent-panel__msg-ref-pill--sel': r.type === 'selection' }"
                         type="button"
-                        :title="`在编辑器中打开 ${r.name}`"
-                        @click="openReferencedNote(r.path)"
+                        :title="r.preview ? r.preview : `在编辑器中打开 ${r.name}`"
+                        @click="r.path && openReferencedNote(r.path)"
                       >
-                        📄 {{ r.name }}
+                        {{ r.type === 'selection' ? '📌' : '📄' }} {{ r.name }}
                       </button>
                     </div>
 
@@ -1966,6 +2133,20 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
                     </button>
                     <button
+                      v-if="hasSelectionForMessage(block.msg)"
+                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
+                      type="button"
+                      :disabled="!canInsertIntoEditor"
+                      :title="t('agent.msgReplaceSelectionTitle')"
+                      @click="applyPolishedTextToDoc(block.msg.content, getSelectionForMessage(block.msg))"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M13 2L14 3L4 13L2 14L3 12L13 2Z"/>
+                        <path d="M10 5L12 7"/>
+                      </svg>
+                      <span>{{ t('agent.msgReplaceSelection') }}</span>
+                    </button>
+                    <button
                       class="agent-panel__msg-action-btn"
                       type="button"
                       :disabled="!canInsertIntoEditor"
@@ -2138,6 +2319,17 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <span class="agent-panel__ref-badge-name">{{ t('agent.refSelection') }} ({{ activeSelectionText.length }}字)</span>
             <button class="agent-panel__ref-badge-del" type="button" @click="isSelectionDismissed = true">×</button>
           </span>
+
+          <button
+            v-if="activeSelectionText && !isSelectionDismissed && !settings.agentAllowWrite"
+            type="button"
+            class="agent-panel__ref-tip-btn"
+            :title="t('agent.enableAutoWriteTip')"
+            @click="settings.agentAllowWrite = true"
+          >
+            <span class="agent-panel__ref-tip-icon">⚡</span>
+            <span>{{ t('agent.enableAutoWriteHint') }}</span>
+          </button>
 
           <!-- Pasted Image Thumbnails -->
           <div
@@ -2970,11 +3162,28 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: #10b981;
   background: rgba(16, 185, 129, 0.08);
 }
+.agent-panel__msg-action-btn--replace {
+  color: var(--accent, #ff9f40);
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent, #ff9f40) 8%, var(--bg));
+  font-weight: 500;
+}
+.agent-panel__msg-action-btn--replace:hover:not(:disabled) {
+  background: var(--accent, #ff9f40);
+  color: #fff;
+  border-color: var(--accent, #ff9f40);
+}
 .agent-panel__msg-refs {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 6px;
+}
+.agent-panel__msg-ref-pill--sel {
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent, #ff9f40) 8%, var(--bg-soft));
+  color: var(--accent, #ff9f40);
+  cursor: default;
 }
 .agent-panel__msg-ref-pill {
   display: inline-flex;
@@ -3232,6 +3441,28 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 }
 .agent-panel__ref-badge-del:hover {
   color: #dc2626;
+}
+.agent-panel__ref-tip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: color-mix(in srgb, var(--accent, #ff9f40) 12%, var(--bg));
+  border: 1px dashed color-mix(in srgb, var(--accent, #ff9f40) 60%, var(--border));
+  border-radius: 5px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent, #ff9f40);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.agent-panel__ref-tip-btn:hover {
+  background: var(--accent, #ff9f40);
+  color: #fff;
+  border-style: solid;
+}
+.agent-panel__ref-tip-icon {
+  font-size: 11px;
 }
 
 /* --- Mention Button & Ollama Pill -------------------------------------- */
