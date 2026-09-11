@@ -637,7 +637,7 @@ const ACTIVE_NOTE_CHAR_LIMIT = 8192;
  * snippets + active note path) before the user's message.
  */
 const SYSTEM_PROMPT =
-  'You are a thoughtful, intelligent assistant inside SoloMD, a local-first markdown editor.\n\n【思考与输出规范】\n在回答前，请务必先在 <think> 与 </think> 标签中展示你的思考与推演逻辑（包括：意图理解、核心要点梳理、推演步骤、行文结构规划）。\n思考推演完成后闭合 </think> 标签，并在其后输出正式且排版优雅的 Markdown 回答。如果用户询问某具体笔记而你未获得内容，请在思考后提示用户。';
+  'You are a helpful, professional assistant inside SoloMD, a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses. If the user asks about a specific note that is not in context, politely ask them to reference it.';
 
 function normalizePath(p?: string | null): string {
   if (!p) return '';
@@ -1322,7 +1322,28 @@ declare global {
   }
 }
 
+let agentMountToken = 0;
+let activeUnlistens: UnlistenFn[] = [];
+let isInsideThinkTag = false;
+let thoughtStartTime: number | null = null;
+let thinkBuffer = '';
+
+function resetThinkingState() {
+  isInsideThinkTag = false;
+  thoughtStartTime = null;
+  thinkBuffer = '';
+}
+
 function cleanupListeners() {
+  agentMountToken++;
+  while (activeUnlistens.length) {
+    const fn = activeUnlistens.pop();
+    try {
+      fn?.();
+    } catch {
+      /* ignore */
+    }
+  }
   if (typeof window !== 'undefined' && window.__solomd_agent_cleanup) {
     try {
       window.__solomd_agent_cleanup();
@@ -1335,14 +1356,6 @@ function cleanupListeners() {
 
 const reverts = ref<Record<string, { type: 'path' | 'content'; data: string }>>({});
 
-let isInsideThinkTag = false;
-let thoughtStartTime: number | null = null;
-
-function resetThinkingState() {
-  isInsideThinkTag = false;
-  thoughtStartTime = null;
-}
-
 function processChunkForThinking(chunk: string) {
   const last = agent.messages[agent.messages.length - 1];
   if (!last || last.role !== 'assistant') return;
@@ -1351,10 +1364,13 @@ function processChunkForThinking(chunk: string) {
     thoughtStartTime = Date.now();
   }
 
+  let text = thinkBuffer + chunk;
+  thinkBuffer = '';
+
   // Case 1: Already inside <think> tag
   if (isInsideThinkTag) {
-    if (chunk.includes('</think>')) {
-      const parts = chunk.split('</think>');
+    if (text.includes('</think>')) {
+      const parts = text.split('</think>');
       const thoughtPart = parts[0];
       const restContent = parts.slice(1).join('</think>');
       last.thought = (last.thought || '') + thoughtPart;
@@ -1366,14 +1382,27 @@ function processChunkForThinking(chunk: string) {
         last.content = (last.content || '') + restContent.trimStart();
       }
     } else {
-      last.thought = (last.thought || '') + chunk;
+      const partials = ['</think', '</thin', '</thi', '</th', '</t', '</', '<'];
+      let matchedPartial = '';
+      for (const p of partials) {
+        if (text.endsWith(p)) {
+          matchedPartial = p;
+          break;
+        }
+      }
+      if (matchedPartial) {
+        last.thought = (last.thought || '') + text.slice(0, -matchedPartial.length);
+        thinkBuffer = matchedPartial;
+      } else {
+        last.thought = (last.thought || '') + text;
+      }
     }
     return;
   }
 
   // Case 2: Encountered <think> tag in chunk
-  if (chunk.includes('<think>')) {
-    const parts = chunk.split('<think>');
+  if (text.includes('<think>')) {
+    const parts = text.split('<think>');
     const preContent = parts[0];
     const rest = parts.slice(1).join('<think>');
     if (preContent) {
@@ -1394,13 +1423,40 @@ function processChunkForThinking(chunk: string) {
         last.content = (last.content || '') + restContent.trimStart();
       }
     } else {
-      last.thought = (last.thought || '') + rest;
+      const partials = ['</think', '</thin', '</thi', '</th', '</t', '</', '<'];
+      let matchedPartial = '';
+      for (const p of partials) {
+        if (rest.endsWith(p)) {
+          matchedPartial = p;
+          break;
+        }
+      }
+      if (matchedPartial) {
+        last.thought = (last.thought || '') + rest.slice(0, -matchedPartial.length);
+        thinkBuffer = matchedPartial;
+      } else {
+        last.thought = (last.thought || '') + rest;
+      }
     }
     return;
   }
 
-  // Case 3: Regular content streaming
-  last.content = (last.content || '') + chunk;
+  // Case 3: Check if text ends with a partial "<think>"
+  const startPartials = ['<think', '<thin', '<thi', '<th', '<t', '<'];
+  let matchedStart = '';
+  for (const p of startPartials) {
+    if (text.endsWith(p)) {
+      matchedStart = p;
+      break;
+    }
+  }
+  if (matchedStart) {
+    last.content = (last.content || '') + text.slice(0, -matchedStart.length);
+    thinkBuffer = matchedStart;
+  } else {
+    last.content = (last.content || '') + text;
+  }
+
   if (last.thought && last.thoughtDurationMs === undefined && thoughtStartTime) {
     last.thoughtDurationMs = Date.now() - thoughtStartTime;
   }
@@ -1492,6 +1548,8 @@ async function openToolFile(tool?: any) {
 
 onMounted(async () => {
   cleanupListeners();
+  const currentToken = ++agentMountToken;
+
   if (typeof window !== 'undefined') {
     window.addEventListener('click', onWindowClick);
     document.addEventListener('selectionchange', checkSelection);
@@ -1499,180 +1557,165 @@ onMounted(async () => {
   void checkOllama();
   ollamaTimer = setInterval(checkOllama, 30_000);
 
-  const unlistens: UnlistenFn[] = [];
-  window.__solomd_agent_cleanup = () => {
-    while (unlistens.length) {
-      const fn = unlistens.pop();
-      try {
-        fn?.();
-      } catch {
-        /* ignore */
-      }
-    }
-  };
+  window.__solomd_agent_cleanup = cleanupListeners;
 
-  const uThought = await listen<{ request_id: string; chunk: string }>(
-    'solomd://ai-thought',
-    (e) => {
-      if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-      if (thoughtStartTime === null) {
-        thoughtStartTime = Date.now();
-      }
-      agent.appendToLastThought(e.payload.chunk);
-      autoscroll();
-    },
-  );
-  unlistens.push(uThought);
-
-  const uChunk = await listen<{ request_id: string; chunk: string }>(
-    'solomd://ai-chunk',
-    (e) => {
-      if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-      processChunkForThinking(e.payload.chunk);
-      autoscroll();
-    },
-  );
-  unlistens.push(uChunk);
-
-  const uDone = await listen<{ request_id: string; full_text: string }>(
-    'solomd://ai-done',
-    (e) => {
-      if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-      const last = agent.messages[agent.messages.length - 1];
-      if (last && last.role === 'assistant') {
-        if (e.payload.full_text) {
-          if (e.payload.full_text.includes('<think>')) {
-            const thinkStart = e.payload.full_text.indexOf('<think>');
-            const thinkEnd = e.payload.full_text.indexOf('</think>');
-            if (thinkEnd !== -1) {
-              last.thought = e.payload.full_text.slice(thinkStart + 7, thinkEnd).trim();
-              last.content = e.payload.full_text.slice(thinkEnd + 8).trimStart();
+  try {
+    const unlistenResults = await Promise.all([
+      listen<{ request_id: string; chunk: string }>('solomd://ai-thought', (e) => {
+        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        if (thoughtStartTime === null) {
+          thoughtStartTime = Date.now();
+        }
+        agent.appendToLastThought(e.payload.chunk);
+        autoscroll();
+      }),
+      listen<{ request_id: string; chunk: string }>('solomd://ai-chunk', (e) => {
+        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        processChunkForThinking(e.payload.chunk);
+        autoscroll();
+      }),
+      listen<{ request_id: string; full_text: string }>('solomd://ai-done', (e) => {
+        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        const last = agent.messages[agent.messages.length - 1];
+        if (last && last.role === 'assistant') {
+          if (thinkBuffer) {
+            if (isInsideThinkTag) {
+              last.thought = (last.thought || '') + thinkBuffer;
             } else {
-              last.thought = e.payload.full_text.slice(thinkStart + 7).trim();
-              last.content = '';
+              last.content = (last.content || '') + thinkBuffer;
             }
-          } else {
-            last.content = e.payload.full_text;
+            thinkBuffer = '';
+          }
+          if (e.payload.full_text) {
+            if (e.payload.full_text.includes('<think>')) {
+              const thinkStart = e.payload.full_text.indexOf('<think>');
+              const thinkEnd = e.payload.full_text.indexOf('</think>');
+              if (thinkEnd !== -1) {
+                last.thought = e.payload.full_text.slice(thinkStart + 7, thinkEnd).trim();
+                last.content = e.payload.full_text.slice(thinkEnd + 8).trimStart();
+              } else {
+                last.thought = e.payload.full_text.slice(thinkStart + 7).trim();
+                last.content = '';
+              }
+            } else {
+              last.content = e.payload.full_text;
+            }
+          }
+          if (last.content && last.content.includes('<think>')) {
+            last.content = last.content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          }
+          if (last.thought && last.thoughtDurationMs === undefined && thoughtStartTime) {
+            last.thoughtDurationMs = Date.now() - thoughtStartTime;
+          }
+          if (last.content === '' && !last.thought) {
+            agent.messages.pop();
           }
         }
-        if (last.thought && last.thoughtDurationMs === undefined && thoughtStartTime) {
-          last.thoughtDurationMs = Date.now() - thoughtStartTime;
-        }
-        if (last.content === '' && !last.thought) {
+        resetThinkingState();
+        agent.isStreaming = false;
+        agent.currentRunId = null;
+      }),
+      listen<{ request_id: string; error: string }>('solomd://ai-error', (e) => {
+        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        agent.isStreaming = false;
+        agent.currentRunId = null;
+        resetThinkingState();
+        const last = agent.messages[agent.messages.length - 1];
+        if (last && last.role === 'assistant' && last.content === '' && !last.thought) {
           agent.messages.pop();
         }
-      }
-      thoughtStartTime = null;
-      agent.isStreaming = false;
-      agent.currentRunId = null;
-    },
-  );
-  unlistens.push(uDone);
-
-  const uError = await listen<{ request_id: string; error: string }>(
-    'solomd://ai-error',
-    (e) => {
-      if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-      agent.isStreaming = false;
-      agent.currentRunId = null;
-      thoughtStartTime = null;
-      const last = agent.messages[agent.messages.length - 1];
-      if (last && last.role === 'assistant' && last.content === '' && !last.thought) {
-        agent.messages.pop();
-      }
-      if (e.payload.error !== 'cancelled') {
-        errorMsg.value = e.payload.error;
-      }
-    },
-  );
-  unlistens.push(uError);
-
-  const uToolCall = await listen<{
-    request_id: string;
-    run_id: string;
-    tool_call_id: string;
-    tool: string;
-    args: Record<string, unknown>;
-  }>('solomd://ai-tool-call', (e) => {
-    if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-    agent.insertToolCall({
-      toolCallId: e.payload.tool_call_id,
-      name: e.payload.tool,
-      args: e.payload.args,
-      runId: e.payload.run_id,
-    });
-    autoscroll();
-  });
-  unlistens.push(uToolCall);
-
-  const uToolResult = await listen<{
-    request_id: string;
-    run_id: string;
-    tool_call_id: string;
-    result: unknown;
-    error?: string;
-  }>('solomd://ai-tool-result', async (e) => {
-    if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-    let resultStr: string;
-    try {
-      resultStr =
-        typeof e.payload.result === 'string'
-          ? e.payload.result
-          : JSON.stringify(e.payload.result, null, 2);
-    } catch {
-      resultStr = String(e.payload.result);
-    }
-    agent.completeToolCall({
-      toolCallId: e.payload.tool_call_id,
-      result: resultStr,
-      error: e.payload.error,
-    });
-    autoscroll();
-
-    if (!e.payload.error && e.payload.result && typeof e.payload.result === 'object') {
-      const payloadResult = e.payload.result as any;
-      if (payloadResult.ok && payloadResult.path) {
-        const path = payloadResult.path;
-        const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
-        if (payloadResult.backup_path) {
-          reverts.value[e.payload.tool_call_id] = { type: 'path', data: payloadResult.backup_path };
-        } else if (tab) {
-          reverts.value[e.payload.tool_call_id] = { type: 'content', data: tab.content };
+        if (e.payload.error !== 'cancelled') {
+          errorMsg.value = e.payload.error;
         }
+      }),
+      listen<{
+        request_id: string;
+        run_id: string;
+        tool_call_id: string;
+        tool: string;
+        args: Record<string, unknown>;
+      }>('solomd://ai-tool-call', (e) => {
+        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        agent.insertToolCall({
+          toolCallId: e.payload.tool_call_id,
+          name: e.payload.tool,
+          args: e.payload.args,
+          runId: e.payload.run_id,
+        });
+        autoscroll();
+      }),
+      listen<{
+        request_id: string;
+        run_id: string;
+        tool_call_id: string;
+        result: unknown;
+        error?: string;
+      }>('solomd://ai-tool-result', async (e) => {
+        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        let resultStr: string;
+        try {
+          resultStr =
+            typeof e.payload.result === 'string'
+              ? e.payload.result
+              : JSON.stringify(e.payload.result, null, 2);
+        } catch {
+          resultStr = String(e.payload.result);
+        }
+        agent.completeToolCall({
+          toolCallId: e.payload.tool_call_id,
+          result: resultStr,
+          error: e.payload.error,
+        });
+        autoscroll();
 
-        if (tab && typeof tab.id === 'string') {
-          try {
-            const result = await invoke<any>('read_file', { path });
-            if (result && typeof result.content === 'string') {
-              tabs.applyExternalSave(tab.id, result.content);
+        if (!e.payload.error && e.payload.result && typeof e.payload.result === 'object') {
+          const payloadResult = e.payload.result as any;
+          if (payloadResult.ok && payloadResult.path) {
+            const path = payloadResult.path;
+            const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
+            if (payloadResult.backup_path) {
+              reverts.value[e.payload.tool_call_id] = { type: 'path', data: payloadResult.backup_path };
+            } else if (tab) {
+              reverts.value[e.payload.tool_call_id] = { type: 'content', data: tab.content };
             }
-          } catch (err) {
-            console.error('Failed to sync file after ai write:', err);
-          }
-        } else {
-          // Newly created file — automatically open in editor tab!
-          try {
-            await files.openPath(path, { bypassNewWindow: true });
-          } catch (err) {
-            console.error('Failed to auto-open created note:', err);
+
+            if (tab && typeof tab.id === 'string') {
+              try {
+                const result = await invoke<any>('read_file', { path });
+                if (result && typeof result.content === 'string') {
+                  tabs.applyExternalSave(tab.id, result.content);
+                }
+              } catch (err) {
+                console.error('Failed to sync file after ai write:', err);
+              }
+            } else {
+              try {
+                await files.openPath(path, { bypassNewWindow: true });
+              } catch (err) {
+                console.error('Failed to auto-open created note:', err);
+              }
+            }
           }
         }
+      }),
+      listen<{ request_id: string; run_id: string }>('solomd://ai-run-started', (e) => {
+        if (e.payload.request_id === agent.currentRunId) {
+          agent.currentPersistRunId = e.payload.run_id;
+        }
+      }),
+    ]);
+
+    // If unmounted or re-entered while awaiting, clean them up immediately!
+    if (currentToken !== agentMountToken) {
+      for (const fn of unlistenResults) {
+        try { fn(); } catch {}
       }
+      return;
     }
-  });
-  unlistens.push(uToolResult);
 
-  const uRunStarted = await listen<{ request_id: string; run_id: string }>(
-    'solomd://ai-run-started',
-    (e) => {
-      if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-      agent.currentPersistRunId = e.payload.run_id;
-    },
-  );
-  unlistens.push(uRunStarted);
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('click', onWindowClick);
+    activeUnlistens = unlistenResults;
+  } catch (err) {
+    console.error('[AgentPanel] listener registration error:', err);
   }
 });
 
