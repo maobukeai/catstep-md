@@ -2557,9 +2557,10 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         @dismiss="isMobileEditorFocused = false"
       />
 
-      <!-- Mobile Outline Bottom Sheet (55% height slide-up modal) -->
+      <!-- Mobile Outline Bottom Sheet (Enhanced with search, snap height, empty actions) -->
       <MobileOutlineSheet
         :open="isNarrow && mobileOutlineOpen"
+        :cursor-line="cursorLine"
         @close="mobileOutlineOpen = false"
         @goto="onOutlineGoto"
       />

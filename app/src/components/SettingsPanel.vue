@@ -164,11 +164,18 @@ const categories: CategoryMeta[] = [
   },
 ];
 
-const categoryGroups = computed(() => [
+const mobileCategories = computed(() => {
+  if (isNarrow.value) {
+    return categories.filter((c) => c.id !== 'keys');
+  }
+  return categories;
+});
+
+const mobileCategoryGroups = computed(() => [
   { id: 'appearance', title: isZh.value ? '外观与编辑体验' : 'Appearance & Editor' },
   { id: 'data', title: isZh.value ? '数据同步与输出' : 'Cloud Sync & Export' },
   { id: 'extension', title: isZh.value ? '智能与高级扩展' : 'Intelligence & Extensions' },
-  { id: 'system', title: isZh.value ? '系统与速查' : 'System & Info' },
+  { id: 'system', title: isZh.value ? '系统与关于' : 'System & About' },
 ]);
 
 const currentCategoryMeta = computed(() => {
@@ -406,6 +413,7 @@ const searchResults = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   if (!q) return [];
   return searchableCatalog.filter((item) => {
+    if (isNarrow.value && item.category === 'keys') return false;
     return (
       item.title.toLowerCase().includes(q) ||
       item.desc.toLowerCase().includes(q) ||
@@ -476,8 +484,13 @@ watch(
     }
     const target = props.initialSection;
     if (target && VALID_CATEGORIES.has(target as SettingsCategory)) {
-      activeCategory.value = target as SettingsCategory;
-      mobileSubPage.value = target as SettingsCategory;
+      if (isNarrow.value && target === 'keys') {
+        activeCategory.value = 'basics';
+        mobileSubPage.value = 'basics';
+      } else {
+        activeCategory.value = target as SettingsCategory;
+        mobileSubPage.value = target as SettingsCategory;
+      }
     } else {
       mobileSubPage.value = null;
     }
@@ -676,14 +689,14 @@ onBeforeUnmount(() => {
 
             <!-- Grouped Inset Category Entries (分类入口列表) -->
             <div
-              v-for="grp in categoryGroups"
+              v-for="grp in mobileCategoryGroups"
               :key="grp.id"
               class="settings-mobile-group"
             >
               <div class="settings-mobile-group__title">{{ grp.title }}</div>
               <div class="settings-mobile-group__card">
                 <div
-                  v-for="cat in categories.filter(c => c.group === grp.id)"
+                  v-for="cat in mobileCategories.filter(c => c.group === grp.id)"
                   :key="cat.id"
                   class="settings-mobile-entry"
                   @click="openCategory(cat.id)"

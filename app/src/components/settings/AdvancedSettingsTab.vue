@@ -6,6 +6,7 @@ import { useSettingsStore } from '../../stores/settings';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { isIOS } from '../../lib/platform';
+import { useViewport } from '../../composables/useViewport';
 import { checkForUpdate, openReleaseUrl, isMasBuild } from '../../lib/check-update';
 import { loadCustomTheme } from '../../lib/custom-theme';
 import ThemeMarketplace from '../ThemeMarketplace.vue';
@@ -13,6 +14,7 @@ import ThemeMarketplace from '../ThemeMarketplace.vue';
 const { t } = useI18n();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
+const { isNarrow } = useViewport();
 
 const isMobilePlatform = isIOS();
 const masBuild = isMasBuild();
@@ -174,8 +176,8 @@ function openThemeMarketplace() {
       </div>
     </section>
 
-    <!-- Open File In New Window -->
-    <section v-if="!isMobilePlatform" class="settings-section">
+    <!-- Open File In New Window (Desktop only) -->
+    <section v-if="!isMobilePlatform && !isNarrow" class="settings-section">
       <label>
         <input type="checkbox" :checked="settings.openFileInNewWindow" @change="settings.toggleOpenFileInNewWindow()" />
         {{ t('settings.openFileInNewWindow') }}
@@ -207,8 +209,8 @@ function openThemeMarketplace() {
       </div>
     </section>
 
-    <!-- Auto Check Update -->
-    <section v-if="!isMobilePlatform && !masBuild" class="settings-section">
+    <!-- Auto Check Update (Desktop only) -->
+    <section v-if="!isMobilePlatform && !masBuild && !isNarrow" class="settings-section">
       <label>
         <input type="checkbox" :checked="settings.autoCheckUpdate" @change="settings.toggleAutoCheckUpdate()" />
         {{ t('settings.autoCheckUpdate') }}
@@ -226,7 +228,7 @@ function openThemeMarketplace() {
     <section class="settings-section">
       <label>{{ t('settings.customCss') }}</label>
       <div class="row" style="gap: 8px; align-items: center; flex-wrap: wrap;">
-        <button @click="pickCustomCss">{{ t('settings.pickCss') }}</button>
+        <button v-if="!isNarrow" @click="pickCustomCss">{{ t('settings.pickCss') }}</button>
         <button @click="openThemeMarketplace">{{ t('themes.browseBtn') }}</button>
         <button v-if="settings.customCssPath" @click="settings.setCustomCssPath('')">{{ t('settings.clear') }}</button>
       </div>
@@ -242,8 +244,8 @@ function openThemeMarketplace() {
       <p class="setting-hint">{{ t('themes.browseHint') }}</p>
     </section>
 
-    <!-- File Association -->
-    <section class="settings-section">
+    <!-- File Association (Desktop only) -->
+    <section v-if="!isNarrow" class="settings-section">
       <label>{{ t('settings.fileAssoc') }}</label>
       <div class="row" style="gap: 8px; align-items: center;">
         <button

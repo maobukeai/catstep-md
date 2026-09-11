@@ -4,9 +4,9 @@ import { useWorkspaceStore } from '../../stores/workspace';
 import { useRagStore } from '../../stores/rag';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { isMacOS, isMobile, hasGitBackend } from '../../lib/platform';
+import { isMacOS, hasGitBackend } from '../../lib/platform';
+import { useViewport } from '../../composables/useViewport';
 import { IS_APP_STORE_BUILD } from '../../lib/app-build';
-import { quickCaptureError } from '../../lib/quick-capture-status';
 import AISettings from '../AISettings.vue';
 import CostMeterSettings from '../CostMeterSettings.vue';
 import IntegrationsSettings from '../IntegrationsSettings.vue';
@@ -19,8 +19,8 @@ const settings = useSettingsStore();
 const workspace = useWorkspaceStore();
 const rag = useRagStore();
 const toasts = useToastsStore();
+const { isNarrow } = useViewport();
 
-const isPhoneOrTablet = isMobile();
 const gitBackend = hasGitBackend();
 const shortcutKey = isMacOS() ? '⌘⇧F' : 'Ctrl+Shift+F';
 
@@ -92,31 +92,6 @@ async function onReindexNow() {
       </div>
     </section>
 
-    <!-- Quick Capture (Desktop only) -->
-    <section v-if="!isPhoneOrTablet" class="settings-section">
-      <label>
-        <input
-          type="checkbox"
-          :checked="settings.quickCaptureEnabled"
-          @change="settings.toggleQuickCapture()"
-        />
-        {{ t('settings.quickCapture') }}
-      </label>
-      <p class="setting-hint">{{ t('settings.quickCaptureHint') }}</p>
-      <input
-        type="text"
-        :value="settings.quickCaptureShortcut"
-        :disabled="!settings.quickCaptureEnabled"
-        spellcheck="false"
-        placeholder="CmdOrCtrl+Alt+C"
-        @change="settings.setQuickCaptureShortcut(($event.target as HTMLInputElement).value)"
-        style="margin-top: 6px; padding: 6px 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 4px; font: inherit; width: 100%;"
-      />
-      <p v-if="quickCaptureError" class="setting-hint" style="color: var(--danger);">
-        {{ t('settings.quickCaptureFailed', { error: quickCaptureError }) }}
-      </p>
-    </section>
-
     <!-- AISettings -->
     <div v-if="!IS_APP_STORE_BUILD" class="settings-subcomponent-wrap">
       <AISettings
@@ -136,8 +111,8 @@ async function onReindexNow() {
       <CostMeterSettings />
     </div>
 
-    <!-- CLI + MCP Integrations -->
-    <div class="settings-subcomponent-wrap">
+    <!-- CLI + MCP Integrations (Desktop only) -->
+    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
       <IntegrationsSettings />
     </div>
 
@@ -146,13 +121,13 @@ async function onReindexNow() {
       <RecipesSettings />
     </div>
 
-    <!-- Capture Endpoint -->
-    <div class="settings-subcomponent-wrap">
+    <!-- Capture Endpoint (Desktop only) -->
+    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
       <CaptureEndpointSettings />
     </div>
 
-    <!-- REST API -->
-    <div class="settings-subcomponent-wrap">
+    <!-- REST API (Desktop only) -->
+    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
       <RestApiSettings />
     </div>
   </div>

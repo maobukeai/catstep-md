@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { useSettingsStore } from '../../stores/settings';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { isMacOS } from '../../lib/platform';
+import { useViewport } from '../../composables/useViewport';
+import { isMacOS, isMobile } from '../../lib/platform';
 import { shortcutLabel } from '../../lib/keybindings';
+import { formatTauriChord } from '../../lib/shortcut-recorder';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
+const { isNarrow } = useViewport();
 const macChord = isMacOS();
+const isPhoneOrTablet = isMobile();
+const isZh = computed(() => settings.language === 'zh');
 
 function withChord(key: string, actionId: string): string {
   return t(key, { key: shortcutLabel(actionId, settings.keybindings, macChord) || '—' });
@@ -129,8 +134,8 @@ void refreshSpellDicts();
         @change="settings.setImageUpload({ imageUploader: ($event.target as HTMLSelectElement).value as 'none' | 'picgo' | 'command' | 'smms' | 's3' | 'github' })"
       >
         <option value="none">{{ t('settings.imageUploaderNone') }}</option>
-        <option value="picgo">{{ t('settings.imageUploaderPicgo') }}</option>
-        <option value="command">{{ t('settings.imageUploaderCommand') }}</option>
+        <option v-if="!isNarrow" value="picgo">{{ t('settings.imageUploaderPicgo') }}</option>
+        <option v-if="!isNarrow" value="command">{{ t('settings.imageUploaderCommand') }}</option>
         <option value="smms">{{ t('settings.imageUploaderSmms') }}</option>
         <option value="s3">{{ t('settings.imageUploaderS3') }}</option>
         <option value="github">{{ t('settings.imageUploaderGithub') }}</option>
@@ -282,7 +287,7 @@ void refreshSpellDicts();
         >
           <option v-for="code in spellDicts" :key="code" :value="code">{{ code }}</option>
         </select>
-        <button type="button" class="link-button" @click="openDictsFolder">
+        <button v-if="!isNarrow" type="button" class="link-button" @click="openDictsFolder">
           {{ t('settings.spellcheckAddDict') }}
         </button>
       </div>
@@ -383,6 +388,27 @@ void refreshSpellDicts();
       <div v-if="settings.inboxWorkflowEnabled" style="font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5;">
         {{ t('inbox.autoAdvanceSettingHint') }}
       </div>
+
+      <!-- Quick Capture Global Hotkey Info for Inbox -->
+      <div v-if="!isPhoneOrTablet && settings.inboxWorkflowEnabled" class="inbox-quick-capture-note">
+        <div class="inbox-qc-info">
+          <span class="inbox-qc-title">{{ t('settings.quickCapture') || (isZh ? '全局速记浮窗 (快速捕获)' : 'Global Quick Capture') }}</span>
+          <span class="inbox-qc-hint">
+            {{ isZh ? '在任何应用中按下全局热键唤出极简速记浮窗，随时记录灵感直达待整理箱。' : 'Press hotkey anywhere across desktop to record thoughts straight into Inbox.' }}
+          </span>
+        </div>
+        <div class="inbox-qc-badge-wrap">
+          <kbd v-if="settings.quickCaptureEnabled && settings.quickCaptureShortcut" class="kb-chip">
+            {{ formatTauriChord(settings.quickCaptureShortcut, macChord) }}
+          </kbd>
+          <span v-else-if="!settings.quickCaptureEnabled" class="inbox-qc-disabled-text">
+            {{ isZh ? '已停用' : 'Disabled' }}
+          </span>
+          <span v-else class="inbox-qc-disabled-text">
+            {{ isZh ? '未绑定' : 'Unbound' }}
+          </span>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -393,5 +419,43 @@ void refreshSpellDicts();
 .settings-tab-pane {
   display: flex;
   flex-direction: column;
+}
+
+.inbox-quick-capture-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.inbox-qc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inbox-qc-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.inbox-qc-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.inbox-qc-badge-wrap {
+  flex-shrink: 0;
+}
+
+.inbox-qc-disabled-text {
+  font-size: 11px;
+  color: var(--text-faint);
 }
 </style>

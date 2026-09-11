@@ -2,10 +2,12 @@
 import { ref, computed } from 'vue';
 import { useSettingsStore } from '../../stores/settings';
 import { useI18n } from '../../i18n';
+import { useViewport } from '../../composables/useViewport';
 import CitationPickerSettings from '../CitationPickerSettings.vue';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
+const { isNarrow } = useViewport();
 
 const fontFamilies = [
   // Monospace — for code-heavy editing
@@ -278,8 +280,8 @@ function onSelectPdfFont(v: string) {
       <p class="setting-hint">{{ t('settings.imageExportBrandingHint') }}</p>
     </section>
 
-    <!-- Citation Picker -->
-    <div class="settings-subcomponent-wrap">
+    <!-- Citation Picker (Desktop Pandoc Academic Only) -->
+    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
       <CitationPickerSettings />
     </div>
   </div>

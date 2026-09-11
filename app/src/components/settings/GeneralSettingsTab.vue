@@ -8,6 +8,7 @@ import { useI18n } from '../../i18n';
 import { themeLabels } from '../../lib/themes';
 import { reloadAllCustomStyles } from '../../lib/custom-theme';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { useViewport } from '../../composables/useViewport';
 import type { Theme } from '../../types';
 
 const { t } = useI18n();
@@ -15,6 +16,7 @@ const settings = useSettingsStore();
 const themesStore = useThemesStore();
 const tabs = useTabsStore();
 const toasts = useToastsStore();
+const { isNarrow } = useViewport();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
 async function refreshCustomThemes() {
@@ -696,7 +698,7 @@ onMounted(() => {
             >
               <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
               <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
-              <option value="jump">{{ t('settings.outlineMarkerJump') }}</option>
+              <option v-if="!isNarrow" value="jump">{{ t('settings.outlineMarkerJump') }}</option>
             </select>
           </div>
         </div>
@@ -752,8 +754,8 @@ onMounted(() => {
     <div class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupPreviewMarkdown') }}</div>
       <div class="settings-group__card">
-        <!-- Row: Preview fit width -->
-        <label class="setting-row setting-row--clickable">
+        <!-- Row: Preview fit width (Desktop only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.previewFitWidth') }}</span>
           </div>
@@ -762,8 +764,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: Preview max width -->
-        <div class="setting-row">
+        <!-- Row: Preview max width (Desktop only) -->
+        <div v-if="!isNarrow" class="setting-row">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.previewMaxWidth') }}</label>
             <p class="setting-row__hint">{{ t('settings.previewMaxWidthHint') }}</p>
@@ -829,8 +831,8 @@ onMounted(() => {
           </div>
         </label>
 
-        <!-- Row: PlantUML -->
-        <div class="setting-row setting-row--stack-mobile">
+        <!-- Row: PlantUML (Desktop only) -->
+        <div v-if="!isNarrow" class="setting-row setting-row--stack-mobile">
           <div class="setting-row__info">
             <label class="setting-row__title-wrap">
               <span class="setting-row__title">{{ t('settings.plantuml') }}</span>

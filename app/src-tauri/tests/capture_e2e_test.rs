@@ -45,6 +45,45 @@ fn fresh_workspace(label: &str) -> PathBuf {
 }
 
 #[test]
+fn test_shortcut_parsing() {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_global_shortcut::Shortcut;
+        let test_cases = [
+            "CmdOrCtrl+Alt+C",
+            "Ctrl+Alt+C",
+            "Alt+Space",
+            "CmdOrCtrl+Alt+Minus",
+            "CmdOrCtrl+Alt+-",
+            "CmdOrCtrl+Alt+Equal",
+            "CmdOrCtrl+Alt+=",
+            "CmdOrCtrl+Alt+BracketLeft",
+            "CmdOrCtrl+Alt+[",
+            "CmdOrCtrl+Alt+Comma",
+            "CmdOrCtrl+Alt+,",
+            "CmdOrCtrl+Alt+Period",
+            "CmdOrCtrl+Alt+.",
+            "CmdOrCtrl+Alt+Slash",
+            "CmdOrCtrl+Alt+/",
+            "CmdOrCtrl+Alt+F1",
+            "CmdOrCtrl+Alt+1",
+            "CmdOrCtrl+Alt+Digit1",
+            "Super+Alt+C",
+            "Control+Alt+C",
+            "CmdOrCtrl+Alt+PageUp",
+            "CmdOrCtrl+Alt+PageDown",
+            "CmdOrCtrl+Alt+Home",
+            "CmdOrCtrl+Alt+End",
+            "CmdOrCtrl+Alt+Insert",
+        ];
+        for case in test_cases {
+            let res: Result<Shortcut, _> = case.parse();
+            assert!(res.is_ok(), "Failed to parse valid accelerator: {case}: {:?}", res.err());
+        }
+    }
+}
+
+#[test]
 fn full_capture_flow() {
     let _g = lock();
     let ws = fresh_workspace("full");

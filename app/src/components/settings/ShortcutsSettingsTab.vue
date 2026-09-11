@@ -2,7 +2,9 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { useSettingsStore } from '../../stores/settings';
 import { useI18n } from '../../i18n';
-import { isMacOS } from '../../lib/platform';
+import { isMacOS, isMobile } from '../../lib/platform';
+import { quickCaptureError } from '../../lib/quick-capture-status';
+import ShortcutRecorder from './ShortcutRecorder.vue';
 import {
   activeKeyActions,
   combosFor,
@@ -14,6 +16,9 @@ import {
 
 const { t } = useI18n();
 const settings = useSettingsStore();
+
+const isPhoneOrTablet = isMobile();
+const isZh = computed(() => settings.language === 'zh');
 
 const recordingAction = ref<string | null>(null);
 const recordError = ref<string | null>(null);
@@ -176,39 +181,97 @@ onUnmounted(stopRecording);
 
 <template>
   <div class="settings-tab-pane">
-    <section class="settings-section">
-      <p class="setting-hint" style="margin-top:0;">{{ t('settings.keysHint') }}</p>
-      <div v-for="group in keyGroups" :key="group.key" class="kb-group">
-        <h4 class="kb-group__title">{{ t('settings.keysCat' + group.key.charAt(0).toUpperCase() + group.key.slice(1)) }}</h4>
-        <div v-for="action in group.items" :key="action.id" class="kb-row">
-          <span class="kb-row__label">{{ actionLabel(action) }}</span>
-          <span class="kb-row__combos">
-            <template v-if="recordingAction === action.id">
-              <kbd class="kb-chip kb-chip--recording">{{ t('settings.keysRecording') }}</kbd>
-            </template>
-            <template v-else-if="actionCombos(action).length">
-              <kbd v-for="c in actionCombos(action)" :key="c" class="kb-chip">{{ c }}</kbd>
-            </template>
-            <span v-else class="kb-row__unbound">{{ t('settings.keysUnbound') }}</span>
-          </span>
-          <span class="kb-row__actions">
-            <button
-              class="kb-btn"
-              :disabled="recordingAction !== null && recordingAction !== action.id"
-              @click="recordingAction === action.id ? stopRecording() : startRecording(action.id)"
-            >{{ recordingAction === action.id ? t('settings.keysCancel') : t('settings.keysChange') }}</button>
-            <button class="kb-btn" @click="settings.setKeybinding(action.id, null)">{{ t('settings.keysUnbind') }}</button>
-            <button
-              class="kb-btn"
-              :disabled="!isCustomised(action)"
-              @click="settings.setKeybinding(action.id, undefined)"
-            >{{ t('settings.keysReset') }}</button>
-          </span>
+    <!-- 全局系统快捷键 (Desktop Only) -->
+    <div v-if="!isPhoneOrTablet" class="settings-group global-hotkeys-group">
+      <div class="settings-group__title">{{ t('settings.quickCaptureSectionTitle') || (isZh ? '全局系统快捷键' : 'Global System Hotkeys') }}</div>
+      <div class="settings-group__card global-hotkey-card">
+        <!-- Main Quick Capture Row -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <div class="global-hotkey-title-wrap">
+              <span class="setting-row__title">{{ t('settings.quickCapture') || (isZh ? '全局速记浮窗 (快速捕获)' : 'Global Quick Capture') }}</span>
+              <span class="global-badge">{{ isZh ? '系统全局' : 'System-Wide' }}</span>
+            </div>
+            <p class="setting-row__hint">{{ t('settings.quickCaptureHint') || (isZh ? '在任何应用中按下热键唤出极简速记窗口，按回车快速记录灵感至待整理箱。' : 'Press hotkey anywhere to open scratchpad and save directly to Inbox.') }}</p>
+          </div>
+          <div class="setting-row__control" @click.stop>
+            <input
+              type="checkbox"
+              :checked="settings.quickCaptureEnabled"
+              @change="settings.toggleQuickCapture()"
+            />
+          </div>
+        </label>
+
+        <!-- Hotkey Recorder Sub-row -->
+        <div v-if="settings.quickCaptureEnabled" class="global-hotkey-config-row">
+          <div class="global-hotkey-config-label">
+            <span class="config-label-text">{{ isZh ? '唤出快捷键' : 'Activation Hotkey' }}</span>
+            <span class="config-sub-hint">{{ isZh ? '点击按键卡片可随时在键盘上录制新组合' : 'Click the keycaps to record a new key chord' }}</span>
+          </div>
+          <div class="global-hotkey-config-control">
+            <ShortcutRecorder
+              :model-value="settings.quickCaptureShortcut"
+              default-shortcut="CmdOrCtrl+Alt+C"
+              @update:model-value="settings.setQuickCaptureShortcut($event)"
+            />
+          </div>
+        </div>
+
+        <!-- Global shortcut error banner (if Tauri failed to register because chord was stolen by another app) -->
+        <div v-if="quickCaptureError && settings.quickCaptureEnabled" class="global-hotkey-error-banner">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="error-icon">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <div class="error-text-wrap">
+            <span class="error-main-msg">{{ t('settings.quickCaptureFailed', { error: quickCaptureError }) }}</span>
+            <span class="error-guide-msg">
+              {{ isZh ? '该按键组合可能已被系统或其它后台软件占用，请点击上方快捷键更换（如 Ctrl+Shift+C 或 Alt+Space）。' : 'This chord may be in use by another app. Click above to try another combo.' }}
+            </span>
+          </div>
         </div>
       </div>
-      <p v-if="recordError" class="kb-error">{{ recordError }}</p>
-      <button class="kb-btn kb-btn--wide" @click="settings.resetKeybindings()">{{ t('settings.keysResetAll') }}</button>
-    </section>
+    </div>
+
+    <!-- 应用内快捷键列表 -->
+    <div class="settings-group">
+      <div class="settings-group__title">{{ isZh ? '应用内操作快捷键' : 'In-App Shortcuts' }}</div>
+      <section class="settings-section" style="margin-top: 0;">
+        <p class="setting-hint" style="margin-top:0;">{{ t('settings.keysHint') }}</p>
+        <div v-for="group in keyGroups" :key="group.key" class="kb-group">
+          <h4 class="kb-group__title">{{ t('settings.keysCat' + group.key.charAt(0).toUpperCase() + group.key.slice(1)) }}</h4>
+          <div v-for="action in group.items" :key="action.id" class="kb-row">
+            <span class="kb-row__label">{{ actionLabel(action) }}</span>
+            <span class="kb-row__combos">
+              <template v-if="recordingAction === action.id">
+                <kbd class="kb-chip kb-chip--recording">{{ t('settings.keysRecording') }}</kbd>
+              </template>
+              <template v-else-if="actionCombos(action).length">
+                <kbd v-for="c in actionCombos(action)" :key="c" class="kb-chip">{{ c }}</kbd>
+              </template>
+              <span v-else class="kb-row__unbound">{{ t('settings.keysUnbound') }}</span>
+            </span>
+            <span class="kb-row__actions">
+              <button
+                class="kb-btn"
+                :disabled="recordingAction !== null && recordingAction !== action.id"
+                @click="recordingAction === action.id ? stopRecording() : startRecording(action.id)"
+              >{{ recordingAction === action.id ? t('settings.keysCancel') : t('settings.keysChange') }}</button>
+              <button class="kb-btn" @click="settings.setKeybinding(action.id, null)">{{ t('settings.keysUnbind') }}</button>
+              <button
+                class="kb-btn"
+                :disabled="!isCustomised(action)"
+                @click="settings.setKeybinding(action.id, undefined)"
+              >{{ t('settings.keysReset') }}</button>
+            </span>
+          </div>
+        </div>
+        <p v-if="recordError" class="kb-error">{{ recordError }}</p>
+        <button class="kb-btn kb-btn--wide" @click="settings.resetKeybindings()">{{ t('settings.keysResetAll') }}</button>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -218,5 +281,98 @@ onUnmounted(stopRecording);
 .settings-tab-pane {
   display: flex;
   flex-direction: column;
+}
+
+.global-hotkeys-group {
+  margin-bottom: 20px;
+}
+
+.global-hotkey-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.global-hotkey-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.global-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.global-hotkey-config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  background: color-mix(in srgb, var(--bg-soft, var(--bg)) 45%, var(--bg-elev));
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  flex-wrap: wrap;
+}
+
+.global-hotkey-config-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.config-label-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.config-sub-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.global-hotkey-config-control {
+  flex-shrink: 0;
+}
+
+.global-hotkey-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 18px;
+  background: color-mix(in srgb, var(--danger, #e5484d) 10%, var(--bg));
+  border-top: 1px solid color-mix(in srgb, var(--danger, #e5484d) 30%, transparent);
+  color: var(--danger, #e5484d);
+  font-size: 12px;
+}
+
+.global-hotkey-error-banner .error-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.error-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.error-main-msg {
+  font-weight: 600;
+}
+
+.error-guide-msg {
+  font-size: 11px;
+  opacity: 0.85;
 }
 </style>
