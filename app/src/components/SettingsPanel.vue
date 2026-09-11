@@ -1094,7 +1094,13 @@ onBeforeUnmount(() => {
 .settings-mobile-search-results {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 14px calc(48px + env(safe-area-inset-bottom, 20px));
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.settings-mobile-search-results::-webkit-scrollbar {
+  display: none;
 }
 .settings-mobile-search-results__count {
   font-size: 12px;
@@ -1166,6 +1172,11 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 14px 14px calc(56px + env(safe-area-inset-bottom, 24px));
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.settings-mobile-hub__content::-webkit-scrollbar {
+  display: none;
 }
 
 /* Quick Actions Control Card */
@@ -1507,6 +1518,11 @@ onBeforeUnmount(() => {
   padding: 14px 14px calc(56px + env(safe-area-inset-bottom, 24px)) 14px;
   background: var(--bg);
   box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.settings-mobile-subpage__body::-webkit-scrollbar {
+  display: none;
 }
 
 .settings-mobile-subpage__footer-nav {

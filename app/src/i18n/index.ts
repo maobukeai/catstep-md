@@ -7,6 +7,7 @@
 
 import { computed, shallowReactive } from 'vue';
 import { useSettingsStore } from '../stores/settings';
+import { isMacOS } from '../lib/platform';
 
 export type Lang =
   | 'en'
@@ -104,10 +105,13 @@ export function useI18n() {
     const enDict = dicts.en;
     // Try active language first, then fall back to English, then to the raw key.
     let str = lookup(activeDict, parts) ?? (activeDict !== enDict ? lookup(enDict, parts) : undefined) ?? key;
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
-      }
+    const merged: Record<string, string | number> = {
+      key: isMacOS() ? '⌘⇧F' : 'Ctrl+Shift+F',
+      folderKey: isMacOS() ? '⌘B' : 'Ctrl+B',
+      ...params,
+    };
+    for (const [k, v] of Object.entries(merged)) {
+      str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
     }
     return str;
   }

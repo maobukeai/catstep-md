@@ -240,3 +240,32 @@ fn read_agent_trace_parses_stored_steps() {
     assert_eq!(last["kind"], "run_ended");
     let _ = fs::remove_dir_all(&ws);
 }
+
+#[test]
+fn semantic_search_e2e_fallback_and_indexed() {
+    let ws = make_workspace("semantic");
+    // 1. Unindexed workspace falls back gracefully
+    let res: Value = dispatch_tool_inner(&ws, "semantic_search", json!({"query": "needle"})).unwrap();
+    assert_eq!(res["mode"], "fallback_literal");
+    assert!(res["count"].as_u64().unwrap() >= 1);
+    assert!(res["warning"].as_str().unwrap().contains("unavailable"));
+
+    // 2. Search tool with mode: "semantic" also falls back
+    let res_search: Value = dispatch_tool_inner(&ws, "search", json!({"query": "needle", "mode": "semantic"})).unwrap();
+    assert_eq!(res_search["mode"], "fallback_literal");
+    assert!(res_search["count"].as_u64().unwrap() >= 1);
+
+    // 3. Build RAG index and test semantic search
+    let folder = ws.to_string_lossy().to_string();
+    let _ = app_lib::rag::rag_set_enabled_inner(folder.clone(), true).unwrap();
+    let _ = app_lib::rag::rag_reindex_inner(folder).unwrap();
+
+    let res_indexed: Value = dispatch_tool_inner(&ws, "semantic_search", json!({"query": "Welcome banana"})).unwrap();
+    assert_eq!(res_indexed["mode"], "semantic");
+    assert!(res_indexed["count"].as_u64().unwrap() >= 1);
+    let hits = res_indexed["hits"].as_array().unwrap();
+    assert!(hits[0]["score"].as_f64().is_some());
+    assert!(hits[0]["snippet"].as_str().is_some());
+
+    let _ = fs::remove_dir_all(&ws);
+}

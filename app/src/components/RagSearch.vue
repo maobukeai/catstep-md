@@ -14,9 +14,14 @@ import { useWorkspaceStore } from '../stores/workspace';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
+import { isMacOS } from '../lib/platform';
 
-const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: 'close'): void; (e: 'open-settings'): void }>();
+const props = defineProps<{ open: boolean; prefill?: string }>();
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'open-settings'): void;
+  (e: 'switch-to-global', query: string): void;
+}>();
 
 const { t } = useI18n();
 const rag = useRagStore();
@@ -24,6 +29,8 @@ const toasts = useToastsStore();
 const files = useFiles();
 const workspace = useWorkspaceStore();
 const settings = useSettingsStore();
+
+const shortcutKey = computed(() => (isMacOS() ? '⌘⇧F' : 'Ctrl+Shift+F'));
 
 const query = ref('');
 const hits = ref<RagHit[]>([]);
@@ -35,11 +42,32 @@ watch(
   () => props.open,
   async (v) => {
     if (v) {
+      if (props.prefill !== undefined) {
+        query.value = props.prefill;
+      }
       await nextTick();
       inputRef.value?.focus();
+      inputRef.value?.select();
       // Refresh status when opened so the "X of Y indexed" line is fresh.
       await rag.refreshStatus(workspace.currentFolder);
       if (query.value) doSearch();
+    }
+  }
+);
+
+watch(
+  () => props.prefill,
+  async (newPrefill) => {
+    if (newPrefill !== undefined) {
+      if (newPrefill !== query.value) {
+        query.value = newPrefill;
+      }
+      if (props.open) {
+        await nextTick();
+        inputRef.value?.focus();
+        inputRef.value?.select();
+        if (query.value) doSearch();
+      }
     }
   }
 );
@@ -98,9 +126,18 @@ async function onReindex() {
   if (query.value) doSearch();
 }
 
+function switchToGlobal() {
+  emit('switch-to-global', query.value);
+}
+
 function onKey(e: KeyboardEvent) {
   // CJK/IME guard — see CommandPalette.vue for rationale.
   if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    switchToGlobal();
+    return;
+  }
   if (e.key === 'Escape') {
     e.preventDefault();
     emit('close');
@@ -156,6 +193,32 @@ const scoreColor = (score: number) => {
           spellcheck="false"
         />
         <span v-if="rag.searching" class="rag__loading">…</span>
+        <div class="search-mode-segmented" role="tablist" aria-label="Search mode">
+          <button
+            type="button"
+            role="tab"
+            tabindex="-1"
+            aria-selected="true"
+            class="search-mode-btn is-active"
+            :title="t('search.modeSemantic')"
+          >
+            <span class="search-mode-btn__icon" aria-hidden="true">⌕</span>
+            <span class="search-mode-btn__text">{{ t('search.modeSemantic') }}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            tabindex="-1"
+            aria-selected="false"
+            class="search-mode-btn"
+            :title="t('search.switchToExact', { key: shortcutKey })"
+            @click="switchToGlobal"
+          >
+            <span class="search-mode-btn__icon" aria-hidden="true">🔍</span>
+            <span class="search-mode-btn__text">{{ t('search.modeExact') }}</span>
+            <kbd class="search-mode-btn__kbd">Tab</kbd>
+          </button>
+        </div>
       </div>
 
       <div v-if="!settings.ragEnabled" class="rag__empty">
@@ -384,5 +447,65 @@ const scoreColor = (score: number) => {
 .rag__btn--small {
   padding: 4px 10px;
   font-size: 11px;
+}
+.search-mode-segmented {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-soft, rgba(0, 0, 0, 0.04));
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 7px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 1.5px rgba(0, 0, 0, 0.03);
+}
+.search-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  height: 24px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap;
+  min-width: 0;
+}
+.search-mode-btn:hover:not(.is-active) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.search-mode-btn.is-active {
+  color: var(--text, #0f172a);
+  background: var(--bg-elev, #ffffff);
+  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.04);
+  font-weight: 600;
+}
+.search-mode-btn__icon {
+  font-size: 11px;
+  line-height: 1;
+}
+.search-mode-btn__text {
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.search-mode-btn__kbd {
+  font-size: 9px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  color: var(--text-faint);
+  font-family: var(--font-mono, monospace);
+  margin-left: 2px;
 }
 </style>

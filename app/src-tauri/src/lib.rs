@@ -353,6 +353,7 @@ pub fn run() {
             agent_tools::agent_tool_list_folders,
             agent_tools::agent_tool_read_note,
             agent_tools::agent_tool_search,
+            agent_tools::agent_tool_semantic_search,
             agent_tools::agent_tool_get_backlinks,
             agent_tools::agent_tool_list_tags,
             agent_tools::agent_tool_get_outline,

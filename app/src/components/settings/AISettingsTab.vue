@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '../../stores/workspace';
 import { useRagStore } from '../../stores/rag';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { isMobile, hasGitBackend } from '../../lib/platform';
+import { isMacOS, isMobile, hasGitBackend } from '../../lib/platform';
 import { IS_APP_STORE_BUILD } from '../../lib/app-build';
 import { quickCaptureError } from '../../lib/quick-capture-status';
 import AISettings from '../AISettings.vue';
@@ -22,6 +22,7 @@ const toasts = useToastsStore();
 
 const isPhoneOrTablet = isMobile();
 const gitBackend = hasGitBackend();
+const shortcutKey = isMacOS() ? '⌘⇧F' : 'Ctrl+Shift+F';
 
 async function onToggleRagEnabled() {
   settings.toggleRagEnabled();
@@ -59,10 +60,10 @@ async function onReindexNow() {
           :checked="settings.ragEnabled"
           @change="onToggleRagEnabled()"
         />
-        {{ t('rag.enable') }}
+        {{ t('rag.enable', { key: shortcutKey }) }}
       </label>
       <p style="font-size: 11px; color: var(--text-faint); margin: 4px 0 0; line-height: 1.5;">
-        {{ t('rag.enableHint') }}
+        {{ t('rag.enableHint', { key: shortcutKey }) }}
       </p>
       <div
         v-if="settings.ragEnabled && workspace.currentFolder"

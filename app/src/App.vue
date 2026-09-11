@@ -283,6 +283,27 @@ function openGlobalSearchPane() {
 }
 
 const ragSearchOpen = ref(false);
+const ragSearchPrefill = ref<string | undefined>(undefined);
+
+function onSwitchToGlobal(q: string) {
+  ragSearchOpen.value = false;
+  ragSearchPrefill.value = undefined;
+  if (searchOpen.value && searchPrefill.value === q) {
+    searchPrefill.value = undefined;
+    nextTick(() => {
+      searchPrefill.value = q;
+    });
+  } else {
+    searchPrefill.value = q;
+  }
+  openGlobalSearchPane();
+}
+
+function onSwitchToRag(q: string) {
+  ragSearchPrefill.value = q;
+  ragSearchOpen.value = true;
+}
+
 const cjkProofreadOpen = ref(false);
 const aboutOpen = ref(false);
 const sponsorOpen = ref(false);
@@ -2338,6 +2359,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
                 :prefill="searchPrefill"
                 @toggle-collapse="togglePaneCollapse('search')"
                 @close="searchOpen = false"
+                @switch-to-rag="onSwitchToRag"
               />
               <Outline
                 v-if="p.id === 'outline'"
@@ -2448,6 +2470,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
                 :prefill="searchPrefill"
                 @toggle-collapse="togglePaneCollapse('search')"
                 @close="searchOpen = false"
+                @switch-to-rag="onSwitchToRag"
               />
               <Outline
                 v-if="p.id === 'outline'"
@@ -2638,7 +2661,9 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
     <MarkdownHelp :open="helpOpen" @close="helpOpen = false" />
     <RagSearch
       :open="ragSearchOpen"
-      @close="ragSearchOpen = false"
+      :prefill="ragSearchPrefill"
+      @close="ragSearchOpen = false; ragSearchPrefill = undefined"
+      @switch-to-global="onSwitchToGlobal"
       @open-settings="(section?: string) => { ragSearchOpen = false; openSettingsAt(section ?? 'writing'); }"
     />
     <CjkProofread :open="cjkProofreadOpen" @close="cjkProofreadOpen = false" />

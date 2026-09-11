@@ -35,6 +35,7 @@ use walkdir::WalkDir;
 // trees (see ai_proxy.rs comment for the same rationale).
 #[cfg(not(target_os = "android"))]
 use super::git_history;
+use super::rag;
 use super::search;
 
 // ---------------------------------------------------------------------------
@@ -132,6 +133,7 @@ pub const READ_TOOLS: &[&str] = &[
     "list_folders",
     "read_note",
     "search",
+    "semantic_search",
     "get_backlinks",
     "list_tags",
     "get_outline",
@@ -194,8 +196,19 @@ pub fn tool_descriptor(name: &str) -> Option<(&'static str, Value)> {
                 "required": ["query"],
                 "properties": {
                     "query": { "type": "string" },
-                    "mode": { "type": "string", "enum": ["literal", "regex"], "description": "literal (default) or regex match" },
+                    "mode": { "type": "string", "enum": ["literal", "regex", "semantic"], "description": "literal (default), regex, or semantic vector match via local RAG" },
                     "limit": { "type": "integer", "description": "Cap on matches. Default 50." }
+                }
+            }),
+        ),
+        "semantic_search" => (
+            "Semantic / vector search across workspace notes using local RAG. Finds notes by meaning and topic rather than exact keyword match. Returns ranked hits with similarity scores and snippets.",
+            json!({
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": { "type": "string", "description": "Natural language search query or topic to look up" },
+                    "limit": { "type": "integer", "description": "Cap on matches. Default 20." }
                 }
             }),
         ),
@@ -947,15 +960,20 @@ fn tool_read_note(workspace: &Path, args: &Value) -> Result<Value, String> {
 }
 
 fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let mode = args
+        .get("mode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("literal");
+
+    if mode == "semantic" {
+        return tool_semantic_search(workspace, args);
+    }
+
     let query = args
         .get("query")
         .and_then(|v| v.as_str())
         .ok_or("query: required")?
         .to_string();
-    let mode = args
-        .get("mode")
-        .and_then(|v| v.as_str())
-        .unwrap_or("literal");
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
     if mode == "regex" {
@@ -999,6 +1017,86 @@ fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
         .collect();
     let count = arr.len();
     Ok(json!({"hits": arr, "count": count}))
+}
+
+fn relative_to_workspace(workspace: &Path, target: &str) -> String {
+    let target_path = Path::new(target);
+    if let Ok(rel) = target_path.strip_prefix(workspace) {
+        return normalize_path_str(rel);
+    }
+    let ws_norm = normalize_path_str(workspace);
+    let target_norm = normalize_path_str(target_path);
+    if let Some(rel) = target_norm.strip_prefix(&ws_norm) {
+        return rel.trim_start_matches('/').to_string();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let ws_lower = ws_norm.to_lowercase();
+        let target_lower = target_norm.to_lowercase();
+        if target_lower.starts_with(&ws_lower) {
+            let rel = &target_norm[ws_lower.len()..];
+            return rel.trim_start_matches('/').to_string();
+        }
+    }
+    target_norm
+}
+
+fn tool_semantic_search(workspace: &Path, args: &Value) -> Result<Value, String> {
+    let query = args
+        .get("query")
+        .and_then(|v| v.as_str())
+        .ok_or("query: required")?
+        .to_string();
+    let limit = match args.get("limit").and_then(|v| v.as_u64()) {
+        Some(0) | None => 20,
+        Some(n) => n as usize,
+    };
+
+    let folder = workspace.to_string_lossy().to_string();
+    match rag::rag_search_inner(folder.clone(), query.clone(), limit as u32) {
+        Ok(hits) => {
+            let arr: Vec<Value> = hits
+                .into_iter()
+                .map(|h| {
+                    let rel = relative_to_workspace(workspace, &h.path);
+                    json!({
+                        "path": rel,
+                        "file": rel,
+                        "name": h.name,
+                        "score": h.score,
+                        "snippet": h.snippet,
+                        "char_start": h.char_start,
+                        "char_end": h.char_end,
+                    })
+                })
+                .collect();
+            let count = arr.len();
+            Ok(json!({ "hits": arr, "count": count, "mode": "semantic" }))
+        }
+        Err(err) => {
+            // Fallback to literal keyword search if RAG index is not yet built or unavailable.
+            let fallback_hits = search::search_in_dir_inner(folder, query, limit).unwrap_or_default();
+            let arr: Vec<Value> = fallback_hits
+                .iter()
+                .map(|h| {
+                    let rel = relative_to_workspace(workspace, &h.file);
+                    json!({
+                        "path": rel,
+                        "file": rel,
+                        "line": h.line,
+                        "snippet": h.snippet,
+                    })
+                })
+                .collect();
+            let count = arr.len();
+            Ok(json!({
+                "hits": arr,
+                "count": count,
+                "mode": "fallback_literal",
+                "warning": format!("Semantic search index unavailable ({err}); fell back to keyword search.")
+            }))
+        }
+    }
 }
 
 fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
@@ -1872,6 +1970,7 @@ pub fn dispatch_tool_inner(workspace: &Path, tool: &str, args: Value) -> Result<
         "list_folders" => tool_list_folders(workspace, &args),
         "read_note" => tool_read_note(workspace, &args),
         "search" => tool_search(workspace, &args),
+        "semantic_search" => tool_semantic_search(workspace, &args),
         "get_backlinks" => tool_get_backlinks(workspace, &args),
         "list_tags" => tool_list_tags(workspace, &args),
         "get_outline" => tool_get_outline(workspace, &args),
@@ -1924,6 +2023,7 @@ agent_tool_cmd!(agent_tool_list_notes, "list_notes");
 agent_tool_cmd!(agent_tool_list_folders, "list_folders");
 agent_tool_cmd!(agent_tool_read_note, "read_note");
 agent_tool_cmd!(agent_tool_search, "search");
+agent_tool_cmd!(agent_tool_semantic_search, "semantic_search");
 agent_tool_cmd!(agent_tool_get_backlinks, "get_backlinks");
 agent_tool_cmd!(agent_tool_list_tags, "list_tags");
 agent_tool_cmd!(agent_tool_get_outline, "get_outline");
@@ -2054,6 +2154,53 @@ mod tests {
         let ws = make_workspace();
         let res = tool_search(&ws, &json!({"query": "Needle"})).unwrap();
         assert!(res["count"].as_u64().unwrap() >= 1);
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn semantic_search_falls_back_when_not_indexed() {
+        let ws = make_workspace();
+        let res = tool_semantic_search(&ws, &json!({"query": "Needle"})).unwrap();
+        assert_eq!(res["mode"], "fallback_literal");
+        assert!(res["count"].as_u64().unwrap() >= 1);
+        assert!(res["warning"].as_str().unwrap().contains("unavailable"));
+        let hits = res["hits"].as_array().unwrap();
+        let path = hits[0]["path"].as_str().unwrap();
+        assert!(!path.starts_with('/') && !path.contains(':'), "path must be relative: {path}");
+
+        // limit: 0 should default to 20 instead of returning 0 hits
+        let res_lim0 = tool_semantic_search(&ws, &json!({"query": "Needle", "limit": 0})).unwrap();
+        assert_eq!(res_lim0["mode"], "fallback_literal");
+        assert!(res_lim0["count"].as_u64().unwrap() >= 1);
+
+        // empty query returns 0 hits
+        let res_empty = tool_semantic_search(&ws, &json!({"query": ""})).unwrap();
+        assert_eq!(res_empty["count"].as_u64().unwrap(), 0);
+
+        let res2 = tool_search(&ws, &json!({"query": "Needle", "mode": "semantic"})).unwrap();
+        assert_eq!(res2["mode"], "fallback_literal");
+        assert!(res2["count"].as_u64().unwrap() >= 1);
+
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn semantic_search_with_rag_index() {
+        let ws = make_workspace();
+        let folder = ws.to_string_lossy().to_string();
+        let _ = rag::rag_set_enabled_inner(folder.clone(), true).unwrap();
+        let _ = rag::rag_reindex_inner(folder).unwrap();
+
+        let res = tool_semantic_search(&ws, &json!({"query": "Welcome to the vault"})).unwrap();
+        assert_eq!(res["mode"], "semantic");
+        assert!(res["count"].as_u64().unwrap() >= 1);
+        let hits = res["hits"].as_array().unwrap();
+        assert!(hits[0].get("score").is_some());
+        assert!(hits[0].get("snippet").is_some());
+
+        let res2 = tool_search(&ws, &json!({"query": "Welcome", "mode": "semantic"})).unwrap();
+        assert_eq!(res2["mode"], "semantic");
+
         let _ = fs::remove_dir_all(&ws);
     }
 

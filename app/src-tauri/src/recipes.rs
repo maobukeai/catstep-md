@@ -49,6 +49,7 @@ pub const KNOWN_TOOLS: &[&str] = &[
     "list_notes",
     "read_note",
     "search",
+    "semantic_search",
     "get_backlinks",
     "list_tags",
     "get_outline",

@@ -2465,6 +2465,7 @@ function getGroupSummaryText(tools: any[]): string {
     list_folders: '浏览目录',
     read_note: '读取笔记',
     search: '知识库检索',
+    semantic_search: '语义向量检索',
     patch_note: '局部修改',
     write_note: '写入笔记',
     append_to_note: '追加笔记',
