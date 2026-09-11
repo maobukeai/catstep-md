@@ -330,8 +330,8 @@ onMounted(() => {
         <!-- Row: Wallpaper Opacity -->
         <div v-if="settings.bgType === 'image'" class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '壁纸透明度 (显示浓度)' : 'Wallpaper Opacity' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '调整壁纸切入背景的透明浓度，与底色自然融合' : 'Adjust wallpaper opacity blending into the background' }}</p>
+            <label class="setting-row__title">{{ isZh ? '壁纸透明度' : 'Wallpaper Opacity' }}</label>
+            <p class="setting-row__hint">{{ isZh ? '调整壁纸不透明度，与背景底色自然融合' : 'Adjust wallpaper opacity blending into background' }}</p>
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
@@ -497,7 +497,7 @@ onMounted(() => {
         <!-- Row: Line Height -->
         <div class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '正文行高 (Line Height)' : 'Line Height' }}</label>
+            <label class="setting-row__title">{{ isZh ? '正文行高' : 'Line Height' }}</label>
             <p class="setting-row__hint">{{ isZh ? '微调编辑器与阅读排版行间距（默认 1.75）' : 'Fine-tune line height for editor & preview (default 1.75)' }}</p>
           </div>
           <div class="setting-row__control">
@@ -518,7 +518,7 @@ onMounted(() => {
         <!-- Row: Paragraph Spacing -->
         <div class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '段落间距 (Paragraph Spacing)' : 'Paragraph Spacing' }}</label>
+            <label class="setting-row__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</label>
             <p class="setting-row__hint">{{ isZh ? '微调段落上下边距（默认 1.0em）' : 'Spacing between paragraphs (default 1.0em)' }}</p>
           </div>
           <div class="setting-row__control">
@@ -539,8 +539,8 @@ onMounted(() => {
         <!-- Row: Heading Serif Toggle -->
         <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
-            <span class="setting-row__title">{{ isZh ? '标题衬线风 (Newsprint 质感宋体)' : 'Serif Headings (Literary Style)' }}</span>
-            <p class="setting-row__hint">{{ isZh ? '将 H1~H6 各级标题渲染为优雅思源宋体/Georgia，呈现报刊阅读质感' : 'Render H1~H6 headings in elegant Serif typography' }}</p>
+            <span class="setting-row__title">{{ isZh ? '标题衬线字体' : 'Serif Headings' }}</span>
+            <p class="setting-row__hint">{{ isZh ? '各级标题渲染为优雅衬线宋体，呈现文学与报刊质感' : 'Render headings in elegant Serif typography' }}</p>
           </div>
           <div class="setting-row__control">
             <input

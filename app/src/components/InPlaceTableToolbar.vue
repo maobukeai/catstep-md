@@ -237,8 +237,8 @@ const style = computed(() => {
     <button
       type="button"
       class="tbl-tool-btn tbl-tool-btn--close"
-      :title="t('window.close') || '关闭'"
-      :aria-label="t('window.close') || '关闭'"
+      :title="t('common.close')"
+      :aria-label="t('common.close')"
       @click="emit('close')"
     >
       <svg viewBox="0 0 16 16" class="btn-svg" aria-hidden="true">

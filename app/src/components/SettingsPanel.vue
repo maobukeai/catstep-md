@@ -47,8 +47,8 @@ const categories: { id: SettingsCategory; icon: string; labelKey: string }[] = [
 ];
 
 const isZh = computed(() => (kbSettings.language || 'zh').startsWith('zh'));
-const backLabel = computed(() => (isZh.value ? '返回' : 'Back'));
-const doneLabel = computed(() => (isZh.value ? '完成' : 'Done'));
+const backLabel = computed(() => t('common.back'));
+const doneLabel = computed(() => t('common.done'));
 
 const currentCategoryMeta = computed(() => {
   const cat = categories.find((c) => c.id === activeCategory.value) || categories[0];
