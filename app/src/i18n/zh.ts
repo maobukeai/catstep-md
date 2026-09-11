@@ -1709,6 +1709,8 @@ export const zh: I18n = {
     msgDeleteTurn: '删除本轮',
     msgDeleteTurnTitle: '删除本轮问答对话',
     confirmDeleteTurn: '确定删除此轮对话吗？',
+    confirmRecallMsg: '撤回此历史消息将清除其后的所有回复，是否继续？',
+    confirmRegenerateMsg: '重新生成此历史回复将清除其后的所有对话，是否继续？',
     msgDeleteMsgTitle: '删除此条消息',
     msgQuote: '引用',
     msgQuoteTitle: '引用选中文本追问',

@@ -260,7 +260,7 @@ function recallMessage(msg: any) {
   if (msgIdx === -1) return;
   const subsequentCount = agent.messages.length - 1 - msgIdx;
   if (subsequentCount > 1) {
-    const ok = window.confirm('撤回此历史消息将清除其后的所有回复，是否继续？');
+    const ok = window.confirm(t('agent.confirmRecallMsg') || '撤回此历史消息将清除其后的所有回复，是否继续？');
     if (!ok) return;
   }
   const content = msg.content;
@@ -315,7 +315,7 @@ async function regenerateAssistant(msg: any) {
   if (msgIdx === -1) return;
   const subsequentCount = agent.messages.length - 1 - msgIdx;
   if (subsequentCount > 0) {
-    const ok = window.confirm('重新生成此历史回复将清除其后的所有对话，是否继续？');
+    const ok = window.confirm(t('agent.confirmRegenerateMsg') || '重新生成此历史回复将清除其后的所有对话，是否继续？');
     if (!ok) return;
   }
   let prevUserIdx = -1;
@@ -1762,8 +1762,8 @@ async function revertToolCall(toolCallId: string, toolResultStr?: string) {
         await invoke('write_file', { path, content: original.data, encoding: 'UTF-8' });
         contentToRestore = original.data;
       }
-      const tab = tabs.tabs.find((t) => t.filePath === path || t.fileName === path);
-      if (tab) {
+      const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
+      if (tab && typeof tab.id === 'string') {
         tabs.applyExternalSave(tab.id, contentToRestore);
       }
       toasts.success(t('agent.revertSuccess'));
@@ -1950,6 +1950,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           <button
             class="agent-panel__action-btn"
             type="button"
+            :disabled="agent.isStreaming"
             title="新建会话"
             @click.stop="agent.newSession()"
           >
@@ -1975,6 +1976,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 <button
                   class="agent-panel__history-new-btn"
                   type="button"
+                  :disabled="agent.isStreaming"
                   @click="agent.newSession(); showHistoryDropdown = false"
                 >
                   新建
@@ -2003,7 +2005,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   :key="s.id"
                   class="agent-panel__history-item"
                   :class="{ 'is-active': s.id === agent.currentSessionId }"
-                  @click="agent.switchSession(s.id); showHistoryDropdown = false"
+                  @click="if (!agent.isStreaming) { agent.switchSession(s.id); showHistoryDropdown = false; }"
                 >
                   <div class="agent-panel__history-item-main">
                     <template v-if="editingSessionId === s.id">
@@ -2041,6 +2043,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     <button
                       class="agent-panel__history-item-btn agent-panel__history-item-btn--del"
                       type="button"
+                      :disabled="agent.isStreaming"
                       title="删除此会话"
                       @click="agent.deleteSession(s.id)"
                     >
@@ -2070,6 +2073,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             v-if="agent.messages.length"
             class="agent-panel__action-btn"
             type="button"
+            :disabled="agent.isStreaming"
             :title="t('agent.clearTitle')"
             @click.stop="agent.clear()"
           >
@@ -2123,7 +2127,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 <div class="agent-panel__tool-group-right">
                   <span v-if="block.tools.some((t: any) => !t.tool?.result && !t.tool?.error)" class="agent-panel__tool-spinner" />
                   <span class="agent-panel__tool-group-count">{{ block.tools.length }} 步</span>
-                  <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id) ? '▲ 收起' : '▼ 展开' }}</span>
+                  <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id) ? '收起' : '展开' }}</span>
                 </div>
               </button>
 
@@ -2176,7 +2180,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                           :title="m.tool?.expanded ? '折叠详情' : '展开详情'"
                           @click="agent.toggleToolExpand(m.tool!.toolCallId)"
                         >
-                          {{ m.tool?.expanded ? '收起 ▴' : '详情 ▾' }}
+                          {{ m.tool?.expanded ? '收起' : '详情' }}
                         </button>
                       </div>
                     </div>
@@ -2221,7 +2225,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         <span v-else class="agent-panel__tool-dot" />
                       </span>
                       <code class="agent-panel__tool-sig">{{ m.tool?.name }}({{ formatArgsInline(m.tool?.args) }})</code>
-                      <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '▾' : '▸' }}</span>
+                      <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '收起' : '展开' }}</span>
                     </button>
                     <div v-if="m.tool?.expanded" class="agent-panel__tool-body">
                       <div class="agent-panel__tool-section">
@@ -2377,7 +2381,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         {{ block.msg.thoughtDurationMs ? `已深度思考 ${(block.msg.thoughtDurationMs / 1000).toFixed(1)} 秒` : '思考推演过程' }}
                       </template>
                     </span>
-                    <span class="agent-panel__thought-caret">{{ isThoughtExpanded(block.msg) ? '收起 ▴' : '展开 ▾' }}</span>
+                    <span class="agent-panel__thought-caret">{{ isThoughtExpanded(block.msg) ? '收起' : '展开' }}</span>
                   </button>
                   <div v-if="isThoughtExpanded(block.msg)" class="agent-panel__thought-body">
                     <pre v-if="block.msg.thought" class="agent-panel__thought-text">{{ block.msg.thought }}<span v-if="agent.isStreaming && !block.msg.content" class="agent-panel__cursor" aria-hidden="true">▋</span></pre>
@@ -2711,10 +2715,10 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             v-if="activeSelectionText && !isSelectionDismissed && !settings.agentAllowWrite"
             type="button"
             class="agent-panel__ref-tip-btn"
-            :title="t('agent.enableAutoWriteTip')"
+            :title="t('agent.enableAutoWriteHint')"
             @click="settings.setAgentAllowWrite(true)"
           >
-            <span>{{ t('agent.enableAutoWriteHint') }}</span>
+            <span>{{ t('agent.enableAutoWriteTip') }}</span>
           </button>
 
           <!-- Pasted Image Thumbnails -->

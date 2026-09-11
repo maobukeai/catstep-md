@@ -1729,6 +1729,8 @@ export const en = {
     msgDeleteTurn: 'Delete turn',
     msgDeleteTurnTitle: 'Delete this conversational turn',
     confirmDeleteTurn: 'Delete this turn and all its messages?',
+    confirmRecallMsg: 'Recalling this message will clear subsequent replies. Continue?',
+    confirmRegenerateMsg: 'Regenerating will clear subsequent conversation turns. Continue?',
     msgDeleteMsgTitle: 'Delete this message',
     msgQuote: 'Quote',
     msgQuoteTitle: 'Quote selected text into input',

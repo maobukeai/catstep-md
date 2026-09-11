@@ -157,6 +157,10 @@ export const useAgentPanelStore = defineStore('agentPanel', {
       }
     },
     newSession(): string {
+      const current = this.sessions.find((s) => s.id === this.currentSessionId);
+      if (current && current.messages.length === 0 && this.messages.length === 0) {
+        return this.currentSessionId;
+      }
       this.syncCurrentSession();
       const id = newId();
       const session: AgentSession = {
