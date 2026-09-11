@@ -1540,7 +1540,10 @@ function getLatestThoughtLine(thought?: string): string {
   const clean = thought.replace(/\r\n/g, '\n').trim();
   const lines = clean.split('\n').map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) return '';
-  return lines.slice(-2).join(' · ');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].length > 1) return lines[i];
+  }
+  return lines[lines.length - 1];
 }
 
 function isFileTool(name?: string): boolean {
@@ -1985,19 +1988,27 @@ function getGroupSummaryText(tools: any[]): string {
   return `执行了 ${count} 项操作${nameLabels ? ` (${nameLabels})` : ''}`;
 }
 
-interface RenderBlockMessage {
-  type: 'message';
+interface RenderBlockUser {
+  type: 'user';
   msg: any;
   idx: number;
 }
 
-interface RenderBlockToolGroup {
-  type: 'tool_group';
+interface RenderBlockAssistantTurn {
+  type: 'assistant_turn';
   id: string;
+  primaryMsg: any;
   tools: any[];
+  allThoughts: string[];
+  combinedThought: string;
+  latestThought: string;
+  thoughtDurationMs?: number;
+  content: string;
+  isStreaming: boolean;
+  idx: number;
 }
 
-type RenderBlock = RenderBlockMessage | RenderBlockToolGroup;
+type RenderBlock = RenderBlockUser | RenderBlockAssistantTurn;
 
 const shortcutHint = computed(() => {
   const full = t('agent.enterToSend') || 'Enter 发送 · Shift+Enter 换行';
@@ -2010,35 +2021,68 @@ const shortcutHint = computed(() => {
 
 const renderBlocks = computed<RenderBlock[]>(() => {
   const blocks: RenderBlock[] = [];
-  let currentToolGroup: any[] = [];
-  let groupCounter = 0;
+  let i = 0;
+  const n = agent.messages.length;
 
-  for (let i = 0; i < agent.messages.length; i++) {
+  while (i < n) {
     const m = agent.messages[i];
-    if (m.role === 'tool' && m.tool) {
-      currentToolGroup.push(m);
-    } else {
-      if (currentToolGroup.length > 0) {
-        blocks.push({
-          type: 'tool_group',
-          id: `tg-${groupCounter++}-${currentToolGroup[0].id}`,
-          tools: [...currentToolGroup],
-        });
-        currentToolGroup = [];
-      }
+
+    if (m.role === 'user') {
       blocks.push({
-        type: 'message',
+        type: 'user',
         msg: m,
         idx: i,
       });
+      i++;
+      continue;
     }
-  }
 
-  if (currentToolGroup.length > 0) {
+    // Now m is assistant, tool, or system:
+    // Gather all subsequent assistant, tool, and system messages in this turn!
+    const turnTools: any[] = [];
+    const turnThoughts: string[] = [];
+    let turnContent = '';
+    let primaryMsg = m;
+    let totalDurationMs = 0;
+    let lastAssistantIdx = i;
+    const turnStartIndex = i;
+
+    while (i < n && agent.messages[i].role !== 'user') {
+      const cur = agent.messages[i];
+      if (cur.role === 'tool' && cur.tool) {
+        turnTools.push(cur);
+      } else if (cur.role === 'assistant' || cur.role === 'system') {
+        primaryMsg = cur;
+        lastAssistantIdx = i;
+        if (cur.thought) {
+          turnThoughts.push(cur.thought);
+        }
+        if (cur.content) {
+          turnContent = turnContent ? `${turnContent}\n\n${cur.content}` : cur.content;
+        }
+        if (cur.thoughtDurationMs) {
+          totalDurationMs += cur.thoughtDurationMs;
+        }
+      }
+      i++;
+    }
+
+    const isThisTurnStreaming = agent.isStreaming && (i === n);
+    const combinedThought = turnThoughts.join('\n\n');
+    const latestThought = turnThoughts.length > 0 ? turnThoughts[turnThoughts.length - 1] : '';
+
     blocks.push({
-      type: 'tool_group',
-      id: `tg-${groupCounter++}-${currentToolGroup[0].id}`,
-      tools: [...currentToolGroup],
+      type: 'assistant_turn',
+      id: `turn-${turnStartIndex}-${primaryMsg.id || turnStartIndex}`,
+      primaryMsg,
+      tools: turnTools,
+      allThoughts: turnThoughts,
+      combinedThought,
+      latestThought,
+      thoughtDurationMs: totalDurationMs || primaryMsg.thoughtDurationMs,
+      content: turnContent,
+      isStreaming: isThisTurnStreaming,
+      idx: lastAssistantIdx,
     });
   }
 
@@ -2228,133 +2272,105 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
     <template v-else>
       <ul ref="messagesRef" v-if="agent.messages.length" class="agent-panel__messages">
-        <template v-for="block in renderBlocks" :key="block.type === 'message' ? block.msg.id : block.id">
-          <!-- Tool Group Card -->
-          <li v-if="block.type === 'tool_group'" class="agent-panel__msg agent-panel__msg--tool-group">
-            <div class="agent-panel__tool-group-card">
-              <button
-                class="agent-panel__tool-group-bar"
-                type="button"
-                @click="toggleGroupExpand(block.id)"
-              >
-                <div class="agent-panel__tool-group-left">
-                  <span class="agent-panel__tool-group-title">{{ getGroupSummaryText(block.tools) }}</span>
-                </div>
-                <div class="agent-panel__tool-group-right">
-                  <span v-if="block.tools.some((t: any) => !t.tool?.result && !t.tool?.error)" class="agent-panel__tool-spinner" />
-                  <span class="agent-panel__tool-group-count">{{ block.tools.length }} 步</span>
-                  <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id) ? '收起' : '展开' }}</span>
-                </div>
-              </button>
-
-              <div v-if="isGroupExpanded(block.id)" class="agent-panel__tool-group-content">
-                <div v-for="m in block.tools" :key="m.id" class="agent-panel__tool-group-item">
-                  <!-- File Action Card -->
-                  <div v-if="isFileTool(m.tool?.name)" class="agent-panel__file-action-card">
-                    <div class="agent-panel__file-action-head">
-                      <div class="agent-panel__file-action-info">
-                        <span class="agent-panel__file-action-tag">
-                          <template v-if="m.tool?.name === 'delete_note'">删除</template>
-                          <template v-else-if="m.tool?.name === 'patch_note'">修改</template>
-                          <template v-else>新建</template>
-                        </span>
-                        <div class="agent-panel__file-action-titles">
-                          <span class="agent-panel__file-action-name">{{ getToolFileName(m.tool) }}</span>
-                          <span class="agent-panel__file-action-path">{{ getToolFileRelativePath(m.tool) }}</span>
-                        </div>
-                        <span
-                          v-if="getToolDiffBadge(m.tool)"
-                          class="agent-panel__diff-badge"
-                          :class="`agent-panel__diff-badge--${getToolDiffBadge(m.tool)!.type}`"
-                        >
-                          {{ getToolDiffBadge(m.tool)!.text }}
-                        </span>
-                      </div>
-
-                      <div class="agent-panel__file-action-btns">
-                        <button
-                          v-if="!m.tool?.error && m.tool?.name !== 'delete_note'"
-                          class="agent-panel__action-pill"
-                          type="button"
-                          title="在编辑器中打开此笔记"
-                          @click="openToolFile(m.tool)"
-                        >
-                          打开
-                        </button>
-                        <button
-                          v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
-                          class="agent-panel__action-pill agent-panel__action-pill--revert"
-                          type="button"
-                          title="撤销修改并恢复备份"
-                          @click="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
-                        >
-                          撤销
-                        </button>
-                        <button
-                          class="agent-panel__action-pill agent-panel__action-pill--expand"
-                          type="button"
-                          :title="m.tool?.expanded ? '折叠详情' : '展开详情'"
-                          @click="agent.toggleToolExpand(m.tool!.toolCallId)"
-                        >
-                          {{ m.tool?.expanded ? '收起' : '详情' }}
-                        </button>
-                      </div>
-                    </div>
-
-                    <!-- Expanded Details (Diff / Results) -->
-                    <div v-if="m.tool?.expanded" class="agent-panel__file-action-body">
-                      <!-- Render Diff If Available -->
-                      <div v-if="m.tool?.result?.diff" class="agent-panel__diff-view">
-                        <div class="agent-panel__diff-lines">
-                          <div
-                            v-for="(dLine, dIdx) in formatDiffLines(m.tool.result.diff)"
-                            :key="dIdx"
-                            class="agent-panel__diff-line"
-                            :class="`agent-panel__diff-line--${dLine.type}`"
-                          >
-                            <span class="agent-panel__diff-sign">{{ dLine.sign }}</span>
-                            <span class="agent-panel__diff-text">{{ dLine.text }}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div v-else-if="m.tool?.result?.newContent" class="agent-panel__diff-view">
-                        <div class="agent-panel__diff-preview-label">写入内容预览：</div>
-                        <pre class="agent-panel__file-preview-content">{{ m.tool.result.newContent.slice(0, 500) }}{{ m.tool.result.newContent.length > 500 ? '…' : '' }}</pre>
-                      </div>
-                      <div v-else-if="m.tool?.error" class="agent-panel__tool-error">
-                        {{ m.tool.error }}
-                      </div>
-                    </div>
+        <template v-for="block in renderBlocks" :key="block.type === 'user' ? block.msg.id : block.id">
+          <!-- 1. User Message Block -->
+          <li
+            v-if="block.type === 'user'"
+            class="agent-panel__msg agent-panel__msg--user"
+          >
+            <div class="agent-panel__user-msg-row">
+              <div class="agent-panel__user-bubble-container">
+                <!-- Normal display -->
+                <div v-if="editingMsgId !== block.msg.id" class="agent-panel__user-bubble">
+                  <!-- Referenced Notes Chips (Click to open) -->
+                  <div v-if="block.msg.references && block.msg.references.length" class="agent-panel__msg-refs">
+                    <button
+                      v-for="r in block.msg.references"
+                      :key="r.path || r.name"
+                      class="agent-panel__msg-ref-pill"
+                      :class="{ 'agent-panel__msg-ref-pill--sel': r.type === 'selection' }"
+                      type="button"
+                      :title="r.preview ? r.preview : `在编辑器中打开 ${r.name}`"
+                      @click="r.path && openReferencedNote(r.path)"
+                    >
+                      {{ r.type === 'selection' ? '选区: ' : '' }}{{ r.name }}
+                    </button>
                   </div>
 
-                  <!-- Generic Tool Item -->
-                  <div v-else class="agent-panel__tool-item">
+                  <!-- Attached Images -->
+                  <div v-if="block.msg.images && block.msg.images.length" class="agent-panel__msg-images">
+                    <img
+                      v-for="(img, imgIdx) in block.msg.images"
+                      :key="imgIdx"
+                      :src="img"
+                      class="agent-panel__msg-img"
+                      alt="attachment"
+                    />
+                  </div>
+
+                  <div class="agent-panel__user-text">{{ block.msg.content }}</div>
+
+                  <!-- User Message Hover Action Bar -->
+                  <div class="agent-panel__user-actions">
                     <button
-                      class="agent-panel__tool-head"
-                      :class="{ 'agent-panel__tool-head--err': !!m.tool?.error, 'agent-panel__tool-head--pending': !m.tool?.result && !m.tool?.error }"
+                      class="agent-panel__bubble-action-btn"
                       type="button"
-                      @click="agent.toggleToolExpand(m.tool!.toolCallId)"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgEditTitle')"
+                      @click="startEditUserMessage(block.msg)"
                     >
-                      <span class="agent-panel__tool-icon" aria-hidden="true">
-                        <span v-if="!m.tool?.result && !m.tool?.error" class="agent-panel__tool-spinner" />
-                        <span v-else-if="m.tool?.error" class="agent-panel__tool-dot agent-panel__tool-dot--err" />
-                        <span v-else class="agent-panel__tool-dot" />
-                      </span>
-                      <code class="agent-panel__tool-sig">{{ m.tool?.name }}({{ formatArgsInline(m.tool?.args) }})</code>
-                      <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '收起' : '展开' }}</span>
+                      {{ t('agent.msgEdit') }}
                     </button>
-                    <div v-if="m.tool?.expanded" class="agent-panel__tool-body">
-                      <div class="agent-panel__tool-section">
-                        <div class="agent-panel__tool-label">args</div>
-                        <pre class="agent-panel__tool-pre">{{ JSON.stringify(m.tool?.args, null, 2) }}</pre>
-                      </div>
-                      <div class="agent-panel__tool-section">
-                        <div class="agent-panel__tool-label">{{ m.tool?.error ? 'error' : 'result' }}</div>
-                        <pre
-                          class="agent-panel__tool-pre"
-                          :class="{ 'agent-panel__tool-pre--err': !!m.tool?.error }"
-                        >{{ m.tool?.error || m.tool?.result || '(waiting…)' }}</pre>
-                      </div>
+                    <button
+                      class="agent-panel__bubble-action-btn"
+                      type="button"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgRecallTitle')"
+                      @click="recallMessage(block.msg)"
+                    >
+                      {{ t('agent.msgRecall') }}
+                    </button>
+                    <button
+                      class="agent-panel__bubble-action-btn agent-panel__bubble-action-btn--del"
+                      type="button"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgDeleteTurnTitle')"
+                      @click="deleteTurn(block.msg)"
+                    >
+                      {{ t('agent.msgDeleteTurn') }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Inline Edit Mode -->
+                <div v-else class="agent-panel__user-bubble agent-panel__user-bubble--editing">
+                  <textarea
+                    v-model="editingMsgContent"
+                    class="agent-panel__edit-input"
+                    :placeholder="t('agent.editInputPlaceholder')"
+                    rows="3"
+                    @keydown.ctrl.enter.prevent="saveAndResendUserMessage(block.msg)"
+                    @keydown.meta.enter.prevent="saveAndResendUserMessage(block.msg)"
+                    @keydown.esc.prevent="cancelEditUserMessage"
+                  ></textarea>
+                  <div class="agent-panel__edit-actions">
+                    <span class="agent-panel__edit-hint">Esc 取消 · ⌘/Ctrl+Enter 发送</span>
+                    <div class="agent-panel__edit-btns">
+                      <button
+                        class="agent-panel__edit-btn agent-panel__edit-btn--cancel"
+                        type="button"
+                        @click="cancelEditUserMessage"
+                      >
+                        {{ t('agent.cancelEdit') }}
+                      </button>
+                      <button
+                        class="agent-panel__edit-btn agent-panel__edit-btn--save"
+                        type="button"
+                        :disabled="!editingMsgContent.trim() || agent.isStreaming"
+                        @click="saveAndResendUserMessage(block.msg)"
+                      >
+                        {{ t('agent.saveAndResend') }}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2362,352 +2378,381 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             </div>
           </li>
 
-          <!-- Standard User or Assistant Message -->
+          <!-- 2. Assistant Turn Block (Unified Single Thought Ticker + Consolidated Tools + Reply) -->
           <li
-            v-else
-            v-show="block.msg.role !== 'assistant' || block.msg.content || block.msg.thought || (agent.isStreaming && block.idx === agent.messages.length - 1)"
-            class="agent-panel__msg"
-            :class="`agent-panel__msg--${block.msg.role}`"
+            v-else-if="block.type === 'assistant_turn'"
+            v-show="block.content || block.combinedThought || block.tools.length || (block.isStreaming && block.idx === agent.messages.length - 1)"
+            class="agent-panel__msg agent-panel__msg--assistant"
           >
-            <!-- User message bubble -->
-            <template v-if="block.msg.role === 'user'">
-              <div class="agent-panel__user-msg-row">
-                <div class="agent-panel__user-bubble-container">
-                  <!-- Normal display -->
-                  <div v-if="editingMsgId !== block.msg.id" class="agent-panel__user-bubble">
-                    <!-- Referenced Notes Chips (Click to open) -->
-                    <div v-if="block.msg.references && block.msg.references.length" class="agent-panel__msg-refs">
-                      <button
-                        v-for="r in block.msg.references"
-                        :key="r.path || r.name"
-                        class="agent-panel__msg-ref-pill"
-                        :class="{ 'agent-panel__msg-ref-pill--sel': r.type === 'selection' }"
-                        type="button"
-                        :title="r.preview ? r.preview : `在编辑器中打开 ${r.name}`"
-                        @click="r.path && openReferencedNote(r.path)"
-                      >
-                        {{ r.type === 'selection' ? '选区: ' : '' }}{{ r.name }}
-                      </button>
-                    </div>
-
-                    <!-- Attached Images -->
-                    <div v-if="block.msg.images && block.msg.images.length" class="agent-panel__msg-images">
-                      <img
-                        v-for="(img, imgIdx) in block.msg.images"
-                        :key="imgIdx"
-                        :src="img"
-                        class="agent-panel__msg-img"
-                        alt="attachment"
-                      />
-                    </div>
-
-                    <div class="agent-panel__user-text">{{ block.msg.content }}</div>
-
-                    <!-- User Message Hover Action Bar -->
-                    <div class="agent-panel__user-actions">
-                      <button
-                        class="agent-panel__bubble-action-btn"
-                        type="button"
-                        :disabled="agent.isStreaming"
-                        :title="t('agent.msgEditTitle')"
-                        @click="startEditUserMessage(block.msg)"
-                      >
-                        {{ t('agent.msgEdit') }}
-                      </button>
-                      <button
-                        class="agent-panel__bubble-action-btn"
-                        type="button"
-                        :disabled="agent.isStreaming"
-                        :title="t('agent.msgRecallTitle')"
-                        @click="recallMessage(block.msg)"
-                      >
-                        {{ t('agent.msgRecall') }}
-                      </button>
-                      <button
-                        class="agent-panel__bubble-action-btn agent-panel__bubble-action-btn--del"
-                        type="button"
-                        :disabled="agent.isStreaming"
-                        :title="t('agent.msgDeleteTurnTitle')"
-                        @click="deleteTurn(block.msg)"
-                      >
-                        {{ t('agent.msgDeleteTurn') }}
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Inline Edit Mode -->
-                  <div v-else class="agent-panel__user-bubble agent-panel__user-bubble--editing">
-                    <textarea
-                      v-model="editingMsgContent"
-                      class="agent-panel__edit-input"
-                      :placeholder="t('agent.editInputPlaceholder')"
-                      rows="3"
-                      @keydown.ctrl.enter.prevent="saveAndResendUserMessage(block.msg)"
-                      @keydown.meta.enter.prevent="saveAndResendUserMessage(block.msg)"
-                      @keydown.esc.prevent="cancelEditUserMessage"
-                    ></textarea>
-                    <div class="agent-panel__edit-actions">
-                      <span class="agent-panel__edit-hint">Esc 取消 · ⌘/Ctrl+Enter 发送</span>
-                      <div class="agent-panel__edit-btns">
-                        <button
-                          class="agent-panel__edit-btn agent-panel__edit-btn--cancel"
-                          type="button"
-                          @click="cancelEditUserMessage"
-                        >
-                          {{ t('agent.cancelEdit') }}
-                        </button>
-                        <button
-                          class="agent-panel__edit-btn agent-panel__edit-btn--save"
-                          type="button"
-                          :disabled="!editingMsgContent.trim() || agent.isStreaming"
-                          @click="saveAndResendUserMessage(block.msg)"
-                        >
-                          {{ t('agent.saveAndResend') }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            <!-- Assistant / System message -->
-            <template v-else>
-              <div class="agent-panel__assistant-msg">
-                <!-- Single-line Rolling Thought Ticker -->
+            <div class="agent-panel__assistant-msg">
+              <!-- (A) Single-line Rolling Thought Ticker (ONLY ONE PER TURN!) -->
+              <div
+                v-if="block.combinedThought || (block.isStreaming && !block.content)"
+                class="agent-panel__thought-ticker"
+                :class="{ 'agent-panel__thought-ticker--streaming': block.isStreaming && !block.content }"
+              >
                 <div
-                  v-if="block.msg.thought || (agent.isStreaming && block.idx === agent.messages.length - 1 && !block.msg.content)"
-                  class="agent-panel__thought-ticker"
-                  :class="{ 'agent-panel__thought-ticker--streaming': agent.isStreaming && !block.msg.content }"
+                  class="agent-panel__thought-ticker-main"
+                  @click="toggleThoughtExpand(block.primaryMsg)"
+                  :title="block.combinedThought || '点击展开思考推演详情'"
                 >
-                  <div
-                    class="agent-panel__thought-ticker-main"
-                    @click="toggleThoughtExpand(block.msg)"
-                    :title="block.msg.thought || '点击展开思考推演详情'"
-                  >
-                    <span class="agent-panel__thought-tag">{{ t('agent.thoughtTag') }}</span>
-                    <span
-                      class="agent-panel__thought-dot"
-                      :class="{ 'agent-panel__thought-dot--spinning': agent.isStreaming && !block.msg.content }"
-                    />
-                    <div class="agent-panel__thought-ticker-track">
-                      <span v-if="block.msg.thought" class="agent-panel__thought-ticker-text">
-                        {{ getLatestThoughtLine(block.msg.thought) }}
-                      </span>
-                      <span v-else class="agent-panel__thought-ticker-placeholder">
-                        正在分析笔记内容与意图，组织思考推演…
-                      </span>
-                    </div>
-                    <span class="agent-panel__thought-time-pill" v-if="agent.isStreaming && !block.msg.content">
-                      {{ (stepElapsedMs / 1000).toFixed(1) }}s
-                    </span>
-                    <span class="agent-panel__thought-time-pill" v-else-if="block.msg.thoughtDurationMs">
-                      {{ (block.msg.thoughtDurationMs / 1000).toFixed(1) }}s
-                    </span>
-                    <button
-                      type="button"
-                      class="agent-panel__thought-toggle-btn"
-                      @click.stop="toggleThoughtExpand(block.msg)"
-                    >
-                      {{ isThoughtExpanded(block.msg) ? t('agent.thoughtCollapse') : t('agent.thoughtExpand') }}
-                    </button>
-                  </div>
-                  <div v-if="isThoughtExpanded(block.msg)" class="agent-panel__thought-body">
-                    <pre v-if="block.msg.thought" class="agent-panel__thought-text">{{ block.msg.thought }}<span v-if="agent.isStreaming && !block.msg.content" class="agent-panel__cursor" aria-hidden="true">▋</span></pre>
-                    <div v-else class="agent-panel__thought-loading">
-                      <span class="agent-panel__thought-loading-dot"></span>
-                      <span>正在分析笔记内容与意图，组织思考推演…</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Content Card -->
-                <div v-if="block.msg.content" class="agent-panel__assistant-content-wrap">
-                  <div class="agent-panel__assistant-head">
-                    <span class="agent-panel__assistant-name">{{ t('agent.name') }}</span>
-                    <span v-if="settings.aiModel" class="agent-panel__assistant-model">{{ settings.aiModel }}</span>
-                  </div>
-
-                  <div
-                    class="agent-panel__msg-body agent-panel__markdown-body"
-                    @click="onMessageBodyClick"
-                    @mouseup="onAssistantMouseUp"
-                    v-html="renderAssistantHtml(block.msg.content)"
-                  ></div>
+                  <span class="agent-panel__thought-tag">{{ t('agent.thoughtTag') }}</span>
                   <span
-                    v-if="agent.isStreaming && block.idx === agent.messages.length - 1"
-                    class="agent-panel__cursor"
-                    aria-hidden="true"
-                  >▋</span>
-
-                  <!-- Actions on completed assistant replies -->
-                  <div
-                    v-if="block.msg.content && !(agent.isStreaming && block.idx === agent.messages.length - 1)"
-                    class="agent-panel__msg-actions"
+                    class="agent-panel__thought-dot"
+                    :class="{ 'agent-panel__thought-dot--spinning': block.isStreaming && !block.content }"
+                  />
+                  <div class="agent-panel__thought-ticker-track">
+                    <span v-if="block.combinedThought" class="agent-panel__thought-ticker-text">
+                      {{ getLatestThoughtLine(block.combinedThought) }}
+                    </span>
+                    <span v-else class="agent-panel__thought-ticker-placeholder">
+                      正在分析笔记内容与意图，组织思考推演…
+                    </span>
+                  </div>
+                  <span class="agent-panel__thought-time-pill" v-if="block.isStreaming && !block.content">
+                    {{ (stepElapsedMs / 1000).toFixed(1) }}s
+                  </span>
+                  <span class="agent-panel__thought-time-pill" v-else-if="block.thoughtDurationMs">
+                    {{ (block.thoughtDurationMs / 1000).toFixed(1) }}s
+                  </span>
+                  <button
+                    type="button"
+                    class="agent-panel__thought-toggle-btn"
+                    @click.stop="toggleThoughtExpand(block.primaryMsg)"
                   >
-                    <!-- Mode 1: Read-Only Mode (agentAllowWrite === false) -->
-                    <template v-if="!settings.agentAllowWrite">
-                      <!-- Scene 1.1: Selection Context present -> Primary action is "Accept & Replace" -->
-                      <button
-                        v-if="hasSelectionForMessage(block.msg)"
-                        class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
-                        type="button"
-                        :disabled="!canInsertIntoEditor || agent.isStreaming"
-                        :title="t('agent.msgAcceptReplaceTitle')"
-                        @click="applyPolishedTextToDoc(block.msg.content, getSelectionContextForMessage(block.msg))"
-                      >
-                        <span>{{ t('agent.msgAcceptReplace') }}</span>
-                      </button>
-
-                      <!-- Scene 1.2: No Selection Context -> Primary action is "Insert" -->
-                      <button
-                        v-else
-                        class="agent-panel__msg-action-btn"
-                        type="button"
-                        :disabled="!canInsertIntoEditor || agent.isStreaming"
-                        :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
-                        @click="insertAssistantMessage(block.msg.content)"
-                      >
-                        <span>{{ t('agent.msgInsert') }}</span>
-                      </button>
-
-                      <!-- Primary common actions -->
-                      <button
-                        class="agent-panel__msg-action-btn"
-                        :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
-                        type="button"
-                        :title="t('agent.msgCopyTitle')"
-                        @click="copyAssistantMessage(block.msg.content, block.msg.id)"
-                      >
-                        <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
-                      </button>
-                      <button
-                        class="agent-panel__msg-action-btn"
-                        type="button"
-                        :disabled="agent.isStreaming"
-                        :title="t('agent.msgRegenerateTitle')"
-                        @click="regenerateAssistant(block.msg)"
-                      >
-                        <span>{{ t('agent.msgRegenerate') }}</span>
-                      </button>
-
-                      <!-- "More" dropdown menu for Read-Only mode -->
-                      <div class="agent-panel__more-wrap">
-                        <button
-                          class="agent-panel__msg-action-btn agent-panel__msg-action-btn--more"
-                          :class="{ 'agent-panel__msg-action-btn--active': activeMoreMenuMsgId === block.msg.id }"
-                          type="button"
-                          :title="t('agent.msgMoreTitle')"
-                          @click.stop="toggleMoreMenu(block.msg.id, $event)"
-                        >
-                          <span>{{ t('agent.msgMore') }}</span>
-                        </button>
-
-                        <div
-                          v-if="activeMoreMenuMsgId === block.msg.id"
-                          class="agent-panel__more-menu"
-                        >
-                          <button
-                            v-if="hasSelectionForMessage(block.msg)"
-                            class="agent-panel__more-item"
-                            type="button"
-                            :disabled="!canInsertIntoEditor || agent.isStreaming"
-                            :title="canInsertIntoEditor ? t('agent.msgInsertAtCursorTitle') : t('agent.msgInsertNoEditor')"
-                            @click="closeMoreMenu(); insertAssistantMessage(block.msg.content)"
-                          >
-                            <span>{{ t('agent.msgInsertAtCursor') }}</span>
-                          </button>
-                          <button
-                            class="agent-panel__more-item"
-                            type="button"
-                            :disabled="agent.isStreaming"
-                            :title="t('agent.msgSaveAsNoteTitle')"
-                            @click="closeMoreMenu(); saveAssistantAsNote(block.msg.content)"
-                          >
-                            <span>{{ t('agent.msgSaveAsNote') }}</span>
-                          </button>
-                          <button
-                            class="agent-panel__more-item"
-                            type="button"
-                            :title="t('agent.msgQuoteTitle')"
-                            @click="closeMoreMenu(); insertQuote(block.msg.content)"
-                          >
-                            <span>{{ t('agent.msgQuote') }}</span>
-                          </button>
-                          <button
-                            class="agent-panel__more-item agent-panel__more-item--del"
-                            type="button"
-                            :disabled="agent.isStreaming"
-                            :title="t('agent.msgDeleteMsgTitle')"
-                            @click="closeMoreMenu(); deleteAssistantMessage(block.msg)"
-                          >
-                            <span>{{ t('agent.msgDelete') }}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </template>
-
-                    <!-- Mode 2: Edit / Agent Mode (settings.agentAllowWrite === true) -->
-                    <template v-else>
-                      <button
-                        class="agent-panel__msg-action-btn"
-                        :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.msg.id }"
-                        type="button"
-                        :title="t('agent.msgCopyTitle')"
-                        @click="copyAssistantMessage(block.msg.content, block.msg.id)"
-                      >
-                        <span>{{ copiedId === block.msg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
-                      </button>
-                      <button
-                        class="agent-panel__msg-action-btn"
-                        type="button"
-                        :disabled="agent.isStreaming"
-                        :title="t('agent.msgRegenerateTitle')"
-                        @click="regenerateAssistant(block.msg)"
-                      >
-                        <span>{{ t('agent.msgRegenerate') }}</span>
-                      </button>
-
-                      <!-- "More" dropdown menu for Edit mode -->
-                      <div class="agent-panel__more-wrap">
-                        <button
-                          class="agent-panel__msg-action-btn agent-panel__msg-action-btn--more"
-                          :class="{ 'agent-panel__msg-action-btn--active': activeMoreMenuMsgId === block.msg.id }"
-                          type="button"
-                          :title="t('agent.msgMoreTitle')"
-                          @click.stop="toggleMoreMenu(block.msg.id, $event)"
-                        >
-                          <span>{{ t('agent.msgMore') }}</span>
-                        </button>
-
-                        <div
-                          v-if="activeMoreMenuMsgId === block.msg.id"
-                          class="agent-panel__more-menu"
-                        >
-                          <button
-                            class="agent-panel__more-item"
-                            type="button"
-                            :title="t('agent.msgQuoteTitle')"
-                            @click="closeMoreMenu(); insertQuote(block.msg.content)"
-                          >
-                            <span>{{ t('agent.msgQuote') }}</span>
-                          </button>
-                          <button
-                            class="agent-panel__more-item agent-panel__more-item--del"
-                            type="button"
-                            :disabled="agent.isStreaming"
-                            :title="t('agent.msgDeleteMsgTitle')"
-                            @click="closeMoreMenu(); deleteAssistantMessage(block.msg)"
-                          >
-                            <span>{{ t('agent.msgDelete') }}</span>
-                          </button>
-                        </div>
-                      </div>
-                    </template>
+                    {{ isThoughtExpanded(block.primaryMsg) ? t('agent.thoughtCollapse') : t('agent.thoughtExpand') }}
+                  </button>
+                </div>
+                <div v-if="isThoughtExpanded(block.primaryMsg)" class="agent-panel__thought-body">
+                  <pre v-if="block.combinedThought" class="agent-panel__thought-text">{{ block.combinedThought }}<span v-if="block.isStreaming && !block.content" class="agent-panel__cursor" aria-hidden="true">▋</span></pre>
+                  <div v-else class="agent-panel__thought-loading">
+                    <span class="agent-panel__thought-loading-dot"></span>
+                    <span>正在分析笔记内容与意图，组织思考推演…</span>
                   </div>
                 </div>
               </div>
-            </template>
+
+              <!-- (B) Consolidated Tool Group Card (ALL TOOLS IN THIS TURN!) -->
+              <div v-if="block.tools && block.tools.length" class="agent-panel__tool-group-card">
+                <button
+                  class="agent-panel__tool-group-bar"
+                  type="button"
+                  @click="toggleGroupExpand(block.id)"
+                >
+                  <div class="agent-panel__tool-group-left">
+                    <span class="agent-panel__tool-group-title">{{ getGroupSummaryText(block.tools) }}</span>
+                  </div>
+                  <div class="agent-panel__tool-group-right">
+                    <span v-if="block.tools.some((t: any) => !t.tool?.result && !t.tool?.error)" class="agent-panel__tool-spinner" />
+                    <span class="agent-panel__tool-group-count">{{ block.tools.length }} 步</span>
+                    <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id) ? '收起' : '展开' }}</span>
+                  </div>
+                </button>
+
+                <div v-if="isGroupExpanded(block.id)" class="agent-panel__tool-group-content">
+                  <div v-for="m in block.tools" :key="m.id" class="agent-panel__tool-group-item">
+                    <!-- File Action Card -->
+                    <div v-if="isFileTool(m.tool?.name)" class="agent-panel__file-action-card">
+                      <div class="agent-panel__file-action-head">
+                        <div class="agent-panel__file-action-info">
+                          <span class="agent-panel__file-action-tag">
+                            <template v-if="m.tool?.name === 'delete_note'">删除</template>
+                            <template v-else-if="m.tool?.name === 'patch_note'">修改</template>
+                            <template v-else-if="m.tool?.name === 'move_note'">移动</template>
+                            <template v-else-if="m.tool?.name === 'create_folder'">目录</template>
+                            <template v-else-if="m.tool?.name === 'delete_folder'">删目录</template>
+                            <template v-else-if="m.tool?.name === 'copy_note'">复制</template>
+                            <template v-else>新建</template>
+                          </span>
+                          <div class="agent-panel__file-action-titles">
+                            <span class="agent-panel__file-action-name">{{ getToolFileName(m.tool) }}</span>
+                            <span class="agent-panel__file-action-path">{{ getToolFileRelativePath(m.tool) }}</span>
+                          </div>
+                          <span
+                            v-if="getToolDiffBadge(m.tool)"
+                            class="agent-panel__diff-badge"
+                            :class="`agent-panel__diff-badge--${getToolDiffBadge(m.tool)!.type}`"
+                          >
+                            {{ getToolDiffBadge(m.tool)!.text }}
+                          </span>
+                        </div>
+
+                        <div class="agent-panel__file-action-btns">
+                          <button
+                            v-if="!m.tool?.error && m.tool?.name !== 'delete_note' && m.tool?.name !== 'delete_folder'"
+                            class="agent-panel__action-pill"
+                            type="button"
+                            title="在编辑器中打开此笔记"
+                            @click="openToolFile(m.tool)"
+                          >
+                            打开
+                          </button>
+                          <button
+                            v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
+                            class="agent-panel__action-pill agent-panel__action-pill--revert"
+                            type="button"
+                            title="撤销修改并恢复备份"
+                            @click="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
+                          >
+                            撤销
+                          </button>
+                          <button
+                            class="agent-panel__action-pill agent-panel__action-pill--expand"
+                            type="button"
+                            :title="m.tool?.expanded ? '折叠详情' : '展开详情'"
+                            @click="agent.toggleToolExpand(m.tool!.toolCallId)"
+                          >
+                            {{ m.tool?.expanded ? '收起' : '详情' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Expanded Details (Diff / Results) -->
+                      <div v-if="m.tool?.expanded" class="agent-panel__file-action-body">
+                        <!-- Render Diff If Available -->
+                        <div v-if="m.tool?.result?.diff" class="agent-panel__diff-view">
+                          <div class="agent-panel__diff-lines">
+                            <div
+                              v-for="(dLine, dIdx) in formatDiffLines(m.tool.result.diff)"
+                              :key="dIdx"
+                              class="agent-panel__diff-line"
+                              :class="`agent-panel__diff-line--${dLine.type}`"
+                            >
+                              <span class="agent-panel__diff-sign">{{ dLine.sign }}</span>
+                              <span class="agent-panel__diff-text">{{ dLine.text }}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else-if="m.tool?.result?.newContent" class="agent-panel__diff-view">
+                          <div class="agent-panel__diff-preview-label">写入内容预览：</div>
+                          <pre class="agent-panel__file-preview-content">{{ m.tool.result.newContent.slice(0, 500) }}{{ m.tool.result.newContent.length > 500 ? '…' : '' }}</pre>
+                        </div>
+                        <div v-else-if="m.tool?.error" class="agent-panel__tool-error">
+                          {{ m.tool.error }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Generic Tool Item -->
+                    <div v-else class="agent-panel__tool-item">
+                      <button
+                        class="agent-panel__tool-head"
+                        :class="{ 'agent-panel__tool-head--err': !!m.tool?.error, 'agent-panel__tool-head--pending': !m.tool?.result && !m.tool?.error }"
+                        type="button"
+                        @click="agent.toggleToolExpand(m.tool!.toolCallId)"
+                      >
+                        <span class="agent-panel__tool-icon" aria-hidden="true">
+                          <span v-if="!m.tool?.result && !m.tool?.error" class="agent-panel__tool-spinner" />
+                          <span v-else-if="m.tool?.error" class="agent-panel__tool-dot agent-panel__tool-dot--err" />
+                          <span v-else class="agent-panel__tool-dot" />
+                        </span>
+                        <code class="agent-panel__tool-sig">{{ m.tool?.name }}({{ formatArgsInline(m.tool?.args) }})</code>
+                        <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '收起' : '展开' }}</span>
+                      </button>
+                      <div v-if="m.tool?.expanded" class="agent-panel__tool-body">
+                        <div class="agent-panel__tool-section">
+                          <div class="agent-panel__tool-label">args</div>
+                          <pre class="agent-panel__tool-pre">{{ JSON.stringify(m.tool?.args, null, 2) }}</pre>
+                        </div>
+                        <div class="agent-panel__tool-section">
+                          <div class="agent-panel__tool-label">{{ m.tool?.error ? 'error' : 'result' }}</div>
+                          <pre
+                            class="agent-panel__tool-pre"
+                            :class="{ 'agent-panel__tool-pre--err': !!m.tool?.error }"
+                          >{{ m.tool?.error || m.tool?.result || '(waiting…)' }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- (C) Content Card -->
+              <div v-if="block.content" class="agent-panel__assistant-content-wrap">
+                <div class="agent-panel__assistant-head">
+                  <span class="agent-panel__assistant-name">{{ t('agent.name') }}</span>
+                  <span v-if="settings.aiModel" class="agent-panel__assistant-model">{{ settings.aiModel }}</span>
+                </div>
+
+                <div
+                  class="agent-panel__msg-body agent-panel__markdown-body"
+                  @click="onMessageBodyClick"
+                  @mouseup="onAssistantMouseUp"
+                  v-html="renderAssistantHtml(block.content)"
+                ></div>
+                <span
+                  v-if="block.isStreaming && block.idx === agent.messages.length - 1"
+                  class="agent-panel__cursor"
+                  aria-hidden="true"
+                >▋</span>
+
+                <!-- Actions on completed assistant replies -->
+                <div
+                  v-if="block.content && !(block.isStreaming && block.idx === agent.messages.length - 1)"
+                  class="agent-panel__msg-actions"
+                >
+                  <!-- Mode 1: Read-Only Mode (agentAllowWrite === false) -->
+                  <template v-if="!settings.agentAllowWrite">
+                    <!-- Scene 1.1: Selection Context present -> Primary action is "Accept & Replace" -->
+                    <button
+                      v-if="hasSelectionForMessage(block.primaryMsg)"
+                      class="agent-panel__msg-action-btn agent-panel__msg-action-btn--replace"
+                      type="button"
+                      :disabled="!canInsertIntoEditor || agent.isStreaming"
+                      :title="t('agent.msgAcceptReplaceTitle')"
+                      @click="applyPolishedTextToDoc(block.content, getSelectionContextForMessage(block.primaryMsg))"
+                    >
+                      <span>{{ t('agent.msgAcceptReplace') }}</span>
+                    </button>
+
+                    <!-- Scene 1.2: No Selection Context -> Primary action is "Insert" -->
+                    <button
+                      v-else
+                      class="agent-panel__msg-action-btn"
+                      type="button"
+                      :disabled="!canInsertIntoEditor || agent.isStreaming"
+                      :title="canInsertIntoEditor ? t('agent.msgInsertTitle') : t('agent.msgInsertNoEditor')"
+                      @click="insertAssistantMessage(block.content)"
+                    >
+                      <span>{{ t('agent.msgInsert') }}</span>
+                    </button>
+
+                    <!-- Primary common actions -->
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.primaryMsg.id }"
+                      type="button"
+                      :title="t('agent.msgCopyTitle')"
+                      @click="copyAssistantMessage(block.content, block.primaryMsg.id)"
+                    >
+                      <span>{{ copiedId === block.primaryMsg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
+                    </button>
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      type="button"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgRegenerateTitle')"
+                      @click="regenerateAssistant(block.primaryMsg)"
+                    >
+                      <span>{{ t('agent.msgRegenerate') }}</span>
+                    </button>
+
+                    <!-- "More" dropdown menu for Read-Only mode -->
+                    <div class="agent-panel__more-wrap">
+                      <button
+                        class="agent-panel__msg-action-btn agent-panel__msg-action-btn--more"
+                        :class="{ 'agent-panel__msg-action-btn--active': activeMoreMenuMsgId === block.primaryMsg.id }"
+                        type="button"
+                        :title="t('agent.msgMoreTitle')"
+                        @click.stop="toggleMoreMenu(block.primaryMsg.id, $event)"
+                      >
+                        <span>{{ t('agent.msgMore') }}</span>
+                      </button>
+
+                      <div
+                        v-if="activeMoreMenuMsgId === block.primaryMsg.id"
+                        class="agent-panel__more-menu"
+                      >
+                        <button
+                          v-if="hasSelectionForMessage(block.primaryMsg)"
+                          class="agent-panel__more-item"
+                          type="button"
+                          :disabled="!canInsertIntoEditor || agent.isStreaming"
+                          :title="canInsertIntoEditor ? t('agent.msgInsertAtCursorTitle') : t('agent.msgInsertNoEditor')"
+                          @click="closeMoreMenu(); insertAssistantMessage(block.content)"
+                        >
+                          <span>{{ t('agent.msgInsertAtCursor') }}</span>
+                        </button>
+                        <button
+                          class="agent-panel__more-item"
+                          type="button"
+                          :disabled="agent.isStreaming"
+                          :title="t('agent.msgSaveAsNoteTitle')"
+                          @click="closeMoreMenu(); saveAssistantAsNote(block.content)"
+                        >
+                          <span>{{ t('agent.msgSaveAsNote') }}</span>
+                        </button>
+                        <button
+                          class="agent-panel__more-item"
+                          type="button"
+                          :title="t('agent.msgQuoteTitle')"
+                          @click="closeMoreMenu(); insertQuote(block.content)"
+                        >
+                          <span>{{ t('agent.msgQuote') }}</span>
+                        </button>
+                        <button
+                          class="agent-panel__more-item agent-panel__more-item--del"
+                          type="button"
+                          :disabled="agent.isStreaming"
+                          :title="t('agent.msgDeleteMsgTitle')"
+                          @click="closeMoreMenu(); deleteAssistantMessage(block.primaryMsg)"
+                        >
+                          <span>{{ t('agent.msgDelete') }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Mode 2: Edit / Agent Mode (settings.agentAllowWrite === true) -->
+                  <template v-else>
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      :class="{ 'agent-panel__msg-action-btn--copied': copiedId === block.primaryMsg.id }"
+                      type="button"
+                      :title="t('agent.msgCopyTitle')"
+                      @click="copyAssistantMessage(block.content, block.primaryMsg.id)"
+                    >
+                      <span>{{ copiedId === block.primaryMsg.id ? t('agent.msgCopied') : t('agent.msgCopy') }}</span>
+                    </button>
+                    <button
+                      class="agent-panel__msg-action-btn"
+                      type="button"
+                      :disabled="agent.isStreaming"
+                      :title="t('agent.msgRegenerateTitle')"
+                      @click="regenerateAssistant(block.primaryMsg)"
+                    >
+                      <span>{{ t('agent.msgRegenerate') }}</span>
+                    </button>
+
+                    <!-- "More" dropdown menu for Edit mode -->
+                    <div class="agent-panel__more-wrap">
+                      <button
+                        class="agent-panel__msg-action-btn agent-panel__msg-action-btn--more"
+                        :class="{ 'agent-panel__msg-action-btn--active': activeMoreMenuMsgId === block.primaryMsg.id }"
+                        type="button"
+                        :title="t('agent.msgMoreTitle')"
+                        @click.stop="toggleMoreMenu(block.primaryMsg.id, $event)"
+                      >
+                        <span>{{ t('agent.msgMore') }}</span>
+                      </button>
+
+                      <div
+                        v-if="activeMoreMenuMsgId === block.primaryMsg.id"
+                        class="agent-panel__more-menu"
+                      >
+                        <button
+                          class="agent-panel__more-item"
+                          type="button"
+                          :title="t('agent.msgQuoteTitle')"
+                          @click="closeMoreMenu(); insertQuote(block.content)"
+                        >
+                          <span>{{ t('agent.msgQuote') }}</span>
+                        </button>
+                        <button
+                          class="agent-panel__more-item agent-panel__more-item--del"
+                          type="button"
+                          :disabled="agent.isStreaming"
+                          :title="t('agent.msgDeleteMsgTitle')"
+                          @click="closeMoreMenu(); deleteAssistantMessage(block.primaryMsg)"
+                        >
+                          <span>{{ t('agent.msgDelete') }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
           </li>
         </template>
       </ul>
@@ -4448,17 +4493,42 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   50% { transform: scale(1.15); opacity: 1; }
 }
 .agent-panel__thought-ticker-track {
+  container-type: inline-size;
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 14px), transparent 100%);
 }
 .agent-panel__thought-ticker-text {
   display: inline-block;
   font-family: "JetBrains Mono", Consolas, monospace;
   font-size: 11px;
   color: var(--text-muted);
+  white-space: nowrap;
+}
+/* 运行中：自动平滑横向滚动推演（单行跑马灯） */
+.agent-panel__thought-ticker--streaming .agent-panel__thought-ticker-text {
+  animation: agent-thought-marquee 9s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  will-change: transform;
+}
+/* 非运行中：鼠标悬停触发滚动预览完整长文本 */
+.agent-panel__thought-ticker-main:hover .agent-panel__thought-ticker-text {
+  animation: agent-thought-marquee 9s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  will-change: transform;
+}
+@keyframes agent-thought-marquee {
+  0%, 18% {
+    transform: translateX(0);
+  }
+  82%, 100% {
+    transform: translateX(max(-60%, calc(-100% + 200px)));
+    transform: translateX(min(0px, calc(-100% + 100cqw - 8px)));
+  }
 }
 .agent-panel__thought-ticker-placeholder {
   font-size: 11px;
