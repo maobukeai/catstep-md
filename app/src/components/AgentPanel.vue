@@ -1863,139 +1863,143 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
       <!-- Header Action Buttons: + 新建 & 🕒 历史 (with dropdown) -->
       <template v-if="!collapsed && stateKey === 'ready'">
-        <button
-          class="agent-panel__action-btn"
-          type="button"
-          title="新建会话"
-          @click.stop="agent.newSession()"
-        >
-          + 新建
-        </button>
-
-        <div class="agent-panel__history-wrap">
+        <div class="agent-panel__head-actions">
           <button
             class="agent-panel__action-btn"
             type="button"
-            title="会话历史记录"
-            @click.stop="showHistoryDropdown = !showHistoryDropdown"
+            title="新建会话"
+            @click.stop="agent.newSession()"
           >
-            🕒 历史
+            <span class="agent-panel__btn-icon">+</span>
+            <span class="agent-panel__btn-text">新建</span>
           </button>
 
-          <!-- History Dropdown Menu -->
-          <div v-if="showHistoryDropdown" class="agent-panel__history-dropdown" @click.stop>
-            <div class="agent-panel__history-head">
-              <div class="agent-panel__history-head-title">
-                <span>历史对话 ({{ agent.sessions.length }})</span>
-              </div>
-              <button
-                class="agent-panel__history-new-btn"
-                type="button"
-                @click="agent.newSession(); showHistoryDropdown = false"
-              >
-                + 新建
-              </button>
-            </div>
+          <div class="agent-panel__history-wrap">
+            <button
+              class="agent-panel__action-btn"
+              type="button"
+              title="会话历史记录"
+              @click.stop="showHistoryDropdown = !showHistoryDropdown"
+            >
+              <span class="agent-panel__btn-icon">🕒</span>
+              <span class="agent-panel__btn-text">历史</span>
+            </button>
 
-            <!-- Search input for history -->
-            <div class="agent-panel__history-search-wrap">
-              <input
-                v-model="historySearchQuery"
-                type="text"
-                class="agent-panel__history-search"
-                :placeholder="t('agent.historySearchPlaceholder')"
-                @click.stop
-              />
-              <span
-                v-if="historySearchQuery"
-                class="agent-panel__history-search-clear"
-                @click.stop="historySearchQuery = ''"
-              >✕</span>
-            </div>
-
-            <div class="agent-panel__history-list">
-              <div
-                v-for="s in filteredSessions"
-                :key="s.id"
-                class="agent-panel__history-item"
-                :class="{ 'is-active': s.id === agent.currentSessionId }"
-                @click="agent.switchSession(s.id); showHistoryDropdown = false"
-              >
-                <div class="agent-panel__history-item-main">
-                  <template v-if="editingSessionId === s.id">
-                    <input
-                      v-model="editingSessionTitle"
-                      class="agent-panel__history-rename-input"
-                      type="text"
-                      @click.stop
-                      @keydown.enter.stop="saveSessionRename(s.id)"
-                      @keydown.esc.stop="editingSessionId = null"
-                    />
-                    <div class="agent-panel__history-rename-actions" @click.stop>
-                      <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">✓</button>
-                      <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">✕</button>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="agent-panel__history-item-title">{{ s.title || '新会话' }}</div>
-                    <div class="agent-panel__history-item-meta">
-                      <span>{{ formatSessionTime(s.updatedAt) }}</span>
-                      <span>· {{ s.messages.length }} 条消息</span>
-                    </div>
-                  </template>
+            <!-- History Dropdown Menu -->
+            <div v-if="showHistoryDropdown" class="agent-panel__history-dropdown" @click.stop>
+              <div class="agent-panel__history-head">
+                <div class="agent-panel__history-head-title">
+                  <span>历史对话 ({{ agent.sessions.length }})</span>
                 </div>
-
-                <div v-if="editingSessionId !== s.id" class="agent-panel__history-item-ops" @click.stop>
-                  <button
-                    class="agent-panel__history-item-btn"
-                    type="button"
-                    title="重命名会话"
-                    @click="startSessionRename(s)"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    class="agent-panel__history-item-btn agent-panel__history-item-btn--del"
-                    type="button"
-                    title="删除此会话"
-                    @click="agent.deleteSession(s.id)"
-                  >
-                    ✕
-                  </button>
-                </div>
+                <button
+                  class="agent-panel__history-new-btn"
+                  type="button"
+                  @click="agent.newSession(); showHistoryDropdown = false"
+                >
+                  + 新建
+                </button>
               </div>
-              <div v-if="filteredSessions.length === 0" class="agent-panel__history-empty">
-                未找到匹配的会话
+
+              <!-- Search input for history -->
+              <div class="agent-panel__history-search-wrap">
+                <input
+                  v-model="historySearchQuery"
+                  type="text"
+                  class="agent-panel__history-search"
+                  :placeholder="t('agent.historySearchPlaceholder')"
+                  @click.stop
+                />
+                <span
+                  v-if="historySearchQuery"
+                  class="agent-panel__history-search-clear"
+                  @click.stop="historySearchQuery = ''"
+                >✕</span>
+              </div>
+
+              <div class="agent-panel__history-list">
+                <div
+                  v-for="s in filteredSessions"
+                  :key="s.id"
+                  class="agent-panel__history-item"
+                  :class="{ 'is-active': s.id === agent.currentSessionId }"
+                  @click="agent.switchSession(s.id); showHistoryDropdown = false"
+                >
+                  <div class="agent-panel__history-item-main">
+                    <template v-if="editingSessionId === s.id">
+                      <input
+                        v-model="editingSessionTitle"
+                        class="agent-panel__history-rename-input"
+                        type="text"
+                        @click.stop
+                        @keydown.enter.stop="saveSessionRename(s.id)"
+                        @keydown.esc.stop="editingSessionId = null"
+                      />
+                      <div class="agent-panel__history-rename-actions" @click.stop>
+                        <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">✓</button>
+                        <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">✕</button>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="agent-panel__history-item-title">{{ s.title || '新会话' }}</div>
+                      <div class="agent-panel__history-item-meta">
+                        <span>{{ formatSessionTime(s.updatedAt) }}</span>
+                        <span>· {{ s.messages.length }} 条消息</span>
+                      </div>
+                    </template>
+                  </div>
+
+                  <div v-if="editingSessionId !== s.id" class="agent-panel__history-item-ops" @click.stop>
+                    <button
+                      class="agent-panel__history-item-btn"
+                      type="button"
+                      title="重命名会话"
+                      @click="startSessionRename(s)"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      class="agent-panel__history-item-btn agent-panel__history-item-btn--del"
+                      type="button"
+                      title="删除此会话"
+                      @click="agent.deleteSession(s.id)"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div v-if="filteredSessions.length === 0" class="agent-panel__history-empty">
+                  未找到匹配的会话
+                </div>
               </div>
             </div>
           </div>
+
+          <button
+            class="agent-panel__chip agent-panel__chip--head"
+            :class="{ 'agent-panel__chip--on': includeActiveNote }"
+            type="button"
+            :title="t('agent.includeNoteTitle')"
+            @click.stop="includeActiveNote = !includeActiveNote"
+          >
+            <span class="agent-panel__chip-dot" :class="{ 'agent-panel__chip-dot--on': includeActiveNote }" />
+            {{ t('agent.includeNote') }}
+          </button>
+
+          <button
+            v-if="agent.messages.length"
+            class="agent-panel__icon-btn"
+            type="button"
+            :title="t('agent.clearTitle')"
+            @click.stop="agent.clear()"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 4H4.5L1 8.5 4.5 13H14a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/>
+              <line x1="11" y1="6.5" x2="7.5" y2="10.5"/>
+              <line x1="7.5" y1="6.5" x2="11" y2="10.5"/>
+            </svg>
+          </button>
         </div>
-
-        <button
-          class="agent-panel__chip"
-          :class="{ 'agent-panel__chip--on': includeActiveNote }"
-          type="button"
-          :title="t('agent.includeNoteTitle')"
-          @click.stop="includeActiveNote = !includeActiveNote"
-        >
-          <span class="agent-panel__chip-dot" :class="{ 'agent-panel__chip-dot--on': includeActiveNote }" />
-          {{ t('agent.includeNote') }}
-        </button>
       </template>
-
-      <button
-        v-if="!collapsed && agent.messages.length"
-        class="agent-panel__icon-btn"
-        type="button"
-        :title="t('agent.clearTitle')"
-        @click.stop="agent.clear()"
-      >
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 4H4.5L1 8.5 4.5 13H14a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/>
-          <line x1="11" y1="6.5" x2="7.5" y2="10.5"/>
-          <line x1="7.5" y1="6.5" x2="11" y2="10.5"/>
-        </svg>
-      </button>
       <button
         class="rs-pane-close"
         type="button"
@@ -2452,7 +2456,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             @click="applyPromptSuggestion(t('agent.suggestSummarize'))"
           >
             <span class="agent-panel__suggestion-icon">📝</span>
-            <span>{{ t('agent.suggestSummarize') }}</span>
+            <span class="agent-panel__suggestion-text">{{ t('agent.suggestSummarize') }}</span>
           </button>
           <button
             class="agent-panel__suggestion-pill"
@@ -2460,7 +2464,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             @click="applyPromptSuggestion(t('agent.suggestTodos'))"
           >
             <span class="agent-panel__suggestion-icon">📌</span>
-            <span>{{ t('agent.suggestTodos') }}</span>
+            <span class="agent-panel__suggestion-text">{{ t('agent.suggestTodos') }}</span>
           </button>
           <button
             class="agent-panel__suggestion-pill"
@@ -2468,7 +2472,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             @click="applyPromptSuggestion(t('agent.suggestPolish'))"
           >
             <span class="agent-panel__suggestion-icon">✨</span>
-            <span>{{ t('agent.suggestPolish') }}</span>
+            <span class="agent-panel__suggestion-text">{{ t('agent.suggestPolish') }}</span>
           </button>
           <button
             class="agent-panel__suggestion-pill"
@@ -2476,7 +2480,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             @click="applyPromptSuggestion(t('agent.suggestRelated'))"
           >
             <span class="agent-panel__suggestion-icon">🔍</span>
-            <span>{{ t('agent.suggestRelated') }}</span>
+            <span class="agent-panel__suggestion-text">{{ t('agent.suggestRelated') }}</span>
           </button>
         </div>
       </div>
@@ -2538,9 +2542,25 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
         <!-- Active Context References Bar (Badges) -->
         <div
-          v-if="activeReferences.length > 0 || (activeSelectionText && !isSelectionDismissed) || activeImages.length > 0"
+          v-if="activeReferences.length > 0 || (activeSelectionText && !isSelectionDismissed) || activeImages.length > 0 || (tabs.activeTab && includeActiveNote)"
           class="agent-panel__ref-bar"
         >
+          <!-- Active Current Note Badge -->
+          <span
+            v-if="tabs.activeTab && includeActiveNote"
+            class="agent-panel__ref-badge agent-panel__ref-badge--active-note"
+            :title="`当前笔记：${tabs.activeTab.filePath || tabs.activeTab.fileName}（已附带到本次对话上下文）`"
+          >
+            <span class="agent-panel__ref-badge-icon">📄</span>
+            <span class="agent-panel__ref-badge-name">{{ tabs.activeTab.fileName || '当前笔记' }}</span>
+            <button
+              class="agent-panel__ref-badge-del"
+              type="button"
+              title="从本次会话上下文中排除当前笔记"
+              @click="includeActiveNote = false"
+            >×</button>
+          </span>
+
           <!-- Referenced Notes -->
           <span
             v-for="r in activeReferences"
@@ -2598,79 +2618,94 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           @keydown="onKeydown"
         ></textarea>
         <div class="agent-panel__compose-foot">
-          <!-- Segmented Mode Switch [ ✏️ 编辑 | 📖 只读 ] -->
-          <div class="agent-panel__mode-switch" :title="settings.agentAllowWrite ? '编辑模式：AI 拥有真实修改/创建笔记的物理权限' : '只读模式：AI 仅提供建议与回答，不可修改本地文件'">
+          <div class="agent-panel__compose-foot-left">
+            <!-- Segmented Mode Switch [ ✏️ 编辑 | 📖 只读 ] -->
+            <div class="agent-panel__mode-switch" :title="settings.agentAllowWrite ? '编辑模式：AI 拥有真实修改/创建笔记的物理权限' : '只读模式：AI 仅提供建议与回答，不可修改本地文件'">
+              <button
+                type="button"
+                class="agent-panel__mode-opt"
+                :class="{ 'is-active': settings.agentAllowWrite }"
+                @click.stop="settings.setAgentAllowWrite(true)"
+              >
+                ✏️ 编辑
+              </button>
+              <button
+                type="button"
+                class="agent-panel__mode-opt"
+                :class="{ 'is-active': !settings.agentAllowWrite }"
+                @click.stop="settings.setAgentAllowWrite(false)"
+              >
+                📖 只读
+              </button>
+            </div>
+
+            <!-- @ Mention Button -->
             <button
               type="button"
-              class="agent-panel__mode-opt"
-              :class="{ 'is-active': settings.agentAllowWrite }"
-              @click.stop="settings.setAgentAllowWrite(true)"
+              class="agent-panel__mention-btn"
+              :title="t('agent.mentionTooltip')"
+              @click.stop="toggleMentionMenu"
             >
-              ✏️ 编辑
+              @ 引用
+            </button>
+
+            <!-- Re-attach current note button if excluded -->
+            <button
+              v-if="tabs.activeTab && !includeActiveNote"
+              type="button"
+              class="agent-panel__mention-btn"
+              :title="t('agent.includeNoteTitle')"
+              @click.stop="includeActiveNote = true"
+            >
+              + 附带当前笔记
+            </button>
+
+            <!-- Quick Recall Button -->
+            <button
+              v-if="hasPastUserMessage && !agent.isStreaming"
+              type="button"
+              class="agent-panel__recall-btn"
+              :title="t('agent.msgRecallTitle')"
+              @click.stop="recallLastTurn"
+            >
+              ↩ {{ t('agent.msgRecall') }}
+            </button>
+
+            <!-- Ollama local status pill -->
+            <div
+              v-if="ollamaStatus.online"
+              class="agent-panel__ollama-pill"
+              :title="`本地 Ollama 正在运行，检测到 ${ollamaStatus.models.length} 个本地模型`"
+            >
+              <span class="agent-panel__ollama-dot" />
+              <span>Ollama ({{ ollamaStatus.models.length }})</span>
+            </div>
+          </div>
+
+          <div class="agent-panel__compose-foot-right">
+            <span class="agent-panel__compose-hint">
+              <template v-if="agent.isStreaming">{{ t('agent.streaming') }}</template>
+              <template v-else>{{ t('agent.enterToSend') }}</template>
+            </span>
+
+            <button
+              v-if="agent.isStreaming"
+              class="agent-panel__send agent-panel__send--stop"
+              type="button"
+              @click="stop"
+            >
+              {{ t('agent.stop') }}
             </button>
             <button
+              v-else
+              class="agent-panel__send"
               type="button"
-              class="agent-panel__mode-opt"
-              :class="{ 'is-active': !settings.agentAllowWrite }"
-              @click.stop="settings.setAgentAllowWrite(false)"
+              :disabled="!canSend"
+              @click="send"
             >
-              📖 只读
+              {{ t('agent.send') }}
             </button>
           </div>
-
-          <!-- @ Mention Button -->
-          <button
-            type="button"
-            class="agent-panel__mention-btn"
-            :title="t('agent.mentionTooltip')"
-            @click.stop="toggleMentionMenu"
-          >
-            @ 引用
-          </button>
-
-          <!-- Quick Recall Button -->
-          <button
-            v-if="hasPastUserMessage && !agent.isStreaming"
-            type="button"
-            class="agent-panel__recall-btn"
-            :title="t('agent.msgRecallTitle')"
-            @click.stop="recallLastTurn"
-          >
-            ↩ {{ t('agent.msgRecall') }}
-          </button>
-
-          <!-- Ollama local status pill -->
-          <div
-            v-if="ollamaStatus.online"
-            class="agent-panel__ollama-pill"
-            :title="`本地 Ollama 正在运行，检测到 ${ollamaStatus.models.length} 个本地模型`"
-          >
-            <span class="agent-panel__ollama-dot" />
-            <span>Ollama ({{ ollamaStatus.models.length }})</span>
-          </div>
-
-          <span class="agent-panel__compose-hint">
-            <template v-if="agent.isStreaming">{{ t('agent.streaming') }}</template>
-            <template v-else>{{ t('agent.enterToSend') }}</template>
-          </span>
-
-          <button
-            v-if="agent.isStreaming"
-            class="agent-panel__send agent-panel__send--stop"
-            type="button"
-            @click="stop"
-          >
-            {{ t('agent.stop') }}
-          </button>
-          <button
-            v-else
-            class="agent-panel__send"
-            type="button"
-            :disabled="!canSend"
-            @click="send"
-          >
-            {{ t('agent.send') }}
-          </button>
         </div>
       </footer>
     </template>
@@ -2702,16 +2737,26 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   background: var(--bg);
   border-left: 1px solid var(--border);
   overflow: hidden;
+  container-type: inline-size;
 }
 .agent-panel__head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 34px;
   box-sizing: border-box;
-  padding: 0 10px 0 12px;
+  padding: 0 8px 0 10px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
+  min-width: 0;
+}
+.agent-panel__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 0;
 }
 .agent-panel__title {
   font-size: 11px;
@@ -2719,6 +2764,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 .agent-panel__beta {
   font-size: 9px;
@@ -2730,6 +2776,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-radius: 4px;
   letter-spacing: 0.04em;
   line-height: 15px;
+  white-space: nowrap;
 }
 .agent-panel__spacer {
   flex: 1;
@@ -2747,6 +2794,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.12s ease;
+  flex-shrink: 0;
 }
 .agent-panel__icon-btn:hover {
   background: var(--bg-hover);
@@ -2755,26 +2803,41 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   color: var(--text-muted);
   font: inherit;
   font-size: 11px;
   font-weight: 500;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.12s ease;
   white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
 }
 .agent-panel__action-btn:hover {
   background: var(--bg-hover);
   color: var(--text);
   border-color: var(--accent, #ff9f40);
 }
+.agent-panel__btn-icon {
+  font-size: 11px;
+  line-height: 1;
+}
+.agent-panel__btn-text {
+  white-space: nowrap;
+}
+@container (max-width: 320px) {
+  .agent-panel__btn-text {
+    display: none;
+  }
+}
 .agent-panel__history-wrap {
   position: relative;
+  flex-shrink: 0;
 }
 .agent-panel__history-dropdown {
   position: absolute;
@@ -2982,6 +3045,17 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-radius: 999px;
   cursor: pointer;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+.agent-panel__chip--head {
+  display: none;
+}
+@container (min-width: 440px) {
+  .agent-panel__chip--head {
+    display: inline-flex;
+  }
 }
 .agent-panel__chip:hover {
   background: var(--bg-elev);
@@ -3474,6 +3548,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   justify-content: center;
   text-align: center;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 .agent-panel__welcome-icon {
   width: 44px;
@@ -3505,6 +3581,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   gap: 7px;
   width: 100%;
   max-width: 320px;
+  box-sizing: border-box;
 }
 .agent-panel__suggestion-pill {
   display: flex;
@@ -3520,6 +3597,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   cursor: pointer;
   text-align: left;
   transition: all 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 .agent-panel__suggestion-pill:hover {
   background: var(--bg-hover);
@@ -3530,6 +3610,16 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__suggestion-icon {
   font-size: 14px;
   flex-shrink: 0;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+.agent-panel__suggestion-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* --- Compose Area ------------------------------------------------------ */
@@ -3659,6 +3749,10 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   background: color-mix(in srgb, var(--accent, #ff9f40) 10%, var(--bg));
   color: var(--accent, #ff9f40);
 }
+.agent-panel__ref-badge--active-note {
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 35%, var(--border));
+  background: color-mix(in srgb, var(--accent, #ff9f40) 8%, var(--bg));
+}
 .agent-panel__ref-badge--img {
   padding: 2px 5px;
 }
@@ -3723,6 +3817,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   align-items: center;
   gap: 4px;
   transition: all 0.12s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
 }
 .agent-panel__mention-btn:hover {
   color: var(--text);
@@ -3739,6 +3836,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-radius: 5px;
   padding: 2px 6px;
   cursor: default;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
 }
 .agent-panel__ollama-dot {
   width: 6px;
@@ -3770,13 +3870,28 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   cursor: not-allowed;
 }
 .agent-panel__compose-foot {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   font-size: 11px;
   color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.agent-panel__compose-foot-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.agent-panel__compose-foot-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .agent-panel__mode-switch {
   display: inline-flex;
@@ -3786,6 +3901,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   border-radius: 6px;
   padding: 2px;
   gap: 2px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .agent-panel__mode-opt {
   display: inline-flex;
@@ -3802,6 +3919,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   cursor: pointer;
   transition: all 0.15s ease;
   line-height: 1.3;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
 }
 .agent-panel__mode-opt:hover {
   color: var(--text);
@@ -3815,6 +3935,19 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__compose-hint {
   font-style: italic;
   font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  flex-shrink: 1;
+  min-width: 0;
+  user-select: none;
+}
+@container (max-width: 380px) {
+  .agent-panel__compose-hint {
+    display: none;
+  }
 }
 .agent-panel__send {
   background: var(--accent, #ff9f40);
@@ -3828,6 +3961,11 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   cursor: pointer;
   line-height: 1.4;
   transition: all 0.12s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 54px;
+  text-align: center;
+  user-select: none;
 }
 .agent-panel__send:disabled {
   opacity: 0.45;
@@ -4381,6 +4519,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.12s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
 }
 .agent-panel__recall-btn:hover {
   color: var(--accent, #ff9f40);
