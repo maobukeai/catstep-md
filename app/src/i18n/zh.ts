@@ -1113,7 +1113,7 @@ export const zh: I18n = {
     settingsHeading: '语义搜索',
     enable: '启用语义搜索（本地 RAG，{key}）',
     enableHint:
-      '开启本地语义向量检索，支持自然语言模糊查找相关笔记。纯离线运行，数据不出本地。{key} 快捷键唤起搜索。',
+      '开启本地语义向量检索，支持自然语言模糊查找相关笔记，纯离线数据不出本地。',
     statusReady: '已索引：{indexed} / {total} 篇笔记 · 共 {chunks} 块 · 后端 {backend}',
     statusEmpty: '尚未索引 —— 打开开关即可开始构建索引。',
     reindexNow: '立即重建索引',
