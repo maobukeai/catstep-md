@@ -4606,7 +4606,7 @@ watch(
   },
 );
 
-function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false) {
+function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false, endLine?: number) {
   if (heading && (!line || isNaN(line) || line < 1)) {
     const hNorm = heading.trim().toLowerCase().replace(/^#+\s*/, '');
     if (!usePlainWindowsEditor && view) {
@@ -4671,10 +4671,21 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
         to = idx + (original.trim() ? original.trim().length : original.length);
       }
     }
+    if (from == null && line && endLine) {
+      from = plainLineStartOffset(line);
+      to = plainLineStartOffset(endLine + 1);
+    }
     const safeLine = (!line || isNaN(line) || line < 1) ? 1 : line;
     if (plainLiveEnabled.value) {
       if (from != null) {
         plainSetCaret(from, to);
+        nextTick(() => {
+          const activeEl = plainBlockEditors.value[plainActiveBlock.value];
+          if (activeEl) {
+            activeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            activeEl.focus();
+          }
+        });
       } else {
         plainSetCaret(plainLineStartOffset(safeLine));
         plainScrollToLine(safeLine);
@@ -4688,6 +4699,8 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     if (!el) return;
     if (from != null) {
       plainSetCaret(from, to);
+      plainScrollToLine(safeLine);
+      el.focus();
     } else {
       plainSetCaret(plainLineStartOffset(safeLine));
       plainScrollToLine(safeLine);
@@ -4755,7 +4768,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     targetTo = to != null ? Math.max(targetFrom, Math.min(to, docLen)) : targetFrom;
   }
 
-  // 4.5 Global document search for original text snippet
+  // 4.5 Global document search for original text snippet (single line or full multi-line block)
   if (targetFrom == null && original) {
     const docText = view.state.doc.toString();
     let docIdx = docText.indexOf(original);
@@ -4770,15 +4783,21 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
       const normOrig = original.replace(/\r\n/g, '\n').trim();
       const nIdx = normDoc.indexOf(normOrig);
       if (nIdx !== -1) {
-        targetFrom = nIdx;
-        targetTo = nIdx + normOrig.length;
+        const linesBefore = normDoc.slice(0, nIdx).split('\n').length;
+        const lineInDoc = view.state.doc.line(Math.min(linesBefore, view.state.doc.lines));
+        targetFrom = lineInDoc.from;
+        const totalLinesInOrig = normOrig.split('\n').length;
+        const endLineInDoc = view.state.doc.line(Math.min(linesBefore + totalLinesInOrig - 1, view.state.doc.lines));
+        targetTo = endLineInDoc.to;
       } else {
         const lines = normOrig.split('\n').map((l) => l.trim()).filter((l) => l.length >= 3);
-        for (const line of lines) {
-          const lIdx = normDoc.indexOf(line);
+        for (const lText of lines) {
+          const lIdx = normDoc.indexOf(lText);
           if (lIdx !== -1) {
-            targetFrom = lIdx;
-            targetTo = lIdx + line.length;
+            const linesBefore = normDoc.slice(0, lIdx).split('\n').length;
+            const lineInDoc = view.state.doc.line(Math.min(linesBefore, view.state.doc.lines));
+            targetFrom = lineInDoc.from;
+            targetTo = lineInDoc.to;
             break;
           }
         }
@@ -4786,12 +4805,14 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     }
   }
 
-  // 5. Fallback to line start
+  // 5. Fallback to line and endLine range if provided
   if (targetFrom == null) {
-    const safe = (!line || isNaN(line) || line < 1) ? 1 : Math.min(line, view.state.doc.lines);
-    const lineObj = view.state.doc.line(safe);
-    targetFrom = lineObj.from;
-    targetTo = lineObj.from;
+    const safeStart = (!line || isNaN(line) || line < 1) ? 1 : Math.min(line, view.state.doc.lines);
+    const safeEnd = endLine != null ? Math.min(Math.max(safeStart, endLine), view.state.doc.lines) : safeStart;
+    const startLineObj = view.state.doc.line(safeStart);
+    const endLineObj = view.state.doc.line(safeEnd);
+    targetFrom = startLineObj.from;
+    targetTo = endLine != null ? endLineObj.to : startLineObj.from;
   }
 
   const finalFrom = targetFrom ?? 0;

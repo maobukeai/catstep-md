@@ -1264,13 +1264,17 @@ async function send() {
         "【核心指令：自动替换所选片段】\n" +
         "当前处于【智能体/编辑模式】，用户已在当前笔记中明确划选了具体文本片段（见下方的 User's current selected text）。\n" +
         "当用户的请求是润色、改写、修正或优化这段文字时：\n" +
-        "1. 必须直接调用 `patch_note` 工具自动替换文档中的选区内容！\n" +
-        "2. `patch_note` 参数中，`path` 填写当前笔记路径，`target_content` 必须完全匹配用户划选的原文本片段，`replacement_content` 填入润色后的优质纯正文。\n" +
-        "3. 严禁只在对话框口头回复“我已经为你修改了”却不调用 `patch_note`！只有成功调用 `patch_note` 工具，用户的编辑器才会真正更新。"
+        "1. 必须直接且仅调用一次 `patch_note` 工具自动替换文档中的选区内容！\n" +
+        "2. 严禁调用 `read_note` 去重复读取文件（你已拥有用户的确切选区文本）；严禁调用 `write_note` 覆盖整篇已有笔记！\n" +
+        "3. `patch_note` 参数中，`path` 填写当前笔记路径，`target_content` 必须完全匹配用户划选的原文本片段，`replacement_content` 填入润色后的优质纯正文。\n" +
+        "4. 单次修改铁律：一旦 `patch_note` 执行成功，编辑器已自动同步完成。严禁再次调用 patch_note、write_note 或 read_note！必须立即向用户输出针对修改亮点的文字总结并结束本轮回复。"
       );
     } else {
       systemParts.push(
-        "你具备修改笔记库的物理权限。当用户要求你修改、优化某段文字时，必须调用 `patch_note`；当用户要求你创建、新建、保存为笔记时，必须调用 `write_note`。严禁在没有调用工具的情况下虚假声称已修改文件。"
+        "你具备修改笔记库的物理权限。\n" +
+        "1. 当用户要求修改、优化当前已有笔记的局部内容时，使用 `patch_note`。严禁在修改已有文件时使用 `write_note` 覆盖全文件！\n" +
+        "2. 只有当用户明确要求创建新笔记、新建文件时，才调用 `write_note`。\n" +
+        "3. 一旦文件修改或创建成功，切勿重复调用工具，立即向用户总结结果并结束回复。"
       );
     }
   } else {
@@ -1820,6 +1824,8 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
   // 2. Determine target line number
   const resultData = getToolResultData(tool);
   let lineNum: number | undefined = undefined;
+  let endLineNum: number | undefined = undefined;
+
   if (typeof specificLine === 'number') {
     lineNum = specificLine;
   } else if (typeof specificLine === 'string' && !isNaN(Number(specificLine))) {
@@ -1845,21 +1851,32 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
     if (tool.name === 'patch_note') {
       const repl = (tool.args?.replacement_content as string) || '';
       if (repl.trim()) {
-        const firstRepl = repl.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
-        snippet = firstRepl || repl.trim();
+        snippet = repl.trim();
+        if (lineNum) {
+          const linesCount = repl.split(/\r?\n/).length;
+          endLineNum = lineNum + Math.max(0, linesCount - 1);
+        }
       } else {
         const targ = (tool.args?.target_content as string) || '';
-        const firstTarg = targ.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
-        snippet = firstTarg || targ.trim();
+        snippet = targ.trim();
+        if (lineNum) {
+          const linesCount = targ.split(/\r?\n/).length;
+          endLineNum = lineNum + Math.max(0, linesCount - 1);
+        }
       }
     } else if (tool.name === 'append_to_note') {
       const content = (tool.args?.content as string) || '';
-      const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
-      snippet = firstLine || content.trim();
+      snippet = content.trim();
+      if (lineNum) {
+        const linesCount = content.split(/\r?\n/).length;
+        endLineNum = lineNum + Math.max(0, linesCount - 1);
+      }
     } else if (tool.name === 'write_note') {
       const content = (tool.args?.content as string) || '';
-      const firstLine = content.split('\n').map((l) => l.trim()).find((l) => l.length > 0);
-      snippet = firstLine || content.trim();
+      snippet = content.trim();
+      if (content) {
+        endLineNum = content.split(/\r?\n/).length;
+      }
     }
   }
 
@@ -1869,6 +1886,7 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
       new CustomEvent('solomd:outline-goto', {
         detail: {
           line: lineNum,
+          endLine: endLineNum,
           original: snippet,
           isAgentJump: true,
           paneId: tiles.focusedPaneId || undefined,

@@ -2519,6 +2519,9 @@ pub async fn run_chat_openai_loop(
                 }
             };
             let mut preview = json_preview(&result_value);
+            if error_str.is_none() && (name == "patch_note" || name == "write_note" || name == "append_to_note") {
+                preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+            }
             if consecutive_duplicate_count >= 1 {
                 preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
             }
