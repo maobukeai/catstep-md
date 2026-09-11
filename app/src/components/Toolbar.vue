@@ -1307,13 +1307,23 @@ onBeforeUnmount(() => {
 
 @media (max-width: 640px) {
   .toolbar {
-    padding: 0 6px;
+    padding: 0 8px;
+    justify-content: space-between;
   }
   .toolbar__left {
-    gap: 2px;
+    gap: 4px;
+  }
+  .toolbar__center {
+    flex: 1;
+    justify-content: center;
   }
   .toolbar__right {
     gap: 4px;
+  }
+  /* On mobile, shortcuts and AI are accessible via bottom dock & touch bar */
+  .killer-capsule--shortcuts,
+  .killer-capsule--ai {
+    display: none !important;
   }
   .win-controls {
     display: none;

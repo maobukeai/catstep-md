@@ -2278,7 +2278,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           @click="closeNarrowDrawer"
         />
         <div
-          v-if="settings.showFileTree || settings.showViewsPanel"
+          v-if="(settings.showFileTree || settings.showViewsPanel) && (!isNarrow || narrowDrawer === 'left')"
           class="left-stack typora-sidebar"
           :style="typoraSidebarStyle"
         >
@@ -2439,7 +2439,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           </div>
         </div>
         <aside
-          v-if="showRightSidebar && settings.outlineSide !== 'left'"
+          v-if="showRightSidebar && settings.outlineSide !== 'left' && (!isNarrow || narrowDrawer === 'right')"
           class="side-sidebar side-sidebar--right typora-right-drawer"
           :style="sideSidebarStyle"
           @contextmenu.prevent="openSidebarCtx"
@@ -2542,7 +2542,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 
       <!-- Mobile Bottom Dock (Floating 5-action bar on mobile < 640px) -->
       <MobileBottomDock
-        v-if="isNarrow && !mobileAgentOpen && !isMobileEditorFocused"
+        v-if="isNarrow && !mobileAgentOpen && !isMobileEditorFocused && !narrowDrawer"
         :is-ai-active="showAgentPane"
         @open-files="settings.toggleLeftSidebar()"
         @open-outline="mobileOutlineOpen = true"
@@ -2818,18 +2818,48 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 40;
-  width: min(86vw, 320px);
-  max-width: 86vw;
+  z-index: 50;
+  width: clamp(240px, 72vw, 290px);
+  max-width: 78vw;
   flex: none;
   min-width: 0;
-  box-shadow: 0 0 24px rgba(0, 0, 0, 0.28);
+  box-shadow: 6px 0 28px -4px rgba(0, 0, 0, 0.28);
+  border-right: 1px solid var(--border);
+  border-radius: 0 18px 18px 0;
+  overflow: hidden;
+  background: var(--bg-elev);
 }
 .app--narrow .left-stack {
   left: 0;
+  animation: mobileDrawerSlideInLeft 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes mobileDrawerSlideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 .app--narrow .side-sidebar--right {
   right: 0;
+  border-right: none;
+  border-left: 1px solid var(--border);
+  border-radius: 18px 0 0 18px;
+  box-shadow: -6px 0 28px -4px rgba(0, 0, 0, 0.28);
+  animation: mobileDrawerSlideInRight 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes mobileDrawerSlideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 .app--narrow .side-sidebar--left {
   left: 0;
@@ -2839,13 +2869,49 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .app--narrow .typora-sidebar__resize {
   display: none;
 }
+/* Touch-friendly tabs in mobile drawer */
+.app--narrow .typora-sidebar__tabs {
+  height: 44px;
+  padding: 0 10px;
+  gap: 6px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.app--narrow .typora-sidebar__tab {
+  height: 32px;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: var(--text-muted);
+}
+.app--narrow .typora-sidebar__tab.active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
+  color: var(--accent);
+  font-weight: 600;
+}
+.app--narrow .typora-sidebar__tab-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .workspace__scrim {
   position: absolute;
   inset: 0;
-  z-index: 35;
-  background: rgba(0, 0, 0, 0.32);
+  z-index: 45;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   border: 0;
   padding: 0;
+  cursor: pointer;
+  animation: mobileScrimFadeIn 0.2s ease both;
+}
+@keyframes mobileScrimFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 /* The editor keeps the full width underneath the drawer. */
 .app--narrow .content {
