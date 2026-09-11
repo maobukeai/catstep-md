@@ -298,9 +298,16 @@ export const useAgentPanelStore = defineStore('agentPanel', {
     toggleToolExpand(toolCallId: string) {
       for (const m of this.messages) {
         if (m.role === 'tool' && m.tool && m.tool.toolCallId === toolCallId) {
+          let hasDiff = false;
+          if (m.tool.name === 'patch_note' && m.tool.result) {
+            try {
+              const parsed = typeof m.tool.result === 'string' ? JSON.parse(m.tool.result) : m.tool.result;
+              hasDiff = !!parsed?.diff;
+            } catch {}
+          }
           const current = typeof m.tool.expanded === 'boolean'
             ? m.tool.expanded
-            : !!(m.tool.name === 'patch_note' && (m.tool.result as any)?.diff);
+            : hasDiff;
           m.tool.expanded = !current;
           return;
         }

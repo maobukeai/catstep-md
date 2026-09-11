@@ -1,4 +1,4 @@
-import { createApp, type Component } from 'vue';
+import { createApp, watch, type Component } from 'vue';
 import { createPinia } from 'pinia';
 import { useSettingsStore } from './stores/settings';
 import { loadLanguage, type Lang } from './i18n';
@@ -39,18 +39,32 @@ async function getRootComponent(): Promise<Component> {
 }
 
 async function bootstrap() {
-  const [rootComponent] = await Promise.all([getRootComponent()]);
-
-  const app = createApp(rootComponent);
+  const rootPromise = getRootComponent();
   const pinia = createPinia();
-  app.use(pinia);
-
   const settings = useSettingsStore(pinia);
   const currentLang = (settings.language as Lang) || 'en';
-  await loadLanguage(currentLang);
+
+  const [rootComponent] = await Promise.all([
+    rootPromise,
+    loadLanguage(currentLang),
+  ]);
+
   if (currentLang !== 'en') {
-    loadLanguage('en');
+    void loadLanguage('en');
   }
+
+  const app = createApp(rootComponent);
+  app.use(pinia);
+
+  watch(
+    () => settings.language,
+    (newLang) => {
+      if (newLang) {
+        void loadLanguage(newLang as Lang);
+      }
+    },
+    { flush: 'sync' }
+  );
 
   app.mount('#app');
 }

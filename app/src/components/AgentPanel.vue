@@ -1693,13 +1693,28 @@ function formatDiffLines(diffStr?: any): Array<{ type: 'add' | 'del' | 'context'
 }
 
 
+function getToolResultData(tool?: any): { diff?: string; newContent?: string; [key: string]: any } | null {
+  if (!tool?.result) return null;
+  if (typeof tool.result === 'object') return tool.result;
+  if (typeof tool.result === 'string') {
+    try {
+      const parsed = JSON.parse(tool.result);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function isToolExpanded(tool?: any): boolean {
   if (!tool) return false;
   if (typeof tool.expanded === 'boolean') {
     return tool.expanded;
   }
   // Default to true for patch_note when diff is available
-  return !!(tool.name === 'patch_note' && tool.result?.diff);
+  const data = getToolResultData(tool);
+  return !!(tool.name === 'patch_note' && data?.diff);
 }
 
 async function jumpToToolModification(tool?: any, specificSnippet?: string) {
@@ -2643,28 +2658,28 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       <!-- Expanded Details (Diff / Results) -->
                       <div v-if="isToolExpanded(m.tool)" class="agent-panel__file-action-body">
                         <!-- Render Diff If Available -->
-                        <div v-if="m.tool?.result?.diff" class="agent-panel__diff-view">
+                        <div v-if="getToolResultData(m.tool)?.diff" class="agent-panel__diff-view">
                           <div class="agent-panel__diff-lines">
                             <div
-                              v-for="(dLine, dIdx) in formatDiffLines(m.tool.result.diff)"
+                              v-for="(dLine, dIdx) in formatDiffLines(getToolResultData(m.tool)?.diff)"
                               :key="dIdx"
                               class="agent-panel__diff-line"
                               :class="`agent-panel__diff-line--${dLine.type}`"
-                              title="点击在编辑器中定位并高亮此行"
-                              @click.stop="jumpToToolModification(m.tool, dLine.text)"
+                              :title="dLine.type === 'del' ? '已从文档中删除' : '点击在编辑器中定位并高亮此行'"
+                              @click.stop="dLine.type !== 'del' && jumpToToolModification(m.tool, dLine.text)"
                             >
                               <span class="agent-panel__diff-sign">{{ dLine.sign }}</span>
                               <span class="agent-panel__diff-text">{{ dLine.text }}</span>
                             </div>
                           </div>
                         </div>
-                        <div v-else-if="m.tool?.result?.newContent" class="agent-panel__diff-view">
+                        <div v-else-if="getToolResultData(m.tool)?.newContent" class="agent-panel__diff-view">
                           <div class="agent-panel__diff-preview-label">写入内容预览（点击定位）：</div>
                           <pre
                             class="agent-panel__file-preview-content"
                             title="点击在编辑器中定位此笔记"
                             @click="jumpToToolModification(m.tool)"
-                          >{{ m.tool.result.newContent.slice(0, 500) }}{{ m.tool.result.newContent.length > 500 ? '…' : '' }}</pre>
+                          >{{ (getToolResultData(m.tool)?.newContent || '').slice(0, 500) }}{{ (getToolResultData(m.tool)?.newContent?.length ?? 0) > 500 ? '…' : '' }}</pre>
                         </div>
                         <div v-else-if="m.tool?.error" class="agent-panel__tool-error">
                           {{ m.tool.error }}

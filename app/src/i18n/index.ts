@@ -45,41 +45,49 @@ const dicts = shallowReactive<Partial<Record<Lang, any>>>({});
 const pendingLoads = new Map<Lang, Promise<any>>();
 
 export async function loadLanguage(lang: Lang): Promise<any> {
-  if (dicts[lang]) return dicts[lang];
-  if (!loaders[lang]) return dicts.en;
+  const target: Lang = loaders[lang] ? lang : 'en';
+  if (dicts[target]) return dicts[target];
 
-  const pending = pendingLoads.get(lang);
+  const pending = pendingLoads.get(target);
   if (pending) return pending;
 
-  const promise = loaders[lang]()
+  const promise = loaders[target]()
     .then((dict) => {
-      dicts[lang] = dict;
+      dicts[target] = dict;
       return dict;
     })
     .catch((err) => {
-      console.error(`[i18n] Failed to load language dictionary for '${lang}':`, err);
-      return dicts.en;
+      console.error(`[i18n] Failed to load language dictionary for '${target}':`, err);
+      return dicts.en || {};
     })
     .finally(() => {
-      pendingLoads.delete(lang);
+      pendingLoads.delete(target);
     });
 
-  pendingLoads.set(lang, promise);
+  pendingLoads.set(target, promise);
   return promise;
 }
 
 export function useI18n() {
-  const settings = useSettingsStore();
-  const currentLang = (settings.language as Lang) || 'en';
-
-  if (!dicts[currentLang]) {
-    loadLanguage(currentLang);
-  }
-  if (currentLang !== 'en' && !dicts.en) {
-    loadLanguage('en');
+  let settings: ReturnType<typeof useSettingsStore> | null = null;
+  try {
+    settings = useSettingsStore();
+  } catch {
+    // pinia not active (e.g. isolated unit test or pre-init)
   }
 
-  const dict = computed(() => dicts[settings.language as Lang] || dicts.en || {});
+  const lang = computed(() => (settings?.language as Lang) || 'en');
+
+  const dict = computed(() => {
+    const current = lang.value;
+    if (!dicts[current]) {
+      void loadLanguage(current);
+    }
+    if (current !== 'en' && !dicts.en) {
+      void loadLanguage('en');
+    }
+    return dicts[current] || dicts.en || {};
+  });
 
   function lookup(d: any, parts: string[]): string | undefined {
     let cur: any = d;
@@ -92,9 +100,10 @@ export function useI18n() {
 
   function t(key: string, params?: Record<string, string | number>): string {
     const parts = key.split('.');
-    // v4.3.5: try active language first, then fall back to English, then to
-    // the raw key.
-    let str = lookup(dict.value, parts) ?? lookup(dicts.en, parts) ?? key;
+    const activeDict = dict.value;
+    const enDict = dicts.en;
+    // Try active language first, then fall back to English, then to the raw key.
+    let str = lookup(activeDict, parts) ?? (activeDict !== enDict ? lookup(enDict, parts) : undefined) ?? key;
     if (params) {
       for (const [k, v] of Object.entries(params)) {
         str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
@@ -103,5 +112,5 @@ export function useI18n() {
     return str;
   }
 
-  return { t, lang: computed(() => settings.language) };
+  return { t, lang };
 }

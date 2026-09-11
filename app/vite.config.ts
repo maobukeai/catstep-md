@@ -30,7 +30,8 @@ export default defineConfig(async () => ({
     },
   },
   build: {
-    chunkSizeWarningLimit: 3000,
+    // Largest vendor chunk is mermaid (~2745 kB). App code (index.js/App.js) is now <750 kB.
+    chunkSizeWarningLimit: 2800,
     rollupOptions: {
       output: {
         manualChunks(id) {
