@@ -8,13 +8,13 @@
  * - 16:9 high-res preview cards with status tags
  * - Active theme glowing highlight with 1-click apply/uninstall
  */
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useThemesStore, type ThemeManifestEntry } from '../stores/themes';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
 
-defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
 
 const themes = useThemesStore();
@@ -181,11 +181,63 @@ async function onRefresh() {
     isRefreshing.value = false;
   }
 }
+
+let backdropPointerDown = false;
+
+function onBackdropPointerDown(e: MouseEvent) {
+  backdropPointerDown = (e.target === e.currentTarget);
+}
+
+function onBackdropClick(e: MouseEvent) {
+  if (backdropPointerDown && e.target === e.currentTarget) {
+    emit('close');
+  }
+  backdropPointerDown = false;
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.open) {
+    e.preventDefault();
+    e.stopPropagation();
+    emit('close');
+  }
+}
+
+watch(
+  () => props.open,
+  (val) => {
+    if (val) {
+      window.addEventListener('keydown', onKeydown, true);
+    } else {
+      window.removeEventListener('keydown', onKeydown, true);
+    }
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown, true);
+});
 </script>
 
 <template>
-  <div v-if="open" class="tm__backdrop" @click.self="emit('close')">
-    <div class="tm" role="dialog" aria-modal="true" aria-label="Theme marketplace">
+  <Teleport to="body">
+    <div
+      v-if="open"
+      class="tm__backdrop"
+      data-no-drag
+      @mousedown="onBackdropPointerDown"
+      @click="onBackdropClick"
+    >
+      <div
+        class="tm"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Theme marketplace"
+        data-no-drag
+        @mousedown.stop
+        @click.stop
+      >
       <!-- 1. Header with Title & Quick Search / Actions -->
       <header class="tm__header">
         <div class="tm__header-main">
@@ -462,7 +514,7 @@ async function onRefresh() {
         </footer>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
