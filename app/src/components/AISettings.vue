@@ -1071,38 +1071,41 @@ watch(
 
     <!-- 紧凑统一样式列表卡片 -->
     <div class="ai-settings__list-group">
-      <!-- 1. 允许智能体写入工作区 -->
-      <label class="ai-settings__list-row ai-settings__list-row--clickable">
-        <div class="ai-settings__row-info">
-          <span class="ai-settings__label font-medium">{{ t('agentSettings.allowWrite') }}</span>
-          <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
-        </div>
-        <div class="ai-settings__row-control">
-          <input
-            type="checkbox"
-            :checked="settingsStore.agentAllowWrite"
-            @change="settingsStore.toggleAgentAllowWrite()"
-          />
-        </div>
-      </label>
+      <!-- 1. 运行与权限参数 (写入权限 + 循环上限) -->
+      <div class="ai-settings__list-row ai-settings__list-row--dual">
+        <label class="ai-settings__dual-col ai-settings__dual-col--clickable">
+          <div class="ai-settings__row-info">
+            <span class="ai-settings__label font-medium">{{ t('agentSettings.allowWrite') }}</span>
+            <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
+          </div>
+          <div class="ai-settings__row-control">
+            <input
+              type="checkbox"
+              :checked="settingsStore.agentAllowWrite"
+              @change="settingsStore.toggleAgentAllowWrite()"
+            />
+          </div>
+        </label>
 
-      <!-- 2. 工具循环上限 -->
-      <div class="ai-settings__list-row">
-        <div class="ai-settings__row-info">
-          <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
-          <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
-        </div>
-        <div class="ai-settings__row-control">
-          <input
-            id="agent-loop-cap"
-            type="number"
-            min="1"
-            max="20"
-            step="1"
-            :value="settingsStore.agentToolLoopCap"
-            class="ai-settings__input ai-settings__input--narrow"
-            @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
-          />
+        <span class="ai-settings__col-divider" />
+
+        <div class="ai-settings__dual-col">
+          <div class="ai-settings__row-info">
+            <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
+            <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
+          </div>
+          <div class="ai-settings__row-control">
+            <input
+              id="agent-loop-cap"
+              type="number"
+              min="1"
+              max="20"
+              step="1"
+              :value="settingsStore.agentToolLoopCap"
+              class="ai-settings__input ai-settings__input--narrow"
+              @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
+            />
+          </div>
         </div>
       </div>
 
@@ -1521,6 +1524,44 @@ input[type='checkbox']:focus-visible {
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
+}
+.ai-settings__list-row--dual {
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+}
+.ai-settings__dual-col {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.ai-settings__dual-col--clickable {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.ai-settings__dual-col--clickable:hover {
+  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+}
+.ai-settings__col-divider {
+  width: 1px;
+  align-self: stretch;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .ai-settings__list-row--dual {
+    flex-direction: column;
+  }
+  .ai-settings__col-divider {
+    width: 100%;
+    height: 1px;
+  }
 }
 .ai-settings__row-info {
   display: flex;
