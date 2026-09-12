@@ -454,52 +454,53 @@ const mcpToolKeys = [
 
       <ul class="ai-clients">
         <li v-for="c in clients" :key="c.id" class="ai-client">
-          <div class="ai-client__top">
-            <label class="ai-client__label">
-              <input
-                type="checkbox"
-                v-model="checked[c.id]"
-                :disabled="!c.config_dir_exists || injectBusy"
-              />
-              <span class="ai-client__name">{{ c.display_name }}</span>
-            </label>
-            <div class="ai-client__side">
-              <span
-                v-if="!c.config_dir_exists"
-                class="ai-client__badge ai-client__badge--off"
-              >
-                {{ t('integrations.aiClientsNotInstalled') }}
-              </span>
-              <span
-                v-else-if="c.has_solomd_entry"
-                class="ai-client__badge ai-client__badge--ok"
-              >
-                {{ t('integrations.aiClientsAlreadyConfigured') }}
-              </span>
-              <span
-                v-else
-                class="ai-client__badge ai-client__badge--pending"
-              >
-                {{ t('integrations.aiClientsReady') }}
-              </span>
-              <button class="ic-btn ic-btn--small" @click="openClientConfig(c)">
-                {{ t('integrations.aiClientsOpenConfigBtn') }}
-              </button>
-              <button
-                v-if="c.has_solomd_entry"
-                class="ic-btn ic-btn--small ic-btn--danger"
-                @click="removeOne(c)"
-              >
-                {{ t('integrations.aiClientsRemoveBtn') }}
-              </button>
-            </div>
-          </div>
-          <div
+          <label class="ai-client__info" :title="c.display_name">
+            <input
+              type="checkbox"
+              v-model="checked[c.id]"
+              :disabled="!c.config_dir_exists || injectBusy"
+            />
+            <span class="ai-client__name">{{ c.display_name }}</span>
+          </label>
+
+          <span
             class="ai-client__path"
             :title="t('integrations.aiClientsOpenConfigBtn') + ': ' + displayPath(c.config_path)"
             @click="openClientConfig(c)"
           >
             {{ displayPath(c.config_path) }}
+          </span>
+
+          <div class="ai-client__side">
+            <span
+              v-if="!c.config_dir_exists"
+              class="ai-client__badge ai-client__badge--off"
+            >
+              {{ t('integrations.aiClientsNotInstalled') }}
+            </span>
+            <span
+              v-else-if="c.has_solomd_entry"
+              class="ai-client__badge ai-client__badge--ok"
+            >
+              {{ t('integrations.aiClientsAlreadyConfigured') }}
+            </span>
+            <span
+              v-else
+              class="ai-client__badge ai-client__badge--pending"
+            >
+              {{ t('integrations.aiClientsReady') }}
+            </span>
+
+            <button class="ic-btn ic-btn--small" @click="openClientConfig(c)">
+              {{ t('integrations.aiClientsOpenConfigBtn') }}
+            </button>
+            <button
+              v-if="c.has_solomd_entry"
+              class="ic-btn ic-btn--small ic-btn--danger"
+              @click="removeOne(c)"
+            >
+              {{ t('integrations.aiClientsRemoveBtn') }}
+            </button>
           </div>
         </li>
       </ul>
@@ -703,39 +704,39 @@ const mcpToolKeys = [
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
 }
 .ai-client {
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: var(--bg-soft);
-  border: 1px solid var(--border-faint, transparent);
-  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  transition: background 0.12s ease;
+  min-height: 30px;
+}
+.ai-client:not(:last-child) {
+  border-bottom: 1px solid var(--border-faint, rgba(128, 128, 128, 0.1));
 }
 .ai-client:hover {
   background: var(--bg-hover, var(--bg-elev));
-  border-color: var(--border, rgba(128, 128, 128, 0.15));
 }
-.ai-client__top {
+.ai-client__info {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 22px;
-}
-.ai-client__label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  gap: 7px;
   cursor: pointer;
-  min-width: 0;
+  flex-shrink: 0;
+  width: 155px;
   user-select: none;
 }
-.ai-client__label input[type='checkbox'] {
+.ai-client__info input[type='checkbox'] {
   cursor: pointer;
   margin: 0;
 }
-.ai-client__label input[type='checkbox']:disabled {
+.ai-client__info input[type='checkbox']:disabled {
   cursor: not-allowed;
 }
 .ai-client__name {
@@ -743,11 +744,32 @@ const mcpToolKeys = [
   font-size: 12px;
   color: var(--text);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ai-client__path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+.ai-client__path:hover {
+  color: var(--accent);
+  background: var(--bg-soft);
+  text-decoration: underline;
 }
 .ai-client__side {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
 }
 .ai-client__badge {
@@ -759,7 +781,7 @@ const mcpToolKeys = [
   white-space: nowrap;
 }
 .ai-client__badge--off {
-  background: var(--bg);
+  background: var(--bg-soft);
   color: var(--text-faint);
 }
 .ai-client__badge--ok {
@@ -776,6 +798,7 @@ const mcpToolKeys = [
   height: 20px;
   line-height: 18px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 .ic-btn--danger {
   color: #d33;
@@ -786,32 +809,36 @@ const mcpToolKeys = [
   color: white;
   border-color: var(--accent);
 }
-.ai-client__path {
-  font-family: var(--font-mono, monospace);
-  font-size: 10px;
-  color: var(--text-faint);
-  padding-left: 19px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
-  cursor: pointer;
-}
-.ai-client__path:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
 .ai-clients__controls {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   margin-top: 10px;
 }
 .ai-clients__allow-write {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 11px;
   cursor: pointer;
+}
+@media (max-width: 520px) {
+  .ai-client {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .ai-client__info {
+    width: auto;
+  }
+  .ai-client__side {
+    margin-left: auto;
+  }
+  .ai-client__path {
+    order: 3;
+    width: 100%;
+    padding-left: 21px;
+  }
 }
 </style>
