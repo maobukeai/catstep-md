@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import { DsModal } from '../ui';
 import { useViewport } from '../composables/useViewport';
 import BrandMark from './BrandMark.vue';
+import SettingCategoryIcon from './settings/SettingCategoryIcon.vue';
 import GeneralSettingsTab from './settings/GeneralSettingsTab.vue';
 import EditorSettingsTab from './settings/EditorSettingsTab.vue';
 import SyncSettingsTab from './settings/SyncSettingsTab.vue';
@@ -45,8 +46,8 @@ const settingsTitle = computed(() => (isZh.value ? '偏好设置' : 'Settings'))
 
 interface CategoryMeta {
   id: SettingsCategory;
-  icon: string;
   color: string;
+  gradient: string;
   labelKey: string;
   labelZh: string;
   labelEn: string;
@@ -60,8 +61,8 @@ interface CategoryMeta {
 const categories: CategoryMeta[] = [
   {
     id: 'basics',
-    icon: '',
     color: '#3b82f6',
+    gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
     labelKey: 'settings.catBasics',
     labelZh: '通用与外观',
     labelEn: 'Appearance & General',
@@ -73,8 +74,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'writing',
-    icon: '',
-    color: '#ea580c',
+    color: '#f97316',
+    gradient: 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)',
     labelKey: 'settings.catWriting',
     labelZh: '编辑与排版',
     labelEn: 'Editor & Writing',
@@ -86,8 +87,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'sync',
-    icon: '',
     color: '#0284c7',
+    gradient: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
     labelKey: 'settings.catSync',
     labelZh: '同步与版本时光机',
     labelEn: 'Cloud Sync & History',
@@ -99,8 +100,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'export',
-    icon: '',
-    color: '#16a34a',
+    color: '#10b981',
+    gradient: 'linear-gradient(135deg, #34d399 0%, #059669 100%)',
     labelKey: 'settings.catExport',
     labelZh: '导出与输出预设',
     labelEn: 'Export & Print',
@@ -112,8 +113,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'integrations',
-    icon: '',
     color: '#8b5cf6',
+    gradient: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)',
     labelKey: 'settings.catIntegrations',
     labelZh: 'AI 助手模型与服务',
     labelEn: 'AI Models & Extensions',
@@ -125,8 +126,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'advanced',
-    icon: '',
-    color: '#d97706',
+    color: '#64748b',
+    gradient: 'linear-gradient(135deg, #94a3b8 0%, #475569 100%)',
     labelKey: 'settings.catAdvanced',
     labelZh: '系统与高级设置',
     labelEn: 'System & Advanced',
@@ -138,8 +139,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'keys',
-    icon: '',
     color: '#4f46e5',
+    gradient: 'linear-gradient(135deg, #818cf8 0%, #4338ca 100%)',
     labelKey: 'settings.catKeys',
     labelZh: '快捷键速查表',
     labelEn: 'Keyboard Shortcuts',
@@ -151,8 +152,8 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'about',
-    icon: '',
-    color: '#64748b',
+    color: '#ec4899',
+    gradient: 'linear-gradient(135deg, #f472b6 0%, #db2777 100%)',
     labelKey: 'settings.catAbout',
     labelZh: '关于 猫步 MD',
     labelEn: 'About Catstep MD',
@@ -194,11 +195,11 @@ const currentThemeLabel = computed(() => {
   return found.label.split(' ')[0] || found.label;
 });
 
-const quickThemes: { id: Theme; label: string; icon: string }[] = [
-  { id: 'github-light', label: '晴白', icon: '' },
-  { id: 'night', label: '玄夜', icon: '' },
-  { id: 'sepia', label: '羊皮纸', icon: '' },
-  { id: 'forest', label: '松柏', icon: '' },
+const quickThemes: { id: Theme; label: string; bg: string; dot: string; border: string }[] = [
+  { id: 'github-light', label: '晴白', bg: '#ffffff', dot: '#2563eb', border: '#e2e8f0' },
+  { id: 'night', label: '玄夜', bg: '#18181b', dot: '#38bdf8', border: '#3f3f46' },
+  { id: 'sepia', label: '羊皮纸', bg: '#fbf7ee', dot: '#b45309', border: '#e7dfd1' },
+  { id: 'forest', label: '松柏', bg: '#14231c', dot: '#34d399', border: '#233d32' },
 ];
 
 function setQuickTheme(th: Theme) {
@@ -561,7 +562,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- Mobile Dedicated Full-Screen Experience (手机端全新分层设置架构) -->
+  <!-- Mobile Dedicated Full-Screen Experience (手机端全新原生设置架构) -->
   <Teleport to="body" :disabled="!isNarrow">
     <transition name="settings-mobile-slide">
       <div
@@ -572,13 +573,15 @@ onBeforeUnmount(() => {
         :aria-label="settingsTitle"
       >
         <!-- ====================================================================
-             LEVEL 1: Mobile Settings Hub (设置主页 - 一目了然与快捷控制)
+             LEVEL 1: Mobile Settings Hub (设置主页 - 原生分组卡片与即时偏好)
              ==================================================================== -->
         <div v-if="!mobileSubPage" class="settings-mobile-hub">
           <!-- Hub Top Bar -->
           <header class="settings-mobile-hub__header">
             <div class="settings-mobile-hub__brand-wrap">
-              <BrandMark :size="22" class="settings-mobile-hub__brand-icon" />
+              <div class="settings-mobile-hub__logo-wrap">
+                <BrandMark :size="20" class="settings-mobile-hub__brand-icon" />
+              </div>
               <h1 class="settings-mobile-hub__title">{{ settingsTitle }}</h1>
             </div>
             <button
@@ -590,15 +593,13 @@ onBeforeUnmount(() => {
             </button>
           </header>
 
-          <!-- Instant Search Box -->
+          <!-- iOS-style Embedded Search Bar -->
           <div class="settings-mobile-search">
             <div class="settings-mobile-search__inner">
-              <span class="settings-mobile-search__icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </span>
+              <svg class="settings-mobile-search__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
               <input
                 ref="searchInputRef"
                 v-model="searchQuery"
@@ -613,7 +614,10 @@ onBeforeUnmount(() => {
                 @click="clearSearch"
                 aria-label="Clear search"
               >
-                ✕
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
               </button>
             </div>
           </div>
@@ -647,89 +651,143 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Content Mode B: Normal Hub Overview with Quick Controls -->
+          <!-- Content Mode B: Normal Hub Overview with Inset Group Cards -->
           <div v-else class="settings-mobile-hub__content">
-            <!-- Quick Actions Control Card (高频快捷控制面板) -->
-            <section class="settings-mobile-quick-card">
-              <div class="settings-mobile-quick-card__header">
-                <span class="settings-mobile-quick-card__title">
-                  <span class="settings-mobile-quick-card__icon">⚡</span>
-                  {{ isZh ? '常用快捷控制' : 'Quick Actions' }}
-                </span>
-                <span class="settings-mobile-quick-card__badge">
-                  {{ isZh ? '无需翻找' : 'Instant' }}
-                </span>
+            <!-- App Identity Hero Card -->
+            <div class="settings-mobile-hero">
+              <div class="settings-mobile-hero__brand">
+                <BrandMark :size="30" class="settings-mobile-hero__icon" />
+                <div class="settings-mobile-hero__info">
+                  <div class="settings-mobile-hero__name">猫步 MD <span class="settings-mobile-hero__ver">v4.3.5</span></div>
+                  <div class="settings-mobile-hero__desc">{{ isZh ? '轻快、纯粹的现代化 Markdown 笔记' : 'Pure & Delightful Markdown Notebook' }}</div>
+                </div>
               </div>
+              <div class="settings-mobile-hero__status">
+                <span class="settings-mobile-hero__dot"></span>
+                <span>{{ isZh ? '就绪' : 'Ready' }}</span>
+              </div>
+            </div>
 
-              <!-- Quick Theme Switcher -->
-              <div class="settings-mobile-quick-section">
-                <div class="settings-mobile-quick-label">
-                  {{ isZh ? '外观主题' : 'Appearance Theme' }}
+            <!-- Group 1: 常用偏好与即时调整 (Quick Preferences) -->
+            <div class="settings-mobile-group">
+              <div class="settings-mobile-group__title">{{ isZh ? '常用偏好与即时调整' : 'Quick Preferences' }}</div>
+              <div class="settings-mobile-group__card">
+                <!-- Theme Swatches Row -->
+                <div class="settings-mobile-quick-theme-row">
+                  <div class="settings-mobile-row-header">
+                    <div class="settings-mobile-icon-badge" style="background: linear-gradient(135deg, #a855f7, #6366f1); box-shadow: 0 2px 6px rgba(168, 85, 247, 0.28);">
+                      <SettingCategoryIcon name="basics" :size="16" />
+                    </div>
+                    <div class="settings-mobile-row-info">
+                      <div class="settings-mobile-row-title">{{ isZh ? '外观主题' : 'Theme' }}</div>
+                      <div class="settings-mobile-row-desc">{{ currentThemeLabel }}</div>
+                    </div>
+                  </div>
+                  <div class="settings-mobile-swatches">
+                    <button
+                      v-for="th in quickThemes"
+                      :key="th.id"
+                      type="button"
+                      class="settings-mobile-swatch"
+                      :class="{ 'is-active': kbSettings.theme === th.id }"
+                      @click="setQuickTheme(th.id)"
+                    >
+                      <div class="settings-mobile-swatch__preview" :style="{ background: th.bg, borderColor: th.border }">
+                        <div class="settings-mobile-swatch__paper" :style="{ borderColor: th.border }">
+                          <span class="settings-mobile-swatch__line-primary" :style="{ background: th.dot }"></span>
+                          <span class="settings-mobile-swatch__line-secondary" :style="{ background: th.border }"></span>
+                        </div>
+                        <div v-if="kbSettings.theme === th.id" class="settings-mobile-swatch__check-badge">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </div>
+                      </div>
+                      <span class="settings-mobile-swatch__label">{{ th.label }}</span>
+                    </button>
+                  </div>
                 </div>
-                <div class="settings-mobile-theme-chips">
-                  <button
-                    v-for="th in quickThemes"
-                    :key="th.id"
-                    type="button"
-                    class="settings-mobile-theme-chip"
-                    :class="{ 'is-active': kbSettings.theme === th.id }"
-                    @click="setQuickTheme(th.id)"
-                  >
-                    <span v-if="th.icon" class="settings-mobile-theme-chip__icon">{{ th.icon }}</span>
-                    <span>{{ th.label }}</span>
-                  </button>
-                </div>
-              </div>
 
-              <!-- Quick Font Size Adjuster -->
-              <div class="settings-mobile-quick-section settings-mobile-quick-section--row">
-                <div class="settings-mobile-quick-label">
-                  {{ isZh ? '正文字号' : 'Font Size' }}
+                <!-- Font Size Stepper Row -->
+                <div class="settings-mobile-row">
+                  <div class="settings-mobile-row-header">
+                    <div class="settings-mobile-icon-badge" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 2px 6px rgba(59, 130, 246, 0.28);">
+                      <SettingCategoryIcon name="writing" :size="16" />
+                    </div>
+                    <div class="settings-mobile-row-info">
+                      <div class="settings-mobile-row-title">{{ isZh ? '正文字号' : 'Font Size' }}</div>
+                      <div class="settings-mobile-row-desc">{{ isZh ? '编辑器文本实时字号' : 'Live editor font size' }}</div>
+                    </div>
+                  </div>
+                  <div class="settings-mobile-stepper">
+                    <button
+                      type="button"
+                      class="settings-mobile-stepper__btn"
+                      @click="adjustFontSize(-1)"
+                      :disabled="(kbSettings.fontSize || 16) <= 12"
+                      aria-label="Decrease font size"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                    <span class="settings-mobile-stepper__val">{{ kbSettings.fontSize || 16 }}px</span>
+                    <button
+                      type="button"
+                      class="settings-mobile-stepper__btn"
+                      @click="adjustFontSize(1)"
+                      :disabled="(kbSettings.fontSize || 16) >= 28"
+                      aria-label="Increase font size"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <div class="settings-mobile-stepper">
-                  <button
-                    type="button"
-                    class="settings-mobile-stepper__btn"
-                    @click="adjustFontSize(-1)"
-                    :disabled="(kbSettings.fontSize || 16) <= 12"
-                    title="缩小字号"
-                  >
-                    －
-                  </button>
-                  <span class="settings-mobile-stepper__val">{{ kbSettings.fontSize || 16 }}px</span>
-                  <button
-                    type="button"
-                    class="settings-mobile-stepper__btn"
-                    @click="adjustFontSize(1)"
-                    :disabled="(kbSettings.fontSize || 16) >= 28"
-                    title="放大字号"
-                  >
-                    ＋
-                  </button>
-                </div>
-              </div>
 
-              <!-- Quick Toggles Row -->
-              <div class="settings-mobile-quick-toggles">
-                <label class="settings-mobile-quick-toggle">
-                  <span>{{ isZh ? '打字机居中' : 'Typewriter' }}</span>
-                  <input
-                    type="checkbox"
-                    :checked="kbSettings.typewriterMode"
-                    @change="kbSettings.toggleTypewriterMode()"
-                  />
-                </label>
-                <div class="settings-mobile-quick-toggle__sep" />
-                <label class="settings-mobile-quick-toggle">
-                  <span>{{ isZh ? '写作字数统计' : 'Word Count' }}</span>
-                  <input
-                    type="checkbox"
-                    :checked="kbSettings.showWritingStats"
-                    @change="kbSettings.toggleWritingStats()"
-                  />
-                </label>
+                <!-- Typewriter Mode Switch Row -->
+                <div class="settings-mobile-row">
+                  <div class="settings-mobile-row-header">
+                    <div class="settings-mobile-icon-badge" style="background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 2px 6px rgba(245, 158, 11, 0.28);">
+                      <SettingCategoryIcon name="writing" :size="16" />
+                    </div>
+                    <div class="settings-mobile-row-info">
+                      <div class="settings-mobile-row-title">{{ isZh ? '打字机居中模式' : 'Typewriter Mode' }}</div>
+                      <div class="settings-mobile-row-desc">{{ isZh ? '光标始终保持在屏幕中央' : 'Keep cursor centered' }}</div>
+                    </div>
+                  </div>
+                  <label class="settings-mobile-switch">
+                    <input
+                      type="checkbox"
+                      :checked="kbSettings.typewriterMode"
+                      @change="kbSettings.toggleTypewriterMode()"
+                    />
+                  </label>
+                </div>
+
+                <!-- Writing Stats Switch Row -->
+                <div class="settings-mobile-row">
+                  <div class="settings-mobile-row-header">
+                    <div class="settings-mobile-icon-badge" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 2px 6px rgba(16, 185, 129, 0.28);">
+                      <SettingCategoryIcon name="export" :size="16" />
+                    </div>
+                    <div class="settings-mobile-row-info">
+                      <div class="settings-mobile-row-title">{{ isZh ? '写作统计信息' : 'Writing Stats' }}</div>
+                      <div class="settings-mobile-row-desc">{{ isZh ? '底栏显示字数与阅读时长' : 'Show stats in bottom bar' }}</div>
+                    </div>
+                  </div>
+                  <label class="settings-mobile-switch">
+                    <input
+                      type="checkbox"
+                      :checked="kbSettings.showWritingStats"
+                      @change="kbSettings.toggleWritingStats()"
+                    />
+                  </label>
+                </div>
               </div>
-            </section>
+            </div>
 
             <!-- Grouped Inset Category Entries (分类入口列表) -->
             <div
@@ -746,11 +804,10 @@ onBeforeUnmount(() => {
                   @click="openCategory(cat.id)"
                 >
                   <div
-                    v-if="cat.icon"
-                    class="settings-mobile-entry__icon-box"
-                    :style="{ backgroundColor: cat.color + '18', color: cat.color }"
+                    class="settings-mobile-entry__icon-badge"
+                    :style="{ background: cat.gradient, boxShadow: `0 2px 8px ${cat.color}33` }"
                   >
-                    {{ cat.icon }}
+                    <SettingCategoryIcon :name="cat.id" :size="17" />
                   </div>
                   <div class="settings-mobile-entry__info">
                     <div class="settings-mobile-entry__name">
@@ -764,7 +821,9 @@ onBeforeUnmount(() => {
                     <span v-if="getCategoryStatusBadge(cat.id)" class="settings-mobile-entry__badge">
                       {{ getCategoryStatusBadge(cat.id) }}
                     </span>
-                    <span class="settings-mobile-entry__arrow">›</span>
+                    <svg class="settings-mobile-entry__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -796,10 +855,15 @@ onBeforeUnmount(() => {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="15 18 9 12 15 6"></polyline>
               </svg>
-              <span>{{ settingsTitle }}</span>
+              <span>{{ isZh ? '设置' : 'Settings' }}</span>
             </button>
             <div class="settings-mobile-subpage__title">
-              <span>{{ currentCategoryMeta.icon }}</span>
+              <div
+                class="settings-mobile-subpage__title-badge"
+                :style="{ background: currentCategoryMeta.gradient }"
+              >
+                <SettingCategoryIcon :name="currentCategoryMeta.id" :size="15" />
+              </div>
               <span>{{ currentCategoryMeta.label }}</span>
             </div>
             <button
@@ -968,12 +1032,9 @@ onBeforeUnmount(() => {
   background: var(--bg-hover);
   color: var(--text);
 }
-.settings__nav-item:focus {
-  outline: none;
-}
+.settings__nav-item:focus,
 .settings__nav-item:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+  outline: none;
 }
 .settings__nav-item--active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -1065,10 +1126,10 @@ onBeforeUnmount(() => {
 }
 
 .settings-mobile-hub__header {
-  height: calc(48px + env(safe-area-inset-top, 0px));
+  height: calc(52px + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
-  padding-left: 14px;
-  padding-right: 14px;
+  padding-left: 16px;
+  padding-right: 16px;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -1077,44 +1138,54 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   box-sizing: border-box;
   z-index: 10;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .settings-mobile-hub__brand-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+.settings-mobile-hub__logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #ea580c) 12%, transparent);
+  flex-shrink: 0;
 }
 .settings-mobile-hub__brand-icon {
   border-radius: 5px;
-  flex-shrink: 0;
 }
 .settings-mobile-hub__title {
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--text);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .settings-mobile-hub__done-btn {
-  background: color-mix(in srgb, var(--accent, #ea580c) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent, #ea580c) 30%, transparent);
+  background: transparent;
+  border: none;
   color: var(--accent, #ea580c);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  padding: 5px 14px;
-  border-radius: 16px;
+  padding: 6px 4px;
   transition: opacity 0.15s ease, transform 0.1s ease;
 }
 .settings-mobile-hub__done-btn:active {
-  opacity: 0.7;
+  opacity: 0.65;
   transform: scale(0.96);
 }
 
-/* Instant Search Box */
+/* iOS-style Embedded Search Bar */
 .settings-mobile-search {
-  padding: 10px 14px;
+  padding: 10px 16px;
   background: var(--bg-elev);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   flex-shrink: 0;
@@ -1122,7 +1193,7 @@ onBeforeUnmount(() => {
 .settings-mobile-search__inner {
   display: flex;
   align-items: center;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--text) 6%, var(--bg));
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0 10px;
@@ -1134,9 +1205,9 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #ea580c) 18%, transparent);
 }
 .settings-mobile-search__icon {
-  font-size: 14px;
-  margin-right: 6px;
-  opacity: 0.6;
+  color: var(--text-muted);
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 .settings-mobile-search__input {
   flex: 1;
@@ -1144,21 +1215,24 @@ onBeforeUnmount(() => {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--text);
   padding: 0 !important;
   height: 100% !important;
 }
 .settings-mobile-search__clear {
-  background: transparent;
+  background: color-mix(in srgb, var(--text-muted) 22%, transparent);
   border: none;
-  font-size: 12px;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 6px;
 }
 
 /* Search Results View */
@@ -1166,7 +1240,7 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 12px 14px calc(48px + env(safe-area-inset-bottom, 20px));
+  padding: 14px 16px calc(48px + env(safe-area-inset-bottom, 20px));
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -1174,7 +1248,7 @@ onBeforeUnmount(() => {
   display: none;
 }
 .settings-mobile-search-results__count {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-muted);
   margin-bottom: 10px;
   padding-left: 2px;
@@ -1189,7 +1263,7 @@ onBeforeUnmount(() => {
 }
 .settings-mobile-search-results__empty p {
   margin: 6px 0 2px 0;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 500;
   color: var(--text);
 }
@@ -1242,7 +1316,7 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 14px 14px calc(56px + env(safe-area-inset-bottom, 24px));
+  padding: 14px 16px calc(56px + env(safe-area-inset-bottom, 24px));
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -1250,166 +1324,83 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-/* Quick Actions Control Card */
-.settings-mobile-quick-card {
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-.settings-mobile-quick-card__header {
+/* App Identity Hero Card */
+.settings-mobile-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  background: color-mix(in srgb, var(--accent, #ea580c) 5%, var(--bg-elev));
+  border: 1px solid color-mix(in srgb, var(--accent, #ea580c) 18%, var(--border));
+  border-radius: 14px;
 }
-.settings-mobile-quick-card__title {
-  font-size: 13.5px;
+.settings-mobile-hero__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.settings-mobile-hero__icon {
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.settings-mobile-hero__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.settings-mobile-hero__name {
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-mobile-hero__ver {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent, #ea580c) 14%, transparent);
+  color: var(--accent, #ea580c);
+}
+.settings-mobile-hero__desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-mobile-hero__status {
   display: flex;
   align-items: center;
   gap: 5px;
-}
-.settings-mobile-quick-card__badge {
-  font-size: 10.5px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--accent, #ea580c) 12%, transparent);
-  color: var(--accent, #ea580c);
-  font-weight: 600;
-}
-.settings-mobile-quick-section {
-  margin-bottom: 12px;
-}
-.settings-mobile-quick-section--row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 4px;
-}
-.settings-mobile-quick-label {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
-.settings-mobile-quick-section--row .settings-mobile-quick-label {
-  margin-bottom: 0;
-}
-
-/* Theme Chips */
-.settings-mobile-theme-chips {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-.settings-mobile-theme-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 7px 4px;
-  border-radius: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  font-size: 11.5px;
-  cursor: pointer;
-  gap: 3px;
-  transition: all 0.15s ease;
-}
-.settings-mobile-theme-chip:active {
-  transform: scale(0.96);
-}
-.settings-mobile-theme-chip.is-active {
-  border-color: var(--accent, #ea580c);
-  background: color-mix(in srgb, var(--accent, #ea580c) 12%, var(--bg));
-  color: var(--accent, #ea580c);
-  font-weight: 600;
-}
-.settings-mobile-theme-chip__icon {
-  font-size: 14px;
+.settings-mobile-hero__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b98188;
 }
 
-/* Stepper */
-.settings-mobile-stepper {
-  display: flex;
-  align-items: center;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.settings-mobile-stepper__btn {
-  background: transparent;
-  border: none;
-  width: 34px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--accent, #ea580c);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.settings-mobile-stepper__btn:active:not(:disabled) {
-  background: var(--bg-hover);
-}
-.settings-mobile-stepper__btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.settings-mobile-stepper__val {
-  min-width: 44px;
-  text-align: center;
-  font-size: 12.5px;
-  font-weight: 600;
-  font-family: var(--font-mono, monospace);
-  color: var(--text);
-}
-
-/* Quick Toggles */
-.settings-mobile-quick-toggles {
-  display: flex;
-  align-items: center;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
-}
-.settings-mobile-quick-toggle {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text);
-  cursor: pointer;
-  padding: 0 4px;
-}
-.settings-mobile-quick-toggle__sep {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  margin: 0 10px;
-}
-
-/* Grouped Inset Entries (iOS Inset List) */
+/* Grouped Inset Cards (iOS-Style) */
 .settings-mobile-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 .settings-mobile-group__title {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-muted);
-  margin-left: 6px;
+  margin-left: 8px;
   margin-bottom: 7px;
   letter-spacing: 0.02em;
 }
@@ -1420,6 +1411,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
+
+/* Category Entry Item */
 .settings-mobile-entry {
   display: flex;
   align-items: center;
@@ -1428,21 +1421,23 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: background 0.12s ease;
   user-select: none;
+  min-height: 58px;
+  box-sizing: border-box;
 }
 .settings-mobile-entry:last-child {
   border-bottom: none;
 }
 .settings-mobile-entry:active {
-  background: var(--bg-hover, rgba(125, 125, 125, 0.1));
+  background: color-mix(in srgb, var(--text) 5%, var(--bg-elev));
 }
-.settings-mobile-entry__icon-box {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+.settings-mobile-entry__icon-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  color: #ffffff;
   margin-right: 12px;
   flex-shrink: 0;
 }
@@ -1451,13 +1446,13 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 .settings-mobile-entry__name {
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text);
-  line-height: 1.3;
+  line-height: 1.35;
 }
 .settings-mobile-entry__sub {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.4;
   margin-top: 2px;
@@ -1468,20 +1463,231 @@ onBeforeUnmount(() => {
 .settings-mobile-entry__trailing {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-left: 8px;
   flex-shrink: 0;
 }
 .settings-mobile-entry__badge {
-  font-size: 12px;
-  color: var(--accent, #ea580c);
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.settings-mobile-entry__chevron {
+  color: var(--text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* Quick Preference Rows */
+.settings-mobile-quick-theme-row {
+  padding: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.settings-mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  min-height: 56px;
+  box-sizing: border-box;
+}
+.settings-mobile-row:last-child {
+  border-bottom: none;
+}
+.settings-mobile-row-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.settings-mobile-icon-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.settings-mobile-row-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.settings-mobile-row-title {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.35;
+}
+.settings-mobile-row-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Theme Swatches Selector */
+.settings-mobile-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.settings-mobile-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: transform 0.12s ease;
+}
+.settings-mobile-swatch:active {
+  transform: scale(0.96);
+}
+.settings-mobile-swatch__preview {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  border-radius: 8px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.settings-mobile-swatch.is-active .settings-mobile-swatch__preview {
+  border-color: var(--accent, #ea580c) !important;
+  box-shadow: 0 0 0 2px var(--accent, #ea580c);
+}
+.settings-mobile-swatch__paper {
+  width: 68%;
+  height: 60%;
+  border-radius: 4px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 4px;
+  background: rgba(125, 125, 125, 0.08);
+}
+.settings-mobile-swatch__line-primary {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  width: 65%;
+}
+.settings-mobile-swatch__line-secondary {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  width: 90%;
+}
+.settings-mobile-swatch__check-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent, #ea580c);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.settings-mobile-swatch__label {
+  font-size: 11.5px;
+  color: var(--text);
   font-weight: 500;
 }
-.settings-mobile-entry__arrow {
-  font-size: 17px;
-  color: var(--text-faint);
-  font-weight: 300;
-  line-height: 1;
+.settings-mobile-swatch.is-active .settings-mobile-swatch__label {
+  color: var(--accent, #ea580c);
+  font-weight: 600;
+}
+
+/* Stepper */
+.settings-mobile-stepper {
+  display: flex;
+  align-items: center;
+  background: color-mix(in srgb, var(--text) 5%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.settings-mobile-stepper__btn {
+  background: transparent;
+  border: none;
+  width: 36px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent, #ea580c);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.settings-mobile-stepper__btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ea580c) 15%, transparent);
+}
+.settings-mobile-stepper__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.settings-mobile-stepper__val {
+  min-width: 44px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  color: var(--text);
+}
+
+/* Native iOS-style Fluid Switch Toggles (Applies to all checkboxes on mobile!) */
+.settings-mobile-page input[type='checkbox'] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  height: 27px !important;
+  border-radius: 27px !important;
+  background: color-mix(in srgb, var(--text-faint, #888) 45%, transparent) !important;
+  cursor: pointer !important;
+  position: relative !important;
+  outline: none !important;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent) !important;
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transition: background-color 0.22s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.22s ease !important;
+  box-sizing: border-box !important;
+}
+.settings-mobile-page input[type='checkbox']::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 21px !important;
+  height: 21px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.15) !important;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.settings-mobile-page input[type='checkbox']:checked {
+  background: var(--accent, #ea580c) !important;
+  border-color: var(--accent, #ea580c) !important;
+}
+.settings-mobile-page input[type='checkbox']:checked::after {
+  transform: translateX(19px) !important;
 }
 
 /* Footer App Info */
@@ -1504,7 +1710,7 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 .settings-mobile-footer__motto {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -1522,10 +1728,10 @@ onBeforeUnmount(() => {
 }
 
 .settings-mobile-subpage__header {
-  height: calc(48px + env(safe-area-inset-top, 0px));
+  height: calc(52px + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
-  padding-left: 6px;
-  padding-right: 12px;
+  padding-left: 8px;
+  padding-right: 16px;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -1534,6 +1740,8 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   box-sizing: border-box;
   z-index: 10;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .settings-mobile-subpage__back-btn {
@@ -1543,7 +1751,7 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   color: var(--accent, #ea580c);
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
   padding: 6px 8px;
@@ -1558,22 +1766,32 @@ onBeforeUnmount(() => {
 .settings-mobile-subpage__title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 15.5px;
+  gap: 8px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
+}
+
+.settings-mobile-subpage__title-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
 }
 
 .settings-mobile-subpage__done-btn {
   background: transparent;
   border: none;
   color: var(--accent, #ea580c);
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 6px 4px;
   transition: opacity 0.15s ease;
 }
 .settings-mobile-subpage__done-btn:active {
@@ -1586,7 +1804,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 14px 14px calc(56px + env(safe-area-inset-bottom, 24px)) 14px;
+  padding: 14px 16px calc(64px + env(safe-area-inset-bottom, 24px)) 16px;
   background: var(--bg);
   box-sizing: border-box;
   scrollbar-width: none;
@@ -1597,7 +1815,7 @@ onBeforeUnmount(() => {
 }
 
 .settings-mobile-subpage__footer-nav {
-  margin-top: 24px;
+  margin-top: 28px;
   display: flex;
   justify-content: center;
 }
@@ -1607,8 +1825,8 @@ onBeforeUnmount(() => {
   color: var(--accent, #ea580c);
   font-size: 13.5px;
   font-weight: 500;
-  padding: 9px 22px;
-  border-radius: 20px;
+  padding: 10px 24px;
+  border-radius: 22px;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
