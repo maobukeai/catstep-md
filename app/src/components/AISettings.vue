@@ -1030,48 +1030,29 @@ watch(
     </div>
 
   <!-- ② 选中文本即时改写 -->
-  <div class="ai-settings__card">
+  <div class="ai-settings__card ai-settings__card--compact">
     <div class="ai-settings__card-header">
       <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('ai.rewriteHeading') }}</h3>
       <p class="ai-settings__desc">{{ t('ai.rewriteDesc') }}</p>
     </div>
 
-    <!-- 独立功能开关：启用即时改写 -->
-    <label class="ai-settings__row ai-settings__row--toggle">
+    <!-- 合并为单行紧凑设置项 -->
+    <label class="ai-settings__row ai-settings__row--toggle ai-settings__row--compact">
       <span>
-        <span class="ai-settings__label">{{ t('ai.enableRewrite') }}</span>
-        <span class="ai-settings__hint">{{ t('ai.enableRewriteHint') }}</span>
+        <span class="ai-settings__title-line">
+          <span class="ai-settings__label">{{ t('ai.showSelectionBubble') }}</span>
+          <span class="ai-settings__kbd-badge">
+            <kbd class="ai-settings__kbd">{{ isMac ? '⌘' : 'Ctrl' }}</kbd> + <kbd class="ai-settings__kbd">J</kbd>
+          </span>
+        </span>
+        <span class="ai-settings__hint">{{ t('ai.showSelectionBubbleHint') }}</span>
       </span>
       <input
         type="checkbox"
-        :checked="settingsStore.aiRewriteEnabled"
-        @change="settingsStore.toggleAiRewriteEnabled()"
+        :checked="settingsStore.showSelectionBubble"
+        @change="settingsStore.toggleShowSelectionBubble()"
       />
     </label>
-
-    <div v-if="settingsStore.aiRewriteEnabled" class="ai-settings__group">
-      <!-- 子选项开关：划选文本时显示悬浮工具栏 -->
-      <label class="ai-settings__row ai-settings__row--toggle">
-        <span>
-          <span class="ai-settings__label">{{ t('ai.showSelectionBubble') }}</span>
-          <span class="ai-settings__hint">{{ t('ai.showSelectionBubbleHint') }}</span>
-        </span>
-        <input
-          type="checkbox"
-          :checked="settingsStore.showSelectionBubble"
-          @change="settingsStore.toggleShowSelectionBubble()"
-        />
-      </label>
-
-      <!-- 快捷键与使用提示条（带专属 kbd 徽章） -->
-      <div class="ai-settings__tip-card">
-        <span class="ai-settings__tip-badge">
-          <span>{{ t('ai.rewriteTipPrefix') }}</span>
-          <kbd class="ai-settings__kbd">{{ isMac ? '⌘' : 'Ctrl' }}</kbd> + <kbd class="ai-settings__kbd">J</kbd>
-          <span>{{ t('ai.rewriteTipSuffix') }}</span>
-        </span>
-      </div>
-    </div>
   </div>
 
   <!-- ③ 智能体（工具调用 + 写入权限） -->
@@ -1170,6 +1151,10 @@ watch(
   background: color-mix(in srgb, var(--bg-hover) 25%, transparent);
   border: 1px solid var(--border);
   border-radius: 8px;
+}
+.ai-settings__card--compact {
+  gap: 10px;
+  padding: 12px 14px;
 }
 .ai-settings__card-header {
   display: flex;
@@ -1290,6 +1275,24 @@ input[type='checkbox']:focus-visible {
   gap: 2px;
   flex: 1;
   padding-right: 12px;
+}
+.ai-settings__row--compact {
+  padding: 8px 12px;
+}
+.ai-settings__title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-settings__title-line .ai-settings__label {
+  font-weight: 600;
+  min-width: unset;
+}
+.ai-settings__kbd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
 }
 .ai-settings__label {
   min-width: 110px;
