@@ -60,7 +60,7 @@ interface CategoryMeta {
 const categories: CategoryMeta[] = [
   {
     id: 'basics',
-    icon: '⚙️',
+    icon: '',
     color: '#3b82f6',
     labelKey: 'settings.catBasics',
     labelZh: '通用与外观',
@@ -73,7 +73,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'writing',
-    icon: '✍️',
+    icon: '',
     color: '#ea580c',
     labelKey: 'settings.catWriting',
     labelZh: '编辑与排版',
@@ -86,7 +86,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'sync',
-    icon: '☁️',
+    icon: '',
     color: '#0284c7',
     labelKey: 'settings.catSync',
     labelZh: '同步与版本时光机',
@@ -99,7 +99,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'export',
-    icon: '📤',
+    icon: '',
     color: '#16a34a',
     labelKey: 'settings.catExport',
     labelZh: '导出与输出预设',
@@ -112,7 +112,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'integrations',
-    icon: '🔌',
+    icon: '',
     color: '#8b5cf6',
     labelKey: 'settings.catIntegrations',
     labelZh: 'AI 助手模型与服务',
@@ -125,7 +125,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'advanced',
-    icon: '🛠️',
+    icon: '',
     color: '#d97706',
     labelKey: 'settings.catAdvanced',
     labelZh: '系统与高级设置',
@@ -138,7 +138,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'keys',
-    icon: '⌨️',
+    icon: '',
     color: '#4f46e5',
     labelKey: 'settings.catKeys',
     labelZh: '快捷键速查表',
@@ -151,7 +151,7 @@ const categories: CategoryMeta[] = [
   },
   {
     id: 'about',
-    icon: 'ℹ️',
+    icon: '',
     color: '#64748b',
     labelKey: 'settings.catAbout',
     labelZh: '关于 猫步 MD',
@@ -195,10 +195,10 @@ const currentThemeLabel = computed(() => {
 });
 
 const quickThemes: { id: Theme; label: string; icon: string }[] = [
-  { id: 'github-light', label: '晴白', icon: '☀️' },
-  { id: 'night', label: '玄夜', icon: '🌙' },
-  { id: 'sepia', label: '羊皮纸', icon: '📜' },
-  { id: 'forest', label: '松柏', icon: '🌲' },
+  { id: 'github-light', label: '晴白', icon: '' },
+  { id: 'night', label: '玄夜', icon: '' },
+  { id: 'sepia', label: '羊皮纸', icon: '' },
+  { id: 'forest', label: '松柏', icon: '' },
 ];
 
 function setQuickTheme(th: Theme) {
@@ -647,7 +647,7 @@ onBeforeUnmount(() => {
                     :class="{ 'is-active': kbSettings.theme === th.id }"
                     @click="setQuickTheme(th.id)"
                   >
-                    <span class="settings-mobile-theme-chip__icon">{{ th.icon }}</span>
+                    <span v-if="th.icon" class="settings-mobile-theme-chip__icon">{{ th.icon }}</span>
                     <span>{{ th.label }}</span>
                   </button>
                 </div>
@@ -718,6 +718,7 @@ onBeforeUnmount(() => {
                   @click="openCategory(cat.id)"
                 >
                   <div
+                    v-if="cat.icon"
                     class="settings-mobile-entry__icon-box"
                     :style="{ backgroundColor: cat.color + '18', color: cat.color }"
                   >
