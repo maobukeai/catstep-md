@@ -284,56 +284,34 @@ export const useThemesStore = defineStore('themes', {
     },
 
     /**
-     * Download an online Typora theme using dual-channel resilient fetching (Primary -> CDN fallback).
+     * Download an online Typora theme using Rust native multi-mirror resilient fetching
+     * with instant local bundled fallback.
      */
     async installTyporaTheme(theme: TyporaThemeEntry): Promise<string> {
       this.installingId = theme.id;
       try {
-        let css = '';
-        let lastError: any = null;
-
-        // Channel 1: Try primary raw github URL (with 8s timeout)
+        // 1. Fetch bundled fallback CSS if available locally
+        let fallbackCss = '';
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
-          const res = await fetch(theme.url, { cache: 'no-store', signal: controller.signal });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            css = await res.text();
-          } else {
-            throw new Error(`Primary HTTP ${res.status}`);
+          const fbUrl = `/themes/typora/${theme.id}.css`;
+          const fbRes = await fetch(fbUrl);
+          if (fbRes.ok) {
+            fallbackCss = await fbRes.text();
           }
-        } catch (err) {
-          lastError = err;
-          console.warn(`[ThemeStore] Primary download failed for ${theme.id}, trying CDN fallback...`, err);
-        }
+        } catch (_) {}
 
-        // Channel 2: CDN mirror fallback (jsdelivr / ghfast)
-        if (!css.trim() && theme.cdnUrl) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-            const res = await fetch(theme.cdnUrl, { cache: 'no-store', signal: controller.signal });
-            clearTimeout(timeoutId);
-            if (res.ok) {
-              css = await res.text();
-            } else {
-              throw new Error(`CDN HTTP ${res.status}`);
-            }
-          } catch (err) {
-            lastError = err;
-            console.error(`[ThemeStore] CDN fallback also failed for ${theme.id}`, err);
-          }
-        }
+        // 2. Candidate remote URLs
+        const candidateUrls: string[] = [];
+        if (theme.url) candidateUrls.push(theme.url);
+        if (theme.cdnUrl) candidateUrls.push(theme.cdnUrl);
 
-        if (!css.trim()) {
-          throw new Error(lastError ? `下载失败: ${lastError.message || lastError}` : '下载的 CSS 为空');
-        }
-
-        const result = await invoke<{ path: string }>('theme_install', {
+        // 3. Invoke Rust native multi-mirror downloader
+        const result = await invoke<{ path: string }>('theme_download_and_install', {
           id: theme.id,
-          css,
+          urls: candidateUrls,
+          fallbackCss: fallbackCss || null,
         });
+
         await this.refreshInstalled();
         return result.path;
       } finally {
@@ -348,15 +326,6 @@ export const useThemesStore = defineStore('themes', {
       let trimmed = inputUrl.trim();
       if (!trimmed) throw new Error('URL 不能为空');
 
-      // Convert github.com/owner/repo/blob/branch/file.css to raw.githubusercontent.com
-      if (trimmed.includes('github.com') && trimmed.includes('/blob/')) {
-        trimmed = trimmed
-          .replace('github.com', 'raw.githubusercontent.com')
-          .replace('/blob/', '/');
-      }
-
-      // If user provided a github repo root like https://github.com/owner/repo, try common default CSS files
-      let fetchUrl = trimmed;
       let themeId = '';
       let themeName = '';
 
@@ -365,8 +334,6 @@ export const useThemesStore = defineStore('themes', {
         const repoName = parts[parts.length - 1];
         themeId = repoName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
         themeName = repoName;
-        // Default to raw master/main branch CSS matching repo or theme name
-        fetchUrl = `https://raw.githubusercontent.com/${parts[parts.length - 2]}/${repoName}/master/${repoName}.css`;
       } else {
         const fileName = trimmed.split('/').pop()?.split('?')[0] || 'custom-theme.css';
         const baseName = fileName.replace(/\.css$/i, '');
@@ -374,40 +341,12 @@ export const useThemesStore = defineStore('themes', {
         themeName = baseName;
       }
 
-      let css = '';
-      let lastError: any = null;
-
-      try {
-        const res = await fetch(fetchUrl, { cache: 'no-store' });
-        if (res.ok) {
-          css = await res.text();
-        } else {
-          throw new Error(`HTTP ${res.status}`);
-        }
-      } catch (e) {
-        lastError = e;
-        // Try jsdelivr mirror if it was a github raw URL
-        if (fetchUrl.includes('raw.githubusercontent.com/')) {
-          try {
-            const cdnUrl = fetchUrl.replace('raw.githubusercontent.com/', 'cdn.jsdelivr.net/gh/').replace('/master/', '@master/').replace('/main/', '@main/');
-            const res2 = await fetch(cdnUrl, { cache: 'no-store' });
-            if (res2.ok) {
-              css = await res2.text();
-            }
-          } catch (e2) {
-            lastError = e2;
-          }
-        }
-      }
-
-      if (!css.trim()) {
-        throw new Error(`无法获取 CSS 文件内容: ${lastError?.message || '请检查链接是否为有效的 CSS 原始链接'}`);
-      }
-
-      const result = await invoke<{ path: string }>('theme_install', {
+      const result = await invoke<{ path: string }>('theme_download_and_install', {
         id: themeId,
-        css,
+        urls: [trimmed],
+        fallbackCss: null,
       });
+
       await this.refreshInstalled();
       return { id: themeId, name: themeName, path: result.path };
     },

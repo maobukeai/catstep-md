@@ -449,10 +449,10 @@ onMounted(() => {
         </div>
 
         <!-- Row: Typography (Body Font + Code Font Dual) -->
-        <div class="setting-row">
+        <div class="setting-row setting-fonts-row">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ isZh ? '字体外观' : 'Typography' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '正文阅读显示字体与代码块等宽字体' : 'UI body text font and code monospace font' }}</p>
+            <p class="setting-row__hint">{{ isZh ? '正文阅读与代码块等宽字体' : 'Body text and code font' }}</p>
           </div>
           <div class="setting-row__control setting-fonts-dual">
             <!-- Body Font Column -->

@@ -1,0 +1,71 @@
+/*
+ * Typora Solarized 暖阳纸感 (Typora Community Theme)
+ * Author: solarized
+ * Repo: https://github.com/solarized/typora
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #fdf6e3;
+  --bg-elev: #eee8d5;
+  --bg-hover: color-mix(in srgb, #b58900 12%, #fdf6e3);
+  --bg-active: color-mix(in srgb, #b58900 20%, #fdf6e3);
+  --border: #d33682;
+  --text: #657b83;
+  --text-muted: #93a1a1;
+  --text-faint: color-mix(in srgb, #93a1a1 60%, transparent);
+  --accent: #b58900;
+  --accent-fg: #fdf6e3;
+  --selection-bg: color-mix(in srgb, #b58900 25%, transparent);
+
+  --md-h1: #b58900;
+  --md-h2: #657b83;
+  --md-h3: #657b83;
+  --md-h4: #657b83;
+  --md-link: #b58900;
+  --md-code: #b58900;
+  --md-code-bg: #eee8d5;
+  --md-quote: #93a1a1;
+  --md-quote-bg: #eee8d5;
+  --md-hr: #d33682;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

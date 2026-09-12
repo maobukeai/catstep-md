@@ -287,6 +287,7 @@ pub fn run() {
             mcp_profiles::mcp_profiles_export_config,
             cjk_proofread::cjk_proofread,
             themes::theme_install,
+            themes::theme_download_and_install,
             themes::theme_uninstall,
             themes::theme_list_installed,
             themes::theme_open_folder,

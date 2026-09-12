@@ -1,0 +1,71 @@
+/*
+ * Typora Nord 冰雪浅白 (Typora Community Theme)
+ * Author: nordtheme
+ * Repo: https://github.com/nordtheme/typora
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #eceff4;
+  --bg-elev: #e5e9f0;
+  --bg-hover: color-mix(in srgb, #5e81ac 12%, #eceff4);
+  --bg-active: color-mix(in srgb, #5e81ac 20%, #eceff4);
+  --border: #d8dee9;
+  --text: #2e3440;
+  --text-muted: #4c566a;
+  --text-faint: color-mix(in srgb, #4c566a 60%, transparent);
+  --accent: #5e81ac;
+  --accent-fg: #eceff4;
+  --selection-bg: color-mix(in srgb, #5e81ac 25%, transparent);
+
+  --md-h1: #5e81ac;
+  --md-h2: #2e3440;
+  --md-h3: #2e3440;
+  --md-h4: #2e3440;
+  --md-link: #5e81ac;
+  --md-code: #5e81ac;
+  --md-code-bg: #e5e9f0;
+  --md-quote: #4c566a;
+  --md-quote-bg: #e5e9f0;
+  --md-hr: #d8dee9;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

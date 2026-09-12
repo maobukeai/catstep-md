@@ -39,7 +39,7 @@ const searchQuery = ref('');
 type BuiltinCategory = 'all' | 'light' | 'dark';
 const builtinCategory = ref<BuiltinCategory>('all');
 
-type TyporaCategory = 'all' | 'light' | 'dark' | 'stars';
+type TyporaCategory = 'all' | 'light' | 'dark' | 'stars' | 'chinese' | 'developer' | 'reading';
 const typoraCategory = ref<TyporaCategory>('all');
 
 // Custom GitHub URL installation modal state
@@ -67,7 +67,7 @@ watch(marketMode, (mode) => {
 
 // Counts
 const builtinCount = computed(() => themes.manifest?.themes?.length || 9);
-const typoraCount = computed(() => themes.typoraManifest?.themes?.length || 14);
+const typoraCount = computed(() => themes.typoraManifest?.themes?.length || 36);
 const installedCount = computed(() => themes.installed.length);
 
 // Helpers
@@ -121,6 +121,12 @@ const filteredTyporaThemes = computed(() => {
       };
       return parseStars(b.stars) - parseStars(a.stars);
     });
+  } else if (typoraCategory.value === 'chinese') {
+    list = list.filter((th) => th.tags?.includes('chinese') || th.tags?.includes('academic') || th.tags?.includes('serif'));
+  } else if (typoraCategory.value === 'developer') {
+    list = list.filter((th) => th.tags?.includes('developer') || th.tags?.includes('contrast') || th.tags?.includes('neon') || th.tags?.includes('code') || th.tags?.includes('atom'));
+  } else if (typoraCategory.value === 'reading') {
+    list = list.filter((th) => th.tags?.includes('reading') || th.tags?.includes('zen') || th.tags?.includes('nature') || th.tags?.includes('warm') || th.tags?.includes('pink') || th.tags?.includes('mint'));
   }
 
   const q = searchQuery.value.trim().toLowerCase();
@@ -483,7 +489,7 @@ function getDisplayTags(tags?: string[]): string[] {
           <!-- Typora Online Sub-Filters -->
           <div v-else-if="marketMode === 'typora'" class="tm__tabs">
             <button class="tm__tab" :class="{ 'is-active': typoraCategory === 'all' }" @click="typoraCategory = 'all'">
-              {{ isZh ? '全部' : 'All' }}
+              {{ isZh ? '全部 (36)' : 'All (36)' }}
             </button>
             <button class="tm__tab" :class="{ 'is-active': typoraCategory === 'light' }" @click="typoraCategory = 'light'">
               {{ isZh ? '浅色' : 'Light' }}
@@ -494,6 +500,15 @@ function getDisplayTags(tags?: string[]): string[] {
             <button class="tm__tab" :class="{ 'is-active': typoraCategory === 'stars' }" @click="typoraCategory = 'stars'">
               <span class="tm__star-icon">⭐</span>
               {{ isZh ? 'GitHub 高赞' : 'Popular' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': typoraCategory === 'chinese' }" @click="typoraCategory = 'chinese'">
+              {{ isZh ? '中文学术' : 'Academic & CN' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': typoraCategory === 'developer' }" @click="typoraCategory = 'developer'">
+              {{ isZh ? '极客代码' : 'Geek & Code' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': typoraCategory === 'reading' }" @click="typoraCategory = 'reading'">
+              {{ isZh ? '清新阅读' : 'Clean Reading' }}
             </button>
           </div>
 

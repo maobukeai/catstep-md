@@ -1,0 +1,71 @@
+/*
+ * Typora Notion 极简笔记 (Typora Community Theme)
+ * Author: notion-typora
+ * Repo: https://github.com/notion-typora/theme
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-elev: #f7f6f3;
+  --bg-hover: color-mix(in srgb, #2eaadc 12%, #ffffff);
+  --bg-active: color-mix(in srgb, #2eaadc 20%, #ffffff);
+  --border: #e9e9e8;
+  --text: #37352f;
+  --text-muted: #787774;
+  --text-faint: color-mix(in srgb, #787774 60%, transparent);
+  --accent: #2eaadc;
+  --accent-fg: #ffffff;
+  --selection-bg: color-mix(in srgb, #2eaadc 25%, transparent);
+
+  --md-h1: #2eaadc;
+  --md-h2: #37352f;
+  --md-h3: #37352f;
+  --md-h4: #37352f;
+  --md-link: #2eaadc;
+  --md-code: #2eaadc;
+  --md-code-bg: #f7f6f3;
+  --md-quote: #787774;
+  --md-quote-bg: #f7f6f3;
+  --md-hr: #e9e9e8;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

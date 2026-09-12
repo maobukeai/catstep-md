@@ -1,0 +1,71 @@
+/*
+ * Typora Pixyll 雅致现代 (Typora Community Theme)
+ * Author: typora-official
+ * Repo: https://github.com/typora/typora-theme-gallery
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-elev: #f9f9f9;
+  --bg-hover: color-mix(in srgb, #007acc 12%, #ffffff);
+  --bg-active: color-mix(in srgb, #007acc 20%, #ffffff);
+  --border: #ebebeb;
+  --text: #222222;
+  --text-muted: #777777;
+  --text-faint: color-mix(in srgb, #777777 60%, transparent);
+  --accent: #007acc;
+  --accent-fg: #ffffff;
+  --selection-bg: color-mix(in srgb, #007acc 25%, transparent);
+
+  --md-h1: #007acc;
+  --md-h2: #222222;
+  --md-h3: #222222;
+  --md-h4: #222222;
+  --md-link: #007acc;
+  --md-code: #007acc;
+  --md-code-bg: #f9f9f9;
+  --md-quote: #777777;
+  --md-quote-bg: #f9f9f9;
+  --md-hr: #ebebeb;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

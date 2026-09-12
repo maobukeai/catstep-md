@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" width="480" height="270">
+  <rect width="480" height="270" fill="#1c1427" />
+  <rect width="480" height="32" fill="#261c36" />
+  <line x1="0" y1="32" x2="480" y2="32" stroke="#3d2d54" stroke-width="1" />
+  <circle cx="20" cy="16" r="4" fill="#ff5f56" />
+  <circle cx="34" cy="16" r="4" fill="#ffbd2e" />
+  <circle cx="48" cy="16" r="4" fill="#27c93f" />
+  <rect x="180" y="7" width="120" height="18" rx="4" fill="#1c1427" stroke="#3d2d54" stroke-width="0.8" />
+  <text x="240" y="20" fill="#c084fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="10" text-anchor="middle" font-weight="500">typora-gothic.md</text>
+
+  <g transform="translate(24, 46)">
+    <rect x="0" y="0" width="54" height="18" rx="3" fill="#000000" opacity="0.08" />
+    <text x="6" y="13" fill="#f3e8ff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9" font-weight="700">Typora</text>
+    <rect x="60" y="0" width="124" height="18" rx="3" fill="#d97706" opacity="0.16" />
+    <text x="68" y="13" fill="#d97706" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9.5" font-weight="600">Gothic · 哥特复古</text>
+
+    <text x="0" y="42" fill="#f3e8ff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="17" font-weight="700">
+      <tspan fill="#d97706" font-weight="800"># </tspan>Typora Gothic 哥特复古
+    </text>
+
+    <g transform="translate(0, 56)">
+      <rect x="0" y="0" width="3" height="32" fill="#d97706" rx="1.5" />
+      <text x="12" y="14" fill="#c084fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="11" font-style="italic">
+        古老城堡里的幽暗与烛火金光。
+      </text>
+      <text x="12" y="29" fill="#c084fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9.5" opacity="0.8">
+        GitHub · gothic-theme · ⭐ 530
+      </text>
+    </g>
+
+    <g transform="translate(0, 102)">
+      <rect x="0" y="0" width="432" height="42" rx="5" fill="#261c36" stroke="#3d2d54" stroke-width="1" />
+      <text x="12" y="16" fill="#d97706" font-family="'Fira Code', 'JetBrains Mono', Consolas, monospace" font-size="9" font-weight="600" opacity="0.85">castle.md</text>
+      <text x="12" y="32" fill="#f3e8ff" font-family="'Fira Code', 'JetBrains Mono', Consolas, monospace" font-size="10.5">Moonlight slants through gothic archways.</text>
+    </g>
+
+    <g transform="translate(0, 160)">
+      <text x="0" y="18" fill="#c084fc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9.5" opacity="0.8">色彩基调</text>
+      <circle cx="68" cy="15" r="6.5" fill="#1c1427" stroke="#3d2d54" stroke-width="1" />
+      <circle cx="88" cy="15" r="6.5" fill="#261c36" stroke="#3d2d54" stroke-width="1" />
+      <circle cx="108" cy="15" r="6.5" fill="#f3e8ff" stroke="#3d2d54" stroke-width="1" />
+      <circle cx="128" cy="15" r="6.5" fill="#d97706" stroke="#3d2d54" stroke-width="1" />
+      <text x="432" y="18" fill="#d97706" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="10.5" text-anchor="end" font-weight="600">530 ⭐</text>
+    </g>
+  </g>
+</svg>

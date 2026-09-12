@@ -1,0 +1,71 @@
+/*
+ * Typora Dracula 德古拉 (Typora Community Theme)
+ * Author: dracula
+ * Repo: https://github.com/dracula/typora
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #282a36;
+  --bg-elev: #343746;
+  --bg-hover: color-mix(in srgb, #bd93f9 12%, #282a36);
+  --bg-active: color-mix(in srgb, #bd93f9 20%, #282a36);
+  --border: #44475a;
+  --text: #f8f8f2;
+  --text-muted: #a3a7c2;
+  --text-faint: color-mix(in srgb, #a3a7c2 60%, transparent);
+  --accent: #bd93f9;
+  --accent-fg: #282a36;
+  --selection-bg: color-mix(in srgb, #bd93f9 25%, transparent);
+
+  --md-h1: #bd93f9;
+  --md-h2: #f8f8f2;
+  --md-h3: #f8f8f2;
+  --md-h4: #f8f8f2;
+  --md-link: #bd93f9;
+  --md-code: #bd93f9;
+  --md-code-bg: #343746;
+  --md-quote: #a3a7c2;
+  --md-quote-bg: #343746;
+  --md-hr: #44475a;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

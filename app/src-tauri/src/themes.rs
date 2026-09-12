@@ -124,6 +124,92 @@ pub fn theme_install(app: AppHandle, id: String, css: String) -> Result<ThemeIns
     })
 }
 
+/// Download CSS using multiple mirror candidates with timeout, falling back
+/// to provided fallback CSS if network is unavailable or blocked.
+#[tauri::command]
+pub async fn theme_download_and_install(
+    app: AppHandle,
+    id: String,
+    urls: Vec<String>,
+    fallback_css: Option<String>,
+) -> Result<ThemeInstallResult, String> {
+    validate_id(&id)?;
+
+    let mut candidate_urls: Vec<String> = Vec::new();
+    for u in &urls {
+        let trimmed = u.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.contains("raw.githubusercontent.com/") {
+            candidate_urls.push(format!("https://ghproxy.net/{}", trimmed));
+            candidate_urls.push(format!("https://mirror.ghproxy.com/{}", trimmed));
+            let jsdelivr = trimmed
+                .replace("raw.githubusercontent.com/", "cdn.jsdelivr.net/gh/")
+                .replace("/master/", "@master/")
+                .replace("/main/", "@main/");
+            candidate_urls.push(jsdelivr);
+            candidate_urls.push(trimmed.to_string());
+        } else if trimmed.contains("github.com/") && trimmed.contains("/blob/") {
+            let raw = trimmed.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
+            candidate_urls.push(format!("https://ghproxy.net/{}", raw));
+            candidate_urls.push(format!("https://mirror.ghproxy.com/{}", raw));
+            candidate_urls.push(raw);
+        } else {
+            candidate_urls.push(trimmed.to_string());
+        }
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(6))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut downloaded_css = String::new();
+    let mut last_err = String::new();
+
+    for target_url in candidate_urls {
+        match client.get(&target_url).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                if let Ok(text) = resp.text().await {
+                    if !text.trim().is_empty() {
+                        downloaded_css = text;
+                        break;
+                    }
+                }
+            }
+            Ok(resp) => {
+                last_err = format!("HTTP {}", resp.status());
+            }
+            Err(e) => {
+                last_err = e.to_string();
+            }
+        }
+    }
+
+    let final_css = if !downloaded_css.trim().is_empty() {
+        downloaded_css
+    } else if let Some(fb) = fallback_css {
+        if !fb.trim().is_empty() {
+            fb
+        } else {
+            return Err(format!("网络下载失败 ({last_err}) 且本地无备用样式"));
+        }
+    } else {
+        return Err(format!("网络下载失败: {last_err}"));
+    };
+
+    let dir = themes_dir(&app)?;
+    let path = dir.join(format!("{id}.css"));
+    std::fs::write(&path, final_css.as_bytes())
+        .map_err(|e| format!("write {}: {e}", path.display()))?;
+
+    Ok(ThemeInstallResult {
+        path: path.to_string_lossy().to_string(),
+    })
+}
+
 /// Delete a previously-installed theme. No-op if the file is already gone.
 #[tauri::command]
 pub fn theme_uninstall(app: AppHandle, id: String) -> Result<(), String> {

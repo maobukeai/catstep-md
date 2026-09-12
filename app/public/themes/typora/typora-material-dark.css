@@ -1,0 +1,71 @@
+/*
+ * Typora Material 暗夜质感 (Typora Community Theme)
+ * Author: redsolver
+ * Repo: https://github.com/redsolver/typora-material-theme
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121212;
+  --bg-elev: #1e1e1e;
+  --bg-hover: color-mix(in srgb, #03dac6 12%, #121212);
+  --bg-active: color-mix(in srgb, #03dac6 20%, #121212);
+  --border: #2d2d2d;
+  --text: #e0e0e0;
+  --text-muted: #9e9e9e;
+  --text-faint: color-mix(in srgb, #9e9e9e 60%, transparent);
+  --accent: #03dac6;
+  --accent-fg: #121212;
+  --selection-bg: color-mix(in srgb, #03dac6 25%, transparent);
+
+  --md-h1: #03dac6;
+  --md-h2: #e0e0e0;
+  --md-h3: #e0e0e0;
+  --md-h4: #e0e0e0;
+  --md-link: #03dac6;
+  --md-code: #03dac6;
+  --md-code-bg: #1e1e1e;
+  --md-quote: #9e9e9e;
+  --md-quote-bg: #1e1e1e;
+  --md-hr: #2d2d2d;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

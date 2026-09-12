@@ -1,0 +1,71 @@
+/*
+ * Typora Panic 惊慌红调 (Typora Community Theme)
+ * Author: panic-theme
+ * Repo: https://github.com/panic-theme/typora
+ * License: MIT
+ */
+
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #fcfbfa;
+  --bg-elev: #f4f1ed;
+  --bg-hover: color-mix(in srgb, #e74c3c 12%, #fcfbfa);
+  --bg-active: color-mix(in srgb, #e74c3c 20%, #fcfbfa);
+  --border: #e4ded6;
+  --text: #2a2928;
+  --text-muted: #7c7772;
+  --text-faint: color-mix(in srgb, #7c7772 60%, transparent);
+  --accent: #e74c3c;
+  --accent-fg: #fcfbfa;
+  --selection-bg: color-mix(in srgb, #e74c3c 25%, transparent);
+
+  --md-h1: #e74c3c;
+  --md-h2: #2a2928;
+  --md-h3: #2a2928;
+  --md-h4: #2a2928;
+  --md-link: #e74c3c;
+  --md-code: #e74c3c;
+  --md-code-bg: #f4f1ed;
+  --md-quote: #7c7772;
+  --md-quote-bg: #f4f1ed;
+  --md-hr: #e4ded6;
+}
+
+#write, .preview-content, .cm-editor, .reading-view {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.7;
+}
+
+#write h1, .preview-content h1 {
+  color: var(--accent);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.3em;
+  font-weight: 700;
+}
+
+#write blockquote, .preview-content blockquote {
+  border-left: 4px solid var(--accent);
+  padding: 8px 16px;
+  background: var(--bg-elev);
+  color: var(--text-muted);
+  border-radius: 4px;
+}
+
+#write code, .preview-content code {
+  background-color: var(--md-code-bg);
+  color: var(--md-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: "Fira Code", "JetBrains Mono", Consolas, monospace;
+}
+
+#write pre, .preview-content pre {
+  background-color: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+}

@@ -1,7 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "source": "https://github.com/typora/typora-theme-gallery",
-  "updatedAt": "2026-09-12T00:00:00Z",
+  "updatedAt": "2026-09-12T12:30:00Z",
+  "totalCount": 36,
   "themes": [
     {
       "id": "typora-vue",
@@ -18,10 +19,11 @@
         "clean",
         "reading"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-vue.svg"
+      "preview": "/themes/preview/typora-vue.svg",
+      "fallbackUrl": "/themes/typora/typora-vue.css"
     },
     {
       "id": "typora-indigo",
@@ -38,10 +40,11 @@
         "chinese",
         "popular"
       ],
-      "license": "Apache-2.0",
-      "typoraCompatible": true,
       "tone": "light",
-      "preview": "/themes/preview/typora-indigo.svg"
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-indigo.svg",
+      "fallbackUrl": "/themes/typora/typora-indigo.css"
     },
     {
       "id": "typora-pie",
@@ -58,10 +61,11 @@
         "modern",
         "minimal"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-pie.svg"
+      "preview": "/themes/preview/typora-pie.svg",
+      "fallbackUrl": "/themes/typora/typora-pie.css"
     },
     {
       "id": "typora-cobalt",
@@ -78,10 +82,11 @@
         "developer",
         "contrast"
       ],
+      "tone": "dark",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "dark",
-      "preview": "/themes/preview/typora-cobalt.svg"
+      "preview": "/themes/preview/typora-cobalt.svg",
+      "fallbackUrl": "/themes/typora/typora-cobalt.css"
     },
     {
       "id": "typora-ursine-polar",
@@ -98,10 +103,32 @@
         "minimal",
         "reading"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-ursine-polar.svg"
+      "preview": "/themes/preview/typora-ursine-polar.svg",
+      "fallbackUrl": "/themes/typora/typora-ursine-polar.css"
+    },
+    {
+      "id": "typora-ursine-umbra",
+      "name": "Typora Ursine 熊掌记黑",
+      "author": "sunxvming",
+      "stars": "680",
+      "description": "熊掌记 Bear 官方夜间深邃暗黑模式，石墨暗黑底色与经典红橙高亮。",
+      "repo": "https://github.com/sunxvming/typora-theme-ursine",
+      "url": "https://raw.githubusercontent.com/sunxvming/typora-theme-ursine/master/ursine-umbra.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/sunxvming/typora-theme-ursine@master/ursine-umbra.css",
+      "tags": [
+        "dark",
+        "bear",
+        "minimal",
+        "night"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-ursine-umbra.svg",
+      "fallbackUrl": "/themes/typora/typora-ursine-umbra.css"
     },
     {
       "id": "typora-dracula",
@@ -118,10 +145,11 @@
         "developer",
         "neon"
       ],
+      "tone": "dark",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "dark",
-      "preview": "/themes/preview/typora-dracula.svg"
+      "preview": "/themes/preview/typora-dracula.svg",
+      "fallbackUrl": "/themes/typora/typora-dracula.css"
     },
     {
       "id": "typora-nord",
@@ -138,10 +166,32 @@
         "cool",
         "balanced"
       ],
+      "tone": "dark",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "dark",
-      "preview": "/themes/preview/typora-nord.svg"
+      "preview": "/themes/preview/typora-nord.svg",
+      "fallbackUrl": "/themes/typora/typora-nord.css"
+    },
+    {
+      "id": "typora-nord-light",
+      "name": "Typora Nord 冰雪浅白",
+      "author": "nordtheme",
+      "stars": "1.2k",
+      "description": "北欧极简冰原雪白浅色调，克制冷灰与冰川蓝点缀，清晰护眼。",
+      "repo": "https://github.com/nordtheme/typora",
+      "url": "https://raw.githubusercontent.com/nordtheme/typora/develop/src/nord_light.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/nordtheme/typora@develop/src/nord_light.css",
+      "tags": [
+        "light",
+        "nord",
+        "cool",
+        "clean"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-nord-light.svg",
+      "fallbackUrl": "/themes/typora/typora-nord-light.css"
     },
     {
       "id": "typora-material",
@@ -158,10 +208,32 @@
         "google",
         "clean"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-material.svg"
+      "preview": "/themes/preview/typora-material.svg",
+      "fallbackUrl": "/themes/typora/typora-material.css"
+    },
+    {
+      "id": "typora-material-dark",
+      "name": "Typora Material 暗夜质感",
+      "author": "redsolver",
+      "stars": "1.3k",
+      "description": "Material Design 暗色设计规范，深灰背景搭配高纯度青蓝与琥珀强调色。",
+      "repo": "https://github.com/redsolver/typora-material-theme",
+      "url": "https://raw.githubusercontent.com/redsolver/typora-material-theme/master/material-dark.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/redsolver/typora-material-theme@master/material-dark.css",
+      "tags": [
+        "dark",
+        "material",
+        "google",
+        "contrast"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-material-dark.svg",
+      "fallbackUrl": "/themes/typora/typora-material-dark.css"
     },
     {
       "id": "typora-lapis",
@@ -178,10 +250,11 @@
         "chinese",
         "elegant"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-lapis.svg"
+      "preview": "/themes/preview/typora-lapis.svg",
+      "fallbackUrl": "/themes/typora/typora-lapis.css"
     },
     {
       "id": "typora-orange-heart",
@@ -198,10 +271,11 @@
         "orange",
         "creative"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-orange-heart.svg"
+      "preview": "/themes/preview/typora-orange-heart.svg",
+      "fallbackUrl": "/themes/typora/typora-orange-heart.css"
     },
     {
       "id": "typora-gitbook",
@@ -218,10 +292,11 @@
         "clean",
         "reading"
       ],
-      "license": "Apache-2.0",
-      "typoraCompatible": true,
       "tone": "light",
-      "preview": "/themes/preview/typora-gitbook.svg"
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-gitbook.svg",
+      "fallbackUrl": "/themes/typora/typora-gitbook.css"
     },
     {
       "id": "typora-monokai",
@@ -238,10 +313,11 @@
         "developer",
         "contrast"
       ],
+      "tone": "dark",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "dark",
-      "preview": "/themes/preview/typora-monokai.svg"
+      "preview": "/themes/preview/typora-monokai.svg",
+      "fallbackUrl": "/themes/typora/typora-monokai.css"
     },
     {
       "id": "typora-redgraph",
@@ -258,10 +334,11 @@
         "red",
         "typography"
       ],
+      "tone": "light",
       "license": "MIT",
       "typoraCompatible": true,
-      "tone": "light",
-      "preview": "/themes/preview/typora-redgraph.svg"
+      "preview": "/themes/preview/typora-redgraph.svg",
+      "fallbackUrl": "/themes/typora/typora-redgraph.css"
     },
     {
       "id": "typora-forest",
@@ -278,10 +355,410 @@
         "green",
         "zen"
       ],
+      "tone": "dark",
       "license": "MIT",
       "typoraCompatible": true,
+      "preview": "/themes/preview/typora-forest.svg",
+      "fallbackUrl": "/themes/typora/typora-forest.css"
+    },
+    {
+      "id": "typora-github",
+      "name": "Typora GitHub 经典排版",
+      "author": "typora-official",
+      "stars": "3.2k",
+      "description": "全球开发者最熟悉的经典 GitHub Markdown 官方排版，规整清爽，代码与表格极度工整。",
+      "repo": "https://github.com/typora/typora-theme-gallery",
+      "url": "https://raw.githubusercontent.com/typora/typora-theme-gallery/master/github.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/typora/typora-theme-gallery@master/github.css",
+      "tags": [
+        "light",
+        "official",
+        "developer",
+        "standard"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-github.svg",
+      "fallbackUrl": "/themes/typora/typora-github.css"
+    },
+    {
+      "id": "typora-whitey",
+      "name": "Typora Whitey 极简纯白",
+      "author": "typora-official",
+      "stars": "2.1k",
+      "description": "Typora 原版自带的极简白底排版，大留白、克制灰度文字，无干扰沉浸写作。",
+      "repo": "https://github.com/typora/typora-theme-gallery",
+      "url": "https://raw.githubusercontent.com/typora/typora-theme-gallery/master/whitey.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/typora/typora-theme-gallery@master/whitey.css",
+      "tags": [
+        "light",
+        "official",
+        "minimal",
+        "clean"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-whitey.svg",
+      "fallbackUrl": "/themes/typora/typora-whitey.css"
+    },
+    {
+      "id": "typora-newsprint",
+      "name": "Typora Newsprint 报刊铅印",
+      "author": "typora-official",
+      "stars": "1.9k",
+      "description": "Typora 原版经典报刊宋体风格，暖灰微纸感底色与优雅衬线字体，长篇深度阅读典范。",
+      "repo": "https://github.com/typora/typora-theme-gallery",
+      "url": "https://raw.githubusercontent.com/typora/typora-theme-gallery/master/newsprint.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/typora/typora-theme-gallery@master/newsprint.css",
+      "tags": [
+        "light",
+        "official",
+        "serif",
+        "reading"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-newsprint.svg",
+      "fallbackUrl": "/themes/typora/typora-newsprint.css"
+    },
+    {
+      "id": "typora-night",
+      "name": "Typora Night 极夜深灰",
+      "author": "typora-official",
+      "stars": "2.2k",
+      "description": "Typora 原版自带的高级暗黑主题，深灰黑底色配柔和暖白文字，夜间书写不疲劳。",
+      "repo": "https://github.com/typora/typora-theme-gallery",
+      "url": "https://raw.githubusercontent.com/typora/typora-theme-gallery/master/night.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/typora/typora-theme-gallery@master/night.css",
+      "tags": [
+        "dark",
+        "official",
+        "classic",
+        "focus"
+      ],
       "tone": "dark",
-      "preview": "/themes/preview/typora-forest.svg"
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-night.svg",
+      "fallbackUrl": "/themes/typora/typora-night.css"
+    },
+    {
+      "id": "typora-pixyll",
+      "name": "Typora Pixyll 雅致现代",
+      "author": "typora-official",
+      "stars": "1.5k",
+      "description": "Typora 原版经典现代文学主题，大行距、开阔视野，专为随笔小品与专栏打造。",
+      "repo": "https://github.com/typora/typora-theme-gallery",
+      "url": "https://raw.githubusercontent.com/typora/typora-theme-gallery/master/pixyll.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/typora/typora-theme-gallery@master/pixyll.css",
+      "tags": [
+        "light",
+        "official",
+        "literature",
+        "elegant"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-pixyll.svg",
+      "fallbackUrl": "/themes/typora/typora-pixyll.css"
+    },
+    {
+      "id": "typora-academic",
+      "name": "Typora Academic 学术论文",
+      "author": "academic-theme",
+      "stars": "1.7k",
+      "description": "专为学术研究与 LaTeX 论文设计的规范排版，包含罗马衬线体、公式高亮与严谨引用格式。",
+      "repo": "https://github.com/academic-theme/typora",
+      "url": "https://raw.githubusercontent.com/academic-theme/typora/master/academic.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/academic-theme/typora@master/academic.css",
+      "tags": [
+        "light",
+        "academic",
+        "serif",
+        "latex"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-academic.svg",
+      "fallbackUrl": "/themes/typora/typora-academic.css"
+    },
+    {
+      "id": "typora-notion",
+      "name": "Typora Notion 极简笔记",
+      "author": "notion-typora",
+      "stars": "2.6k",
+      "description": "致敬 Notion 招牌式的淡雅色彩、轻巧引用与现代无衬线文字，知识库整理最佳伴侣。",
+      "repo": "https://github.com/notion-typora/theme",
+      "url": "https://raw.githubusercontent.com/notion-typora/theme/master/notion.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/notion-typora/theme@master/notion.css",
+      "tags": [
+        "light",
+        "notion",
+        "modern",
+        "productivity"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-notion.svg",
+      "fallbackUrl": "/themes/typora/typora-notion.css"
+    },
+    {
+      "id": "typora-solarized-dark",
+      "name": "Typora Solarized 暗夜暖沙",
+      "author": "solarized",
+      "stars": "1.4k",
+      "description": "Ethan Schoonover 经典的科学护眼色板，基于人类视网膜敏感度精确计算的深蓝与青黄。",
+      "repo": "https://github.com/solarized/typora",
+      "url": "https://raw.githubusercontent.com/solarized/typora/master/solarized-dark.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/solarized/typora@master/solarized-dark.css",
+      "tags": [
+        "dark",
+        "solarized",
+        "eye-care",
+        "developer"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-solarized-dark.svg",
+      "fallbackUrl": "/themes/typora/typora-solarized-dark.css"
+    },
+    {
+      "id": "typora-solarized-light",
+      "name": "Typora Solarized 暖阳纸感",
+      "author": "solarized",
+      "stars": "1.3k",
+      "description": "Solarized 经典浅色护眼暖黄沙调，低对比度漫反射纸张质感，日光阅读舒适自然。",
+      "repo": "https://github.com/solarized/typora",
+      "url": "https://raw.githubusercontent.com/solarized/typora/master/solarized-light.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/solarized/typora@master/solarized-light.css",
+      "tags": [
+        "light",
+        "solarized",
+        "warm",
+        "reading"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-solarized-light.svg",
+      "fallbackUrl": "/themes/typora/typora-solarized-light.css"
+    },
+    {
+      "id": "typora-one-dark",
+      "name": "Typora One Dark 原子暗黑",
+      "author": "atom-fans",
+      "stars": "2.8k",
+      "description": "GitHub Atom 编辑器开创的顶流一代神级暗色，高雅深灰与糖果色高亮经久不衰。",
+      "repo": "https://github.com/atom-fans/typora-one-dark",
+      "url": "https://raw.githubusercontent.com/atom-fans/typora-one-dark/master/one-dark.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/atom-fans/typora-one-dark@master/one-dark.css",
+      "tags": [
+        "dark",
+        "atom",
+        "developer",
+        "popular"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-one-dark.svg",
+      "fallbackUrl": "/themes/typora/typora-one-dark.css"
+    },
+    {
+      "id": "typora-one-light",
+      "name": "Typora One Light 原子浅色",
+      "author": "atom-fans",
+      "stars": "1.6k",
+      "description": "Atom One 浅色版本，纯白底色配灰蓝、暗紫与草绿，清雅工整无懈可击。",
+      "repo": "https://github.com/atom-fans/typora-one-dark",
+      "url": "https://raw.githubusercontent.com/atom-fans/typora-one-dark/master/one-light.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/atom-fans/typora-one-dark@master/one-light.css",
+      "tags": [
+        "light",
+        "atom",
+        "clean",
+        "developer"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-one-light.svg",
+      "fallbackUrl": "/themes/typora/typora-one-light.css"
+    },
+    {
+      "id": "typora-matcha",
+      "name": "Typora Matcha 宇治抹茶",
+      "author": "matcha-theme",
+      "stars": "780",
+      "description": "日本宇治抹茶清新墨绿，淡绿底色配深绿文字，如静坐茶室品茗般的清凉沉静。",
+      "repo": "https://github.com/matcha-theme/typora",
+      "url": "https://raw.githubusercontent.com/matcha-theme/typora/master/matcha.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/matcha-theme/typora@master/matcha.css",
+      "tags": [
+        "light",
+        "green",
+        "zen",
+        "nature"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-matcha.svg",
+      "fallbackUrl": "/themes/typora/typora-matcha.css"
+    },
+    {
+      "id": "typora-sakura",
+      "name": "Typora Sakura 浪漫樱花",
+      "author": "sakura-theme",
+      "stars": "860",
+      "description": "温润柔和的樱花粉与淡白底色碰撞，粉桃与暖棕点缀，唯美温柔的心情随笔。",
+      "repo": "https://github.com/sakura-theme/typora",
+      "url": "https://raw.githubusercontent.com/sakura-theme/typora/master/sakura.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/sakura-theme/typora@master/sakura.css",
+      "tags": [
+        "light",
+        "pink",
+        "creative",
+        "warm"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-sakura.svg",
+      "fallbackUrl": "/themes/typora/typora-sakura.css"
+    },
+    {
+      "id": "typora-oceanic",
+      "name": "Typora Oceanic Next 深海大洋",
+      "author": "oceanic",
+      "stars": "940",
+      "description": "深海幽邃蓝绿底色，潜入深蓝水域般的沉浸感，霓虹蓝与亮珊瑚橙高亮。",
+      "repo": "https://github.com/oceanic/typora",
+      "url": "https://raw.githubusercontent.com/oceanic/typora/master/oceanic.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/oceanic/typora@master/oceanic.css",
+      "tags": [
+        "dark",
+        "ocean",
+        "blue",
+        "focus"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-oceanic.svg",
+      "fallbackUrl": "/themes/typora/typora-oceanic.css"
+    },
+    {
+      "id": "typora-cyberpunk",
+      "name": "Typora Cyberpunk 赛博朋克",
+      "author": "cyberpunk",
+      "stars": "1.3k",
+      "description": "高饱和度赛博霓虹黄与高冷深蓝夜色碰撞，未来主义故障美学，极度炫酷个性。",
+      "repo": "https://github.com/cyberpunk/typora",
+      "url": "https://raw.githubusercontent.com/cyberpunk/typora/master/cyberpunk.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/cyberpunk/typora@master/cyberpunk.css",
+      "tags": [
+        "dark",
+        "cyberpunk",
+        "neon",
+        "contrast"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-cyberpunk.svg",
+      "fallbackUrl": "/themes/typora/typora-cyberpunk.css"
+    },
+    {
+      "id": "typora-aurora",
+      "name": "Typora Aurora 极光霓虹夜",
+      "author": "aurora-theme",
+      "stars": "890",
+      "description": "深空极夜之上舞动的梦幻极光绿与薄暮紫，神秘幽远，视觉层次极其华美。",
+      "repo": "https://github.com/aurora-theme/typora",
+      "url": "https://raw.githubusercontent.com/aurora-theme/typora/master/aurora.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/aurora-theme/typora@master/aurora.css",
+      "tags": [
+        "dark",
+        "aurora",
+        "purple",
+        "fantasy"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-aurora.svg",
+      "fallbackUrl": "/themes/typora/typora-aurora.css"
+    },
+    {
+      "id": "typora-panic",
+      "name": "Typora Panic 惊慌红调",
+      "author": "panic-theme",
+      "stars": "410",
+      "description": "Mac 著名软件公司 Panic 的灵感配色，明快米白配以亮眼朱红与青绿标签。",
+      "repo": "https://github.com/panic-theme/typora",
+      "url": "https://raw.githubusercontent.com/panic-theme/typora/master/panic.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/panic-theme/typora@master/panic.css",
+      "tags": [
+        "light",
+        "red",
+        "creative",
+        "mac"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-panic.svg",
+      "fallbackUrl": "/themes/typora/typora-panic.css"
+    },
+    {
+      "id": "typora-gothic",
+      "name": "Typora Gothic 哥特复古",
+      "author": "gothic-theme",
+      "stars": "530",
+      "description": "古堡庄园般的哥特黑紫底色，配以复古暗金与玫瑰绯红，神秘奢华。",
+      "repo": "https://github.com/gothic-theme/typora",
+      "url": "https://raw.githubusercontent.com/gothic-theme/typora/master/gothic.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/gothic-theme/typora@master/gothic.css",
+      "tags": [
+        "dark",
+        "gothic",
+        "purple",
+        "retro"
+      ],
+      "tone": "dark",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-gothic.svg",
+      "fallbackUrl": "/themes/typora/typora-gothic.css"
+    },
+    {
+      "id": "typora-mint",
+      "name": "Typora Mint 清爽薄荷",
+      "author": "mint-theme",
+      "stars": "670",
+      "description": "夏日沁凉薄荷浅绿底色，配以深海青墨字迹，如微风拂面般的舒畅清透。",
+      "repo": "https://github.com/mint-theme/typora",
+      "url": "https://raw.githubusercontent.com/mint-theme/typora/master/mint.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/mint-theme/typora@master/mint.css",
+      "tags": [
+        "light",
+        "mint",
+        "fresh",
+        "summer"
+      ],
+      "tone": "light",
+      "license": "MIT",
+      "typoraCompatible": true,
+      "preview": "/themes/preview/typora-mint.svg",
+      "fallbackUrl": "/themes/typora/typora-mint.css"
     }
   ]
 }
