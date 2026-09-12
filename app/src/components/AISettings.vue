@@ -1049,25 +1049,40 @@ watch(
 
   <!-- ③ 智能体（工具调用 + 写入权限） -->
   <div class="ai-settings__card">
-    <div class="ai-settings__card-header">
-      <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('agentSettings.heading') }}</h3>
-      <p class="ai-settings__desc">{{ t('agentSettings.desc') }}</p>
+    <div class="ai-settings__card-header-row">
+      <div>
+        <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('agentSettings.heading') }}</h3>
+        <p class="ai-settings__desc">{{ t('agentSettings.desc') }}</p>
+      </div>
+      <button
+        type="button"
+        class="ai-settings__btn ai-settings__btn--small"
+        @click="reopenWizard"
+      >
+        {{ t('wizard.reopenBtn') }}
+      </button>
     </div>
-    <div class="ai-settings__group">
-      <label class="ai-settings__row ai-settings__row--toggle">
-        <span>
-          <span class="ai-settings__label">{{ t('agentSettings.allowWrite') }}</span>
-          <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
-        </span>
-        <input
-          type="checkbox"
-          :checked="settingsStore.agentAllowWrite"
-          @change="settingsStore.toggleAgentAllowWrite()"
-        />
-      </label>
 
-      <div class="ai-settings__row">
-        <label class="ai-settings__label" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
+    <!-- 1. 允许智能体写入工作区 -->
+    <label class="ai-settings__row ai-settings__row--toggle">
+      <span>
+        <span class="ai-settings__label font-medium">{{ t('agentSettings.allowWrite') }}</span>
+        <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
+      </span>
+      <input
+        type="checkbox"
+        :checked="settingsStore.agentAllowWrite"
+        @change="settingsStore.toggleAgentAllowWrite()"
+      />
+    </label>
+
+    <!-- 2. 工具循环上限 -->
+    <div class="ai-settings__row ai-settings__row--split">
+      <div class="ai-settings__row-info">
+        <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
+        <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
+      </div>
+      <div class="ai-settings__row-control">
         <input
           id="agent-loop-cap"
           type="number"
@@ -1078,50 +1093,49 @@ watch(
           class="ai-settings__input ai-settings__input--narrow"
           @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
         />
-        <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
       </div>
+    </div>
 
-      <div class="ai-settings__row ai-settings__row--block">
-        <span class="ai-settings__label">{{ t('agentSettings.recentRuns') }}</span>
-        <div class="ai-settings__runs">
-          <p v-if="!workspaceStore.currentFolder" class="ai-settings__hint">
-            {{ t('agentSettings.noWorkspace') }}
-          </p>
-          <p v-else-if="runsLoading" class="ai-settings__hint">{{ t('agentSettings.loading') }}</p>
-          <p v-else-if="!recentRuns.length" class="ai-settings__hint">
-            {{ t('agentSettings.noRuns') }}
-          </p>
-          <ul v-else class="ai-settings__runs-list">
-            <li v-for="r in recentRuns" :key="r.run_id" class="ai-settings__run">
-              <button class="ai-settings__run-link" type="button" @click="openRunMd(r)">
-                <code class="ai-settings__run-id">{{ r.run_id }}</code>
-              </button>
-              <span class="ai-settings__run-meta">
-                <span :class="['ai-settings__run-pill', `ai-settings__run-pill--${r.status}`]">{{ r.status }}</span>
-                <span class="ai-settings__run-kind">{{ r.kind }}</span>
-                <span class="ai-settings__run-time">{{ fmtRunStartedAt(r.started_at) }}</span>
-                <span v-if="fmtRunUsage(r)" class="ai-settings__run-usage">{{ fmtRunUsage(r) }}</span>
-              </span>
-            </li>
-          </ul>
-          <button
-            v-if="workspaceStore.currentFolder"
-            type="button"
-            class="ai-settings__btn ai-settings__btn--small"
-            @click="refreshRuns"
-          >{{ t('agentSettings.refresh') }}</button>
-        </div>
-      </div>
-
-      <!-- v4.0 first-run wizard re-launch — for users who skipped on day one -->
-      <div class="ai-settings__row">
+    <!-- 3. 最近运行记录 -->
+    <div class="ai-settings__recent-box">
+      <div class="ai-settings__recent-header">
+        <span class="ai-settings__label font-medium">{{ t('agentSettings.recentRuns') }}</span>
         <button
+          v-if="workspaceStore.currentFolder"
           type="button"
-          class="ai-settings__btn ai-settings__btn--small"
-          @click="reopenWizard"
+          class="ai-settings__btn ai-settings__btn--refresh"
+          @click="refreshRuns"
         >
-          {{ t('wizard.reopenBtn') }}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 21h5v-5"/>
+          </svg>
+          {{ t('agentSettings.refresh') }}
         </button>
+      </div>
+      <div class="ai-settings__runs-body">
+        <p v-if="!workspaceStore.currentFolder" class="ai-settings__hint">
+          {{ t('agentSettings.noWorkspace') }}
+        </p>
+        <p v-else-if="runsLoading" class="ai-settings__hint">{{ t('agentSettings.loading') }}</p>
+        <p v-else-if="!recentRuns.length" class="ai-settings__hint ai-settings__hint--muted">
+          {{ t('agentSettings.noRuns') }}
+        </p>
+        <ul v-else class="ai-settings__runs-list">
+          <li v-for="r in recentRuns" :key="r.run_id" class="ai-settings__run">
+            <button class="ai-settings__run-link" type="button" @click="openRunMd(r)">
+              <code class="ai-settings__run-id">{{ r.run_id }}</code>
+            </button>
+            <span class="ai-settings__run-meta">
+              <span :class="['ai-settings__run-pill', `ai-settings__run-pill--${r.status}`]">{{ r.status }}</span>
+              <span class="ai-settings__run-kind">{{ r.kind }}</span>
+              <span class="ai-settings__run-time">{{ fmtRunStartedAt(r.started_at) }}</span>
+              <span v-if="fmtRunUsage(r)" class="ai-settings__run-usage">{{ fmtRunUsage(r) }}</span>
+            </span>
+          </li>
+        </ul>
       </div>
     </div>
   </div>
@@ -1465,12 +1479,76 @@ input[type='checkbox']:focus-visible {
 .ai-settings__heading--sub {
   margin-top: 14px;
 }
+.ai-settings__row--split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+.ai-settings__row--split:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+}
+.ai-settings__row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.ai-settings__row-control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.ai-settings__recent-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.ai-settings__recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ai-settings__btn--refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.ai-settings__btn--refresh:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.ai-settings__runs-body {
+  margin: 0;
+}
+.ai-settings__hint--muted {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin: 0;
+}
 .ai-settings__row--block {
   align-items: flex-start;
 }
 .ai-settings__input--narrow {
-  flex: 0 0 80px;
-  max-width: 80px;
+  flex: 0 0 64px;
+  max-width: 64px;
+  text-align: center;
 }
 .ai-settings__runs {
   flex: 1;
