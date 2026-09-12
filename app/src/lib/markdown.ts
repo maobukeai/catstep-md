@@ -216,8 +216,8 @@ md.renderer.rules.fence = function (tokens, idx, options, env, self) {
     flush();
     return `<code${codeAttrs}>${out}</code>`;
   })
-    // Add cb-numbered class on the <pre> so CSS can scope the counter.
-    .replace(/<pre>/, '<pre class="cb-numbered">');
+    // Add cb-numbered and md-fences classes on the <pre> for Typora theme compatibility.
+    .replace(/<pre>/, '<pre class="md-fences cb-numbered">');
 };
 
 // v4.6 — editable display math. Wrap every `$$…$$` block in a container that

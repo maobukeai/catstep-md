@@ -223,6 +223,7 @@ const groupedContentHits = computed(() => {
 
 async function openSearchHit(hit: SearchHit) {
   try {
+    window.dispatchEvent(new CustomEvent('solomd:close-drawer'));
     await files.openPath(hit.file);
     nextTick(() => {
       window.dispatchEvent(
@@ -234,6 +235,11 @@ async function openSearchHit(hit: SearchHit) {
   } catch (e) {
     console.error('FileTree: openSearchHit failed', e);
   }
+}
+
+async function onOpenFileFromTree(file: string) {
+  window.dispatchEvent(new CustomEvent('solomd:close-drawer'));
+  await files.openPath(file);
 }
 
 function shortFilePath(p: string) {
@@ -298,6 +304,7 @@ function onSearchInputKeydown(e: KeyboardEvent) {
         }
         findFirst(root.value);
         if (firstFile) {
+          window.dispatchEvent(new CustomEvent('solomd:close-drawer'));
           void files.openPath((firstFile as Node).path);
         }
       }
@@ -438,6 +445,7 @@ async function refreshRoot() {
 
 async function toggle(node: Node) {
   if (!node.is_dir) {
+    window.dispatchEvent(new CustomEvent('solomd:close-drawer'));
     await files.openPath(node.path);
     return;
   }
@@ -1033,7 +1041,7 @@ onBeforeUnmount(() => {
             :key="file"
             class="ftree__search-group"
           >
-            <div class="ftree__search-group-head" :title="file" @click="files.openPath(file)">
+            <div class="ftree__search-group-head" :title="file" @click="onOpenFileFromTree(file)">
               <svg class="ftree__type-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 1.5h6.5L13 5v9.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z" />
                 <path d="M9.5 1.5V5H13" />

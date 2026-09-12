@@ -64,6 +64,22 @@ export interface InstalledTheme {
   name?: string;
   path: string;
   author?: string;
+  tone?: 'light' | 'dark';
+}
+
+export function resolveThemeTone(theme: { id: string; name?: string; tone?: 'light' | 'dark'; path?: string }): 'light' | 'dark' {
+  if (theme.tone) return theme.tone;
+  const id = theme.id.toLowerCase();
+  const name = (theme.name || '').toLowerCase();
+  const path = (theme.path || '').toLowerCase();
+  if (
+    id.includes('dark') || id.includes('night') || id.includes('black') || id.includes('dracula') ||
+    name.includes('dark') || name.includes('night') || name.includes('暗') || name.includes('黑') ||
+    path.includes('dark') || path.includes('night') || path.includes('black')
+  ) {
+    return 'dark';
+  }
+  return 'light';
 }
 
 export interface GitHubRepoSummary {

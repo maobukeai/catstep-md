@@ -245,7 +245,7 @@ onMounted(() => {
                 :disabled="isCssRefreshing"
                 @click="refreshCustomCss"
               >
-                ↻
+                {{ isZh ? '[重载]' : '[Reload]' }}
               </button>
               <button
                 type="button"
@@ -253,7 +253,7 @@ onMounted(() => {
                 :title="isZh ? '清除' : 'Clear'"
                 @click="settings.setCustomCssPath(''); settings.setActiveCustomThemeId('')"
               >
-                ✕
+                {{ isZh ? '[清除]' : '[Clear]' }}
               </button>
             </div>
           </div>
@@ -307,7 +307,7 @@ onMounted(() => {
               </button>
               <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
               <button type="button" class="btn-setting-link" @click="refreshCustomThemes()">
-                {{ isZh ? '↻ 刷新' : '↻ Refresh' }}
+                {{ isZh ? '刷新' : 'Refresh' }}
               </button>
             </div>
           </div>
@@ -350,135 +350,143 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Custom Wallpaper Picker (Default/Light) -->
-        <div v-if="settings.bgType === 'image'" class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '默认/浅色壁纸' : 'Default / Light Wallpaper' }}</label>
-            <p class="setting-row__hint">{{ settings.bgImage ? (isZh ? '已应用默认背景壁纸' : 'Default wallpaper active') : (isZh ? '支持 JPG、PNG、WebP、GIF 等常见格式' : 'Supports JPG, PNG, WebP, GIF') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-actions-row">
-              <button type="button" class="btn-setting" @click="pickWallpaper('light')">
-                {{ isZh ? '选择图片…' : 'Pick Image…' }}
+        <!-- Row: Wallpaper Images & Fit Mode (Compact Combined) -->
+        <template v-if="settings.bgType === 'image'">
+          <div class="setting-row setting-row--stack-mobile">
+            <div class="setting-row__info">
+              <label class="setting-row__title">{{ isZh ? '自定义背景壁纸' : 'Custom Wallpapers' }}</label>
+              <p class="setting-row__hint">
+                {{ isZh ? '支持浅色与深色专属壁纸独立配置，深色主题下自动切换' : 'Configure distinct wallpapers for light and dark themes' }}
+              </p>
+            </div>
+            <div class="setting-row__control setting-actions-row">
+              <!-- Light Wallpaper Button -->
+              <button
+                type="button"
+                class="btn-setting"
+                :title="settings.bgImage ? (isZh ? '已配置浅色壁纸，点击更换' : 'Light wallpaper set, click to change') : (isZh ? '选择浅色壁纸' : 'Pick light wallpaper')"
+                @click="pickWallpaper('light')"
+              >
+                {{ settings.bgImage ? (isZh ? '浅色: 已配置' : 'Light: Set') : (isZh ? '浅色图片…' : 'Light Image…') }}
               </button>
-              <button v-if="!isNarrow" type="button" class="btn-setting" @click="themesStore.openWallpapersFolder()">
-                {{ isZh ? '壁纸目录' : 'Wallpapers Folder' }}
-              </button>
-              <button v-if="settings.bgImage" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper('light')">
+              <button
+                v-if="settings.bgImage"
+                type="button"
+                class="btn-setting btn-setting--danger"
+                :title="isZh ? '清除浅色壁纸' : 'Clear light wallpaper'"
+                @click="clearWallpaper('light')"
+              >
                 {{ isZh ? '清除' : 'Clear' }}
+              </button>
+
+              <!-- Dark Wallpaper Button -->
+              <button
+                type="button"
+                class="btn-setting"
+                :title="settings.bgImageDark ? (isZh ? '已配置深色专属壁纸，点击更换' : 'Dark wallpaper set, click to change') : (isZh ? '选择深色专属壁纸' : 'Pick dark wallpaper')"
+                @click="pickWallpaper('dark')"
+              >
+                {{ settings.bgImageDark ? (isZh ? '深色: 已配置' : 'Dark: Set') : (isZh ? '深色图片…' : 'Dark Image…') }}
+              </button>
+              <button
+                v-if="settings.bgImageDark"
+                type="button"
+                class="btn-setting btn-setting--danger"
+                :title="isZh ? '清除深色壁纸' : 'Clear dark wallpaper'"
+                @click="clearWallpaper('dark')"
+              >
+                {{ isZh ? '清除' : 'Clear' }}
+              </button>
+
+              <!-- Fit Mode Select -->
+              <select
+                :value="settings.bgFit || 'cover'"
+                @change="settings.setBgFit(($event.target as HTMLSelectElement).value as any)"
+                class="setting-wallpaper-fit-select"
+                :title="isZh ? '壁纸展示模式' : 'Wallpaper Fit Mode'"
+              >
+                <option value="cover">{{ isZh ? '居中铺满' : 'Cover' }}</option>
+                <option value="contain">{{ isZh ? '完整自适应' : 'Contain' }}</option>
+                <option value="stamp">{{ isZh ? '右下水印' : 'Stamp' }}</option>
+                <option value="tile">{{ isZh ? '无缝平铺' : 'Tile' }}</option>
+              </select>
+
+              <button
+                v-if="!isNarrow"
+                type="button"
+                class="btn-setting-link"
+                @click="themesStore.openWallpapersFolder()"
+              >
+                {{ isZh ? '目录' : 'Folder' }}
               </button>
             </div>
           </div>
-        </div>
 
-        <!-- Row: Dark Wallpaper Picker (Optional) -->
-        <div v-if="settings.bgType === 'image'" class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '深色模式专属壁纸 (可选)' : 'Dark Mode Wallpaper (Optional)' }}</label>
-            <p class="setting-row__hint">{{ settings.bgImageDark ? (isZh ? '已配置深色专属壁纸（深色主题下自动激活）' : 'Dedicated dark wallpaper active (auto-switched in dark themes)') : (isZh ? '未设置时深色模式复用默认壁纸' : 'Reuses default wallpaper when not set') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-actions-row">
-              <button type="button" class="btn-setting" @click="pickWallpaper('dark')">
-                {{ isZh ? '选择深色图片…' : 'Pick Dark Image…' }}
-              </button>
-              <button v-if="settings.bgImageDark" type="button" class="btn-setting btn-setting--danger" @click="clearWallpaper('dark')">
-                {{ isZh ? '清除' : 'Clear' }}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row: Wallpaper Display Mode (bgFit) -->
-        <div v-if="settings.bgType === 'image'" class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '壁纸展示模式' : 'Wallpaper Fit Mode' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '控制壁纸在窗口背景中的缩放与铺展方式' : 'Control how wallpaper fills the window background' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <select
-              :value="settings.bgFit || 'cover'"
-              @change="settings.setBgFit(($event.target as HTMLSelectElement).value as any)"
+          <!-- Dual Sliders: Opacity & Blur Matrix (2-column compact) -->
+          <div class="settings-typography-grid">
+            <div
+              class="settings-typo-cell"
+              tabindex="0"
+              @mouseenter="bgOpacitySliderRef?.activate()"
+              @keydown.enter.prevent="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
             >
-              <option value="cover">{{ isZh ? '居中铺满 (Cover)' : 'Cover (Fill Window)' }}</option>
-              <option value="contain">{{ isZh ? '完整自适应 (Contain)' : 'Contain (Fit Window)' }}</option>
-              <option value="stamp">{{ isZh ? '右下角印章水印 (Stamp)' : 'Stamp (Corner Watermark)' }}</option>
-              <option value="tile">{{ isZh ? '无缝平铺微纹理 (Tile)' : 'Tile (Repeated Pattern)' }}</option>
-            </select>
-          </div>
-        </div>
+              <div class="settings-typo-cell__header">
+                <span class="settings-typo-cell__title">{{ isZh ? '壁纸透明度' : 'Opacity' }}</span>
+                <span
+                  class="setting-val-badge"
+                  :class="{ 'setting-val-badge--modified': settings.bgOpacity !== 25 }"
+                  :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (25%)' : 'Click or press Enter on slider to reset (25%)'"
+                  @click="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
+                >
+                  {{ settings.bgOpacity }}%
+                </span>
+              </div>
+              <div class="settings-typo-cell__slider">
+                <SettingSlider
+                  ref="bgOpacitySliderRef"
+                  :model-value="settings.bgOpacity"
+                  :min="0"
+                  :max="100"
+                  :step="5"
+                  :default-value="25"
+                  unit="%"
+                  @update:model-value="settings.setBgOpacity"
+                />
+              </div>
+            </div>
 
-        <!-- Row: Wallpaper Opacity -->
-        <div
-          v-if="settings.bgType === 'image'"
-          class="setting-row"
-          tabindex="0"
-          @mouseenter="bgOpacitySliderRef?.activate()"
-          @keydown.enter.prevent="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
-        >
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '壁纸透明度' : 'Wallpaper Opacity' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '调整壁纸不透明度，与背景底色自然融合' : 'Adjust wallpaper opacity blending into background' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
-              <SettingSlider
-                ref="bgOpacitySliderRef"
-                :model-value="settings.bgOpacity"
-                :min="0"
-                :max="100"
-                :step="5"
-                :default-value="25"
-                unit="%"
-                @update:model-value="settings.setBgOpacity"
-              />
-              <span
-                class="setting-val-badge"
-                :class="{ 'setting-val-badge--modified': settings.bgOpacity !== 25 }"
-                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (25%)' : 'Click or press Enter on slider to reset (25%)'"
-                @click="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
-              >
-                {{ settings.bgOpacity }}%
-              </span>
+            <div
+              class="settings-typo-cell"
+              tabindex="0"
+              @mouseenter="bgBlurSliderRef?.activate()"
+              @keydown.enter.prevent="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
+            >
+              <div class="settings-typo-cell__header">
+                <span class="settings-typo-cell__title">{{ isZh ? '背景模糊度' : 'Blur' }}</span>
+                <span
+                  class="setting-val-badge"
+                  :class="{ 'setting-val-badge--modified': settings.bgBlur !== 0 }"
+                  :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (0px)' : 'Click or press Enter on slider to reset (0px)'"
+                  @click="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
+                >
+                  {{ settings.bgBlur }}px
+                </span>
+              </div>
+              <div class="settings-typo-cell__slider">
+                <SettingSlider
+                  ref="bgBlurSliderRef"
+                  :model-value="settings.bgBlur"
+                  :min="0"
+                  :max="30"
+                  :step="1"
+                  :default-value="0"
+                  unit="px"
+                  @update:model-value="settings.setBgBlur"
+                />
+              </div>
             </div>
           </div>
-        </div>
-
-        <!-- Row: Background Blur -->
-        <div
-          v-if="settings.bgType === 'image'"
-          class="setting-row"
-          tabindex="0"
-          @mouseenter="bgBlurSliderRef?.activate()"
-          @keydown.enter.prevent="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
-        >
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '背景模糊度' : 'Background Blur' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '高斯模糊柔化壁纸细节，降低视觉干扰' : 'Gaussian blur to soften background details' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
-              <SettingSlider
-                ref="bgBlurSliderRef"
-                :model-value="settings.bgBlur"
-                :min="0"
-                :max="30"
-                :step="1"
-                :default-value="0"
-                unit="px"
-                @update:model-value="settings.setBgBlur"
-              />
-              <span
-                class="setting-val-badge"
-                :class="{ 'setting-val-badge--modified': settings.bgBlur !== 0 }"
-                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (0px)' : 'Click or press Enter on slider to reset (0px)'"
-                @click="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
-              >
-                {{ settings.bgBlur }}px
-              </span>
-            </div>
-          </div>
-        </div>
+        </template>
 
         <!-- Row: Typography (Body Font + Code Font Dual) -->
         <div class="setting-row setting-fonts-row">

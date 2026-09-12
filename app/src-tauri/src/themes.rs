@@ -408,6 +408,7 @@ pub struct InstalledTheme {
     pub name: String,
     pub path: String,
     pub author: Option<String>,
+    pub tone: Option<String>,
 }
 
 pub fn prettify_word(w: &str) -> String {
@@ -472,12 +473,14 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
 
         let mut display_name = String::new();
         let mut author_name = String::new();
+        let mut raw_snippet = String::new();
 
         if let Ok(mut file) = std::fs::File::open(&path) {
             use std::io::Read;
             let mut buf = [0u8; 2048];
             if let Ok(n) = file.read(&mut buf) {
                 let text = String::from_utf8_lossy(&buf[..n]);
+                raw_snippet = text.to_string();
                 for line in text.lines() {
                     let trimmed = line.trim();
                     if trimmed.is_empty() || trimmed.starts_with("@charset") {
@@ -561,11 +564,33 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
             None
         };
 
+        let lower_stem = stem.to_lowercase();
+        let lower_display = display_name.to_lowercase();
+        let lower_raw = raw_snippet.to_lowercase();
+        let is_dark = lower_stem.contains("dark")
+            || lower_stem.contains("night")
+            || lower_stem.contains("black")
+            || lower_stem.contains("dracula")
+            || lower_stem.contains("moon")
+            || lower_display.contains("dark")
+            || lower_display.contains("night")
+            || lower_display.contains("暗")
+            || lower_display.contains("黑")
+            || lower_raw.contains("color-scheme: dark")
+            || lower_raw.contains("dark-config.css")
+            || lower_raw.contains("dark-theme.css")
+            || lower_raw.contains("dark.css")
+            || raw_snippet.contains("暗黑")
+            || raw_snippet.contains("深色");
+
+        let tone = Some(if is_dark { "dark".to_string() } else { "light".to_string() });
+
         out.push(InstalledTheme {
             id: stem.to_string(),
             name: display_name,
             path: path.to_string_lossy().to_string(),
             author: author_opt,
+            tone,
         });
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));

@@ -76,7 +76,7 @@ export interface ThemeToneInfo {
   hasTextVar: boolean;
 }
 
-export function detectThemeToneAndColors(rawCss: string): ThemeToneInfo {
+export function detectThemeToneAndColors(rawCss: string, filePath = ''): ThemeToneInfo {
   if (!rawCss) return { isDark: false, hasBgVar: false, hasTextVar: false };
 
   let bgColor: string | undefined;
@@ -84,13 +84,14 @@ export function detectThemeToneAndColors(rawCss: string): ThemeToneInfo {
   let hasBgVar = false;
   let hasTextVar = false;
 
-  const bgVarMatch = rawCss.match(/--(?:bg-color|background-color|bg|background)\s*:\s*([^;!}\n]+)/i);
+  // Broad CSS variable matching across common Typora & custom themes
+  const bgVarMatch = rawCss.match(/--(?:bg-color|background-color|bg|background|interface-default-bg-color|main-bg|window-bg|canvas-bg|body-bg)\s*:\s*([^;!}\n]+)/i);
   if (bgVarMatch) {
     bgColor = bgVarMatch[1].trim();
     hasBgVar = true;
   }
 
-  const textVarMatch = rawCss.match(/--(?:text-color|color|text)\s*:\s*([^;!}\n]+)/i);
+  const textVarMatch = rawCss.match(/--(?:text-color|color|text|writeArea-text-color|body-color|main-color)\s*:\s*([^;!}\n]+)/i);
   if (textVarMatch) {
     textColor = textVarMatch[1].trim();
     hasTextVar = true;
@@ -115,11 +116,47 @@ export function detectThemeToneAndColors(rawCss: string): ThemeToneInfo {
   if (lum !== null) {
     isDark = lum < 128;
   } else {
-    const lower = rawCss.toLowerCase();
-    isDark = lower.includes('color-scheme: dark') ||
-             lower.includes('--bg-color: #1') ||
-             lower.includes('--bg-color: #2') ||
-             lower.includes('--bg-color: #0');
+    const lowerCss = rawCss.toLowerCase();
+    const lowerPath = (filePath || '').toLowerCase();
+
+    const hasDarkKeyword =
+      lowerCss.includes('color-scheme: dark') ||
+      lowerCss.includes('dark-config.css') ||
+      lowerCss.includes('dark-theme.css') ||
+      lowerCss.includes('dark.css') ||
+      lowerCss.includes('night.css') ||
+      lowerCss.includes('theme: see yue dark') ||
+      lowerCss.includes('暗黑') ||
+      lowerCss.includes('暗色') ||
+      lowerCss.includes('深色') ||
+      lowerPath.includes('-dark') ||
+      lowerPath.includes('_dark') ||
+      lowerPath.includes('.dark') ||
+      lowerPath.includes('night') ||
+      lowerPath.includes('black') ||
+      lowerPath.includes('dracula') ||
+      lowerPath.includes('cyberpunk') ||
+      lowerPath.includes('matrix');
+
+    const hasLightKeyword =
+      lowerCss.includes('color-scheme: light') ||
+      lowerCss.includes('light-config.css') ||
+      lowerCss.includes('light-theme.css') ||
+      lowerCss.includes('light.css') ||
+      lowerCss.includes('浅色') ||
+      lowerCss.includes('明亮') ||
+      lowerPath.includes('-light') ||
+      lowerPath.includes('_light') ||
+      lowerPath.includes('.light') ||
+      lowerPath.includes('white');
+
+    if (hasDarkKeyword && !hasLightKeyword) {
+      isDark = true;
+    } else if (hasDarkKeyword && hasLightKeyword) {
+      isDark = lowerPath.includes('dark') || lowerPath.includes('night') || lowerPath.includes('black');
+    } else {
+      isDark = false;
+    }
   }
 
   return { isDark, bgColor, textColor, hasBgVar, hasTextVar };
@@ -138,11 +175,11 @@ function patchRelativeImports(css: string): string {
  * Scope Typora & user-provided CSS rules so they only target document surfaces
  * and never escape into the application shell.
  */
-export function scopeTyporaCss(rawCss: string): string {
+export function scopeTyporaCss(rawCss: string, filePath = ''): string {
   if (!rawCss || !rawCss.trim()) return '';
 
   const patchedCss = patchRelativeImports(rawCss);
-  const toneInfo = detectThemeToneAndColors(patchedCss);
+  const toneInfo = detectThemeToneAndColors(patchedCss, filePath);
 
   // Extract comments safely in O(N) to avoid splitting on commas inside comments and
   // to avoid leading comments breaking selector detection
@@ -251,28 +288,37 @@ export function scopeTyporaCss(rawCss: string): string {
 
   const bridgeBlock = `
 /* === Catstep MD — Typora CSS Variable & Container Compatibility Bridge === */
-${rootVarsBlock}${DOC_SURFACES}, .preview-host, .cm-editor, .plain-editor {
-  --content-font-family: var(--font-sans-serif, inherit);
-  --content-font-monospace: var(--font-monospace, monospace);
+${rootVarsBlock}:root, :root[data-theme] {
+  --theme-resolved-bg: var(--interface-default-bg-color, var(--bg-color, var(--background-color, var(--main-bg, var(--window-bg, var(--canvas-bg, var(--bg)))))));
+  --theme-resolved-text: var(--writeArea-text-color, var(--text-color, var(--body-color, var(--main-color, var(--text)))));
+  --theme-resolved-select: var(--writeArea-selected-text-bg-color, var(--select-text-bg-color, var(--selection-background, var(--selection-bg))));
+  --theme-resolved-font: var(--writeArea-text-font, var(--font-sans-serif, var(--default-font, inherit)));
+  --theme-resolved-mono: var(--font-monospace, var(--code-font, monospace));
+}
+${DOC_SURFACES}, .preview-host, .cm-editor, .plain-editor {
+  --content-font-family: var(--theme-resolved-font, inherit);
+  --content-font-monospace: var(--theme-resolved-mono, monospace);
 }
 .preview-host {
-  background: var(--bg-color, var(--bg)) !important;
+  background: var(--theme-resolved-bg) !important;
 }
 .preview-content {
   background-color: transparent !important;
+  color: var(--theme-resolved-text);
+  font-family: var(--theme-resolved-font, inherit);
 }
 .cm-editor {
-  background-color: var(--bg-color, var(--bg));
-  color: var(--text-color, var(--text));
+  background-color: var(--theme-resolved-bg);
+  color: var(--theme-resolved-text);
 }
 .plain-editor {
-  background-color: var(--bg-color, var(--bg)) !important;
-  color: var(--text-color, var(--text)) !important;
+  background-color: var(--theme-resolved-bg) !important;
+  color: var(--theme-resolved-text) !important;
 }
 ${DOC_SURFACES} ::selection,
 .cm-editor .cm-selectionBackground,
 .cm-editor ::selection {
-  background-color: var(--select-text-bg-color, var(--selection-bg)) !important;
+  background-color: var(--theme-resolved-select) !important;
 }
 `;
 
@@ -315,13 +361,13 @@ export async function loadCustomTheme(path: string): Promise<boolean> {
   }
   try {
     const result = await invoke<FileReadResult>('read_file', { path });
-    const scoped = scopeTyporaCss(result.content);
+    const scoped = scopeTyporaCss(result.content, path);
     applyStyleTag(STYLE_THEME_ID, scoped);
     warnIfFixedAttachment(result.content);
 
     // Automatically synchronize the app shell tone (night vs github-light)
     // based on the custom theme's actual background luminance
-    const toneInfo = detectThemeToneAndColors(result.content);
+    const toneInfo = detectThemeToneAndColors(result.content, path);
     const settings = useSettingsStore();
     if (!isValidTheme(settings.activeCustomThemeId)) {
       const targetTheme = toneInfo.isDark ? 'night' : 'github-light';

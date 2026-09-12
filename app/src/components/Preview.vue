@@ -736,6 +736,7 @@ defineExpose({ scrollToLine, openSearch });
     />
     <article
       ref="host"
+      id="write"
       class="preview-content"
       :class="{
         'preview-content--fit': settings.previewFitWidth,
@@ -817,8 +818,9 @@ defineExpose({ scrollToLine, openSearch });
   font-size: var(--content-font-size, 15px);
   line-height: var(--content-line-height, 1.75);
 }
+.preview-content--fit#write,
 .preview-content--fit {
-  max-width: none;
+  max-width: none !important;
   padding: 28px 16px 64px;
 }
 :where(.preview-content) h1,

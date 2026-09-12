@@ -1405,6 +1405,7 @@ onMounted(async () => {
   window.addEventListener('solomd:open-mobile-agent', onOpenMobileAgent);
   window.addEventListener('solomd:open-mobile-outline', onOpenMobileOutline);
   window.addEventListener('solomd:open-mobile-find', onOpenMobileFind);
+  window.addEventListener('solomd:close-drawer', onHandleCloseDrawer);
   window.addEventListener('focusin', onFocusIn);
   window.addEventListener('focusout', onFocusOut);
 
@@ -1833,6 +1834,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('solomd:open-mobile-agent', onOpenMobileAgent);
   window.removeEventListener('solomd:open-mobile-outline', onOpenMobileOutline);
   window.removeEventListener('solomd:open-mobile-find', onOpenMobileFind);
+  window.removeEventListener('solomd:close-drawer', onHandleCloseDrawer);
   window.removeEventListener('focusin', onFocusIn);
   window.removeEventListener('focusout', onFocusOut);
   window.removeEventListener('solomd:wiki-open', onWikiOpen as EventListener);
@@ -2096,6 +2098,12 @@ function closeNarrowDrawer(): void {
   if (settings.showFileTree) settings.toggleFileTree();
   if (settings.showViewsPanel) settings.toggleViewsPanel();
   if (showRightSidebar.value) settings.toggleRightSidebar();
+}
+
+function onHandleCloseDrawer(): void {
+  if (isNarrow.value && narrowDrawer.value) {
+    closeNarrowDrawer();
+  }
 }
 
 // v4.0.2 — ordered list of currently-visible right-sidebar panes. Drives
