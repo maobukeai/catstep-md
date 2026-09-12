@@ -32,13 +32,13 @@ mod workspace;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "solomd-mcp",
+    name = "catstep-mcp",
     version,
-    about = "MCP server for one or more SoloMD Markdown vaults",
-    long_about = "Model Context Protocol server that exposes one *or more* SoloMD Markdown notes \
+    about = "MCP server for Catstep MD / SoloMD Markdown vaults",
+    long_about = "Model Context Protocol server that exposes one *or more* Catstep MD / SoloMD Markdown notes \
                   folders as a set of tools (list_notes, read_note, search, get_backlinks, \
                   list_tags, get_outline, autogit_log/diff/rollback, sync_status, share_url, \
-                  write_note, append_to_note) over JSON-RPC stdio.\n\n\
+                  write_note, append_to_note, export_note, read_agent_trace) over JSON-RPC stdio.\n\n\
                   Pass --workspace once per vault. Each value is either:\n  \
                     /abs/path             (alias defaults to the path's last component)\n  \
                     alias=/abs/path       (explicit alias)\n\n\
@@ -126,6 +126,7 @@ pub(crate) fn parse_workspace_arg(raw: &str) -> Result<(String, PathBuf), String
     let path = PathBuf::from(path_str);
     let canon = path
         .canonicalize()
+        .map(safety::strip_unc_prefix)
         .map_err(|e| format!("workspace not accessible: {} ({e})", path.display()))?;
     if !canon.is_dir() {
         return Err(format!("workspace is not a directory: {}", canon.display()));
@@ -208,7 +209,10 @@ async fn main() -> Result<()> {
 
     match cli.transport {
         Transport::Stdio => run_stdio(server).await,
-        Transport::Http => run_http(server, &cli.bind, cli.auth_token).await,
+        Transport::Http => {
+            let token = cli.auth_token.or_else(|| std::env::var("CATSTEP_MCP_TOKEN").ok());
+            run_http(server, &cli.bind, token).await
+        }
     }
 }
 

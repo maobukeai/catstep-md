@@ -21,6 +21,17 @@ fn binary_path() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_solomd-mcp"))
 }
 
+fn strip_unc_prefix(path: PathBuf) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        let s = path.to_string_lossy();
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            return PathBuf::from(stripped);
+        }
+    }
+    path
+}
+
 /// Locate `app/scripts/solomd-export.mjs` from the test process's cwd
 /// (which cargo sets to the crate dir, i.e. `mcp-server/`). Walk up to
 /// the repo root.
@@ -32,7 +43,7 @@ fn find_export_script() -> Option<PathBuf> {
     ];
     for c in &candidates {
         if c.is_file() {
-            return c.canonicalize().ok();
+            return c.canonicalize().ok().map(strip_unc_prefix);
         }
     }
     None
@@ -54,7 +65,7 @@ fn fresh_dir(label: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("solomd-mcp-export-{label}-{nanos}"));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    dir.canonicalize().unwrap()
+    strip_unc_prefix(dir.canonicalize().unwrap())
 }
 
 /// Drive an `initialize` → `export_note` round-trip and return the

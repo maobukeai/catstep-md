@@ -101,13 +101,16 @@ impl SoloMdServer {
 
         // Absolute path match — canonicalise both sides so symlinks /
         // trailing slashes don't trip us up.
-        let candidate = PathBuf::from(s);
+        let candidate = safety::strip_unc_prefix(PathBuf::from(s));
         if candidate.is_absolute() {
-            if let Ok(canon) = candidate.canonicalize() {
-                for (_, path) in &self.inner.workspaces {
-                    if path == &canon {
-                        return Ok(path.as_path());
-                    }
+            let canon = candidate
+                .canonicalize()
+                .map(safety::strip_unc_prefix)
+                .unwrap_or_else(|_| candidate.clone());
+            for (_, path) in &self.inner.workspaces {
+                let clean_path = safety::strip_unc_prefix(path.clone());
+                if clean_path == canon || clean_path == candidate || path == &canon || path == &candidate {
+                    return Ok(path.as_path());
                 }
             }
         }
@@ -879,9 +882,10 @@ impl SoloMdServer {
         };
         let output_canonical_parent = output_path
             .parent()
-            .and_then(|p| p.canonicalize().ok())
-            .unwrap_or_else(|| output_path.clone());
-        let inside_workspace = output_canonical_parent.starts_with(&workspace);
+            .and_then(|p| p.canonicalize().ok().map(safety::strip_unc_prefix))
+            .unwrap_or_else(|| safety::strip_unc_prefix(output_path.clone()));
+        let workspace_canon = safety::strip_unc_prefix(workspace.to_path_buf());
+        let inside_workspace = output_canonical_parent.starts_with(&workspace_canon);
         if inside_workspace && !self.inner.allow_write {
             return Err(McpError::invalid_params(
                 "output_path lives inside the workspace; writes require --allow-write".to_string(),
@@ -889,9 +893,11 @@ impl SoloMdServer {
             ));
         }
 
-        let script = find_export_script().map_err(|e| {
+        let script = safety::strip_unc_prefix(find_export_script().map_err(|e| {
             McpError::internal_error(format!("export script not found: {e}"), None)
-        })?;
+        })?);
+        let input_path = safety::strip_unc_prefix(input_path);
+        let output_path = safety::strip_unc_prefix(output_path);
         let script_dir = script.parent().unwrap_or_else(|| Path::new(".")).to_path_buf();
 
         let mut cmd = AsyncCommand::new("node");
@@ -974,7 +980,7 @@ impl SoloMdServer {
 impl ServerHandler for SoloMdServer {
     fn get_info(&self) -> ServerInfo {
         let implementation =
-            Implementation::new("solomd-mcp", env!("CARGO_PKG_VERSION")).with_title("SoloMD Vault");
+            Implementation::new("catstep-mcp", env!("CARGO_PKG_VERSION")).with_title("Catstep MD (SoloMD) Vault");
         let aliases: Vec<&str> = self
             .inner
             .workspaces
@@ -993,7 +999,7 @@ impl ServerHandler for SoloMdServer {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(implementation)
             .with_instructions(format!(
-                "Read and (optionally) write SoloMD Markdown notes vaults. \
+                "Read and (optionally) write Catstep MD / SoloMD Markdown notes vaults. \
                  Tools are read-only by default; restart with --allow-write to expose \
                  write_note + append_to_note + autogit_rollback. {workspace_blurb}"
             ))
@@ -1438,10 +1444,10 @@ fn urlencode(s: &str) -> String {
 ///   4. `<cwd>/app/scripts/solomd-export.mjs` (running from repo root).
 ///   5. `~/.solomd/solomd-export.mjs` (manually installed).
 fn find_export_script() -> Result<PathBuf, String> {
-    if let Ok(p) = std::env::var("SOLOMD_EXPORT_SCRIPT") {
+    if let Ok(p) = std::env::var("CATSTEP_EXPORT_SCRIPT").or_else(|_| std::env::var("SOLOMD_EXPORT_SCRIPT")) {
         let pb = PathBuf::from(p);
         if pb.is_file() {
-            return Ok(pb);
+            return Ok(safety::strip_unc_prefix(pb));
         }
     }
     let exe = std::env::current_exe().ok();
@@ -1456,16 +1462,23 @@ fn find_export_script() -> Result<PathBuf, String> {
         candidates.push(cwd.join("app/scripts/solomd-export.mjs"));
         candidates.push(cwd.join("../app/scripts/solomd-export.mjs"));
     }
-    if let Some(home) = std::env::var_os("HOME") {
-        candidates.push(PathBuf::from(home).join(".solomd/solomd-export.mjs"));
+    let home_var = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"));
+    if let Some(home) = home_var {
+        let home_path = PathBuf::from(home);
+        candidates.push(home_path.join(".catstep/solomd-export.mjs"));
+        candidates.push(home_path.join(".catstep/catstep-export.mjs"));
+        candidates.push(home_path.join(".solomd/solomd-export.mjs"));
     }
     for c in &candidates {
         if c.is_file() {
-            return c.canonicalize().map_err(|e| e.to_string());
+            return c
+                .canonicalize()
+                .map(safety::strip_unc_prefix)
+                .map_err(|e| e.to_string());
         }
     }
     Err(format!(
-        "tried {} candidate paths; set SOLOMD_EXPORT_SCRIPT to point at app/scripts/solomd-export.mjs",
+        "tried {} candidate paths; set CATSTEP_EXPORT_SCRIPT to point at app/scripts/solomd-export.mjs",
         candidates.len()
     ))
 }

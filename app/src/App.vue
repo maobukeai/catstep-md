@@ -1642,6 +1642,10 @@ onMounted(async () => {
   try {
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
     const win = getCurrentWindow();
+    // Guard against startup fullscreen trap (e.g. stale window-state or accidental F11 before closing)
+    if (await win.isFullscreen()) {
+      await win.setFullscreen(false);
+    }
     await win.show();
     await win.setFocus();
   } catch {}

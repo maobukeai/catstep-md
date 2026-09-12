@@ -771,9 +771,12 @@ pub fn run_with(initial_file: Option<String>) {
             // frameless Windows build (decorations:false, unified title bar)
             // would get the native title bar resurrected by state saved from
             // a pre-4.12 decorated install. Decorations are config-owned.
+            // FULLSCREEN must also never be restored across cold starts — fullscreen
+            // is a temporary presentation/immersion state, restoring it traps users on boot.
             .with_state_flags(
                 tauri_plugin_window_state::StateFlags::all()
-                    - tauri_plugin_window_state::StateFlags::DECORATIONS,
+                    - tauri_plugin_window_state::StateFlags::DECORATIONS
+                    - tauri_plugin_window_state::StateFlags::FULLSCREEN,
             )
             // The quick-capture box is undecorated, fixed-size and always on
             // top by design; restoring a remembered geometry would hand it a

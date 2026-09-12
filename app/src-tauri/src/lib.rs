@@ -122,7 +122,11 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder.plugin(
         tauri_plugin_window_state::Builder::default()
-            .with_state_flags(tauri_plugin_window_state::StateFlags::all())
+            .with_state_flags(
+                tauri_plugin_window_state::StateFlags::all()
+                    - tauri_plugin_window_state::StateFlags::DECORATIONS
+                    - tauri_plugin_window_state::StateFlags::FULLSCREEN,
+            )
             // The quick-capture box and focus-pip timer are undecorated, fixed-size and always on
             // top by design. Restoring a remembered geometry (decorations
             // included — StateFlags::all) would hand them back a title bar and a

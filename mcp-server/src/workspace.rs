@@ -141,8 +141,9 @@ pub fn scan_meta(path: &Path) -> Result<NoteMeta, String> {
         .unwrap_or("")
         .to_string();
 
+    let clean_path = crate::safety::strip_unc_prefix(path.to_path_buf());
     Ok(NoteMeta {
-        path: path.to_string_lossy().to_string(),
+        path: clean_path.to_string_lossy().to_string(),
         name,
         title: title.map(|h| h.text),
         mtime,
@@ -197,8 +198,9 @@ pub fn read_full(path: &Path) -> Result<Note, String> {
     tags.dedup();
     let headings = extract_headings(body);
 
+    let clean_path = crate::safety::strip_unc_prefix(path.to_path_buf());
     Ok(Note {
-        path: path.to_string_lossy().to_string(),
+        path: clean_path.to_string_lossy().to_string(),
         content: raw,
         frontmatter: frontmatter_json,
         headings,

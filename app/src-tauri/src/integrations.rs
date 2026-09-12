@@ -393,7 +393,16 @@ fn resolve_mcp_path(app: &AppHandle) -> Option<PathBuf> {
 
 #[tauri::command]
 pub fn mcp_path(app: AppHandle) -> McpPath {
-    let p = resolve_mcp_path(&app);
+    let p = resolve_mcp_path(&app).map(|pb| {
+        #[cfg(target_os = "windows")]
+        {
+            let s = pb.to_string_lossy();
+            if let Some(stripped) = s.strip_prefix(r"\\?\") {
+                return PathBuf::from(stripped);
+            }
+        }
+        pb
+    });
     let bundled = p.as_ref().map(|x| x.is_file()).unwrap_or(false);
     McpPath {
         path: p.map(|x| x.to_string_lossy().to_string()),
