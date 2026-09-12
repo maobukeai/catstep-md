@@ -900,7 +900,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .settings-modal :deep(.ds-modal__head) {
-  padding: 14px 22px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
 }
@@ -918,7 +918,7 @@ onBeforeUnmount(() => {
 .settings-modal :deep(.ds-modal__title),
 .settings-modal__title-wrap .ds-modal__title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -937,7 +937,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   display: flex;
   flex-direction: column;
-  padding: 12px 6px;
+  padding: 10px 6px;
   gap: 2px;
   overflow-y: auto;
 }
@@ -945,8 +945,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 7px 12px;
-  font-size: 13px;
+  padding: 6px 10px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text-muted);
   background: transparent;
@@ -970,7 +970,7 @@ onBeforeUnmount(() => {
 
 .settings__body {
   flex: 1;
-  padding: 20px 28px 48px 28px;
+  padding: 14px 20px 32px 20px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -978,22 +978,22 @@ onBeforeUnmount(() => {
 }
 
 .settings__category-header {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 .settings__category-header h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.01em;
 }
 .settings__category-desc {
-  margin: 3px 0 0 0;
-  font-size: 12px;
+  margin: 2px 0 0 0;
+  font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .settings__body::-webkit-scrollbar,

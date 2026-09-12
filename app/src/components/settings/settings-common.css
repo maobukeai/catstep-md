@@ -1,28 +1,34 @@
 /* Settings Common Styles */
 
 /* Settings Group & Group Title */
+.settings-tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .settings-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 .settings-group:last-child {
   margin-bottom: 0;
 }
 .settings-group__title {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 8px 4px;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px 2px;
 }
 .settings-group__card {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 /* Horizontal Setting Row */
@@ -30,8 +36,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 18px;
+  gap: 12px;
+  padding: 8px 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   transition: background-color 0.12s ease;
   margin: 0;
@@ -40,10 +46,11 @@
   border-bottom: none;
 }
 .setting-row:hover {
-  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
 }
 .setting-row--clickable {
   cursor: pointer;
+  user-select: none;
 }
 /* Stacked Setting Row (for rows with multi-button action bars, long descriptions or complex controls) */
 .setting-row--stack {
@@ -76,18 +83,19 @@
   gap: 2px;
 }
 .setting-row__title {
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.35;
   margin: 0;
   user-select: none;
 }
+.setting-row__desc,
 .setting-row__hint {
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  line-height: 1.5;
-  margin: 3px 0 0 0;
+  line-height: 1.35;
+  margin: 0;
 }
 .setting-row__hint a {
   color: var(--accent);
@@ -117,20 +125,26 @@
 }
 .setting-row__control select,
 .setting-row__control input[type='text'],
-.setting-row__control input[type='password'] {
-  width: 220px;
+.setting-row__control input[type='password'],
+.setting-row__control input[type='number'] {
+  width: 200px;
   max-width: 240px;
+  height: 27px;
+  font-size: 11.5px;
+  box-sizing: border-box;
 }
 
 .setting-custom-font-input {
-  margin-top: 6px;
-  width: 220px;
+  margin-top: 4px;
+  width: 200px;
+  height: 27px;
+  font-size: 11.5px;
 }
 .setting-slider-ctrl {
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 230px;
+  gap: 8px;
+  width: 200px;
 }
 .setting-slider-ctrl input[type='range'] {
   flex: 1;
@@ -140,14 +154,15 @@
 .setting-actions-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-end;
 }
 .btn-setting {
   border: 1px solid var(--border);
-  padding: 6px 14px;
-  font-size: 12px;
-  border-radius: 6px;
+  padding: 2px 10px;
+  height: 27px;
+  font-size: 11.5px;
+  border-radius: 4px;
   background: var(--bg);
   color: var(--text);
   cursor: pointer;
@@ -157,6 +172,7 @@
   line-height: 1.3;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 .btn-setting:hover {
   border-color: var(--accent);
@@ -366,10 +382,10 @@
 }
 
 .settings-typo-cell {
-  padding: 12px 18px;
+  padding: 8px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: transparent;
   transition: background-color 0.12s ease;
   min-width: 0;
@@ -399,7 +415,7 @@
 }
 
 .settings-typo-cell__title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -479,7 +495,7 @@ section > label:not(:has(input)) {
   width: 100%;
 }
 .setting-title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text);
 }
@@ -489,12 +505,12 @@ section > label:not(:has(input)) {
   justify-content: center;
   min-width: 44px;
   padding: 2px 8px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-family: var(--font-mono, monospace);
   font-weight: 600;
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-radius: 10px;
+  border-radius: 6px;
   cursor: pointer;
   user-select: none;
   transition: transform 0.12s ease, background-color 0.12s ease, border-color 0.12s ease;
@@ -516,16 +532,16 @@ section > label:not(:has(input)) {
   gap: 6px;
 }
 .setting-inner-toggle {
-  margin-top: 10px;
-  padding-top: 8px;
+  margin-top: 8px;
+  padding-top: 6px;
   border-top: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 .setting-hint {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  line-height: 1.55;
+  line-height: 1.35;
 }
 .setting-hint a {
   color: var(--accent);
@@ -584,13 +600,15 @@ section > label:not(:has(input)) {
 /* Text and password inputs */
 input[type='text'],
 input[type='password'],
+input[type='number'],
 .img-field {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  padding: 8px 12px;
-  border-radius: 7px;
-  font-size: 13px;
+  padding: 2px 8px;
+  height: 27px;
+  border-radius: 4px;
+  font-size: 11.5px;
   line-height: 1.4;
   width: 100%;
   box-sizing: border-box;
@@ -598,10 +616,11 @@ input[type='password'],
 }
 input[type='text']:focus,
 input[type='password']:focus,
+input[type='number']:focus,
 .img-field:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .row {
@@ -610,9 +629,10 @@ input[type='password']:focus,
 }
 .row button {
   border: 1px solid var(--border);
-  padding: 6px 14px;
-  font-size: 12px;
-  border-radius: 6px;
+  padding: 2px 10px;
+  height: 26px;
+  font-size: 11.5px;
+  border-radius: 4px;
   background: var(--bg);
   color: var(--text);
   cursor: pointer;
@@ -633,14 +653,16 @@ select {
   appearance: none;
   -webkit-appearance: none;
   background-color: var(--bg);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 12px center;
+  background-position: right 8px center;
+  background-size: 10px 10px;
   color: var(--text);
   border: 1px solid var(--border);
-  padding: 8px 36px 8px 12px;
-  border-radius: 7px;
-  font-size: 13px;
+  padding: 2px 24px 2px 8px;
+  height: 27px;
+  border-radius: 4px;
+  font-size: 11.5px;
   font-family: inherit;
   line-height: 1.4;
   cursor: pointer;
@@ -654,45 +676,55 @@ select:hover {
 select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-/* Modern iOS/macOS Toggle Switch */
-input[type='checkbox'] {
+/* Micro-Toggle Switch Standard (30px x 17px) */
+input[type='checkbox'],
+.micro-toggle {
   appearance: none;
   -webkit-appearance: none;
-  width: 38px;
-  height: 22px;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--text-faint) 32%, transparent);
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 17px !important;
+  border-radius: 17px !important;
+  background: color-mix(in srgb, var(--text-faint) 45%, transparent) !important;
   cursor: pointer;
   position: relative;
   outline: none;
   border: none;
   flex-shrink: 0;
   margin: 0;
-  transition: background-color 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
 }
-input[type='checkbox']::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+input[type='checkbox']::after,
+.micro-toggle::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transform: translateX(0) !important;
 }
-input[type='checkbox']:checked {
-  background: var(--accent, #0366d6);
+input[type='checkbox']:checked,
+.micro-toggle:checked {
+  background: var(--accent, #0366d6) !important;
 }
-input[type='checkbox']:checked::after {
-  transform: translateX(16px);
+input[type='checkbox']:checked::after,
+.micro-toggle:checked::after {
+  transform: translateX(13px) !important;
 }
-input[type='checkbox']:focus-visible {
-  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent, #0366d6);
+input[type='checkbox']:focus-visible,
+.micro-toggle:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 3px var(--accent, #0366d6) !important;
 }
 
 /* Smooth Modern Slider (Mobile & Desktop) - Slim & Refined */
@@ -827,9 +859,9 @@ input[type='range']:focus-visible::-moz-range-thumb {
 }
 
 /* Shortcuts styles */
-.kb-group { margin-bottom: 14px; }
+.kb-group { margin-bottom: 12px; }
 .kb-group__title {
-  margin: 12px 0 6px;
+  margin: 10px 0 4px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -840,35 +872,36 @@ input[type='range']:focus-visible::-moz-range-thumb {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 0;
+  padding: 4px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
 }
-.kb-row__label { flex: 1; min-width: 0; font-size: 13px; }
+.kb-row__label { flex: 1; min-width: 0; font-size: 12.5px; }
 .kb-row__combos { display: flex; gap: 4px; flex-shrink: 0; }
-.kb-row__unbound { font-size: 11px; color: var(--text-faint); }
+.kb-row__unbound { font-size: 10.5px; color: var(--text-faint); }
 .kb-chip {
-  font: 11px/1.6 var(--font-mono, monospace);
-  padding: 1px 6px;
+  font: 10.5px/1.5 var(--font-mono, monospace);
+  padding: 1px 5px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg-soft, var(--bg));
   white-space: nowrap;
 }
 .kb-chip--recording { border-color: var(--accent); color: var(--accent); }
 .kb-row__actions { display: flex; gap: 4px; flex-shrink: 0; }
 .kb-btn {
-  font-size: 11px;
-  padding: 3px 8px;
+  font-size: 10.5px;
+  padding: 2px 6px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
+  line-height: 1.2;
 }
 .kb-btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
 .kb-btn:disabled { opacity: 0.35; cursor: default; }
-.kb-btn--wide { margin-top: 10px; padding: 5px 12px; }
-.kb-error { color: var(--danger, #e5484d); font-size: 12px; margin: 8px 0 0; }
+.kb-btn--wide { margin-top: 8px; padding: 4px 10px; font-size: 11px; }
+.kb-error { color: var(--danger, #e5484d); font-size: 11.5px; margin: 6px 0 0; }
 
 /* Mobile Responsive Overrides */
 @media (max-width: 640px) {

@@ -84,18 +84,18 @@ async function save() {
   align-items: center;
   gap: 6px;
   width: 100%;
-  max-width: 320px;
+  max-width: 300px;
 }
 .proxy-input {
   flex: 1;
   min-width: 0;
-  height: 28px;
-  padding: 4px 8px;
+  height: 27px;
+  padding: 2px 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
   outline: none;
   box-sizing: border-box;
@@ -104,7 +104,7 @@ async function save() {
   border-color: var(--accent);
 }
 .proxy-btn {
-  height: 28px;
+  height: 27px;
   border: 1px solid var(--border);
   background: var(--bg-elev);
   color: var(--text);

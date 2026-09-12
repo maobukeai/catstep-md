@@ -105,6 +105,7 @@ onMounted(refresh);
       <label class="cost__toggle">
         <input
           type="checkbox"
+          class="micro-toggle"
           :checked="meter.enabled"
           @change="onToggleEnabled"
         />
@@ -157,7 +158,7 @@ onMounted(refresh);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-secondary, transparent);
@@ -170,19 +171,55 @@ onMounted(refresh);
 }
 .cost__heading {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
 }
 .cost__toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 8px;
+  font-size: 11.5px;
+  cursor: pointer;
+  user-select: none;
 }
 .cost__hint {
   margin: 0;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
+}
+.micro-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 30px !important;
+  height: 17px !important;
+  border-radius: 17px !important;
+  background: color-mix(in srgb, var(--text-faint) 45%, transparent) !important;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+  border: none;
+  flex-shrink: 0;
+  margin: 0;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.micro-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.micro-toggle:checked {
+  background: var(--accent) !important;
+}
+.micro-toggle:checked::after {
+  transform: translateX(13px) !important;
 }
 .cost__body {
   display: flex;

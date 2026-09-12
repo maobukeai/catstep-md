@@ -284,15 +284,15 @@ onUnmounted(stopRecording);
 }
 
 .global-hotkeys-group {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .global-hotkey-card {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .global-hotkey-title-wrap {
@@ -317,8 +317,8 @@ onUnmounted(stopRecording);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 18px;
+  gap: 12px;
+  padding: 8px 14px;
   background: color-mix(in srgb, var(--bg-soft, var(--bg)) 45%, var(--bg-elev));
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   flex-wrap: wrap;
@@ -331,13 +331,13 @@ onUnmounted(stopRecording);
 }
 
 .config-label-text {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text);
 }
 
 .config-sub-hint {
-  font-size: 11.5px;
+  font-size: 10.5px;
   color: var(--text-muted);
 }
 

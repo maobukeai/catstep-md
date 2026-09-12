@@ -160,56 +160,50 @@ async function manualCheckUpdate() {
     <div v-if="!isNarrow" class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupAboutUpdates') }}</div>
       <div class="settings-group__card">
-        <div class="setting-row">
+        <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.autoCheckUpdate') }}</label>
+            <span class="setting-row__title">{{ t('settings.autoCheckUpdate') }}</span>
             <span class="setting-row__desc">应用启动时在后台静默检测新版本</span>
           </div>
           <div class="setting-row__control">
-            <label class="setting-switch">
-              <input
-                type="checkbox"
-                :checked="settings.autoCheckUpdate"
-                @change="settings.toggleAutoCheckUpdate()"
-              />
-              <span class="setting-switch__slider"></span>
-            </label>
+            <input
+              type="checkbox"
+              class="micro-toggle"
+              :checked="settings.autoCheckUpdate"
+              @change="settings.toggleAutoCheckUpdate()"
+            />
           </div>
-        </div>
+        </label>
 
-        <div class="setting-row">
+        <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.autoDownloadUpdate') }}</label>
+            <span class="setting-row__title">{{ t('settings.autoDownloadUpdate') }}</span>
             <span class="setting-row__desc">{{ t('settings.autoDownloadUpdateHint') }}</span>
           </div>
           <div class="setting-row__control">
-            <label class="setting-switch">
-              <input
-                type="checkbox"
-                :checked="settings.autoDownloadUpdate"
-                @change="settings.toggleAutoDownloadUpdate()"
-              />
-              <span class="setting-switch__slider"></span>
-            </label>
+            <input
+              type="checkbox"
+              class="micro-toggle"
+              :checked="settings.autoDownloadUpdate"
+              @change="settings.toggleAutoDownloadUpdate()"
+            />
           </div>
-        </div>
+        </label>
 
-        <div class="setting-row">
+        <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.autoInstallUpdate') }}</label>
+            <span class="setting-row__title">{{ t('settings.autoInstallUpdate') }}</span>
             <span class="setting-row__desc">{{ t('settings.autoInstallUpdateHint') }}</span>
           </div>
           <div class="setting-row__control">
-            <label class="setting-switch">
-              <input
-                type="checkbox"
-                :checked="settings.autoInstallUpdate"
-                @change="settings.toggleAutoInstallUpdate()"
-              />
-              <span class="setting-switch__slider"></span>
-            </label>
+            <input
+              type="checkbox"
+              class="micro-toggle"
+              :checked="settings.autoInstallUpdate"
+              @change="settings.toggleAutoInstallUpdate()"
+            />
           </div>
-        </div>
+        </label>
 
         <div class="setting-row">
           <div class="setting-row__info">
@@ -388,11 +382,11 @@ async function manualCheckUpdate() {
 .about-hero {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
+  gap: 14px;
+  padding: 10px 14px;
   background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
@@ -415,9 +409,9 @@ async function manualCheckUpdate() {
 
 .about-hero__brand {
   position: relative;
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   box-shadow: 0 3px 12px -2px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--border);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -441,14 +435,14 @@ async function manualCheckUpdate() {
 
 .about-hero__name {
   margin: 0;
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text);
   letter-spacing: -0.01em;
 }
 
 .about-hero__subname {
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--text-muted);
   opacity: 0.85;
@@ -521,8 +515,8 @@ async function manualCheckUpdate() {
 
 /* Slogan & Motto */
 .about-hero__slogan {
-  margin: 4px 0 1px 0;
-  font-size: 13px;
+  margin: 2px 0 1px 0;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
   line-height: 1.35;
@@ -530,8 +524,8 @@ async function manualCheckUpdate() {
 }
 
 .about-hero__motto {
-  margin: 0 0 4px 0;
-  font-size: 11px;
+  margin: 0 0 2px 0;
+  font-size: 10.5px;
   font-weight: 400;
   color: var(--text-muted);
   font-style: italic;
@@ -541,7 +535,7 @@ async function manualCheckUpdate() {
 
 .about-hero__desc {
   margin: 0;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-faint);
   line-height: 1.35;
 }
@@ -565,7 +559,7 @@ async function manualCheckUpdate() {
 .settings-group__card {
   background: color-mix(in srgb, var(--bg-elev) 60%, var(--bg));
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -573,9 +567,8 @@ async function manualCheckUpdate() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 14px;
-  gap: 14px;
-  min-height: 42px;
+  padding: 8px 14px;
+  gap: 12px;
 }
 
 .setting-row + .setting-row {
@@ -585,19 +578,19 @@ async function manualCheckUpdate() {
 .setting-row__info {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 
 .setting-row__title {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text);
 }
 
 .setting-row__desc {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
   line-height: 1.35;
 }
@@ -608,48 +601,42 @@ async function manualCheckUpdate() {
   flex-shrink: 0;
 }
 
-/* Switch */
-.setting-switch {
-  position: relative;
-  display: inline-block;
-  width: 36px;
-  height: 20px;
+/* Micro-toggle */
+.micro-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 30px !important;
+  height: 17px !important;
+  border-radius: 17px !important;
+  background: color-mix(in srgb, var(--text-faint) 45%, transparent) !important;
   cursor: pointer;
+  position: relative;
+  outline: none;
+  border: none;
+  flex-shrink: 0;
+  margin: 0;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.setting-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.setting-switch__slider {
+.micro-toggle::after {
+  content: '';
   position: absolute;
-  inset: 0;
-  background-color: var(--border);
-  border-radius: 20px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.setting-switch__slider::before {
-  position: absolute;
-  content: "";
-  height: 14px;
-  width: 14px;
+  top: 3px;
   left: 3px;
-  bottom: 3px;
-  background-color: #fff;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.setting-switch input:checked + .setting-switch__slider {
-  background-color: var(--accent);
+.micro-toggle:checked {
+  background: var(--accent) !important;
 }
 
-.setting-switch input:checked + .setting-switch__slider::before {
-  transform: translateX(16px);
+.micro-toggle:checked::after {
+  transform: translateX(13px) !important;
 }
 
 /* Update Button */
@@ -658,9 +645,10 @@ async function manualCheckUpdate() {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 2px 10px;
+  height: 26px;
+  border-radius: 4px;
+  font-size: 11.5px;
   font-weight: 500;
   border: 1px solid var(--border);
   background: var(--bg);
