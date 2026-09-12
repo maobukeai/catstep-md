@@ -1063,79 +1063,84 @@ watch(
       </button>
     </div>
 
-    <!-- 1. 允许智能体写入工作区 -->
-    <label class="ai-settings__row ai-settings__row--toggle">
-      <span>
-        <span class="ai-settings__label font-medium">{{ t('agentSettings.allowWrite') }}</span>
-        <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
-      </span>
-      <input
-        type="checkbox"
-        :checked="settingsStore.agentAllowWrite"
-        @change="settingsStore.toggleAgentAllowWrite()"
-      />
-    </label>
+    <!-- 紧凑统一样式列表卡片 -->
+    <div class="ai-settings__list-group">
+      <!-- 1. 允许智能体写入工作区 -->
+      <label class="ai-settings__list-row ai-settings__list-row--clickable">
+        <div class="ai-settings__row-info">
+          <span class="ai-settings__label font-medium">{{ t('agentSettings.allowWrite') }}</span>
+          <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
+        </div>
+        <div class="ai-settings__row-control">
+          <input
+            type="checkbox"
+            :checked="settingsStore.agentAllowWrite"
+            @change="settingsStore.toggleAgentAllowWrite()"
+          />
+        </div>
+      </label>
 
-    <!-- 2. 工具循环上限 -->
-    <div class="ai-settings__row ai-settings__row--split">
-      <div class="ai-settings__row-info">
-        <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
-        <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
+      <!-- 2. 工具循环上限 -->
+      <div class="ai-settings__list-row">
+        <div class="ai-settings__row-info">
+          <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
+          <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
+        </div>
+        <div class="ai-settings__row-control">
+          <input
+            id="agent-loop-cap"
+            type="number"
+            min="1"
+            max="20"
+            step="1"
+            :value="settingsStore.agentToolLoopCap"
+            class="ai-settings__input ai-settings__input--narrow"
+            @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
+          />
+        </div>
       </div>
-      <div class="ai-settings__row-control">
-        <input
-          id="agent-loop-cap"
-          type="number"
-          min="1"
-          max="20"
-          step="1"
-          :value="settingsStore.agentToolLoopCap"
-          class="ai-settings__input ai-settings__input--narrow"
-          @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
-        />
-      </div>
-    </div>
 
-    <!-- 3. 最近运行记录 -->
-    <div class="ai-settings__recent-box">
-      <div class="ai-settings__recent-header">
-        <span class="ai-settings__label font-medium">{{ t('agentSettings.recentRuns') }}</span>
-        <button
-          v-if="workspaceStore.currentFolder"
-          type="button"
-          class="ai-settings__btn ai-settings__btn--refresh"
-          @click="refreshRuns"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-            <path d="M16 21h5v-5"/>
-          </svg>
-          {{ t('agentSettings.refresh') }}
-        </button>
-      </div>
-      <div class="ai-settings__runs-body">
-        <p v-if="!workspaceStore.currentFolder" class="ai-settings__hint">
-          {{ t('agentSettings.noWorkspace') }}
-        </p>
-        <p v-else-if="runsLoading" class="ai-settings__hint">{{ t('agentSettings.loading') }}</p>
-        <p v-else-if="!recentRuns.length" class="ai-settings__hint ai-settings__hint--muted">
-          {{ t('agentSettings.noRuns') }}
-        </p>
-        <ul v-else class="ai-settings__runs-list">
-          <li v-for="r in recentRuns" :key="r.run_id" class="ai-settings__run">
-            <button class="ai-settings__run-link" type="button" @click="openRunMd(r)">
-              <code class="ai-settings__run-id">{{ r.run_id }}</code>
-            </button>
-            <span class="ai-settings__run-meta">
-              <span :class="['ai-settings__run-pill', `ai-settings__run-pill--${r.status}`]">{{ r.status }}</span>
-              <span class="ai-settings__run-kind">{{ r.kind }}</span>
-              <span class="ai-settings__run-time">{{ fmtRunStartedAt(r.started_at) }}</span>
-              <span v-if="fmtRunUsage(r)" class="ai-settings__run-usage">{{ fmtRunUsage(r) }}</span>
-            </span>
-          </li>
-        </ul>
+      <!-- 3. 最近运行记录 -->
+      <div class="ai-settings__list-row ai-settings__list-row--block">
+        <div class="ai-settings__recent-header">
+          <span class="ai-settings__label font-medium">{{ t('agentSettings.recentRuns') }}</span>
+          <button
+            v-if="workspaceStore.currentFolder"
+            type="button"
+            class="ai-settings__btn ai-settings__btn--refresh"
+            @click="refreshRuns"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 21h5v-5"/>
+            </svg>
+            {{ t('agentSettings.refresh') }}
+          </button>
+        </div>
+        <div class="ai-settings__runs-body">
+          <p v-if="!workspaceStore.currentFolder" class="ai-settings__hint">
+            {{ t('agentSettings.noWorkspace') }}
+          </p>
+          <p v-else-if="runsLoading" class="ai-settings__hint">{{ t('agentSettings.loading') }}</p>
+          <p v-else-if="!recentRuns.length" class="ai-settings__hint ai-settings__hint--muted">
+            {{ t('agentSettings.noRuns') }}
+          </p>
+          <ul v-else class="ai-settings__runs-list">
+            <li v-for="r in recentRuns" :key="r.run_id" class="ai-settings__run">
+              <button class="ai-settings__run-link" type="button" @click="openRunMd(r)">
+                <code class="ai-settings__run-id">{{ r.run_id }}</code>
+              </button>
+              <span class="ai-settings__run-meta">
+                <span :class="['ai-settings__run-pill', `ai-settings__run-pill--${r.status}`]">{{ r.status }}</span>
+                <span class="ai-settings__run-kind">{{ r.kind }}</span>
+                <span class="ai-settings__run-time">{{ fmtRunStartedAt(r.started_at) }}</span>
+                <span v-if="fmtRunUsage(r)" class="ai-settings__run-usage">{{ fmtRunUsage(r) }}</span>
+              </span>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -1152,8 +1157,8 @@ watch(
 .ai-settings__card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 12px 14px;
   background: color-mix(in srgb, var(--bg-hover) 25%, transparent);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1479,20 +1484,37 @@ input[type='checkbox']:focus-visible {
 .ai-settings__heading--sub {
   margin-top: 14px;
 }
-.ai-settings__row--split {
+.ai-settings__list-group {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ai-settings__list-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   box-sizing: border-box;
-  transition: border-color 0.15s ease;
+  transition: background-color 0.12s ease;
 }
-.ai-settings__row--split:hover {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+.ai-settings__list-row:last-child {
+  border-bottom: none;
+}
+.ai-settings__list-row--clickable {
+  cursor: pointer;
+}
+.ai-settings__list-row--clickable:hover {
+  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+}
+.ai-settings__list-row--block {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
 .ai-settings__row-info {
   display: flex;
@@ -1506,16 +1528,6 @@ input[type='checkbox']:focus-visible {
   display: flex;
   align-items: center;
 }
-.ai-settings__recent-box {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-sizing: border-box;
-}
 .ai-settings__recent-header {
   display: flex;
   align-items: center;
@@ -1526,9 +1538,10 @@ input[type='checkbox']:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
+  padding: 2px 7px;
   font-size: 11px;
   color: var(--text-muted);
+  border-radius: 4px;
 }
 .ai-settings__btn--refresh:hover {
   color: var(--accent);
