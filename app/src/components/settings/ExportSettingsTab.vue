@@ -4,10 +4,12 @@ import { useSettingsStore } from '../../stores/settings';
 import { useI18n } from '../../i18n';
 import { useViewport } from '../../composables/useViewport';
 import CitationPickerSettings from '../CitationPickerSettings.vue';
+import SettingSlider from './SettingSlider.vue';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
 const { isNarrow } = useViewport();
+const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
 const fontFamilies = [
   // Monospace — for code-heavy editing
@@ -229,15 +231,23 @@ function onSelectPdfFont(v: string) {
     <section class="settings-section">
       <div class="setting-row-header">
         <label class="setting-title">{{ t('settings.pdfDefaults.fontSize') }}</label>
-        <span class="setting-val-badge">{{ settings.pdfDefaults.fontSize }}pt</span>
+        <span
+          class="setting-val-badge"
+          :class="{ 'setting-val-badge--modified': settings.pdfDefaults.fontSize !== 11 }"
+          :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (11pt)' : 'Click or press Enter on slider to reset (11pt)'"
+          @click="settings.setPdfDefaults({ fontSize: 11 })"
+        >
+          {{ settings.pdfDefaults.fontSize }}pt
+        </span>
       </div>
-      <input
-        type="range"
-        min="9"
-        max="16"
-        step="1"
-        :value="settings.pdfDefaults.fontSize"
-        @input="settings.setPdfDefaults({ fontSize: +($event.target as HTMLInputElement).value })"
+      <SettingSlider
+        :model-value="settings.pdfDefaults.fontSize"
+        :min="9"
+        :max="16"
+        :step="1"
+        :default-value="11"
+        unit="pt"
+        @update:model-value="val => settings.setPdfDefaults({ fontSize: val })"
       />
     </section>
 

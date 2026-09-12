@@ -141,6 +141,41 @@ pub fn theme_install(app: AppHandle, id: String, css: String) -> Result<ThemeIns
     })
 }
 
+/// Helper: Normalize and clean any GitHub or proxy URL down to its canonical raw URL.
+/// Strips duplicate or nested proxy prefixes (e.g., ghproxy.net, mirror.ghproxy.com, gitmirror).
+pub fn clean_raw_github_url(url: &str) -> String {
+    let mut s = url.trim();
+    loop {
+        let mut stripped = false;
+        for prefix in [
+            "https://ghproxy.net/",
+            "http://ghproxy.net/",
+            "https://mirror.ghproxy.com/",
+            "http://mirror.ghproxy.com/",
+            "https://gh-proxy.com/",
+            "http://gh-proxy.com/",
+            "https://hub.gitmirror.com/",
+            "http://hub.gitmirror.com/",
+        ] {
+            if let Some(rest) = s.strip_prefix(prefix) {
+                s = rest.trim();
+                stripped = true;
+                break;
+            }
+        }
+        if !stripped {
+            break;
+        }
+    }
+
+    if s.contains("github.com/") && s.contains("/blob/") {
+        s.replace("github.com", "raw.githubusercontent.com")
+            .replace("/blob/", "/")
+    } else {
+        s.to_string()
+    }
+}
+
 /// Download CSS using multiple mirror candidates with timeout, falling back
 /// to provided fallback CSS if network is unavailable or blocked.
 #[tauri::command]
@@ -153,27 +188,32 @@ pub async fn theme_download_and_install(
     validate_id(&id)?;
 
     let mut candidate_urls: Vec<String> = Vec::new();
+    let mut seen_targets = std::collections::HashSet::new();
+
     for u in &urls {
-        let trimmed = u.trim();
-        if trimmed.is_empty() {
+        let cleaned = clean_raw_github_url(u);
+        if cleaned.is_empty() {
             continue;
         }
-        if trimmed.contains("raw.githubusercontent.com/") {
-            candidate_urls.push(format!("https://ghproxy.net/{}", trimmed));
-            candidate_urls.push(format!("https://mirror.ghproxy.com/{}", trimmed));
-            let jsdelivr = trimmed
-                .replace("raw.githubusercontent.com/", "cdn.jsdelivr.net/gh/")
+
+        if cleaned.contains("raw.githubusercontent.com/") {
+            let p_ghproxy = format!("https://ghproxy.net/{cleaned}");
+            let jsdelivr = cleaned
+                .replace("https://raw.githubusercontent.com/", "https://cdn.jsdelivr.net/gh/")
+                .replace("http://raw.githubusercontent.com/", "https://cdn.jsdelivr.net/gh/")
                 .replace("/master/", "@master/")
                 .replace("/main/", "@main/");
-            candidate_urls.push(jsdelivr);
-            candidate_urls.push(trimmed.to_string());
-        } else if trimmed.contains("github.com/") && trimmed.contains("/blob/") {
-            let raw = trimmed.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
-            candidate_urls.push(format!("https://ghproxy.net/{}", raw));
-            candidate_urls.push(format!("https://mirror.ghproxy.com/{}", raw));
-            candidate_urls.push(raw);
+            let p_mirror = format!("https://mirror.ghproxy.com/{cleaned}");
+
+            for target in [p_ghproxy, jsdelivr, p_mirror, cleaned] {
+                if seen_targets.insert(target.clone()) {
+                    candidate_urls.push(target);
+                }
+            }
         } else {
-            candidate_urls.push(trimmed.to_string());
+            if seen_targets.insert(cleaned.clone()) {
+                candidate_urls.push(cleaned);
+            }
         }
     }
 
@@ -733,7 +773,73 @@ pub async fn theme_sniff_github_repo(repo_or_url: String) -> Result<Vec<Discover
         return Ok(discovered);
     }
 
-    // Step B: Heuristic Probing (Offline/Rate-Limit-Proof Fallback)
+    // Step B: Direct GitHub Repository Web Page Scraping (Rate-limit & token free)
+    let repo_web_url = format!("https://github.com/{owner}/{repo}");
+    if let Ok(resp) = client.get(&repo_web_url).send().await {
+        if resp.status().is_success() {
+            if let Ok(html) = resp.text().await {
+                let pattern = format!("/{}/{}/blob/", owner.to_lowercase(), repo.to_lowercase());
+                let html_lower = html.to_lowercase();
+                let mut cursor = 0;
+
+                while let Some(pos) = html_lower[cursor..].find(&pattern) {
+                    let start = cursor + pos + pattern.len();
+                    let end_opt = html[start..].find(|c: char| c == '"' || c == '\'' || c == ' ' || c == '>');
+                    let end = match end_opt {
+                        Some(e) => start + e,
+                        None => break,
+                    };
+                    let full_rest = &html[start..end];
+                    cursor = end;
+
+                    if let Some(slash_pos) = full_rest.find('/') {
+                        let branch = &full_rest[..slash_pos];
+                        let path = &full_rest[slash_pos + 1..];
+                        if path.ends_with(".css")
+                            && !path.contains(".module.css")
+                            && !path.contains("/test")
+                        {
+                            let file_name = path.rsplit('/').next().unwrap_or(path);
+                            let base = file_name.trim_end_matches(".css");
+                            let id = format!(
+                                "gh-{}-{}",
+                                owner.to_lowercase(),
+                                base.to_lowercase()
+                                    .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
+                            );
+                            let is_dark = file_name.to_lowercase().contains("dark")
+                                || file_name.to_lowercase().contains("night");
+
+                            let urls = vec![
+                                format!("https://ghproxy.net/https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"),
+                                format!("https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/{path}"),
+                                format!("https://mirror.ghproxy.com/https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"),
+                                format!("https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"),
+                            ];
+
+                            if seen_filenames.insert(file_name.to_string()) {
+                                discovered.push(DiscoveredCssFile {
+                                    id,
+                                    name: prettify_name(base),
+                                    file_name: file_name.to_string(),
+                                    path: path.to_string(),
+                                    download_urls: urls,
+                                    size: 0,
+                                    is_dark,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if !discovered.is_empty() {
+        return Ok(discovered);
+    }
+
+    // Step C: Heuristic Probing (Offline/Rate-Limit-Proof Fallback)
     let short_name = repo
         .trim_start_matches("typora-theme-")
         .trim_start_matches("typora-")
@@ -757,7 +863,7 @@ pub async fn theme_sniff_github_repo(repo_or_url: String) -> Result<Vec<Discover
                 if let Ok(text) = resp.text().await {
                     for word in text.split_whitespace() {
                         let clean_w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '-' && c != '_');
-                        if clean_w.ends_with(".css") && !clean_w.contains('/') && !candidates.contains(&clean_w.to_string()) {
+                        if clean_w.ends_with(".css") && clean_w != ".css" && !clean_w.contains('/') && !candidates.contains(&clean_w.to_string()) {
                             candidates.push(clean_w.to_string());
                         }
                     }
@@ -863,10 +969,31 @@ mod tests {
         assert_eq!(prettify_name("academic_latex"), "Academic Latex");
     }
 
+    #[test]
+    fn test_clean_raw_github_url() {
+        use super::clean_raw_github_url;
+
+        let raw = "https://raw.githubusercontent.com/foo/bar/master/theme.css";
+        assert_eq!(clean_raw_github_url(raw), raw);
+
+        let proxied = "https://ghproxy.net/https://raw.githubusercontent.com/foo/bar/master/theme.css";
+        assert_eq!(clean_raw_github_url(proxied), raw);
+
+        let double_proxied = "https://mirror.ghproxy.com/https://ghproxy.net/https://raw.githubusercontent.com/foo/bar/master/theme.css";
+        assert_eq!(clean_raw_github_url(double_proxied), raw);
+
+        let blob = "https://github.com/foo/bar/blob/main/dist/theme.css";
+        assert_eq!(clean_raw_github_url(blob), "https://raw.githubusercontent.com/foo/bar/main/dist/theme.css");
+    }
+
     #[tokio::test]
     async fn test_sniff_phycat() {
         let res = super::theme_sniff_github_repo("sumruler/typora-theme-phycat".to_string()).await;
-        println!("Result sniff phycat: {:?}", res);
+        assert!(res.is_ok());
+        let files = res.unwrap();
+        println!("Discovered count: {}, files: {:?}", files.len(), files.iter().map(|f| &f.file_name).collect::<Vec<_>>());
+        assert!(files.len() >= 5, "Expected multiple variants discovered");
     }
 }
+
 

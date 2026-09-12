@@ -195,6 +195,15 @@ const filteredInstalledThemes = computed(() => {
   return list;
 });
 
+// Error message sanitizer for Tauri IPC Err(String) rejections
+function formatErrorMessage(e: unknown): string {
+  if (typeof e === 'string') return e;
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') {
+    return (e as any).message;
+  }
+  return String(e || '未知错误');
+}
+
 // Activate an installed theme
 function onActivateInstalled(id: string, path: string, tone?: 'light' | 'dark') {
   settings.setActiveCustomThemeId(id);
@@ -221,7 +230,7 @@ async function onInstallBuiltin(theme: ThemeManifestEntry) {
     }
     toasts.success(isZh.value ? `已启用 ${theme.name}` : `Activated ${theme.name}`);
   } catch (e) {
-    toasts.error(isZh.value ? `安装失败: ${(e as Error).message}` : `Install failed: ${(e as Error).message}`);
+    toasts.error(isZh.value ? `安装失败: ${formatErrorMessage(e)}` : `Install failed: ${formatErrorMessage(e)}`);
   }
 }
 
@@ -235,7 +244,7 @@ async function onInstallTypora(theme: TyporaThemeEntry) {
     settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
     toasts.success(isZh.value ? `已从 GitHub 安装并启用 ${theme.name}` : `Installed & applied ${theme.name}`);
   } catch (e) {
-    toasts.error(isZh.value ? `GitHub 下载安装失败: ${(e as Error).message}` : `Failed: ${(e as Error).message}`);
+    toasts.error(isZh.value ? `GitHub 下载安装失败: ${formatErrorMessage(e)}` : `Failed: ${formatErrorMessage(e)}`);
   }
 }
 
@@ -251,7 +260,7 @@ async function onUninstall(id: string, name?: string) {
     }
     toasts.success(isZh.value ? `已卸载 ${name || id}` : `Uninstalled ${name || id}`);
   } catch (e) {
-    toasts.error(isZh.value ? `卸载失败: ${(e as Error).message}` : `Failed to uninstall: ${(e as Error).message}`);
+    toasts.error(isZh.value ? `卸载失败: ${formatErrorMessage(e)}` : `Failed to uninstall: ${formatErrorMessage(e)}`);
   }
 }
 
@@ -297,7 +306,7 @@ async function onInstallCustomUrl() {
       variantModalOpen.value = true;
     }
   } catch (e) {
-    toasts.error(isZh.value ? `安装失败: ${(e as Error).message}` : `Install failed: ${(e as Error).message}`);
+    toasts.error(isZh.value ? `安装失败: ${formatErrorMessage(e)}` : `Install failed: ${formatErrorMessage(e)}`);
   } finally {
     isInstallingUrl.value = false;
   }
@@ -368,7 +377,7 @@ async function onSniffAndInstallRepo(repo: GitHubRepoSummary) {
       variantModalOpen.value = true;
     }
   } catch (e) {
-    toasts.error(isZh.value ? `嗅探安装失败: ${(e as Error).message}` : `Failed: ${(e as Error).message}`);
+    toasts.error(isZh.value ? `嗅探安装失败: ${formatErrorMessage(e)}` : `Failed: ${formatErrorMessage(e)}`);
   } finally {
     isSniffingRepo.value[repo.full_name] = false;
   }
@@ -387,7 +396,7 @@ async function onConfirmVariantInstall() {
     variantModalOpen.value = false;
     marketMode.value = 'installed';
   } catch (e) {
-    toasts.error(isZh.value ? `安装失败: ${(e as Error).message}` : `Install failed: ${(e as Error).message}`);
+    toasts.error(isZh.value ? `安装失败: ${formatErrorMessage(e)}` : `Install failed: ${formatErrorMessage(e)}`);
   } finally {
     isInstallingVariant.value = false;
   }
