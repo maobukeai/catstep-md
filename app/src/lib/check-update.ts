@@ -235,7 +235,7 @@ interface GitHubReleaseJson {
 /** Fetch latest release info from GitHub official Releases API */
 async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.1');
+    const current = await getVersion().catch(() => '1.0.2');
     const res = await fetch(GITHUB_API_URL, {
       cache: 'no-store',
       headers: {
@@ -279,7 +279,7 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
 /** Fetch latest release by following GitHub's web release redirect (fallback) */
 async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.1');
+    const current = await getVersion().catch(() => '1.0.2');
     const res = await fetch(LATEST_RELEASE_PAGE, {
       cache: 'no-store',
       redirect: 'follow',
@@ -307,7 +307,7 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
 
 /** Fetch repository latest package version from GitHub Raw / jsDelivr mirror (fallback) */
 async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
-  const current = await getVersion().catch(() => '1.0.1');
+  const current = await getVersion().catch(() => '1.0.2');
   for (const url of [GITHUB_RAW_URL, JSDELIVR_MIRROR_URL]) {
     try {
       const res = await fetch(url, { cache: 'no-store' });
@@ -335,7 +335,7 @@ async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '1.0.1');
+  const current = await getVersion().catch(() => '1.0.2');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }

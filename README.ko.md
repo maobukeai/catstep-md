@@ -2,7 +2,7 @@
 
 > 가벼운 발걸음, 샘솟는 영감. Agent가 살아 숨 쉬는 Typora 스타일 초경량 Markdown 에디터.
 
-[![Version](https://img.shields.io/badge/version-v1.0.1-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.2-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
 [![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)

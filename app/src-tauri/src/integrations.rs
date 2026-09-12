@@ -87,7 +87,7 @@ pub fn cli_status_inner() -> Result<CliStatus, String> {
             return Ok(CliStatus {
                 installed: true,
                 path: Some(catstep_cmd.to_string_lossy().to_string()),
-                version: Some("catstep 1.0.1".to_string()),
+                version: Some("catstep 1.0.2".to_string()),
             });
         }
     }
@@ -230,11 +230,11 @@ pub fn cli_install_inner(app: &AppHandle) -> Result<CliStatus, String> {
                 exit /b 0\r\n\
             )\r\n\
             if /i \"%~1\"==\"--version\" (\r\n\
-                echo catstep 1.0.1\r\n\
+                echo catstep 1.0.2\r\n\
                 exit /b 0\r\n\
             )\r\n\
             if /i \"%~1\"==\"-v\" (\r\n\
-                echo catstep 1.0.1\r\n\
+                echo catstep 1.0.2\r\n\
                 exit /b 0\r\n\
             )\r\n\
             start \"\" \"{exe}\" \"%~f1\"\r\n",
