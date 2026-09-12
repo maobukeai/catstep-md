@@ -36,6 +36,29 @@ export interface ThemeManifest {
   themes: ThemeManifestEntry[];
 }
 
+export interface TyporaThemeEntry {
+  id: string;
+  name: string;
+  author: string;
+  stars?: string;
+  description: string;
+  repo: string;
+  url: string;
+  cdnUrl?: string;
+  preview?: string;
+  tags?: string[];
+  license?: string;
+  typoraCompatible?: boolean;
+  tone?: 'light' | 'dark';
+}
+
+export interface TyporaThemeManifest {
+  version: number;
+  source?: string;
+  updatedAt?: string;
+  themes: TyporaThemeEntry[];
+}
+
 export interface InstalledTheme {
   id: string;
   name?: string;
@@ -43,6 +66,7 @@ export interface InstalledTheme {
 }
 
 const MANIFEST_URL = '/themes/index.json';
+const TYPORA_MANIFEST_URL = '/themes/typora-manifest.json';
 const MANIFEST_TTL_MS = 5 * 60 * 1000; // 5 min
 
 interface State {
@@ -50,6 +74,10 @@ interface State {
   manifestFetchedAt: number;
   loading: boolean;
   error: string;
+  typoraManifest: TyporaThemeManifest | null;
+  typoraFetchedAt: number;
+  typoraLoading: boolean;
+  typoraError: string;
   installed: InstalledTheme[];
   installingId: string;
   // Filter chip state — empty array means "all".
@@ -62,6 +90,10 @@ export const useThemesStore = defineStore('themes', {
     manifestFetchedAt: 0,
     loading: false,
     error: '',
+    typoraManifest: null,
+    typoraFetchedAt: 0,
+    typoraLoading: false,
+    typoraError: '',
     installed: [],
     installingId: '',
     activeTags: [],
@@ -220,6 +252,164 @@ export const useThemesStore = defineStore('themes', {
 
     clearTags() {
       this.activeTags = [];
+    },
+
+    /**
+     * Fetch the Typora community theme catalog.
+     */
+    async loadTyporaManifest(force = false) {
+      const fresh =
+        this.typoraManifest !== null &&
+        Date.now() - this.typoraFetchedAt < MANIFEST_TTL_MS;
+      if (fresh && !force) {
+        return;
+      }
+      this.typoraLoading = true;
+      this.typoraError = '';
+      try {
+        const url = force ? `${TYPORA_MANIFEST_URL}?t=${Date.now()}` : TYPORA_MANIFEST_URL;
+        const res = await fetch(url, { cache: force ? 'no-store' : 'default' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: TyporaThemeManifest = await res.json();
+        if (!json || !Array.isArray(json.themes)) {
+          throw new Error('typora-manifest: missing themes[]');
+        }
+        this.typoraManifest = json;
+        this.typoraFetchedAt = Date.now();
+      } catch (e) {
+        this.typoraError = String((e as Error)?.message ?? e);
+      } finally {
+        this.typoraLoading = false;
+      }
+    },
+
+    /**
+     * Download an online Typora theme using dual-channel resilient fetching (Primary -> CDN fallback).
+     */
+    async installTyporaTheme(theme: TyporaThemeEntry): Promise<string> {
+      this.installingId = theme.id;
+      try {
+        let css = '';
+        let lastError: any = null;
+
+        // Channel 1: Try primary raw github URL (with 8s timeout)
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const res = await fetch(theme.url, { cache: 'no-store', signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            css = await res.text();
+          } else {
+            throw new Error(`Primary HTTP ${res.status}`);
+          }
+        } catch (err) {
+          lastError = err;
+          console.warn(`[ThemeStore] Primary download failed for ${theme.id}, trying CDN fallback...`, err);
+        }
+
+        // Channel 2: CDN mirror fallback (jsdelivr / ghfast)
+        if (!css.trim() && theme.cdnUrl) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const res = await fetch(theme.cdnUrl, { cache: 'no-store', signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              css = await res.text();
+            } else {
+              throw new Error(`CDN HTTP ${res.status}`);
+            }
+          } catch (err) {
+            lastError = err;
+            console.error(`[ThemeStore] CDN fallback also failed for ${theme.id}`, err);
+          }
+        }
+
+        if (!css.trim()) {
+          throw new Error(lastError ? `下载失败: ${lastError.message || lastError}` : '下载的 CSS 为空');
+        }
+
+        const result = await invoke<{ path: string }>('theme_install', {
+          id: theme.id,
+          css,
+        });
+        await this.refreshInstalled();
+        return result.path;
+      } finally {
+        this.installingId = '';
+      }
+    },
+
+    /**
+     * Install a custom theme directly from any user-provided URL (GitHub repo or raw CSS).
+     */
+    async installFromCustomUrl(inputUrl: string): Promise<{ id: string; name: string; path: string }> {
+      let trimmed = inputUrl.trim();
+      if (!trimmed) throw new Error('URL 不能为空');
+
+      // Convert github.com/owner/repo/blob/branch/file.css to raw.githubusercontent.com
+      if (trimmed.includes('github.com') && trimmed.includes('/blob/')) {
+        trimmed = trimmed
+          .replace('github.com', 'raw.githubusercontent.com')
+          .replace('/blob/', '/');
+      }
+
+      // If user provided a github repo root like https://github.com/owner/repo, try common default CSS files
+      let fetchUrl = trimmed;
+      let themeId = '';
+      let themeName = '';
+
+      if (!trimmed.endsWith('.css') && trimmed.includes('github.com/')) {
+        const parts = trimmed.replace(/\/$/, '').split('/');
+        const repoName = parts[parts.length - 1];
+        themeId = repoName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+        themeName = repoName;
+        // Default to raw master/main branch CSS matching repo or theme name
+        fetchUrl = `https://raw.githubusercontent.com/${parts[parts.length - 2]}/${repoName}/master/${repoName}.css`;
+      } else {
+        const fileName = trimmed.split('/').pop()?.split('?')[0] || 'custom-theme.css';
+        const baseName = fileName.replace(/\.css$/i, '');
+        themeId = `custom-${baseName.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
+        themeName = baseName;
+      }
+
+      let css = '';
+      let lastError: any = null;
+
+      try {
+        const res = await fetch(fetchUrl, { cache: 'no-store' });
+        if (res.ok) {
+          css = await res.text();
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (e) {
+        lastError = e;
+        // Try jsdelivr mirror if it was a github raw URL
+        if (fetchUrl.includes('raw.githubusercontent.com/')) {
+          try {
+            const cdnUrl = fetchUrl.replace('raw.githubusercontent.com/', 'cdn.jsdelivr.net/gh/').replace('/master/', '@master/').replace('/main/', '@main/');
+            const res2 = await fetch(cdnUrl, { cache: 'no-store' });
+            if (res2.ok) {
+              css = await res2.text();
+            }
+          } catch (e2) {
+            lastError = e2;
+          }
+        }
+      }
+
+      if (!css.trim()) {
+        throw new Error(`无法获取 CSS 文件内容: ${lastError?.message || '请检查链接是否为有效的 CSS 原始链接'}`);
+      }
+
+      const result = await invoke<{ path: string }>('theme_install', {
+        id: themeId,
+        css,
+      });
+      await this.refreshInstalled();
+      return { id: themeId, name: themeName, path: result.path };
     },
   },
 });

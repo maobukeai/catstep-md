@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "source": "https://github.com/typora/typora-theme-gallery",
+  "updatedAt": "2026-09-12T00:00:00Z",
+  "themes": [
+    {
+      "id": "typora-vue",
+      "name": "Typora Vue Theme",
+      "author": "huchenlei",
+      "stars": "2.5k",
+      "description": "源自 Vue.js 与 VitePress 官方文档美学，高雅纯净白底搭配清亮翠绿，现代文档排版标杆。",
+      "repo": "https://github.com/huchenlei/typora-vue-theme",
+      "url": "https://raw.githubusercontent.com/huchenlei/typora-vue-theme/master/vue.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/huchenlei/typora-vue-theme@master/vue.css",
+      "tags": [
+        "light",
+        "vue",
+        "clean",
+        "reading"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-vue.svg"
+    },
+    {
+      "id": "typora-indigo",
+      "name": "Typora Indigo 墨蓝",
+      "author": "blinkfox",
+      "stars": "1.2k",
+      "description": "专为中文深度阅读与写作打磨的经典墨蓝主题，段落层级考究，标题与引言层次极为分明。",
+      "repo": "https://github.com/blinkfox/typora-theme-indigo",
+      "url": "https://raw.githubusercontent.com/blinkfox/typora-theme-indigo/master/indigo.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/blinkfox/typora-theme-indigo@master/indigo.css",
+      "tags": [
+        "light",
+        "indigo",
+        "chinese",
+        "popular"
+      ],
+      "license": "Apache-2.0",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-indigo.svg"
+    },
+    {
+      "id": "typora-pie",
+      "name": "Typora Pie 派",
+      "author": "dy-xiaodong2022",
+      "stars": "950",
+      "description": "圆润卡片式视觉体验，温润边角与呼吸感间距，如精致手账本般的舒适书写氛围。",
+      "repo": "https://github.com/dy-xiaodong2022/typora-pie-theme",
+      "url": "https://raw.githubusercontent.com/dy-xiaodong2022/typora-pie-theme/main/pie.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/dy-xiaodong2022/typora-pie-theme@main/pie.css",
+      "tags": [
+        "light",
+        "rounded",
+        "modern",
+        "minimal"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-pie.svg"
+    },
+    {
+      "id": "typora-cobalt",
+      "name": "Typora Cobalt 钴蓝极客",
+      "author": "jerome",
+      "stars": "1.8k",
+      "description": "深度极客沉浸暗蓝底色配以天青与亮橙点缀，灵感源自 VSCode Cobalt2，语法高亮极其亮眼。",
+      "repo": "https://github.com/jerome/typora-cobalt-theme",
+      "url": "https://raw.githubusercontent.com/jerome/typora-cobalt-theme/master/cobalt.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/jerome/typora-cobalt-theme@master/cobalt.css",
+      "tags": [
+        "dark",
+        "blue",
+        "developer",
+        "contrast"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "dark",
+      "preview": "/themes/preview/typora-cobalt.svg"
+    },
+    {
+      "id": "typora-ursine-polar",
+      "name": "Typora Ursine 熊掌记白",
+      "author": "sunxvming",
+      "stars": "720",
+      "description": "1:1 高度复刻 macOS 经典 Markdown 软件 Bear (熊掌记) 的排版风格，优雅现代极简。",
+      "repo": "https://github.com/sunxvming/typora-theme-ursine",
+      "url": "https://raw.githubusercontent.com/sunxvming/typora-theme-ursine/master/ursine-polar.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/sunxvming/typora-theme-ursine@master/ursine-polar.css",
+      "tags": [
+        "light",
+        "bear",
+        "minimal",
+        "reading"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-ursine-polar.svg"
+    },
+    {
+      "id": "typora-dracula",
+      "name": "Typora Dracula 德古拉",
+      "author": "dracula",
+      "stars": "1.1k",
+      "description": "全球开发者最钟爱的吸血鬼暗夜主题，霓虹紫粉高对比撞色，张扬且耐看。",
+      "repo": "https://github.com/dracula/typora",
+      "url": "https://raw.githubusercontent.com/dracula/typora/master/dracula.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/dracula/typora@master/dracula.css",
+      "tags": [
+        "dark",
+        "dracula",
+        "developer",
+        "neon"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "dark",
+      "preview": "/themes/preview/typora-dracula.svg"
+    },
+    {
+      "id": "typora-nord",
+      "name": "Typora Nord 冰川极夜",
+      "author": "nordtheme",
+      "stars": "1.4k",
+      "description": "北欧极地冰川冷灰蓝调，安静、均衡、护眼，代码高亮与正文阅读极其克制协调。",
+      "repo": "https://github.com/nordtheme/typora",
+      "url": "https://raw.githubusercontent.com/nordtheme/typora/develop/src/nord.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/nordtheme/typora@develop/src/nord.css",
+      "tags": [
+        "dark",
+        "nord",
+        "cool",
+        "balanced"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "dark",
+      "preview": "/themes/preview/typora-nord.svg"
+    },
+    {
+      "id": "typora-material",
+      "name": "Typora Material 质感设计",
+      "author": "redsolver",
+      "stars": "1.6k",
+      "description": "Google Material Design 设计语言精髓，精准的卡片投影、悬停反馈与排版留白。",
+      "repo": "https://github.com/redsolver/typora-material-theme",
+      "url": "https://raw.githubusercontent.com/redsolver/typora-material-theme/master/material.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/redsolver/typora-material-theme@master/material.css",
+      "tags": [
+        "light",
+        "material",
+        "google",
+        "clean"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-material.svg"
+    },
+    {
+      "id": "typora-lapis",
+      "name": "Typora Lapis 琉璃",
+      "author": "flyinfree",
+      "stars": "650",
+      "description": "如天青釉般的温润青蓝色彩，典雅清透，特别适合中文散文随笔与长文排版。",
+      "repo": "https://github.com/flyinfree/typora-theme-lapis",
+      "url": "https://raw.githubusercontent.com/flyinfree/typora-theme-lapis/master/lapis.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/flyinfree/typora-theme-lapis@master/lapis.css",
+      "tags": [
+        "light",
+        "cyan",
+        "chinese",
+        "elegant"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-lapis.svg"
+    },
+    {
+      "id": "typora-orange-heart",
+      "name": "Typora Orange Heart 橙心",
+      "author": "zhuyu97",
+      "stars": "580",
+      "description": "温暖活力的鲜橙强调色，明亮且富有人情味，让灵感记录充满创造力与热情。",
+      "repo": "https://github.com/zhuyu97/typora-theme-orange-heart",
+      "url": "https://raw.githubusercontent.com/zhuyu97/typora-theme-orange-heart/master/orange-heart.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/zhuyu97/typora-theme-orange-heart@master/orange-heart.css",
+      "tags": [
+        "light",
+        "warm",
+        "orange",
+        "creative"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-orange-heart.svg"
+    },
+    {
+      "id": "typora-gitbook",
+      "name": "Typora GitBook 文档风",
+      "author": "drstearns",
+      "stars": "820",
+      "description": "致敬经典 GitBook 技术专栏风格，严谨工整的标题层次，长文档阅读极为舒适。",
+      "repo": "https://github.com/drstearns/typora-gitbook-theme",
+      "url": "https://raw.githubusercontent.com/drstearns/typora-gitbook-theme/master/gitbook.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/drstearns/typora-gitbook-theme@master/gitbook.css",
+      "tags": [
+        "light",
+        "documentation",
+        "clean",
+        "reading"
+      ],
+      "license": "Apache-2.0",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-gitbook.svg"
+    },
+    {
+      "id": "typora-monokai",
+      "name": "Typora Monokai 经典暗黑",
+      "author": "superman66",
+      "stars": "910",
+      "description": "Sublime Text 招牌式的亮黄与桃粉撞色高亮，深灰黑底色，代码块视觉张力十足。",
+      "repo": "https://github.com/superman66/typora-theme-monokai",
+      "url": "https://raw.githubusercontent.com/superman66/typora-theme-monokai/master/monokai.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/superman66/typora-theme-monokai@master/monokai.css",
+      "tags": [
+        "dark",
+        "monokai",
+        "developer",
+        "contrast"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "dark",
+      "preview": "/themes/preview/typora-monokai.svg"
+    },
+    {
+      "id": "typora-redgraph",
+      "name": "Typora Red Graph 极简赤墨",
+      "author": "czhang",
+      "stars": "430",
+      "description": "赤红与墨黑的极简版式碰撞，现代几何感强烈，适合提纲、报告与要点速览。",
+      "repo": "https://github.com/czhang/typora-theme-redgraph",
+      "url": "https://raw.githubusercontent.com/czhang/typora-theme-redgraph/master/redgraph.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/czhang/typora-theme-redgraph@master/redgraph.css",
+      "tags": [
+        "light",
+        "minimal",
+        "red",
+        "typography"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "light",
+      "preview": "/themes/preview/typora-redgraph.svg"
+    },
+    {
+      "id": "typora-forest",
+      "name": "Typora Forest 幽篁夜墨",
+      "author": "forest-theme",
+      "stars": "520",
+      "description": "竹林幽夜与深墨绿的禅意结合，青竹翠微光点缀，深夜专注冥想写作首选。",
+      "repo": "https://github.com/forest-theme/typora",
+      "url": "https://raw.githubusercontent.com/forest-theme/typora/master/forest.css",
+      "cdnUrl": "https://cdn.jsdelivr.net/gh/forest-theme/typora@master/forest.css",
+      "tags": [
+        "dark",
+        "nature",
+        "green",
+        "zen"
+      ],
+      "license": "MIT",
+      "typoraCompatible": true,
+      "tone": "dark",
+      "preview": "/themes/preview/typora-forest.svg"
+    }
+  ]
+}
