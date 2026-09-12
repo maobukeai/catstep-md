@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
 import Icon from './Icons.vue';
 import BrandMark from './BrandMark.vue';
 import PomodoroPopover from './PomodoroPopover.vue';
@@ -24,8 +24,9 @@ import { EditorView } from '@codemirror/view';
 import { openPipFocusTimer } from '../lib/pip-window';
 import { themeLabels, allThemeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
 import { useThemesStore } from '../stores/themes';
-import ThemeMarketplace from './ThemeMarketplace.vue';
 import type { Theme } from '../types';
+
+const ThemeMarketplace = defineAsyncComponent(() => import('./ThemeMarketplace.vue'));
 
 const { t } = useI18n();
 
@@ -582,13 +583,16 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       ...(themesStore.installed.length > 0
         ? [
             { sep: true as const },
-            ...themesStore.installed.map((th) => ({
-              id: `custom-theme:${th.id}`,
-              label:
-                (settings.activeCustomThemeId === th.id ? '✓  ' : '    ') +
-                (th.name || th.id) +
-                ` (${m('customTheme')})`,
-            })),
+            ...themesStore.installed.map((th) => {
+              const matched = themesStore.manifest?.themes?.find((m) => m.id === th.id);
+              const displayName = matched?.name || th.name || th.id;
+              return {
+                id: `custom-theme:${th.id}`,
+                label:
+                  (settings.activeCustomThemeId === th.id ? '✓  ' : '    ') +
+                  displayName,
+              };
+            }),
           ]
         : []),
       { sep: true as const },
@@ -702,6 +706,9 @@ function onOpenPomodoroEvent() {
 
 onMounted(() => {
   void themesStore.refreshInstalled();
+  if (!themesStore.manifest) {
+    void themesStore.loadManifest();
+  }
   document.addEventListener('click', onDocClick, true);
   window.addEventListener('resize', onViewportChange);
   window.addEventListener('scroll', onScrollAnywhere, true);

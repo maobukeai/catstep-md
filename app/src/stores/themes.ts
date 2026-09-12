@@ -128,7 +128,17 @@ export const useThemesStore = defineStore('themes', {
 
     async refreshInstalled() {
       try {
-        this.installed = await invoke<InstalledTheme[]>('theme_list_installed');
+        const raw = await invoke<InstalledTheme[]>('theme_list_installed');
+        if (this.manifest === null && !this.loading) {
+          void this.loadManifest();
+        }
+        this.installed = raw.map((t) => {
+          const matched = this.manifest?.themes?.find((m) => m.id === t.id);
+          return {
+            ...t,
+            name: matched?.name || (t.name && t.name !== t.id ? t.name : t.id),
+          };
+        });
       } catch (e) {
         // Don't surface this as a user error — the dir may not exist yet.
         console.warn('theme_list_installed failed:', e);

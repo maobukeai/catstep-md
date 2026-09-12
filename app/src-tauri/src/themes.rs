@@ -190,6 +190,25 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
                         } else if let Some(rest) = inner.strip_prefix("主题:") {
                             display_name = rest.trim().to_string();
                             break;
+                        } else if !inner.is_empty()
+                            && !inner.starts_with('@')
+                            && !inner.starts_with("http")
+                            && !inner.starts_with("License")
+                            && !inner.starts_with("Author")
+                            && (inner.contains("—") || inner.contains('(') || inner.chars().any(|c| c > '\u{7f}'))
+                        {
+                            let cleaned = inner
+                                .replace("(官方精选)", "")
+                                .replace("(Official)", "")
+                                .replace("—", " ")
+                                .trim()
+                                .trim_end_matches('.')
+                                .trim()
+                                .to_string();
+                            if !cleaned.is_empty() {
+                                display_name = cleaned;
+                                break;
+                            }
                         }
                     }
                 }
