@@ -592,33 +592,39 @@ watch(
     <!-- ① 全局 AI 模型与多服务商配置 -->
     <div class="ai-settings__card">
       <div class="ai-settings__card-header-row">
-        <div>
+        <div class="ai-settings__card-info">
           <h3 class="ai-settings__heading">{{ t('ai.providerProfilesHeading') }}</h3>
           <p class="ai-settings__desc">{{ t('ai.providerProfilesDesc') }}</p>
         </div>
-        <button
-          type="button"
-          class="ai-settings__btn ai-settings__btn--primary"
-          @click="openAddProviderModal"
-        >
-          {{ t('ai.addProvider') }}
-        </button>
+
+        <div class="ai-settings__header-actions">
+          <button
+            type="button"
+            class="ai-settings__btn ai-settings__btn--primary ai-settings__btn--sm"
+            @click="openAddProviderModal"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            {{ t('ai.addProvider') }}
+          </button>
+
+          <span class="ai-settings__v-divider" />
+
+          <label class="ai-settings__switch-combo" :title="t('ai.enableHint')">
+            <span class="ai-settings__switch-text">{{ t('ai.enable') }}</span>
+            <input
+              type="checkbox"
+              :checked="enabled"
+              @change="emit('update:enabled', ($event.target as HTMLInputElement).checked)"
+            />
+          </label>
+        </div>
       </div>
 
-      <label class="ai-settings__row ai-settings__row--toggle">
-        <span>
-          <span class="ai-settings__label">{{ t('ai.enable') }}</span>
-          <span class="ai-settings__hint">{{ t('ai.enableHint') }}</span>
-        </span>
-        <input
-          type="checkbox"
-          :checked="enabled"
-          @change="emit('update:enabled', ($event.target as HTMLInputElement).checked)"
-        />
-      </label>
-
       <!-- Multi-provider profiles list -->
-      <div class="ai-settings__profiles-list">
+      <div class="ai-settings__profiles-list" :class="{ 'is-disabled': !enabled }">
         <div
           v-for="profile in settingsStore.aiProfiles"
           :key="profile.id"
@@ -1737,14 +1743,44 @@ input[type='checkbox']:focus-visible {
 .ai-settings__card-header-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ai-settings__header-actions {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+}
+.ai-settings__v-divider {
+  width: 1px;
+  height: 16px;
+  background: color-mix(in srgb, var(--border) 80%, transparent);
+}
+.ai-settings__switch-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.ai-settings__switch-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
 }
 .ai-settings__profiles-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 4px;
+}
+.ai-settings__profiles-list.is-disabled {
+  opacity: 0.6;
+  filter: grayscale(0.25);
+  transition: opacity 0.2s ease, filter 0.2s ease;
 }
 .ai-settings__profile-card {
   display: flex;
