@@ -365,8 +365,6 @@ jobs:
   # draft release.
   # ---------------------------------------------------------------------------
   web-clipper:
-    needs: publish
-    if: always() && !cancelled()
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -431,8 +429,6 @@ jobs:
   # - CatstepMD_<version>_play.aab (Google Play Store bundle)
   # ---------------------------------------------------------------------------
   android:
-    needs: publish
-    if: always() && !cancelled()
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -499,9 +495,7 @@ jobs:
 
       - name: Setup Gradle Wrapper
         run: |
-          cd app/src-tauri/gen/android
-          gradle wrapper --gradle-version 8.11.1
-          chmod +x gradlew
+          chmod +x app/src-tauri/gen/android/gradlew
 
       - name: Build Android APKs & AAB
         env:
