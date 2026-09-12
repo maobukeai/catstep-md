@@ -847,4 +847,37 @@ onBeforeUnmount(() => {
   opacity: 0;
   transform: scale(0.96) translateY(-2px);
 }
+
+/* Mobile touch ergonomics (<640px) */
+@media (max-width: 640px) {
+  .pane-tabbar {
+    height: 38px;
+    padding: 0 4px;
+  }
+  .tab {
+    height: 32px;
+    font-size: 13px;
+    padding: 0 6px 0 10px;
+    gap: 6px;
+    max-width: 160px;
+  }
+  .tab__action {
+    width: 24px;
+    height: 24px;
+    margin-left: 2px;
+  }
+  .tab__close-btn {
+    width: 24px;
+    height: 24px;
+    opacity: 0.85;
+  }
+  .tab__close-btn svg {
+    width: 11px;
+    height: 11px;
+  }
+  .tabbar__new {
+    width: 28px;
+    height: 28px;
+  }
+}
 </style>

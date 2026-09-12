@@ -400,4 +400,30 @@ onMounted(() => {
   color: var(--accent-fg, #1a1a1a);
   font-weight: 600;
 }
+
+/* Mobile responsive adaptation (<640px) */
+@media (max-width: 640px) {
+  .fx {
+    width: calc(100vw - 16px);
+    max-height: 90vh;
+    border-radius: 12px;
+  }
+  .fx__palette {
+    padding: 8px 10px;
+    max-height: 25vh;
+  }
+  .fx__group button {
+    min-width: 30px;
+    min-height: 28px;
+    font-size: 13px;
+  }
+  .fx__foot {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .fx__btn {
+    min-height: 34px;
+    padding: 0 14px;
+  }
+}
 </style>

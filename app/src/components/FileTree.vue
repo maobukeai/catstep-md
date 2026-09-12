@@ -2495,4 +2495,43 @@ body.dark .ftree__ctx-sep {
   min-width: 0;
   flex: 1;
 }
+
+/* Mobile touch ergonomics (<640px) */
+@media (max-width: 640px) {
+  :deep(.ftree__item) {
+    min-height: 36px;
+    height: 36px;
+    font-size: 14px;
+    gap: 8px;
+    padding-right: 10px;
+    margin: 2px 0;
+  }
+  :deep(.ftree__chevron-wrap) {
+    width: 28px;
+    height: 28px;
+    margin-left: -4px;
+  }
+  :deep(.ftree__type-icon) {
+    width: 16px;
+    height: 16px;
+  }
+  .ftree__hbtn {
+    width: 28px;
+    height: 28px;
+  }
+  .ftree__filter-box {
+    padding: 8px 10px;
+  }
+  .ftree__filter-input-wrap {
+    height: 32px;
+  }
+  .ftree__filter-input {
+    font-size: 13px;
+  }
+  .ftree__mode-btn {
+    height: 26px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+}
 </style>

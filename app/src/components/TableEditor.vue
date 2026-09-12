@@ -435,4 +435,33 @@ function onKeydown(e: KeyboardEvent) {
   color: var(--accent-fg, #ffffff);
   font-weight: 600;
 }
+
+/* Mobile responsive adaptation (<640px) */
+@media (max-width: 640px) {
+  .tbl {
+    width: calc(100vw - 16px);
+    max-height: 90vh;
+    border-radius: 12px;
+  }
+  .tbl__toolbar {
+    padding: 8px 10px;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tbl__group button {
+    min-width: 32px;
+    min-height: 30px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .tbl__foot {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .tbl__btn {
+    min-height: 34px;
+    padding: 0 14px;
+  }
+}
 </style>

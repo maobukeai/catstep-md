@@ -23,7 +23,7 @@ import { forceWinChromePreview, isIOS, isMacOS, isWindowsDesktop } from '../lib/
 import { EditorView } from '@codemirror/view';
 import { openPipFocusTimer } from '../lib/pip-window';
 import { themeLabels, allThemeLabels, isDarkTheme as checkIsDarkTheme, isValidTheme } from '../lib/themes';
-import { useThemesStore } from '../stores/themes';
+import { useThemesStore, resolveThemeTone } from '../stores/themes';
 import type { Theme } from '../types';
 
 const ThemeMarketplace = defineAsyncComponent(() => import('./ThemeMarketplace.vue'));
@@ -470,7 +470,7 @@ function menuAction(id: string) {
         settings.setTheme(found.id as Theme);
       } else {
         const matched = themesStore.manifest?.themes?.find((m) => m.id === found.id);
-        const tone = matched?.tags?.includes('dark') || matched?.tags?.includes('black') ? 'dark' : 'light';
+        const tone = found.tone || (matched?.tags?.includes('dark') || matched?.tags?.includes('black') ? 'dark' : undefined) || resolveThemeTone(found);
         settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
       }
     }

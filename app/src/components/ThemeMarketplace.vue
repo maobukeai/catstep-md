@@ -13,6 +13,7 @@ import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import {
   useThemesStore,
+  resolveThemeTone,
   type ThemeManifestEntry,
   type TyporaThemeEntry,
   type GitHubRepoSummary,
@@ -212,7 +213,8 @@ function onActivateInstalled(id: string, path: string, tone?: 'light' | 'dark') 
   if (isValidTheme(id)) {
     settings.setTheme(id as Theme);
   } else {
-    settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
+    const effTone = tone || resolveThemeTone({ id, path });
+    settings.setTheme(effTone === 'dark' ? 'night' : 'github-light');
   }
   toasts.success(isZh.value ? '已启用该主题' : 'Theme activated');
 }
@@ -241,7 +243,7 @@ async function onInstallTypora(theme: TyporaThemeEntry) {
     const path = await themes.installTyporaTheme(theme);
     settings.setActiveCustomThemeId(theme.id);
     settings.setCustomCssPath(path);
-    const tone = theme.tone || (theme.tags?.includes('dark') ? 'dark' : 'light');
+    const tone = theme.tone || (theme.tags?.includes('dark') ? 'dark' : undefined) || resolveThemeTone({ id: theme.id, name: theme.name });
     settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
     toasts.success(isZh.value ? `已从 GitHub 安装并启用 ${theme.name}` : `Installed & applied ${theme.name}`);
   } catch (e) {

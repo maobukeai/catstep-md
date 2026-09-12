@@ -919,38 +919,223 @@ void refreshSpellDicts();
 .settings-tab-pane {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.settings-group__title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px 2px;
+}
+
+.settings-group__card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  transition: background-color 0.12s ease;
+  margin: 0;
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-row--clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.setting-row:hover {
+  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+}
+
+.setting-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-row__title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.setting-row__hint {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.setting-row__control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.setting-row select,
+.setting-compact-select {
+  width: 140px;
+  height: 27px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 11.5px;
+  font-family: inherit;
+  box-sizing: border-box;
+  cursor: pointer;
+  outline: none;
+}
+
+.setting-row select:focus,
+.setting-compact-select:focus {
+  border-color: var(--accent);
+}
+
+/* Micro Toggle Switch (Export Tab Parity) */
+.setting-row input[type='checkbox'],
+.micro-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 30px !important;
+  height: 17px !important;
+  border-radius: 17px !important;
+  background: color-mix(in srgb, var(--text-faint) 45%, transparent) !important;
+  cursor: pointer;
+  position: relative;
+  outline: none;
+  border: none;
+  flex-shrink: 0;
+  margin: 0;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.setting-row input[type='checkbox']::after,
+.micro-toggle::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 3px !important;
+  left: 3px !important;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.setting-row input[type='checkbox']:checked,
+.micro-toggle:checked {
+  background: var(--accent) !important;
+}
+
+.setting-row input[type='checkbox']:checked::after,
+.micro-toggle:checked::after {
+  transform: translateX(13px) !important;
+}
+
+/* Slider ctrl & Badges */
+.setting-slider-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 200px;
+}
+
+.setting-val-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.setting-val-badge--modified {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
+
+.btn-setting {
+  height: 26px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  border-radius: 4px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.btn-setting:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
 }
 
 .setting-pomodoro-ctrl {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.setting-pomodoro-ctrl select {
+  width: 90px;
+  height: 27px;
+  font-size: 11.5px;
 }
 .setting-pomodoro-ctrl .setting-num-input {
-  width: 60px;
-  height: 28px;
+  width: 52px;
+  height: 27px;
   padding: 2px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
   background: var(--bg);
   color: var(--text);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11.5px;
   box-sizing: border-box;
 }
 .setting-unit {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 .setting-text-input {
   width: 100%;
-  max-width: 260px;
-  height: 28px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
+  max-width: 240px;
+  height: 27px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
   background: var(--bg);
   color: var(--text);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11.5px;
   box-sizing: border-box;
   outline: none;
 }
@@ -959,21 +1144,21 @@ void refreshSpellDicts();
 }
 .setting-text-input--mono {
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 11.5px;
+  font-size: 11px;
 }
 .kb-chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: 2px 7px;
   font-size: 11px;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
   border-radius: 4px;
   color: var(--text);
 }
 .inbox-qc-disabled-text {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-faint);
 }
 </style>
