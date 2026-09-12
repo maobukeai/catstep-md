@@ -503,50 +503,41 @@ const linkedRepoLabel = computed(() => {
 </script>
 
 <template>
-  <section class="ghs">
-    <h3 class="ghs__heading">{{ providerChoice === 'gitea' ? 'Gitea sync' : t('githubSync.heading') }}</h3>
-    <p class="ghs__intro">{{ providerChoice === 'gitea' ? t('githubSync.giteaIntro') : t('githubSync.intro') }}</p>
+  <div class="settings-group ghs-group">
+    <div class="settings-group__title">{{ providerChoice === 'gitea' ? 'Gitea 同步' : t('githubSync.heading') }}</div>
 
-    <!-- Provider picker — always visible so the user can choose their sync
-         backend before anything else happens. This is the single picker for
-         the whole panel: PR #150 introduced it, and it structurally fixes what
-         #229 patched around, namely that the provider used to be selectable
-         only after a token had been saved — which a self-hosted user could never
-         reach, because their token was validated against api.github.com,
-         rejected, and deleted. The duplicate pickers #229 added to State 1 and
-         State 2 were removed in favour of this one. -->
-    <div class="ghs-card" style="padding: 8px 12px;">
-      <div class="ghs-sub-title" style="margin-top: 0;">{{ t('githubSync.providerTitle') }}</div>
-      <div class="ghs-row">
-        <select v-model="providerChoice" class="ghs-select" style="flex: 1;">
-          <option value="github">GitHub</option>
-          <option value="gitlab">GitLab</option>
-          <option value="gitea">Gitea / Forgejo (self-hosted)</option>
-          <option value="custom">{{ t('githubSync.customProvider') }}</option>
-        </select>
+    <div class="settings-group__card" style="margin-bottom: 8px;">
+      <div class="setting-row">
+        <div class="setting-row__info">
+          <span class="setting-row__title">{{ t('githubSync.providerTitle') }}</span>
+          <p class="setting-row__hint">{{ providerChoice === 'gitea' ? t('githubSync.giteaIntro') : t('githubSync.intro') }}</p>
+        </div>
+        <div class="setting-row__control">
+          <select v-model="providerChoice" class="ghs-select">
+            <option value="github">GitHub</option>
+            <option value="gitlab">GitLab</option>
+            <option value="gitea">Gitea / Forgejo (self-hosted)</option>
+            <option value="custom">{{ t('githubSync.customProvider') }}</option>
+          </select>
+        </div>
       </div>
-      <p v-if="providerChoice === 'gitlab' || providerChoice === 'custom'" class="ghs-help">
-        {{ t('githubSync.nonGithubHint') }}
-      </p>
+      <div v-if="providerChoice === 'gitlab' || providerChoice === 'custom'" class="ghs-subhint-row">
+        <p class="ghs-help">{{ t('githubSync.nonGithubHint') }}</p>
+      </div>
     </div>
 
-    <!-- v3.0 — first-time-setup hint. macOS prompts the user once for
-         the GitHub PAT and (if E2EE on) once for the encryption key.
-         Both prompts have "Always Allow" — clicking it once silences
-         all future runs. We surface this proactively so users don't
-         think the prompts are spam. -->
+    <!-- v3.0 — first-time-setup hint -->
     <div class="ghs-keychain-hint">
-      <span class="ghs-keychain-hint__icon">🔑</span>
+      <span class="ghs-badge-tag">提示</span>
       <div>
         <strong>{{ t('githubSync.keychainHintTitle') }}</strong>
         <p>{{ t('githubSync.keychainHintBody') }}</p>
       </div>
     </div>
 
-    <!-- Token-expired banner: the saved PAT was rejected by the provider (401 /
-         Bad credentials). Sync is paused until the user reconnects. -->
+    <!-- Token-expired banner -->
     <div v-if="sync.tokenInvalid || sync.giteaTokenInvalid" class="ghs-authwarn">
-      <span class="ghs-authwarn__icon">⚠️</span>
+      <span class="ghs-badge-tag ghs-badge-tag--warn">过期</span>
       <div class="ghs-authwarn__body">
         <strong>{{ providerChoice === 'gitea' ? t('githubSync.giteaTokenExpiredTitle') : t('githubSync.tokenExpiredTitle') }}</strong>
         <p>{{ providerChoice === 'gitea' ? t('githubSync.giteaTokenExpiredBanner') : t('githubSync.tokenExpiredBanner') }}</p>
@@ -558,7 +549,7 @@ const linkedRepoLabel = computed(() => {
 
     <!-- Branch protection push-blocked banner -->
     <div v-if="sync.pushErrorType === 'protected-branch' && sync.isLinked" class="ghs-authwarn" style="border-color: #b45309;">
-      <span class="ghs-authwarn__icon">🛡️</span>
+      <span class="ghs-badge-tag ghs-badge-tag--warn">保护</span>
       <div class="ghs-authwarn__body">
         <strong>{{ t('githubSync.pushBlockedByBranchProtection') }}</strong>
         <p>Go to your Gitea/GitHub server and create a Pull Request with your changes, or remove branch protection on the repository settings.</p>
@@ -862,7 +853,7 @@ const linkedRepoLabel = computed(() => {
           ↓ {{ sync.status?.behind }} {{ t('githubSync.behind') }}
         </div>
         <div v-if="sync.hasConflicts" class="ghs-status__pill ghs-status__pill--err">
-          ⚠ {{ sync.status?.conflicts.length }} {{ t('githubSync.conflictsBadge') }}
+          {{ sync.status?.conflicts.length }} {{ t('githubSync.conflictsBadge') }}
         </div>
       </div>
 
@@ -902,7 +893,7 @@ const linkedRepoLabel = computed(() => {
            This matches the user mental model: "I'm linked already, I want
            to encrypt now" — no need to unlink + relink. -->
       <div v-if="!sync.status?.encrypted && !upgradeOpen" class="ghs-upgrade-row">
-        <span class="ghs-upgrade-row__icon">🔒</span>
+        <span class="ghs-badge-tag ghs-badge-tag--e2ee">E2EE</span>
         <div class="ghs-upgrade-row__copy">
           <strong>{{ t('githubSync.upgradeRowTitle') }}</strong>
           <p>{{ t('githubSync.upgradeRowBody') }}</p>
@@ -915,7 +906,7 @@ const linkedRepoLabel = computed(() => {
       <div v-if="!sync.status?.encrypted && upgradeOpen" class="ghs-subblock ghs-upgrade-form">
         <div class="ghs-sub-title">{{ t('githubSync.upgradeFormTitle') }}</div>
         <p class="ghs-help">{{ t('githubSync.upgradeFormBody') }}</p>
-        <div class="ghs-warn">⚠ {{ t('githubSync.upgradeForcePushWarning') }}</div>
+        <div class="ghs-warn">{{ t('githubSync.upgradeForcePushWarning') }}</div>
         <div class="ghs-row">
           <input
             v-model="upgradePassphrase"
@@ -1024,41 +1015,60 @@ const linkedRepoLabel = computed(() => {
     </div>
 
     <p v-if="sync.lastError" class="ghs-error">{{ sync.lastError }}</p>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.ghs {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+@import './settings/settings-common.css';
+
+.ghs-group {
+  margin-bottom: 12px;
 }
-.ghs__heading {
-  font-size: 13px;
+.ghs-subhint-row {
+  padding: 0 14px 10px;
+}
+.ghs-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--text);
-  margin: 18px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  flex-shrink: 0;
+  margin-top: 1px;
 }
-.ghs__intro {
-  font-size: 11px;
-  color: var(--text-faint);
-  margin: 0 0 4px;
-  line-height: 1.5;
+.ghs-badge-tag--warn {
+  background: color-mix(in srgb, var(--danger, #e5484d) 15%, transparent);
+  color: var(--danger, #e5484d);
+  border-color: color-mix(in srgb, var(--danger, #e5484d) 30%, transparent);
 }
+.ghs-badge-tag--e2ee {
+  background: color-mix(in srgb, #10b981 15%, transparent);
+  color: #10b981;
+  border-color: color-mix(in srgb, #10b981 30%, transparent);
+}
+
 .ghs-card {
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
-  background: var(--bg);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--bg-elev);
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 8px;
 }
 .ghs-card--linked {
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
 }
 .ghs-card__title {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text);
 }
@@ -1066,23 +1076,23 @@ const linkedRepoLabel = computed(() => {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
-  margin: 8px 0 4px;
+  margin: 6px 0 4px;
 }
 .ghs-subblock {
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
   padding-top: 8px;
 }
 .ghs-help {
   font-size: 11px;
   color: var(--text-faint);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 .ghs-fineprint {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-faint);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 .ghs-row {
   display: flex;
@@ -1093,26 +1103,36 @@ const linkedRepoLabel = computed(() => {
 .ghs-input {
   flex: 1;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  border-radius: 4px;
-  font: inherit;
-  font-size: 12px;
-}
-.ghs-input--mono {
-  font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 11px;
-}
-.ghs-select {
+  height: 28px;
   padding: 4px 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
   border-radius: 4px;
-  font: inherit;
   font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.ghs-input:focus {
+  border-color: var(--accent);
+}
+.ghs-input--mono {
+  font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11.5px;
+}
+.ghs-select {
+  height: 28px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.ghs-select:focus {
+  border-color: var(--accent);
 }
 .ghs-checkbox {
   display: inline-flex;
@@ -1121,19 +1141,27 @@ const linkedRepoLabel = computed(() => {
   font-size: 12px;
   color: var(--text);
   cursor: pointer;
+  user-select: none;
 }
 .ghs-btn {
+  height: 28px;
   border: 1px solid var(--border);
-  background: var(--bg-elev);
+  background: var(--bg);
   color: var(--text);
-  padding: 5px 10px;
-  font-size: 11px;
+  padding: 0 10px;
+  font-size: 11.5px;
   border-radius: 4px;
   cursor: pointer;
-  font: inherit;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .ghs-btn:hover:not(:disabled) {
-  background: var(--bg-active, var(--bg-elev));
+  background: var(--bg-hover);
+  border-color: var(--accent);
 }
 .ghs-btn:disabled {
   opacity: 0.5;
@@ -1143,6 +1171,7 @@ const linkedRepoLabel = computed(() => {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text, #000);
+  font-weight: 500;
 }
 .ghs-btn--primary:hover:not(:disabled) {
   filter: brightness(1.05);
@@ -1150,10 +1179,16 @@ const linkedRepoLabel = computed(() => {
 .ghs-btn--ghost {
   background: transparent;
   color: var(--text-muted);
+  border-color: transparent;
+}
+.ghs-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .ghs-btn--small {
-  padding: 3px 8px;
-  font-size: 10px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 10.5px;
 }
 .ghs-status {
   display: flex;
@@ -1176,8 +1211,8 @@ const linkedRepoLabel = computed(() => {
   color: var(--text-muted);
 }
 .ghs-status__pill--err {
-  border-color: #d12;
-  color: #d12;
+  border-color: var(--danger, #e5484d);
+  color: var(--danger, #e5484d);
 }
 .ghs-dot {
   width: 8px;
@@ -1220,7 +1255,7 @@ const linkedRepoLabel = computed(() => {
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1230,8 +1265,8 @@ const linkedRepoLabel = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+  padding: 5px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
   font-size: 12px;
 }
 .ghs-repolist__item:last-child {
@@ -1253,17 +1288,17 @@ const linkedRepoLabel = computed(() => {
 }
 .ghs-repolist__pill {
   font-size: 9px;
-  padding: 1px 6px;
+  padding: 1px 5px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text-faint);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .ghs-error {
-  font-size: 10px;
-  color: #d12;
-  margin: 0;
+  font-size: 11px;
+  color: var(--danger, #e5484d);
+  margin: 4px 0 0;
   word-break: break-all;
 }
 .ghs-upgrade-row {
@@ -1273,12 +1308,8 @@ const linkedRepoLabel = computed(() => {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: 6px;
-  padding: 10px 12px;
-  margin-top: 10px;
-}
-.ghs-upgrade-row__icon {
-  font-size: 18px;
-  line-height: 1;
+  padding: 8px 12px;
+  margin-top: 8px;
 }
 .ghs-upgrade-row__copy {
   flex: 1;
@@ -1294,21 +1325,21 @@ const linkedRepoLabel = computed(() => {
   margin: 0;
   font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 .ghs-upgrade-form {
   border-top: 1px dashed var(--border);
-  padding-top: 10px;
-  margin-top: 10px;
+  padding-top: 8px;
+  margin-top: 8px;
 }
 .ghs-warn {
   font-size: 11px;
   color: #b45309;
   background: rgba(245, 158, 11, 0.1);
   border-left: 3px solid #f59e0b;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 4px;
-  line-height: 1.5;
+  line-height: 1.45;
   margin: 4px 0;
 }
 .ghs-keychain-hint {
@@ -1318,26 +1349,22 @@ const linkedRepoLabel = computed(() => {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: 6px;
-  padding: 10px 12px;
-  margin: 0 0 10px;
-}
-.ghs-keychain-hint__icon {
-  font-size: 18px;
-  line-height: 1;
+  padding: 8px 12px;
+  margin: 0 0 8px;
 }
 .ghs-keychain-hint strong {
   display: block;
   font-size: 12px;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .ghs-keychain-hint p {
   margin: 0;
   font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
-/* Token-expired warning banner — uses the danger hue, not the accent. */
+/* Token-expired warning banner */
 .ghs-authwarn {
   display: flex;
   gap: 10px;
@@ -1345,12 +1372,8 @@ const linkedRepoLabel = computed(() => {
   background: color-mix(in srgb, var(--danger, #e5484d) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--danger, #e5484d) 35%, transparent);
   border-radius: 6px;
-  padding: 10px 12px;
-  margin: 0 0 12px;
-}
-.ghs-authwarn__icon {
-  font-size: 18px;
-  line-height: 1;
+  padding: 8px 12px;
+  margin: 0 0 8px;
 }
 .ghs-authwarn__body {
   flex: 1;
@@ -1359,12 +1382,12 @@ const linkedRepoLabel = computed(() => {
   display: block;
   font-size: 12px;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .ghs-authwarn__body p {
   margin: 0;
   font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 </style>

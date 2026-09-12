@@ -49,75 +49,79 @@ async function save() {
 </script>
 
 <template>
-  <section class="proxy">
-    <h3 class="proxy__heading">{{ t('githubSync.proxyTitle') }}</h3>
-    <div class="proxy__row">
-      <input
-        v-model="proxyUrl"
-        type="text"
-        class="proxy__input"
-        :placeholder="t('githubSync.proxyPlaceholder')"
-        spellcheck="false"
-      />
-      <button class="proxy__btn" :disabled="saving" @click="save">
-        {{ saving ? t('githubSync.proxySaving') : t('githubSync.proxySaveBtn') }}
-      </button>
+  <div class="settings-group">
+    <div class="settings-group__title">{{ t('githubSync.proxyTitle') }}</div>
+    <div class="settings-group__card">
+      <div class="setting-row">
+        <div class="setting-row__info">
+          <span class="setting-row__title">{{ t('githubSync.proxyTitle') }}</span>
+          <p class="setting-row__hint">{{ t('githubSync.proxyHint') }}</p>
+        </div>
+        <div class="setting-row__control">
+          <div class="proxy-ctrl">
+            <input
+              v-model="proxyUrl"
+              type="text"
+              class="proxy-input"
+              :placeholder="t('githubSync.proxyPlaceholder')"
+              spellcheck="false"
+            />
+            <button class="proxy-btn" :disabled="saving" @click="save">
+              {{ saving ? t('githubSync.proxySaving') : t('githubSync.proxySaveBtn') }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <p class="proxy__hint">{{ t('githubSync.proxyHint') }}</p>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.proxy {
+@import './settings/settings-common.css';
+
+.proxy-ctrl {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.proxy__heading {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 18px 0 0;
-}
-.proxy__row {
-  display: flex;
-  gap: 6px;
   align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
 }
-.proxy__input {
+.proxy-input {
   flex: 1;
   min-width: 0;
-  padding: 6px 8px;
+  height: 28px;
+  padding: 4px 8px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text);
   border-radius: 4px;
-  font: inherit;
   font-size: 12px;
   font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  outline: none;
+  box-sizing: border-box;
 }
-.proxy__btn {
+.proxy-input:focus {
+  border-color: var(--accent);
+}
+.proxy-btn {
+  height: 28px;
   border: 1px solid var(--border);
   background: var(--bg-elev);
   color: var(--text);
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 0 10px;
+  font-size: 11.5px;
   border-radius: 4px;
   cursor: pointer;
-  font: inherit;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+  box-sizing: border-box;
 }
-.proxy__btn:hover:not(:disabled) {
+.proxy-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
 }
-.proxy__btn:disabled {
+.proxy-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-.proxy__hint {
-  margin: 0;
-  font-size: 11px;
-  color: var(--text-faint);
-  line-height: 1.5;
 }
 </style>

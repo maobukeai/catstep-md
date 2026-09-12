@@ -15,11 +15,11 @@ import { useI18n } from '../i18n';
 const cloud = useCloudSyncStore();
 const { t } = useI18n();
 
-const PROVIDER_ICON: Record<string, string> = {
-  icloud: '☁️',
-  dropbox: '📦',
-  onedrive: '🪟',
-  google_drive: '🅖',
+const PROVIDER_TAG: Record<string, string> = {
+  icloud: 'iCloud',
+  dropbox: 'Dropbox',
+  onedrive: 'OneDrive',
+  google_drive: 'Google Drive',
   none: '',
 };
 </script>
@@ -27,7 +27,9 @@ const PROVIDER_ICON: Record<string, string> = {
 <template>
   <section v-if="cloud.isInCloudFolder" class="cfb">
     <div class="cfb__row">
-      <span class="cfb__icon" aria-hidden="true">{{ PROVIDER_ICON[cloud.cloud.provider] }}</span>
+      <span v-if="PROVIDER_TAG[cloud.cloud.provider]" class="cfb__tag">
+        {{ PROVIDER_TAG[cloud.cloud.provider] }}
+      </span>
       <div class="cfb__copy">
         <strong>{{ t('cloudSync.detectedTitle', { label: cloud.cloud.label }) }}</strong>
         <p>{{ t('cloudSync.detectedHint') }}</p>
@@ -45,33 +47,43 @@ const PROVIDER_ICON: Record<string, string> = {
   border-left: 3px solid var(--accent);
   background: var(--bg-soft, var(--bg));
   border-radius: 6px;
-  padding: 10px 14px;
-  margin-bottom: 12px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
 }
 .cfb__row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
 }
-.cfb__icon {
-  font-size: 22px;
-  line-height: 1;
+.cfb__tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  flex-shrink: 0;
+  margin-top: 1px;
 }
 .cfb__copy {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 .cfb__copy strong {
   font-size: 12px;
   color: var(--text);
+  font-weight: 600;
 }
 .cfb__copy p {
   margin: 0;
   font-size: 11px;
   color: var(--text-faint);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 .cfb__siblings {
   color: var(--text-muted) !important;

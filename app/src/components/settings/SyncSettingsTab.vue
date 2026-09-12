@@ -66,6 +66,6 @@ function withChord(key: string, actionId: string): string {
 }
 
 .settings-subcomponent-wrap {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 </style>
