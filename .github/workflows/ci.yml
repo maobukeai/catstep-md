@@ -75,6 +75,14 @@ jobs:
             libssl-dev \
             libdbus-1-dev
 
+      - name: Pre-build catstep-mcp sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          echo "host triple: $TRIPLE"
+          bash scripts/build-mcp-sidecar.sh "$TRIPLE"
+
       - name: Cargo Check
         run: |
           cd app/src-tauri
