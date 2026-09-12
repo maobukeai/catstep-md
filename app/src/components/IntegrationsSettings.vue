@@ -284,6 +284,14 @@ async function openClientConfig(c: AiClient) {
   }
 }
 
+function displayPath(p: string): string {
+  if (!p) return '';
+  if (isWindows.value) {
+    return p.replace(/\//g, '\\');
+  }
+  return p;
+}
+
 // ---------------------------------------------------------------------------
 // Static lists (kept here so the template can `v-for` over a typed array
 // rather than `Object.keys(t(...))` which is awkward in Vue templates).
@@ -446,45 +454,53 @@ const mcpToolKeys = [
 
       <ul class="ai-clients">
         <li v-for="c in clients" :key="c.id" class="ai-client">
-          <label class="ai-client__row">
-            <input
-              type="checkbox"
-              v-model="checked[c.id]"
-              :disabled="!c.config_dir_exists || injectBusy"
-            />
-            <span class="ai-client__name">{{ c.display_name }}</span>
-            <span
-              v-if="!c.config_dir_exists"
-              class="ai-client__badge ai-client__badge--off"
-            >
-              {{ t('integrations.aiClientsNotInstalled') }}
-            </span>
-            <span
-              v-else-if="c.has_solomd_entry"
-              class="ai-client__badge ai-client__badge--ok"
-            >
-              {{ t('integrations.aiClientsAlreadyConfigured') }}
-            </span>
-            <span
-              v-else
-              class="ai-client__badge ai-client__badge--pending"
-            >
-              {{ t('integrations.aiClientsReady') }}
-            </span>
-          </label>
-          <div class="ai-client__actions">
-            <button class="ic-btn ic-btn--small" @click="openClientConfig(c)">
-              {{ t('integrations.aiClientsOpenConfigBtn') }}
-            </button>
-            <button
-              v-if="c.has_solomd_entry"
-              class="ic-btn ic-btn--small ic-btn--danger"
-              @click="removeOne(c)"
-            >
-              {{ t('integrations.aiClientsRemoveBtn') }}
-            </button>
+          <div class="ai-client__top">
+            <label class="ai-client__label">
+              <input
+                type="checkbox"
+                v-model="checked[c.id]"
+                :disabled="!c.config_dir_exists || injectBusy"
+              />
+              <span class="ai-client__name">{{ c.display_name }}</span>
+            </label>
+            <div class="ai-client__side">
+              <span
+                v-if="!c.config_dir_exists"
+                class="ai-client__badge ai-client__badge--off"
+              >
+                {{ t('integrations.aiClientsNotInstalled') }}
+              </span>
+              <span
+                v-else-if="c.has_solomd_entry"
+                class="ai-client__badge ai-client__badge--ok"
+              >
+                {{ t('integrations.aiClientsAlreadyConfigured') }}
+              </span>
+              <span
+                v-else
+                class="ai-client__badge ai-client__badge--pending"
+              >
+                {{ t('integrations.aiClientsReady') }}
+              </span>
+              <button class="ic-btn ic-btn--small" @click="openClientConfig(c)">
+                {{ t('integrations.aiClientsOpenConfigBtn') }}
+              </button>
+              <button
+                v-if="c.has_solomd_entry"
+                class="ic-btn ic-btn--small ic-btn--danger"
+                @click="removeOne(c)"
+              >
+                {{ t('integrations.aiClientsRemoveBtn') }}
+              </button>
+            </div>
           </div>
-          <div class="ai-client__path">{{ c.config_path }}</div>
+          <div
+            class="ai-client__path"
+            :title="t('integrations.aiClientsOpenConfigBtn') + ': ' + displayPath(c.config_path)"
+            @click="openClientConfig(c)"
+          >
+            {{ displayPath(c.config_path) }}
+          </div>
         </li>
       </ul>
 
@@ -678,8 +694,8 @@ const mcpToolKeys = [
 .ic-intro-small {
   font-size: 11px;
   color: var(--text-faint);
-  margin: 0 0 10px;
-  line-height: 1.5;
+  margin: 0 0 8px;
+  line-height: 1.4;
 }
 .ai-clients {
   list-style: none;
@@ -687,31 +703,60 @@ const mcpToolKeys = [
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 .ai-client {
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
   background: var(--bg-soft);
+  border: 1px solid var(--border-faint, transparent);
+  transition: all 0.15s ease;
 }
-.ai-client__row {
+.ai-client:hover {
+  background: var(--bg-hover, var(--bg-elev));
+  border-color: var(--border, rgba(128, 128, 128, 0.15));
+}
+.ai-client__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+.ai-client__label {
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  min-width: 0;
+  user-select: none;
 }
-.ai-client__row input[type='checkbox']:disabled {
+.ai-client__label input[type='checkbox'] {
+  cursor: pointer;
+  margin: 0;
+}
+.ai-client__label input[type='checkbox']:disabled {
   cursor: not-allowed;
 }
 .ai-client__name {
   font-weight: 500;
   font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+.ai-client__side {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
 }
 .ai-client__badge {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 999px;
-  margin-left: auto;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 .ai-client__badge--off {
   background: var(--bg);
@@ -725,14 +770,12 @@ const mcpToolKeys = [
   background: rgba(255, 159, 64, 0.15);
   color: #d97700;
 }
-.ai-client__actions {
-  display: flex;
-  gap: 4px;
-  margin-top: 4px;
-}
 .ic-btn--small {
   font-size: 10px;
-  padding: 3px 8px;
+  padding: 1px 7px;
+  height: 20px;
+  line-height: 18px;
+  border-radius: 4px;
 }
 .ic-btn--danger {
   color: #d33;
@@ -744,17 +787,25 @@ const mcpToolKeys = [
   border-color: var(--accent);
 }
 .ai-client__path {
-  font-family: monospace;
+  font-family: var(--font-mono, monospace);
   font-size: 10px;
   color: var(--text-faint);
-  margin-top: 2px;
-  word-break: break-all;
+  padding-left: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.ai-client__path:hover {
+  color: var(--accent);
+  text-decoration: underline;
 }
 .ai-clients__controls {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 .ai-clients__allow-write {
   display: inline-flex;
