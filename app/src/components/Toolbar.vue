@@ -24,6 +24,7 @@ import { EditorView } from '@codemirror/view';
 import { openPipFocusTimer } from '../lib/pip-window';
 import { themeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
 import { useThemesStore } from '../stores/themes';
+import ThemeMarketplace from './ThemeMarketplace.vue';
 import type { Theme } from '../types';
 
 const { t } = useI18n();
@@ -57,6 +58,10 @@ function tip(labelKey: string, actionId: string): string {
 }
 
 const phoneMoreOpen = ref(false);
+const themeMarketplaceOpen = ref(false);
+function openThemeMarketplace() {
+  themeMarketplaceOpen.value = true;
+}
 function togglePhoneMore(): void {
   phoneMoreOpen.value = !phoneMoreOpen.value;
 }
@@ -448,6 +453,8 @@ function menuAction(id: string) {
       settings.setActiveCustomThemeId(found.id);
       settings.setCustomCssPath(found.path);
     }
+  } else if (id === 'themes.marketplace') {
+    openThemeMarketplace();
   } else {
     window.dispatchEvent(new CustomEvent('solomd:menu-action', { detail: id }));
   }
@@ -572,6 +579,8 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
             })),
           ]
         : []),
+      { sep: true as const },
+      { id: 'themes.marketplace', label: '🏪 ' + t('themes.browseBtn') },
     ],
     tools: [
       { id: 'tools.agent', label: m('aiAgent'), shortcut: 'Ctrl+J / Ctrl+Shift+A' },
@@ -686,6 +695,7 @@ onMounted(() => {
   window.addEventListener('scroll', onScrollAnywhere, true);
   window.addEventListener('solomd:toggle-pomodoro', onTogglePomodoroEvent);
   window.addEventListener('solomd:open-pomodoro', onOpenPomodoroEvent);
+  window.addEventListener('solomd:open-theme-marketplace', openThemeMarketplace);
 });
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick, true);
@@ -693,6 +703,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScrollAnywhere, true);
   window.removeEventListener('solomd:toggle-pomodoro', onTogglePomodoroEvent);
   window.removeEventListener('solomd:open-pomodoro', onOpenPomodoroEvent);
+  window.removeEventListener('solomd:open-theme-marketplace', openThemeMarketplace);
 });
 </script>
 
@@ -911,6 +922,12 @@ onBeforeUnmount(() => {
     >
       <span aria-hidden="true">{{ phoneMoreOpen ? '✕' : '⋯' }}</span>
     </button>
+
+    <!-- Theme Marketplace Modal -->
+    <ThemeMarketplace
+      :open="themeMarketplaceOpen"
+      @close="themeMarketplaceOpen = false"
+    />
   </div>
 </template>
 
