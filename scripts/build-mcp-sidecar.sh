@@ -46,6 +46,14 @@ if [[ -z "$TARGET" ]]; then
     exit 1
 fi
 
+case "$TARGET" in
+    *android*|*ios*)
+        echo "build-mcp-sidecar: skipping MCP sidecar for mobile target $TARGET"
+        exit 0
+        ;;
+esac
+
+
 # ---------------------------------------------------------------------------
 # Build (release profile from mcp-server/Cargo.toml — opt-level z + LTO).
 # ---------------------------------------------------------------------------
