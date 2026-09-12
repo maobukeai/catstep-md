@@ -258,7 +258,7 @@ function patchRelativeImports(css: string): string {
  * Scope Typora & user-provided CSS rules so they target document surfaces,
  * live-editor containers, and custom style tokens cleanly.
  */
-export function scopeTyporaCss(rawCss: string, filePath = ''): string {
+export function scopeTyporaCss(rawCss: string, filePath = '', isThemeBridge = true): string {
   if (!rawCss || !rawCss.trim()) return '';
 
   const patchedCss = patchRelativeImports(rawCss);
@@ -357,30 +357,39 @@ export function scopeTyporaCss(rawCss: string, filePath = ''): string {
 
   const restored = scoped.replace(/\/\*__CSS_COMMENT_(\d+)__\*\//g, (_, idx) => comments[Number(idx)]);
 
-  // Synthesize root colors if missing from :root variables
-  let synthesizedVars = '';
-  if (!toneInfo.hasBgVar && toneInfo.bgColor) {
-    synthesizedVars += `  --bg-color: ${toneInfo.bgColor};\n`;
-  }
-  if (!toneInfo.hasTextVar && toneInfo.textColor) {
-    synthesizedVars += `  --text-color: ${toneInfo.textColor};\n`;
-  }
-  if (toneInfo.accentColor) {
-    synthesizedVars += `  --primary-color: ${toneInfo.accentColor};\n`;
-    synthesizedVars += `  --drake-accent: ${toneInfo.accentColor};\n`;
-  }
+  let bridgeBlock = '';
+  if (isThemeBridge) {
+    // Synthesize root colors if missing from :root variables
+    let synthesizedVars = '';
+    if (!toneInfo.hasBgVar && toneInfo.bgColor) {
+      synthesizedVars += `  --bg-color: ${toneInfo.bgColor};\n`;
+    }
+    if (!toneInfo.hasTextVar && toneInfo.textColor) {
+      synthesizedVars += `  --text-color: ${toneInfo.textColor};\n`;
+    }
+    if (toneInfo.accentColor) {
+      synthesizedVars += `  --primary-color: ${toneInfo.accentColor};\n`;
+      synthesizedVars += `  --drake-accent: ${toneInfo.accentColor};\n`;
+    }
 
-  const rootVarsBlock = synthesizedVars.trim()
-    ? `:root, :root[data-theme] {\n${synthesizedVars}}\n`
-    : '';
+    const rootVarsBlock = synthesizedVars.trim()
+      ? `:root, :root[data-theme] {\n${synthesizedVars}}\n`
+      : '';
 
-  const bridgeBlock = `
+    // Concrete color fallbacks based on detected tone — NEVER fall back to var(--bg) or var(--text)
+    // to prevent circular CSS variable dependencies that cause background-color to evaluate to transparent!
+    const defaultFallbackBg = toneInfo.isDark ? '#1e1e1e' : '#ffffff';
+    const defaultFallbackText = toneInfo.isDark ? '#d4d4d4' : '#24292e';
+    const defaultFallbackAccent = toneInfo.isDark ? '#528bff' : '#0969da';
+    const defaultFallbackSelect = toneInfo.isDark ? 'rgba(82, 139, 255, 0.3)' : 'rgba(9, 105, 218, 0.2)';
+
+    bridgeBlock = `
 /* === Catstep MD — Typora CSS Variable & Container Compatibility Bridge === */
 ${rootVarsBlock}:root, :root[data-theme] {
-  --theme-resolved-bg: var(--interface-default-bg-color, var(--bg-color, var(--background-color, var(--main-bg, var(--window-bg, var(--canvas-bg, var(--bg)))))));
-  --theme-resolved-text: var(--writeArea-text-color, var(--text-color, var(--body-color, var(--main-color, var(--text)))));
-  --theme-resolved-accent: var(--primary-color, var(--accent, var(--accent-color, var(--drake-accent, var(--active-file-border-color, var(--a-color, var(--theme-color, #528bff)))))));
-  --theme-resolved-select: var(--writeArea-selected-text-bg-color, var(--select-text-bg-color, var(--selection-background, var(--selection-bg))));
+  --theme-resolved-bg: var(--interface-default-bg-color, var(--bg-color, var(--background-color, var(--main-bg, var(--window-bg, var(--canvas-bg, ${defaultFallbackBg}))))));
+  --theme-resolved-text: var(--writeArea-text-color, var(--text-color, var(--body-color, var(--main-color, ${defaultFallbackText}))));
+  --theme-resolved-accent: var(--primary-color, var(--accent-color, var(--drake-accent, var(--active-file-border-color, var(--a-color, var(--theme-color, ${defaultFallbackAccent}))))));
+  --theme-resolved-select: var(--writeArea-selected-text-bg-color, var(--select-text-bg-color, var(--selection-background, ${defaultFallbackSelect})));
   --theme-resolved-font: var(--writeArea-text-font, var(--font-sans-serif, var(--text-font, var(--default-font, inherit))));
   --theme-resolved-mono: var(--font-monospace, var(--code-font, monospace));
   --theme-resolved-title-color: var(--title-color, var(--heading-color, var(--h1-color, var(--theme-resolved-accent, var(--theme-resolved-text)))));
@@ -388,17 +397,7 @@ ${rootVarsBlock}:root, :root[data-theme] {
   --theme-resolved-code-bg: var(--code-block-bg-color, var(--code-bg, var(--item-hover-bg-color, rgba(128, 128, 128, 0.15))));
   --theme-resolved-quote: var(--blockquote-border-color, var(--blockquote-color, var(--quote-color, var(--theme-resolved-accent))));
 
-  /* Override Catstep MD core variables so live-editor and UI harmonize */
-  --bg: var(--theme-resolved-bg) !important;
-  --bg-elev: color-mix(in srgb, var(--theme-resolved-bg) 92%, var(--theme-resolved-text) 8%) !important;
-  --bg-hover: color-mix(in srgb, var(--theme-resolved-bg) 84%, var(--theme-resolved-text) 16%) !important;
-  --bg-active: color-mix(in srgb, var(--theme-resolved-bg) 76%, var(--theme-resolved-text) 24%) !important;
-  --border: color-mix(in srgb, var(--theme-resolved-bg) 80%, var(--theme-resolved-text) 20%) !important;
-  --text: var(--theme-resolved-text) !important;
-  --accent: var(--theme-resolved-accent) !important;
-  --selection-bg: var(--theme-resolved-select) !important;
-
-  /* Live Preview Variables */
+  /* Live Preview Variables for CodeMirror Markdown syntax */
   --md-h1: var(--theme-resolved-title-color) !important;
   --md-h2: var(--theme-resolved-title-color) !important;
   --md-h3: var(--theme-resolved-title-color) !important;
@@ -413,7 +412,8 @@ ${rootVarsBlock}:root, :root[data-theme] {
   --content-font-family: var(--theme-resolved-font) !important;
 }
 
-/* Editor container and CodeMirror styling */
+/* Document surfaces and CodeMirror styling — scoped strictly to writing surfaces */
+.catstep-prose-wrap,
 .editor-container,
 .cm-editor,
 .cm-scroller {
@@ -454,9 +454,10 @@ ${rootVarsBlock}:root, :root[data-theme] {
   font-family: var(--theme-resolved-font, inherit);
 }
 `;
+  }
 
   const leadingImportsBlock = importStatements.length > 0 ? importStatements.join('\n') + '\n' : '';
-  return leadingImportsBlock + bridgeBlock + '\n' + restored;
+  return leadingImportsBlock + (bridgeBlock ? bridgeBlock + '\n' : '') + restored;
 }
 
 const BODY_SELECTOR_RE = /(^|[,\s])body([\s:\[\]\.#>+~,]|$)/i;
@@ -530,11 +531,14 @@ export function removeCustomTheme() {
 export async function loadUserCss(): Promise<boolean> {
   try {
     const raw = await invoke<string>('theme_read_user_css');
-    if (!raw || !raw.trim()) {
+    // If user.css is empty or contains only comments/whitespace, ensure the style tag is removed and exit
+    const stripped = (raw || '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    if (!stripped) {
       removeUserCss();
       return true;
     }
-    const scoped = scopeTyporaCss(raw);
+    // Scope user rules strictly to document surfaces WITHOUT synthesizing a full theme bridge block
+    const scoped = scopeTyporaCss(raw, '', false);
     applyStyleTag(STYLE_USER_ID, scoped);
     return true;
   } catch (e) {
