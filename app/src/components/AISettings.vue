@@ -1055,103 +1055,82 @@ watch(
 
   <!-- ③ 智能体（工具调用 + 写入权限） -->
   <div class="ai-settings__card">
+    <!-- Row 1: 智能体权限与向导 -->
     <div class="ai-settings__card-header-row">
-      <div>
-        <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('agentSettings.heading') }}</h3>
-        <p class="ai-settings__desc">{{ t('agentSettings.desc') }}</p>
+      <div class="ai-settings__card-info">
+        <h3 class="ai-settings__heading">{{ t('agentSettings.heading') }}</h3>
+        <p class="ai-settings__desc">{{ t('agentSettings.allowWriteHint') }}</p>
       </div>
-      <button
-        type="button"
-        class="ai-settings__btn ai-settings__btn--small"
-        @click="reopenWizard"
-      >
-        {{ t('wizard.reopenBtn') }}
-      </button>
-    </div>
-
-    <!-- 紧凑统一样式列表卡片 -->
-    <div class="ai-settings__list-group">
-      <!-- 1. 运行与权限参数 (写入权限 + 循环上限) -->
-      <div class="ai-settings__list-row ai-settings__list-row--dual">
-        <label class="ai-settings__dual-col ai-settings__dual-col--clickable">
-          <div class="ai-settings__row-info">
-            <span class="ai-settings__label font-medium">{{ t('agentSettings.allowWrite') }}</span>
-            <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
-          </div>
-          <div class="ai-settings__row-control">
-            <input
-              type="checkbox"
-              :checked="settingsStore.agentAllowWrite"
-              @change="settingsStore.toggleAgentAllowWrite()"
-            />
-          </div>
+      <div class="ai-settings__header-actions">
+        <button
+          type="button"
+          class="ai-settings__btn ai-settings__btn--small"
+          @click="reopenWizard"
+        >
+          {{ t('wizard.reopenBtn') }}
+        </button>
+        <span class="ai-settings__v-divider" />
+        <label class="ai-settings__switch-combo" :title="t('agentSettings.allowWriteHint')">
+          <span class="ai-settings__switch-text">{{ t('agentSettings.allowWrite') }}</span>
+          <input
+            type="checkbox"
+            :checked="settingsStore.agentAllowWrite"
+            @change="settingsStore.toggleAgentAllowWrite()"
+          />
         </label>
-
-        <span class="ai-settings__col-divider" />
-
-        <div class="ai-settings__dual-col">
-          <div class="ai-settings__row-info">
-            <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
-            <span class="ai-settings__hint">{{ t('agentSettings.loopCapHint') }}</span>
-          </div>
-          <div class="ai-settings__row-control">
-            <input
-              id="agent-loop-cap"
-              type="number"
-              min="1"
-              max="20"
-              step="1"
-              :value="settingsStore.agentToolLoopCap"
-              class="ai-settings__input ai-settings__input--narrow"
-              @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. 最近运行记录 -->
-      <div class="ai-settings__list-row ai-settings__list-row--block">
-        <div class="ai-settings__recent-header">
-          <span class="ai-settings__label font-medium">{{ t('agentSettings.recentRuns') }}</span>
-          <button
-            v-if="workspaceStore.currentFolder"
-            type="button"
-            class="ai-settings__btn ai-settings__btn--refresh"
-            @click="refreshRuns"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-              <path d="M16 21h5v-5"/>
-            </svg>
-            {{ t('agentSettings.refresh') }}
-          </button>
-        </div>
-        <div class="ai-settings__runs-body">
-          <p v-if="!workspaceStore.currentFolder" class="ai-settings__hint">
-            {{ t('agentSettings.noWorkspace') }}
-          </p>
-          <p v-else-if="runsLoading" class="ai-settings__hint">{{ t('agentSettings.loading') }}</p>
-          <p v-else-if="!recentRuns.length" class="ai-settings__hint ai-settings__hint--muted">
-            {{ t('agentSettings.noRuns') }}
-          </p>
-          <ul v-else class="ai-settings__runs-list">
-            <li v-for="r in recentRuns" :key="r.run_id" class="ai-settings__run">
-              <button class="ai-settings__run-link" type="button" @click="openRunMd(r)">
-                <code class="ai-settings__run-id">{{ r.run_id }}</code>
-              </button>
-              <span class="ai-settings__run-meta">
-                <span :class="['ai-settings__run-pill', `ai-settings__run-pill--${r.status}`]">{{ r.status }}</span>
-                <span class="ai-settings__run-kind">{{ r.kind }}</span>
-                <span class="ai-settings__run-time">{{ fmtRunStartedAt(r.started_at) }}</span>
-                <span v-if="fmtRunUsage(r)" class="ai-settings__run-usage">{{ fmtRunUsage(r) }}</span>
-              </span>
-            </li>
-          </ul>
-        </div>
       </div>
     </div>
+
+    <!-- Row 2: 工具循环上限与运行记录 -->
+    <div class="ai-settings__row-line">
+      <div class="ai-settings__card-info">
+        <label class="ai-settings__label font-medium" for="agent-loop-cap">{{ t('agentSettings.loopCap') }}</label>
+        <p class="ai-settings__desc">{{ t('agentSettings.loopCapHint') }}</p>
+      </div>
+      <div class="ai-settings__header-actions">
+        <input
+          id="agent-loop-cap"
+          type="number"
+          min="1"
+          max="20"
+          step="1"
+          :value="settingsStore.agentToolLoopCap"
+          class="ai-settings__input ai-settings__input--narrow"
+          @change="settingsStore.setAgentToolLoopCap(Number(($event.target as HTMLInputElement).value))"
+        />
+        <span class="ai-settings__v-divider" />
+        <button
+          v-if="workspaceStore.currentFolder"
+          type="button"
+          class="ai-settings__btn ai-settings__btn--refresh"
+          :title="t('agentSettings.refresh')"
+          @click="refreshRuns"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 21h5v-5"/>
+          </svg>
+          {{ t('agentSettings.recentRuns') }} ({{ recentRuns.length }})
+        </button>
+      </div>
+    </div>
+
+    <!-- 运行记录列表（有记录时展开） -->
+    <ul v-if="recentRuns.length" class="ai-settings__runs-list">
+      <li v-for="r in recentRuns" :key="r.run_id" class="ai-settings__run">
+        <button class="ai-settings__run-link" type="button" @click="openRunMd(r)">
+          <code class="ai-settings__run-id">{{ r.run_id }}</code>
+        </button>
+        <span class="ai-settings__run-meta">
+          <span :class="['ai-settings__run-pill', `ai-settings__run-pill--${r.status}`]">{{ r.status }}</span>
+          <span class="ai-settings__run-kind">{{ r.kind }}</span>
+          <span class="ai-settings__run-time">{{ fmtRunStartedAt(r.started_at) }}</span>
+          <span v-if="fmtRunUsage(r)" class="ai-settings__run-usage">{{ fmtRunUsage(r) }}</span>
+        </span>
+      </li>
+    </ul>
   </div>
   </section>
 </template>
@@ -1787,6 +1766,15 @@ input[type='checkbox']:focus-visible {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
+}
+.ai-settings__row-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 .ai-settings__header-actions {
   display: flex;
