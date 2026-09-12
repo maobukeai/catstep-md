@@ -604,15 +604,15 @@ watch(
       </div>
 
       <label class="ai-settings__row ai-settings__row--toggle">
+        <span>
+          <span class="ai-settings__label">{{ t('ai.enable') }}</span>
+          <span class="ai-settings__hint">{{ t('ai.enableHint') }}</span>
+        </span>
         <input
           type="checkbox"
           :checked="enabled"
           @change="emit('update:enabled', ($event.target as HTMLInputElement).checked)"
         />
-        <span>
-          <span class="ai-settings__label">{{ t('ai.enable') }}</span>
-          <span class="ai-settings__hint">{{ t('ai.enableHint') }}</span>
-        </span>
       </label>
 
       <!-- Multi-provider profiles list -->
@@ -649,22 +649,32 @@ watch(
               <!-- Diagnose button -->
               <button
                 type="button"
-                class="ai-settings__btn ai-settings__btn--xs"
+                class="ai-settings__btn ai-settings__btn--xs ai-settings__btn--diag"
                 :disabled="diagnosisMap[profile.id]?.loading"
                 :title="t('ai.diagnoseConnection')"
                 @click="onDiagnoseProfile(profile)"
               >
-                {{ diagnosisMap[profile.id]?.loading ? t('ai.verifying') : t('ai.diagnoseConnection') }}
+                <svg v-if="diagnosisMap[profile.id]?.loading" class="ai-settings__spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="2"/>
+                  <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+                </svg>
+                <span>{{ diagnosisMap[profile.id]?.loading ? t('ai.verifying') : t('ai.diagnoseConnection') }}</span>
               </button>
 
               <!-- Edit toggle button -->
               <button
                 type="button"
-                class="ai-settings__btn ai-settings__btn--xs"
+                class="ai-settings__btn ai-settings__btn--xs ai-settings__btn--edit"
                 :class="{ 'is-active': editingProfileId === profile.id }"
                 @click="editingProfileId = editingProfileId === profile.id ? null : profile.id"
               >
-                {{ editingProfileId === profile.id ? (t('ai.cancel') || '收起') : t('ai.editProfile') }}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                </svg>
+                <span>{{ editingProfileId === profile.id ? (t('ai.cancel') || '收起') : t('ai.editProfile') }}</span>
               </button>
 
               <!-- Delete button -->
@@ -698,7 +708,10 @@ watch(
           <div class="ai-settings__profile-quick-info">
             <span class="ai-settings__info-item">
               <span class="ai-settings__info-label">Base URL:</span>
-              <code class="ai-settings__info-code">{{ profile.baseUrl || providerById(profile.provider)?.defaultBaseUrl || '默认' }}</code>
+              <code
+                class="ai-settings__info-code"
+                :title="profile.baseUrl || providerById(profile.provider)?.defaultBaseUrl || '默认'"
+              >{{ profile.baseUrl || providerById(profile.provider)?.defaultBaseUrl || '默认' }}</code>
             </span>
             <span v-if="profile.provider !== 'ollama' && profile.provider !== 'openai-compat'" class="ai-settings__info-item">
               <span class="ai-settings__info-label">密钥:</span>
@@ -835,7 +848,16 @@ watch(
                 :disabled="fetchStateMap[profile.id]?.loading"
                 @click="onFetchModelsForProfile(profile)"
               >
-                {{ fetchStateMap[profile.id]?.loading ? t('ai.fetchingModels') : t('ai.fetchModels') }}
+                <svg v-if="fetchStateMap[profile.id]?.loading" class="ai-settings__spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 21h5v-5"/>
+                </svg>
+                <span>{{ fetchStateMap[profile.id]?.loading ? t('ai.fetchingModels') : t('ai.fetchModels') }}</span>
               </button>
             </div>
 
@@ -1024,15 +1046,15 @@ watch(
     </div>
     <div class="ai-settings__group">
       <label class="ai-settings__row ai-settings__row--toggle">
+        <span>
+          <span class="ai-settings__label">{{ t('agentSettings.allowWrite') }}</span>
+          <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
+        </span>
         <input
           type="checkbox"
           :checked="settingsStore.agentAllowWrite"
           @change="settingsStore.toggleAgentAllowWrite()"
         />
-        <span>
-          <span class="ai-settings__label">{{ t('agentSettings.allowWrite') }}</span>
-          <span class="ai-settings__hint">{{ t('agentSettings.allowWriteHint') }}</span>
-        </span>
       </label>
 
       <div class="ai-settings__row">
@@ -1147,6 +1169,44 @@ watch(
   color: var(--text-muted);
   line-height: 1.5;
 }
+/* iOS Toggle Switch */
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-faint, #999) 32%, transparent);
+  cursor: pointer;
+  position: relative;
+  outline: none;
+  border: none;
+  flex-shrink: 0;
+  margin: 0;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type='checkbox']:checked {
+  background: var(--accent, #6366f1);
+}
+input[type='checkbox']:checked::after {
+  transform: translateX(16px);
+}
+input[type='checkbox']:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-elev), 0 0 0 4px var(--accent);
+}
+
 .ai-settings__row {
   display: flex;
   align-items: center;
@@ -1155,11 +1215,27 @@ watch(
   color: var(--text);
 }
 .ai-settings__row--toggle {
-  align-items: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ai-settings__row--toggle:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
 }
 .ai-settings__row--toggle > span {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  padding-right: 12px;
 }
 .ai-settings__label {
   min-width: 110px;
@@ -1565,21 +1641,34 @@ watch(
   font-size: 11px;
   color: var(--text-muted);
   flex-wrap: wrap;
+  padding: 1px 0;
 }
 .ai-settings__info-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 .ai-settings__info-label {
   color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .ai-settings__info-code {
   font-family: monospace;
   background: var(--bg-hover);
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 10.5px;
+  color: var(--text);
+  max-width: 380px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: middle;
 }
 .ai-settings__profile-drawer {
   display: flex;
@@ -1596,8 +1685,8 @@ watch(
   flex-direction: column;
   gap: 8px;
   margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 .ai-settings__models-header {
   display: flex;
@@ -1677,7 +1766,14 @@ watch(
   align-items: center;
   gap: 6px;
   flex: 1;
-  max-width: 320px;
+  max-width: 340px;
+}
+.ai-settings__input--sm {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  box-sizing: border-box;
 }
 .ai-settings__preset-quick-row {
   display: flex;
@@ -1685,9 +1781,27 @@ watch(
   gap: 6px;
   flex-wrap: wrap;
   font-size: 11px;
+  margin-top: 2px;
 }
 .ai-settings__preset-label {
   color: var(--text-muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.ai-settings__hint-chip {
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--bg-hover) 40%, transparent);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ai-settings__hint-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
 }
 .ai-settings__fetched-drawer {
   display: flex;
@@ -1726,13 +1840,40 @@ watch(
   border: 1px solid var(--accent, #6366f1);
 }
 .ai-settings__btn--xs {
-  padding: 2px 8px;
-  font-size: 11px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 10.5px;
   border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1;
+  box-sizing: border-box;
 }
 .ai-settings__btn--sm {
-  padding: 4px 8px;
-  font-size: 11px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  line-height: 1;
+  box-sizing: border-box;
+}
+.ai-settings__btn--diag {
+  color: var(--text);
+}
+.ai-settings__btn--diag:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ai-settings__btn--edit.is-active {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+  background: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
 }
 .ai-settings__btn--danger:hover {
   border-color: #dc2626;
