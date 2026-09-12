@@ -1,0 +1,64 @@
+/*
+ * Newsprint — 报刊宋体 (官方精选).
+ * Classic newspaper serif aesthetic, warm paper background, elegant literary layout.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #fbfbf9;
+  --bg-elev: #f4f3f0;
+  --bg-hover: #eae8e1;
+  --bg-active: #e2ded5;
+  --border: #dedad0;
+  --text: #333333;
+  --text-muted: #666660;
+  --text-faint: #999990;
+  --accent: #9a4d2c;
+  --accent-fg: #ffffff;
+  --selection-bg: rgba(180, 160, 120, 0.25);
+  --content-font-family: "Source Han Serif SC", "Source Han Serif", "Noto Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", "Lora", serif;
+  --md-h1: inherit;
+  --md-h2: inherit;
+  --md-h3: inherit;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: inherit;
+  --md-em: inherit;
+  --md-link: var(--accent);
+  --md-url: var(--accent);
+  --md-code: inherit;
+  --md-code-bg: var(--bg-hover);
+  --md-quote: var(--text-muted);
+  --md-list: inherit;
+  --md-hr: var(--border);
+  --syn-keyword: #9e2a2b;
+  --syn-string: #386641;
+  --syn-number: #bc4749;
+  --syn-comment: #8d8d8d;
+  --syn-function: #6b705c;
+  --syn-variable: #333333;
+  --syn-type: #a25a38;
+  --syn-property: #6b705c;
+  --syn-operator: #9e2a2b;
+}
+
+.preview-content,
+.cm-content,
+.plain-block-editor {
+  font-family: "Source Han Serif SC", "Source Han Serif", "Noto Serif SC", "Songti SC", "SimSun", Georgia, "Times New Roman", Lora, serif;
+  line-height: 1.8;
+}
+
+.preview-content blockquote,
+.cm-line-quote {
+  border-left: 4px solid #b5a895 !important;
+  background: rgba(222, 218, 208, 0.25);
+  font-style: italic;
+  padding: 0.4em 1em;
+  color: #555550;
+  border-radius: 0 4px 4px 0;
+}

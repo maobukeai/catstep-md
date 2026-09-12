@@ -1,0 +1,46 @@
+/*
+ * Catppuccin 暖白奶霜 (官方精选).
+ * Warm modern pastel light theme — soothing, gentle on the eyes.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #eff1f5;
+  --bg-elev: #e6e9ef;
+  --bg-hover: #dce0e8;
+  --bg-active: #ccd0da;
+  --border: #ccd0da;
+  --text: #4c4f69;
+  --text-muted: #6c6f85;
+  --text-faint: #9ca0b0;
+  --accent: #1e66f5;
+  --accent-fg: #ffffff;
+  --selection-bg: rgba(30, 102, 245, 0.18);
+  --md-h1: inherit;
+  --md-h2: inherit;
+  --md-h3: inherit;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: #202336;
+  --md-em: inherit;
+  --md-link: #1e66f5;
+  --md-url: #1e66f5;
+  --md-code: #8839ef;
+  --md-code-bg: rgba(136, 57, 239, 0.08);
+  --md-quote: #6c6f85;
+  --md-list: inherit;
+  --md-hr: #ccd0da;
+  --syn-keyword: #8839ef;
+  --syn-string: #40a02b;
+  --syn-number: #fe640b;
+  --syn-comment: #9ca0b0;
+  --syn-function: #1e66f5;
+  --syn-variable: #4c4f69;
+  --syn-type: #df8e1d;
+  --syn-property: #04a5e5;
+  --syn-operator: #ea76cb;
+}

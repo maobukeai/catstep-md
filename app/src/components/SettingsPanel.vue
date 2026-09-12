@@ -14,7 +14,7 @@ import ShortcutsSettingsTab from './settings/ShortcutsSettingsTab.vue';
 import AdvancedSettingsTab from './settings/AdvancedSettingsTab.vue';
 import AboutSettingsTab from './settings/AboutSettingsTab.vue';
 import type { Theme } from '../types';
-import { themeLabels } from '../lib/themes';
+import { allThemeLabels } from '../lib/themes';
 
 const { t } = useI18n();
 const kbSettings = useSettingsStore();
@@ -189,7 +189,7 @@ const currentCategoryMeta = computed(() => {
 });
 
 const currentThemeLabel = computed(() => {
-  const found = themeLabels.find((th) => th.value === kbSettings.theme);
+  const found = allThemeLabels.find((th) => th.value === kbSettings.theme);
   if (!found) return isZh.value ? '默认主题' : 'Default Theme';
   return found.label.split(' ')[0] || found.label;
 });

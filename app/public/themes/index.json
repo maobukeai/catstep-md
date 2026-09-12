@@ -2,6 +2,133 @@
   "version": 1,
   "themes": [
     {
+      "id": "newsprint",
+      "name": "Newsprint 报刊宋体",
+      "author": "SoloMD Official",
+      "description": "经典报刊人文宋体与暖灰微纸感底色，排版舒展沉静，专为散文随笔与长篇深度写作打造。",
+      "url": "/themes/newsprint.css",
+      "preview": "/themes/preview/sepia.png",
+      "tags": [
+        "official",
+        "light",
+        "serif",
+        "literature",
+        "warm"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "catppuccin-latte",
+      "name": "Catppuccin 暖白奶霜",
+      "author": "SoloMD Official",
+      "description": "风靡全球的高级柔和马卡龙暖浅色调，温润护眼、对比柔和，极具现代设计质感。",
+      "url": "/themes/catppuccin-latte.css",
+      "preview": "/themes/preview/warm-sand.png",
+      "tags": [
+        "official",
+        "light",
+        "catppuccin",
+        "pastel",
+        "warm"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "sepia",
+      "name": "温润羊皮纸 (Bear 护眼)",
+      "author": "SoloMD Official",
+      "description": "复刻经典熊掌记 (Bear) 与 Kindle 护眼羊皮纸质感，暖调柔纸配暖茶色墨水，久读不累。",
+      "url": "/themes/sepia.css",
+      "preview": "/themes/preview/sepia.png",
+      "tags": [
+        "official",
+        "light",
+        "warm",
+        "sepia",
+        "reading"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "vue",
+      "name": "Vue 翡翠极简",
+      "author": "SoloMD Official",
+      "description": "源自 VitePress 官方文档美学，纯净高雅白底搭配清新明澈的翡翠翠绿，科技与清爽兼备。",
+      "url": "/themes/vue.css",
+      "preview": "/themes/preview/nord-light.png",
+      "tags": [
+        "official",
+        "light",
+        "minimal",
+        "vue",
+        "clean"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "catppuccin-mocha",
+      "name": "Catppuccin 摩卡暗夜",
+      "author": "SoloMD Official",
+      "description": "现代顶流极客暗黑风，幽邃深空底色融入柔和薰衣草与天青蓝，代码高亮与正文视觉极其舒适。",
+      "url": "/themes/catppuccin-mocha.css",
+      "preview": "/themes/preview/amber-dark.png",
+      "tags": [
+        "official",
+        "dark",
+        "catppuccin",
+        "modern",
+        "popular"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "forest",
+      "name": "松柏青墨 (竹林幽夜)",
+      "author": "SoloMD Official",
+      "description": "深邃松林墨绿暗夜底色，配以青竹绿与暖金点缀，如深夜踏入静谧竹林般的沉浸专注。",
+      "url": "/themes/forest.css",
+      "preview": "/themes/preview/deep-green.png",
+      "tags": [
+        "official",
+        "dark",
+        "nature",
+        "green",
+        "focus"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "dracula",
+      "name": "Dracula 经典德古拉",
+      "author": "SoloMD Official",
+      "description": "全球开发者最钟爱的吸血鬼暗夜主题，霓虹紫/粉/青高对比语法撞色，张扬且耐看。",
+      "url": "/themes/dracula.css",
+      "preview": "/themes/preview/deep-purple.png",
+      "tags": [
+        "official",
+        "dark",
+        "dracula",
+        "developer",
+        "contrast"
+      ],
+      "license": "MIT"
+    },
+    {
+      "id": "one-dark",
+      "name": "One Dark (标准深灰)",
+      "author": "SoloMD Official",
+      "description": "源自 Atom 与 VS Code 经典 Dark+ 纯正深灰美学，低调内敛、沉稳护眼的标准极客暗色。",
+      "url": "/themes/one-dark.css",
+      "preview": "/themes/preview/graphite-gray.png",
+      "tags": [
+        "official",
+        "dark",
+        "minimal",
+        "classic"
+      ],
+      "license": "MIT"
+    },
+    {
       "id": "amber-dark",
       "name": "Amber Dark",
       "author": "alex",
@@ -37,20 +164,6 @@
       "tags": [
         "dark",
         "oled"
-      ],
-      "license": "MIT"
-    },
-    {
-      "id": "sepia",
-      "name": "Sepia",
-      "author": "alex",
-      "description": "Paper-like reading mode — warm cream paper, brown ink. Perfect for long-form prose.",
-      "url": "/themes/sepia.css",
-      "preview": "/themes/preview/sepia.png",
-      "tags": [
-        "light",
-        "sepia",
-        "warm"
       ],
       "license": "MIT"
     },

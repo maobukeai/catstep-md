@@ -22,7 +22,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { forceWinChromePreview, isIOS, isMacOS, isWindowsDesktop } from '../lib/platform';
 import { EditorView } from '@codemirror/view';
 import { openPipFocusTimer } from '../lib/pip-window';
-import { themeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
+import { themeLabels, allThemeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
 import { useThemesStore } from '../stores/themes';
 import ThemeMarketplace from './ThemeMarketplace.vue';
 import type { Theme } from '../types';
@@ -563,10 +563,22 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'view.zoomUiReset', label: t('menubar.uiZoomReset'), shortcut: 'Ctrl+Alt+0' },
     ],
     themes: [
+      // 官方默认基石主题 (猫步晴白 & 猫步玄夜)
       ...themeLabels.map((th) => ({
         id: `theme:${th.value}`,
         label: (!settings.activeCustomThemeId && settings.theme === th.value ? '✓  ' : '    ') + th.label,
       })),
+      // 兼容回退：若当前正使用未在官方两款中的内置预设，也展示其标签
+      ...(!settings.activeCustomThemeId && !themeLabels.some((d) => d.value === settings.theme) && allThemeLabels.some((a) => a.value === settings.theme)
+        ? [
+            { sep: true as const },
+            {
+              id: `theme:${settings.theme}`,
+              label: '✓  ' + (allThemeLabels.find((a) => a.value === settings.theme)?.label || settings.theme),
+            },
+          ]
+        : []),
+      // 用户从主题市场安装的主题
       ...(themesStore.installed.length > 0
         ? [
             { sep: true as const },

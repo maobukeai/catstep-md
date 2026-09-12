@@ -1,0 +1,46 @@
+/*
+ * One Dark (官方精选).
+ * Atom & VS Code classic deep gray dark palette.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1f1e1b;
+  --bg-elev: #23221f;
+  --bg-hover: #2a2a2a;
+  --bg-active: #333333;
+  --border: #34322d;
+  --text: #e6e1d8;
+  --text-muted: #b8b1a6;
+  --text-faint: #7f776d;
+  --accent: #ffa54d;
+  --accent-fg: #1a1a1a;
+  --selection-bg: rgba(255, 165, 77, 0.2);
+  --md-h1: inherit;
+  --md-h2: inherit;
+  --md-h3: inherit;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: inherit;
+  --md-em: inherit;
+  --md-link: var(--accent);
+  --md-url: var(--accent);
+  --md-code: inherit;
+  --md-code-bg: var(--bg-hover);
+  --md-quote: var(--text-muted);
+  --md-list: inherit;
+  --md-hr: var(--border);
+  --syn-keyword: #c678dd;
+  --syn-string: #98c379;
+  --syn-number: #d19a66;
+  --syn-comment: #5c6370;
+  --syn-function: #61afef;
+  --syn-variable: #e06c75;
+  --syn-type: #e5c07b;
+  --syn-property: #e06c75;
+  --syn-operator: #56b6c2;
+}

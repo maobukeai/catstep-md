@@ -1,0 +1,46 @@
+/*
+ * Catppuccin 摩卡暗夜 (官方精选).
+ * Top-tier modern dark aesthetic with soothing lavender and sky blue accents.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e1e2e;
+  --bg-elev: #181825;
+  --bg-hover: #25263a;
+  --bg-active: #313244;
+  --border: #313244;
+  --text: #cdd6f4;
+  --text-muted: #a6adc8;
+  --text-faint: #6c7086;
+  --accent: #89b4fa;
+  --accent-fg: #11111b;
+  --selection-bg: rgba(137, 180, 250, 0.25);
+  --md-h1: #cdd6f4;
+  --md-h2: #cdd6f4;
+  --md-h3: #cdd6f4;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: #ffffff;
+  --md-em: inherit;
+  --md-link: #89b4fa;
+  --md-url: #89b4fa;
+  --md-code: #f38ba8;
+  --md-code-bg: rgba(243, 139, 168, 0.12);
+  --md-quote: #a6adc8;
+  --md-list: inherit;
+  --md-hr: #313244;
+  --syn-keyword: #cba6f7;
+  --syn-string: #a6e3a1;
+  --syn-number: #fab387;
+  --syn-comment: #6c7086;
+  --syn-function: #89b4fa;
+  --syn-variable: #cdd6f4;
+  --syn-type: #f9e2af;
+  --syn-property: #89dceb;
+  --syn-operator: #f5c2e7;
+}

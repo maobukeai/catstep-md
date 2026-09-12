@@ -1,0 +1,46 @@
+/*
+ * Dracula (官方精选).
+ * Classic gothic purple and neon dark palette.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #282a36;
+  --bg-elev: #44475a;
+  --bg-hover: #4e5172;
+  --bg-active: #5a5d8a;
+  --border: #44475a;
+  --text: #f8f8f2;
+  --text-muted: #bfbfdc;
+  --text-faint: #6272a4;
+  --accent: #bd93f9;
+  --accent-fg: #282a36;
+  --selection-bg: rgba(189, 147, 249, 0.22);
+  --md-h1: inherit;
+  --md-h2: inherit;
+  --md-h3: inherit;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: inherit;
+  --md-em: inherit;
+  --md-link: var(--accent);
+  --md-url: var(--accent);
+  --md-code: inherit;
+  --md-code-bg: var(--bg-hover);
+  --md-quote: var(--text-muted);
+  --md-list: inherit;
+  --md-hr: var(--border);
+  --syn-keyword: #ff79c6;
+  --syn-string: #f1fa8c;
+  --syn-number: #bd93f9;
+  --syn-comment: #6272a4;
+  --syn-function: #50fa7b;
+  --syn-variable: #f8f8f2;
+  --syn-type: #8be9fd;
+  --syn-property: #50fa7b;
+  --syn-operator: #ff79c6;
+}

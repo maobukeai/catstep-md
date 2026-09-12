@@ -1,0 +1,46 @@
+/*
+ * Vue 翡翠极简 (官方精选).
+ * VitePress clean emerald white palette — fresh, clear, modern.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --bg-elev: #f6f8fa;
+  --bg-hover: #eef2f5;
+  --bg-active: #e2e8ee;
+  --border: #e1e4e8;
+  --text: #2c3e50;
+  --text-muted: #607182;
+  --text-faint: #95a5b5;
+  --accent: #3eaf7c;
+  --accent-fg: #ffffff;
+  --selection-bg: rgba(62, 175, 124, 0.2);
+  --md-h1: #2c3e50;
+  --md-h2: #2c3e50;
+  --md-h3: #2c3e50;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: #1a2634;
+  --md-em: inherit;
+  --md-link: #3eaf7c;
+  --md-url: #3eaf7c;
+  --md-code: #3eaf7c;
+  --md-code-bg: rgba(62, 175, 124, 0.1);
+  --md-quote: #607182;
+  --md-list: inherit;
+  --md-hr: #e1e4e8;
+  --syn-keyword: #d63200;
+  --syn-string: #3eaf7c;
+  --syn-number: #c25205;
+  --syn-comment: #95a5b5;
+  --syn-function: #007acc;
+  --syn-variable: #2c3e50;
+  --syn-type: #e36209;
+  --syn-property: #007acc;
+  --syn-operator: #d63200;
+}

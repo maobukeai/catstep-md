@@ -5,7 +5,7 @@ import { useThemesStore } from '../../stores/themes';
 import { useTabsStore } from '../../stores/tabs';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { themeLabels } from '../../lib/themes';
+import { themeLabels, allThemeLabels } from '../../lib/themes';
 import { reloadAllCustomStyles, loadCustomTheme } from '../../lib/custom-theme';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useViewport } from '../../composables/useViewport';
@@ -219,10 +219,18 @@ onMounted(() => {
               :value="currentThemeSelectValue"
               @change="onThemeSelectChange(($event.target as HTMLSelectElement).value)"
             >
-              <optgroup :label="isZh ? '内置主题' : 'Built-in Themes'">
+              <optgroup :label="isZh ? '官方默认主题' : 'Official Themes'">
                 <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
               </optgroup>
-              <optgroup v-if="themesStore.installed.length > 0" :label="isZh ? '自定义 / Typora 主题' : 'Custom / Typora Themes'">
+              <optgroup
+                v-if="!settings.activeCustomThemeId && !themeLabels.some((d) => d.value === settings.theme) && allThemeLabels.some((a) => a.value === settings.theme)"
+                :label="isZh ? '当前正在使用' : 'Active Theme'"
+              >
+                <option :value="settings.theme">
+                  {{ allThemeLabels.find((a) => a.value === settings.theme)?.label || settings.theme }}
+                </option>
+              </optgroup>
+              <optgroup v-if="themesStore.installed.length > 0" :label="isZh ? '已安装主题 (社区市场)' : 'Installed Themes (Marketplace)'">
                 <option
                   v-for="cth in themesStore.installed"
                   :key="cth.id"

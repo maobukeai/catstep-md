@@ -195,25 +195,37 @@ export function dataThemeFor(theme: Theme): string {
   return theme;
 }
 
-export const themeLabels: { value: Theme; label: string }[] = [
-  // ── 浅色优雅写作系列 ──
+/** 官方默认基石主题（猫步晴白 & 猫步玄夜） */
+export const defaultThemeLabels: { value: Theme; label: string }[] = [
   { value: 'github-light', label: '猫步晴白 (官方默认)' },
+  { value: 'night', label: '猫步玄夜 (官方默认)' },
+];
+
+/** 所有内置预设主题列表（保留用于兼容老配置与平滑回退） */
+export const allThemeLabels: { value: Theme; label: string }[] = [
+  // ── 官方默认 ──
+  { value: 'github-light', label: '猫步晴白 (官方默认)' },
+  { value: 'night', label: '猫步玄夜 (官方默认)' },
+
+  // ── 浅色精选系列（已入驻主题市场） ──
   { value: 'newsprint', label: 'Newsprint (报刊宋体)' },
   { value: 'catppuccin-latte', label: 'Catppuccin 暖白奶霜 (柔和温润)' },
   { value: 'sepia', label: '温润羊皮纸 (Bear 护眼暖阳)' },
   { value: 'vue', label: 'Vue 翡翠极简 (清新明澈)' },
 
-  // ── 深色沉浸专注系列 ──
-  { value: 'night', label: '猫步玄夜 (官方默认)' },
+  // ── 深色精选系列（已入驻主题市场） ──
   { value: 'catppuccin-mocha', label: 'Catppuccin 摩卡暗夜 (现代顶流)' },
   { value: 'forest', label: '松柏青墨 (竹林幽夜)' },
   { value: 'dracula', label: 'Dracula (经典德古拉)' },
   { value: 'dark', label: 'One Dark (标准深灰)' },
 ];
 
+/** 默认仅暴露官方两款核心主题 */
+export const themeLabels = defaultThemeLabels;
+
 export function isValidTheme(theme: string): theme is Theme {
   return (
-    themeLabels.some((th) => th.value === theme) ||
+    allThemeLabels.some((th) => th.value === theme) ||
     ['light', 'nord', 'solarized-light', 'solarized-dark', 'monokai'].includes(theme)
   );
 }

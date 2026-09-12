@@ -1,0 +1,46 @@
+/*
+ * 松柏青墨 (官方精选).
+ * Tranquil bamboo and pine slate dark palette — serene, deep focus.
+ *
+ * License: MIT
+ */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #151d1a;
+  --bg-elev: #1a2420;
+  --bg-hover: #22302b;
+  --bg-active: #2a3b35;
+  --border: #283731;
+  --text: #d6e2dd;
+  --text-muted: #95aba1;
+  --text-faint: #5f746b;
+  --accent: #52b788;
+  --accent-fg: #0d1412;
+  --selection-bg: rgba(82, 183, 136, 0.25);
+  --md-h1: #eaf2ee;
+  --md-h2: #eaf2ee;
+  --md-h3: #eaf2ee;
+  --md-h4: inherit;
+  --md-h5: inherit;
+  --md-h6: inherit;
+  --md-strong: #ffffff;
+  --md-em: inherit;
+  --md-link: #74c69d;
+  --md-url: #74c69d;
+  --md-code: #74c69d;
+  --md-code-bg: rgba(82, 183, 136, 0.12);
+  --md-quote: #95aba1;
+  --md-list: inherit;
+  --md-hr: #283731;
+  --syn-keyword: #e76f51;
+  --syn-string: #74c69d;
+  --syn-number: #f4a261;
+  --syn-comment: #5f746b;
+  --syn-function: #52b788;
+  --syn-variable: #d6e2dd;
+  --syn-type: #e9c46a;
+  --syn-property: #74c69d;
+  --syn-operator: #52b788;
+}
