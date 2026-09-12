@@ -49,6 +49,7 @@ const CjkProofread = defineAsyncComponent(() => import('./components/CjkProofrea
 const ReadingView = defineAsyncComponent(() => import('./components/ReadingView.vue'));
 const AboutDialog = defineAsyncComponent(() => import('./components/AboutDialog.vue'));
 const SponsorModal = defineAsyncComponent(() => import('./components/SponsorModal.vue'));
+const UpdateModal = defineAsyncComponent(() => import('./components/UpdateModal.vue'));
 const AgentSetupWizard = defineAsyncComponent(() => import('./components/AgentSetupWizard.vue'));
 const UnsavedDialog = defineAsyncComponent(() => import('./components/UnsavedDialog.vue'));
 const FileChangedDialog = defineAsyncComponent(() => import('./components/FileChangedDialog.vue'));
@@ -116,6 +117,8 @@ const toasts = useToastsStore();
 // they can react to app-resume (the all-files grant happens in system Settings,
 // outside our process).
 const androidPickerOpen = ref(false);
+const updateModalOpen = ref(false);
+const startupUpdateResult = ref<any>(null);
 // Shown after an all-files grant that didn't take effect on the running
 // process (see the resume probe in onMounted); the app must restart so shared
 // storage re-mounts.
@@ -1620,31 +1623,80 @@ onMounted(async () => {
   // Auto-check for updates
   if (!isIOS() && settings.autoCheckUpdate) {
     try {
-      const { checkForUpdateOnStartup, openReleaseUrl } = await import('./lib/check-update');
+      const {
+        checkForUpdateOnStartup,
+        startUpdateDownload,
+        installUpdateAndRestart,
+        initUpdaterEventListener,
+      } = await import('./lib/check-update');
+      await initUpdaterEventListener();
       const result = await checkForUpdateOnStartup();
       if (result && result.hasUpdate) {
+        startupUpdateResult.value = result;
         const toastsStore = (await import('./stores/toasts')).useToastsStore();
         const { useI18n } = await import('./i18n');
         const { t: tr } = useI18n();
-        // #171 — no auto-opening the browser (it yanks the user out of
-        // whatever they're writing). The toast lingers; clicking it opens
-        // the download page.
-        toastsStore.success(
-          tr('settings.updateAvailable', { version: result.latest || '' }),
-          12000,
-          () => { void openReleaseUrl(result.url); },
-        );
+
+        const asset = result.matchedAsset || (result.assets && result.assets.length > 0 ? result.assets[0] : null);
+        if (settings.autoDownloadUpdate && asset) {
+          // Zero-distraction: silently download update in background
+          void startUpdateDownload(asset, result.latest || '').then(() => {
+            if (settings.autoInstallUpdate) {
+              toastsStore.info(
+                tr('settings.updateInstalling') || '更新已下载完成，正在重启进入新版…',
+                4000,
+              );
+              setTimeout(() => {
+                void installUpdateAndRestart(undefined, true);
+              }, 2500);
+            } else {
+              toastsStore.success(
+                tr('settings.downloadComplete') || '新版已在后台下载完成，点击立即重启升级',
+                16000,
+                () => { void installUpdateAndRestart(); },
+              );
+            }
+          }).catch((err) => {
+            console.warn('Background auto-update download failed:', err);
+          });
+        } else {
+          // Normal mode: toast notification opens in-app UpdateModal
+          toastsStore.success(
+            tr('settings.updateAvailable', { version: result.latest || '' }),
+            12000,
+            () => { updateModalOpen.value = true; },
+          );
+        }
       }
     } catch { /* silent */ }
   }
 
   // Ensure desktop window is displayed and focused once the view has fully mounted
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const { getCurrentWindow, currentMonitor, LogicalSize } = await import('@tauri-apps/api/window');
     const win = getCurrentWindow();
     // Guard against startup fullscreen trap (e.g. stale window-state or accidental F11 before closing)
     if (await win.isFullscreen()) {
       await win.setFullscreen(false);
+    }
+    const isMax = await win.isMaximized();
+    if (!isMax) {
+      const mon = await currentMonitor();
+      if (mon) {
+        const outer = await win.outerSize();
+        const scale = mon.scaleFactor || 1;
+        const curW = Math.round(outer.width / scale);
+        const curH = Math.round(outer.height / scale);
+        const monW = Math.round(mon.size.width / scale);
+        const monH = Math.round(mon.size.height / scale);
+        // If unmaximized window covers the entire screen (leftover from fullscreen 1920x1080)
+        if (curW >= monW && curH >= monH - 20) {
+          const targetW = Math.max(480, Math.min(1200, Math.round(monW * 0.85)));
+          const targetH = Math.max(360, Math.min(800, Math.round(monH * 0.85)));
+          await win.setSize(new LogicalSize(targetW, targetH));
+          await win.center();
+        }
+      }
     }
     await win.show();
     await win.setFocus();
@@ -2757,6 +2809,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       @open-settings="aboutOpen = false; openSettingsAt('about')"
     />
     <SponsorModal v-model="sponsorOpen" />
+    <UpdateModal v-model="updateModalOpen" :update-info="startupUpdateResult" />
     <AgentSetupWizard v-if="!IS_APP_STORE_BUILD" :open="wizardOpen" @close="wizardOpen = false" />
     <UnsavedDialog
       :open="unsavedOpen"

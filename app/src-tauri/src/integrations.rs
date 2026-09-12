@@ -501,6 +501,7 @@ fn ai_client_config_path(client_id: &str, app: &AppHandle) -> Option<PathBuf> {
     let home = app.path().home_dir().ok();
 
     match client_id {
+        "antigravity" => home.map(|h| h.join(".gemini/config/mcp_config.json")),
         "claude-desktop" => {
             if cfg!(target_os = "macos") {
                 home.map(|h| h.join("Library/Application Support/Claude/claude_desktop_config.json"))
@@ -562,10 +563,14 @@ fn ai_client_probe_dir(client_id: &str, app: &AppHandle) -> Option<PathBuf> {
     if client_id == "claude-code" {
         return app.path().home_dir().ok().map(|h| h.join(".claude"));
     }
+    if client_id == "antigravity" {
+        return app.path().home_dir().ok().map(|h| h.join(".gemini"));
+    }
     ai_client_config_path(client_id, app).and_then(|p| p.parent().map(|p| p.to_path_buf()))
 }
 
 const AI_CLIENTS: &[(&str, &str)] = &[
+    ("antigravity", "Google Antigravity"),
     ("claude-desktop", "Claude Desktop"),
     ("claude-code", "Claude Code"),
     ("cursor", "Cursor"),
@@ -732,7 +737,7 @@ fn splice_solomd_entry(
     entry: JsonValue,
 ) -> Result<(), String> {
     match client_id {
-        "claude-desktop" | "claude-code" | "cursor" => {
+        "antigravity" | "claude-desktop" | "claude-code" | "cursor" => {
             let map = config
                 .as_object_mut()
                 .ok_or("root is not a JSON object")?;
@@ -741,6 +746,7 @@ fn splice_solomd_entry(
                 .or_insert_with(|| json!({}))
                 .as_object_mut()
                 .ok_or("mcpServers is not a JSON object")?;
+            servers.insert("catstep".to_string(), entry.clone());
             servers.insert("solomd".to_string(), entry);
         }
         "cline" => {
@@ -823,7 +829,7 @@ pub fn remove_mcp(app: AppHandle, client_id: String) -> Result<(), String> {
     }
     let mut config = read_json_or_empty(&config_path)?;
     match client_id.as_str() {
-        "claude-desktop" | "claude-code" | "cursor" | "cline" => {
+        "antigravity" | "claude-desktop" | "claude-code" | "cursor" | "cline" => {
             if let Some(servers) = config
                 .get_mut("mcpServers")
                 .and_then(|v| v.as_object_mut())
@@ -875,6 +881,15 @@ mod tests {
     }
 
     #[test]
+    fn splice_antigravity_into_empty() {
+        let mut c = json!({});
+        let entry = json!({ "command": "/bin/catstep-mcp", "args": ["--workspace", "/notes"] });
+        splice_solomd_entry("antigravity", &mut c, entry.clone()).unwrap();
+        assert_eq!(c["mcpServers"]["catstep"], entry);
+        assert_eq!(c["mcpServers"]["solomd"], entry);
+    }
+
+    #[test]
     fn splice_claude_desktop_preserves_other_servers() {
         let mut c = json!({
             "mcpServers": {
@@ -921,6 +936,7 @@ mod tests {
         let claude = r#"{"mcpServers":{"solomd":{"command":"/bin/solomd-mcp"}}}"#;
         assert!(config_has_solomd("claude-code", claude));
         assert!(config_has_solomd("claude-desktop", claude));
+        assert!(config_has_solomd("antigravity", claude));
         assert!(config_has_solomd(
             "continue",
             r#"{"mcp":[{"name":"solomd","command":"/bin/solomd-mcp"}]}"#
@@ -932,6 +948,7 @@ mod tests {
         let catstep = r#"{"mcpServers":{"catstep":{"command":"/bin/catstep-mcp"}}}"#;
         assert!(config_has_solomd("claude-code", catstep));
         assert!(config_has_solomd("claude-desktop", catstep));
+        assert!(config_has_solomd("antigravity", catstep));
     }
 
     #[test]

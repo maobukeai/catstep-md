@@ -312,6 +312,7 @@ ai_client_path() {
             esac ;;
         # User-scope MCP servers live in ~/.claude.json — the single
         # dotfile. ~/.claude/mcp.json is never read by Claude Code.
+        antigravity) echo "$HOME/.gemini/config/mcp_config.json" ;;
         claude-code) echo "$HOME/.claude.json" ;;
         cursor)      echo "$HOME/.cursor/mcp.json" ;;
         cline)
@@ -336,13 +337,15 @@ ai_client_path() {
 ai_client_probe_dir() {
     case "$1" in
         claude-code) echo "$HOME/.claude" ;;
+        antigravity) echo "$HOME/.gemini" ;;
         *)           dirname "$(ai_client_path "$1")" ;;
     esac
 }
 
-ai_clients=(claude-desktop claude-code cursor cline continue zed)
+ai_clients=(antigravity claude-desktop claude-code cursor cline continue zed)
 ai_client_label() {
     case "$1" in
+        antigravity)    echo "Google Antigravity" ;;
         claude-desktop) echo "Claude Desktop" ;;
         claude-code)    echo "Claude Code" ;;
         cursor)         echo "Cursor" ;;
@@ -439,7 +442,7 @@ inject_one_client() {
     [[ -s "$path" ]] && existing="$(cat "$path")"
     local merged
     case "$client" in
-        claude-desktop|claude-code|cursor|cline)
+        antigravity|claude-desktop|claude-code|cursor|cline)
             local entry
             if [[ "$client" == "cline" ]]; then
                 entry="$(jq -n \
@@ -450,17 +453,17 @@ inject_one_client() {
             else
                 entry="$(jq -n --arg cmd "$mcp_bin" --args '{command:$cmd, args:$ARGS.positional}' -- "${args[@]}")"
             fi
-            merged="$(echo "$existing" | jq --argjson entry "$entry" '. + {mcpServers: ((.mcpServers // {}) + {solomd: $entry})}')"
+            merged="$(echo "$existing" | jq --argjson entry "$entry" '. + {mcpServers: ((.mcpServers // {}) + {catstep: $entry, solomd: $entry})}')"
             ;;
         continue)
             local entry
-            entry="$(jq -n --arg cmd "$mcp_bin" --args '{name:"solomd", command:$cmd, args:$ARGS.positional}' -- "${args[@]}")"
-            merged="$(echo "$existing" | jq --argjson entry "$entry" '. + {mcp: ((.mcp // []) | map(select(.name != "solomd")) + [$entry])}')"
+            entry="$(jq -n --arg cmd "$mcp_bin" --args '{name:"catstep", command:$cmd, args:$ARGS.positional}' -- "${args[@]}")"
+            merged="$(echo "$existing" | jq --argjson entry "$entry" '. + {mcp: ((.mcp // []) | map(select(.name != "solomd" and .name != "catstep")) + [$entry])}')"
             ;;
         zed)
             local entry
             entry="$(jq -n --arg cmd "$mcp_bin" --args '{command:{path:$cmd, args:$ARGS.positional}, settings:{}}' -- "${args[@]}")"
-            merged="$(echo "$existing" | jq --argjson entry "$entry" '. + {context_servers: ((.context_servers // {}) + {solomd: $entry})}')"
+            merged="$(echo "$existing" | jq --argjson entry "$entry" '. + {context_servers: ((.context_servers // {}) + {catstep: $entry, solomd: $entry})}')"
             ;;
     esac
     printf "%s\n" "$merged" > "$path"
@@ -484,8 +487,8 @@ remove_one_client() {
     cp "$path" "$path.bak.$(date +%s)"
     local cleaned
     case "$client" in
-        claude-desktop|claude-code|cursor|cline)
-            cleaned="$(jq 'if .mcpServers then .mcpServers |= del(.solomd) else . end' "$path")" ;;
+        antigravity|claude-desktop|claude-code|cursor|cline)
+            cleaned="$(jq 'if .mcpServers then .mcpServers |= del(.solomd) |= del(.catstep) else . end' "$path")" ;;
         continue)
             cleaned="$(jq 'if .mcp then .mcp |= map(select(.name != "solomd")) else . end' "$path")" ;;
         zed)

@@ -691,8 +691,18 @@ fn clamp_window_to_monitor(win: &tauri::WebviewWindow) {
 
     let max_w = mon_w;
     let max_h = mon_h - MENU_BAR_RESERVE;
-    let new_w = cur_w.clamp(MIN_W, max_w);
-    let new_h = cur_h.clamp(MIN_H, max_h);
+
+    // If an unmaximized window covers the entire monitor (almost always a
+    // leftover from fullscreen mode or a stale 1920x1080 restore), clamp it to
+    // a comfortable centered default (1200x800, or 85% of screen on smaller displays).
+    let is_fullscreen_oversized = cur_w >= mon_w && cur_h >= max_h;
+    let (new_w, new_h) = if is_fullscreen_oversized {
+        let def_w = 1200.min((mon_w as f64 * 0.85) as i32).max(MIN_W);
+        let def_h = 800.min((max_h as f64 * 0.85) as i32).max(MIN_H);
+        (def_w, def_h)
+    } else {
+        (cur_w.clamp(MIN_W, max_w), cur_h.clamp(MIN_H, max_h))
+    };
     let size_clamped = new_w != cur_w || new_h != cur_h;
 
     let Ok(outer_pos) = win.outer_position() else { return; };

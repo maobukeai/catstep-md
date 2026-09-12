@@ -7,7 +7,8 @@ import SponsorModal from './SponsorModal.vue';
 import { copyPlainText } from '../lib/code-copy';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
-import { checkForUpdate, openReleaseUrl } from '../lib/check-update';
+import { checkForUpdate, sharedUpdaterState, type UpdateResult } from '../lib/check-update';
+import UpdateModal from './UpdateModal.vue';
 import { useI18n } from '../i18n';
 import { useViewport } from '../composables/useViewport';
 
@@ -21,6 +22,8 @@ const copied = ref(false);
 const showSponsor = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
 const checkingUpdate = ref(false);
+const showUpdateModal = ref(false);
+const foundUpdate = ref<UpdateResult | null>(null);
 
 onMounted(async () => {
   try {
@@ -67,14 +70,18 @@ async function copyVersion() {
 }
 
 async function manualCheckUpdate() {
+  if (sharedUpdaterState.isDownloading) {
+    showUpdateModal.value = true;
+    return;
+  }
   checkingUpdate.value = true;
   try {
     const r = await checkForUpdate();
     if (r.error) {
       toasts.error(t('settings.updateCheckFailed'));
     } else if (r.hasUpdate) {
-      toasts.success(t('settings.updateAvailable', { version: r.latest || '' }));
-      await openReleaseUrl(r.url);
+      foundUpdate.value = r;
+      showUpdateModal.value = true;
     } else {
       toasts.info(t('settings.upToDate'));
     }
@@ -172,6 +179,40 @@ async function manualCheckUpdate() {
 
         <div class="setting-row">
           <div class="setting-row__info">
+            <label class="setting-row__title">{{ t('settings.autoDownloadUpdate') }}</label>
+            <span class="setting-row__desc">{{ t('settings.autoDownloadUpdateHint') }}</span>
+          </div>
+          <div class="setting-row__control">
+            <label class="setting-switch">
+              <input
+                type="checkbox"
+                :checked="settings.autoDownloadUpdate"
+                @change="settings.toggleAutoDownloadUpdate()"
+              />
+              <span class="setting-switch__slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-row__info">
+            <label class="setting-row__title">{{ t('settings.autoInstallUpdate') }}</label>
+            <span class="setting-row__desc">{{ t('settings.autoInstallUpdateHint') }}</span>
+          </div>
+          <div class="setting-row__control">
+            <label class="setting-switch">
+              <input
+                type="checkbox"
+                :checked="settings.autoInstallUpdate"
+                @change="settings.toggleAutoInstallUpdate()"
+              />
+              <span class="setting-switch__slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.checkUpdate') }}</label>
             <span class="setting-row__desc">当前安装版本: v{{ appVersion }}</span>
           </div>
@@ -183,7 +224,7 @@ async function manualCheckUpdate() {
               @click="manualCheckUpdate"
             >
               <svg
-                v-if="checkingUpdate"
+                v-if="checkingUpdate || sharedUpdaterState.isDownloading"
                 class="is-spinning"
                 width="13"
                 height="13"
@@ -196,7 +237,17 @@ async function manualCheckUpdate() {
               >
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
-              <span>{{ checkingUpdate ? t('settings.checkingUpdate') : t('settings.btnCheckUpdate') }}</span>
+              <span>
+                {{
+                  checkingUpdate
+                    ? t('settings.checkingUpdate')
+                    : sharedUpdaterState.isDownloading
+                      ? `下载中 ${Math.round(sharedUpdaterState.percent)}%`
+                      : sharedUpdaterState.status === 'completed'
+                        ? '更新就绪'
+                        : t('settings.btnCheckUpdate')
+                }}
+              </span>
             </button>
           </div>
         </div>
@@ -322,6 +373,7 @@ async function manualCheckUpdate() {
 
     <!-- Sponsor & Contact Modal -->
     <SponsorModal v-model="showSponsor" />
+    <UpdateModal v-model="showUpdateModal" :update-info="foundUpdate" />
   </div>
 </template>
 

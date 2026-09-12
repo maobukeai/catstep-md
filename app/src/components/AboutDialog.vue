@@ -7,7 +7,8 @@ import BrandMark from './BrandMark.vue';
 import { copyPlainText } from '../lib/code-copy';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
-import { checkForUpdate, openReleaseUrl } from '../lib/check-update';
+import { checkForUpdate, sharedUpdaterState, type UpdateResult } from '../lib/check-update';
+import UpdateModal from './UpdateModal.vue';
 import { useI18n } from '../i18n';
 
 defineProps<{ open: boolean }>();
@@ -26,6 +27,8 @@ const copied = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
 const checkingUpdate = ref(false);
+const showUpdateModal = ref(false);
+const foundUpdate = ref<UpdateResult | null>(null);
 const updateStatus = ref<{
   checked: boolean;
   hasUpdate: boolean;
@@ -89,6 +92,10 @@ async function copyVersion() {
 }
 
 async function manualCheckUpdate() {
+  if (sharedUpdaterState.isDownloading) {
+    showUpdateModal.value = true;
+    return;
+  }
   checkingUpdate.value = true;
   try {
     const r = await checkForUpdate();
@@ -102,8 +109,8 @@ async function manualCheckUpdate() {
         latestVersion: r.latest || '',
         url: r.url,
       };
-      toasts.success(t('settings.updateAvailable', { version: r.latest || '' }) || `发现新版本: v${r.latest}`);
-      await openReleaseUrl(r.url);
+      foundUpdate.value = r;
+      showUpdateModal.value = true;
     } else {
       updateStatus.value = { checked: true, hasUpdate: false };
       toasts.info(t('settings.upToDate') || '当前已是最新版本');
@@ -419,6 +426,7 @@ async function manualCheckUpdate() {
       </div>
     </div>
   </DsModal>
+  <UpdateModal v-model="showUpdateModal" :update-info="foundUpdate" />
 </template>
 
 <style scoped>

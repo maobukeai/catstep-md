@@ -95,6 +95,7 @@ pub mod recipe_runner;
 // Shipped as `include_str!` content compiled into the binary; commands
 // list / preview / install into <workspace>/.solomd/agents/.
 pub mod cookbook;
+pub mod updater;
 
 // v2.3 dev WebDriver bridge — debug builds only.
 #[cfg(debug_assertions)]
@@ -140,6 +141,7 @@ pub fn run() {
     let builder = builder.manage(watcher::WatcherState::new());
     #[cfg(not(target_os = "android"))]
     let builder = builder.manage(recipe_runner::RecipesState::new());
+    let builder = builder.manage(updater::UpdaterState::new());
     builder
         .setup(|app| {
             #[cfg(debug_assertions)]
@@ -409,6 +411,10 @@ pub fn run() {
             workspace_index::workspace_index_referenced_by,
             commands::update_frontmatter_property,
             commands::delete_frontmatter_property,
+            updater::updater_get_platform_info,
+            updater::updater_start_download,
+            updater::updater_cancel_download,
+            updater::updater_install_and_restart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
