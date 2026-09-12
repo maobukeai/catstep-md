@@ -57,11 +57,19 @@ function readDailySettings(): DailySettings {
   };
 }
 
+import { isTauri } from '../lib/platform';
+import { useTabsStore } from '../stores/tabs';
+
 function joinPath(...parts: string[]): string {
   // `sep()` is a string accessor on @tauri-apps/api/path. On macOS/Linux it's
   // '/', on Windows '\\'. We strip leading/trailing separators on inner parts
   // so user-typed `Daily/` or `/Daily` both work.
-  const s = sep();
+  let s = '/';
+  try {
+    s = sep();
+  } catch {
+    s = '/';
+  }
   return parts
     .filter((p) => !!p)
     .map((p, i) => {
@@ -115,27 +123,37 @@ export function useDailyNotes() {
   }
 
   async function openDateNote(date: Date): Promise<void> {
+    const tabs = useTabsStore();
+    const cfg = readDailySettings();
+    const filename = formatDailyFilename(date, cfg.dailyNotesFormat);
+    const tmpl = cfg.dailyNotesTemplate.trim()
+      ? cfg.dailyNotesTemplate
+      : defaultDailyTemplate(lang.value === 'zh' ? 'zh' : 'en');
+    const prevStem = stem(formatDailyFilename(shiftDate(date, -1), cfg.dailyNotesFormat));
+    const nextStem = stem(formatDailyFilename(shiftDate(date, 1), cfg.dailyNotesFormat));
+    const body = applyTemplate(tmpl, date, prevStem, nextStem);
+
+    if (!isTauri()) {
+      const existing = tabs.tabs.find((t) => t.fileName === filename);
+      if (existing) {
+        tabs.activeId = existing.id;
+      } else {
+        tabs.newTab({ fileName: filename, content: body });
+      }
+      return;
+    }
+
     const resolved = resolveDailyPath(date);
     if (!resolved) {
       toasts.warning('Open a folder first to use daily notes.');
       return;
     }
-    const { fullPath, filename } = resolved;
+    const { fullPath } = resolved;
 
     if (await fileExists(fullPath)) {
       await files.openPath(fullPath, { bypassNewWindow: true });
       return;
     }
-
-    // Materialize template. Empty user template → fall back to the built-in.
-    const cfg = readDailySettings();
-    const tmpl = cfg.dailyNotesTemplate.trim()
-      ? cfg.dailyNotesTemplate
-      : defaultDailyTemplate(lang.value === 'zh' ? 'zh' : 'en');
-
-    const prevStem = stem(formatDailyFilename(shiftDate(date, -1), cfg.dailyNotesFormat));
-    const nextStem = stem(formatDailyFilename(shiftDate(date, 1), cfg.dailyNotesFormat));
-    const body = applyTemplate(tmpl, date, prevStem, nextStem);
 
     try {
       // `write_binary_file` is used here (rather than `write_file`) because

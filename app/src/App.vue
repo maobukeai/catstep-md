@@ -2002,7 +2002,8 @@ function onFocusOut(e: FocusEvent) {
     (!related.closest('.cm-content') &&
       !related.closest('.plain-editor') &&
       !related.closest('.cm-editor') &&
-      !related.closest('.mobile-accessory-bar'))
+      !related.closest('.mobile-accessory-bar') &&
+      !related.closest('.mobile-ai-popover'))
   ) {
     setTimeout(() => {
       const active = document.activeElement;
@@ -2011,7 +2012,8 @@ function onFocusOut(e: FocusEvent) {
         (!active.closest('.cm-content') &&
           !active.closest('.plain-editor') &&
           !active.closest('.cm-editor') &&
-          !active.closest('.mobile-accessory-bar'))
+          !active.closest('.mobile-accessory-bar') &&
+          !active.closest('.mobile-ai-popover'))
       ) {
         isMobileEditorFocused.value = false;
       }
@@ -2307,6 +2309,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       'app--narrow': isNarrow,
       'app--drawer-left': narrowDrawer === 'left',
       'app--drawer-right': narrowDrawer === 'right',
+      'is-mobile-focused': isNarrow && isMobileEditorFocused,
       'has-app-custom-bg': hasActiveBackground,
       'has-app-texture-bg': hasActiveBackground && settings.bgType === 'texture',
       'has-app-image-bg': hasActiveBackground && settings.bgType === 'image',
@@ -2339,6 +2342,14 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         v-if="isNarrow && mobileFindOpen"
         :initial-query="selectionText && !selectionText.includes('\n') && selectionText.length <= 60 ? selectionText : ''"
         @close="mobileFindOpen = false"
+      />
+    </Transition>
+
+    <!-- Mobile Top Formatting Bar (Placed below toolbar, completely freeing bottom space) -->
+    <Transition name="find-slide">
+      <MobileAccessoryBar
+        v-if="isNarrow && isMobileEditorFocused && !mobileFindOpen && !mobileAgentOpen"
+        @dismiss="isMobileEditorFocused = false"
       />
     </Transition>
 
@@ -2622,12 +2633,6 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         @open-daily="onOpenMobileDaily"
         @open-agent="onOpenMobileAgent"
         @open-settings="openSettingsAt()"
-      />
-
-      <!-- Mobile Markdown Accessory Bar (Docked above virtual keyboard when editing) -->
-      <MobileAccessoryBar
-        v-if="isNarrow && !mobileAgentOpen && !mobileFindOpen && isMobileEditorFocused"
-        @dismiss="isMobileEditorFocused = false"
       />
 
       <!-- Mobile Outline Bottom Sheet (Enhanced with search, snap height, empty actions) -->
@@ -3324,6 +3329,11 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .find-slide-leave-to {
   transform: translateY(-100%);
   opacity: 0;
+}
+
+/* Hide desktop pane tabs while focused on mobile to maximize editing height and eliminate tab jumping */
+.is-mobile-focused :deep(.pane-tabbar) {
+  display: none !important;
 }
 
 </style>

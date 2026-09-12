@@ -355,9 +355,9 @@ onBeforeUnmount(() => {
 .bubble-ai-menu {
   position: absolute;
   top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  right: 0;
   width: 242px;
+  max-width: min(242px, 88vw);
   background: var(--bg-elev, #ffffff);
   border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
   box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.18), 0 4px 10px rgba(0, 0, 0, 0.06);

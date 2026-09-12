@@ -574,23 +574,28 @@ const AI_CLIENTS: &[(&str, &str)] = &[
 /// back to the substring check only when the file doesn't parse as JSON.
 fn config_has_solomd(client_id: &str, raw: &str) -> bool {
     let Ok(v) = serde_json::from_str::<JsonValue>(raw) else {
-        return raw.contains("solomd");
+        return raw.contains("solomd") || raw.contains("catstep");
     };
     match client_id {
         "continue" => v
             .get("mcp")
             .and_then(|m| m.as_array())
             .map(|list| {
-                list.iter()
-                    .any(|e| e.get("name").and_then(|n| n.as_str()) == Some("solomd"))
+                list.iter().any(|e| {
+                    let name = e.get("name").and_then(|n| n.as_str());
+                    name == Some("solomd") || name == Some("catstep")
+                })
             })
             .unwrap_or(false),
         "zed" => v
             .get("context_servers")
-            .and_then(|m| m.get("solomd"))
+            .and_then(|m| m.get("solomd").or_else(|| m.get("catstep")))
             .is_some(),
         // claude-desktop / claude-code / cursor / cline
-        _ => v.get("mcpServers").and_then(|m| m.get("solomd")).is_some(),
+        _ => v
+            .get("mcpServers")
+            .and_then(|m| m.get("solomd").or_else(|| m.get("catstep")))
+            .is_some(),
     }
 }
 
@@ -815,11 +820,15 @@ pub fn remove_mcp(app: AppHandle, client_id: String) -> Result<(), String> {
                 .and_then(|v| v.as_object_mut())
             {
                 servers.remove("solomd");
+                servers.remove("catstep");
             }
         }
         "continue" => {
             if let Some(list) = config.get_mut("mcp").and_then(|v| v.as_array_mut()) {
-                list.retain(|e| e.get("name").and_then(|n| n.as_str()) != Some("solomd"));
+                list.retain(|e| {
+                    let name = e.get("name").and_then(|n| n.as_str());
+                    name != Some("solomd") && name != Some("catstep")
+                });
             }
         }
         "zed" => {
@@ -828,6 +837,7 @@ pub fn remove_mcp(app: AppHandle, client_id: String) -> Result<(), String> {
                 .and_then(|v| v.as_object_mut())
             {
                 servers.remove("solomd");
+                servers.remove("catstep");
             }
         }
         _ => return Err(format!("unknown client_id: {client_id}")),
@@ -910,6 +920,9 @@ mod tests {
             "zed",
             r#"{"context_servers":{"solomd":{"command":{"path":"/bin/solomd-mcp"}}}}"#
         ));
+        let catstep = r#"{"mcpServers":{"catstep":{"command":"/bin/catstep-mcp"}}}"#;
+        assert!(config_has_solomd("claude-code", catstep));
+        assert!(config_has_solomd("claude-desktop", catstep));
     }
 
     #[test]

@@ -215,51 +215,30 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Theme -->
-        <div class="setting-row">
+        <!-- Row: Theme (3-in-1 Compact) -->
+        <div class="setting-row setting-theme-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.theme') }}</label>
-            <p class="setting-row__hint">{{ isZh ? '选择界面与正文排版视觉风格' : 'Select interface and document visual style' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <select
-              :value="currentThemeSelectValue"
-              @change="onThemeSelectChange(($event.target as HTMLSelectElement).value)"
-            >
-              <optgroup :label="isZh ? '官方默认主题' : 'Official Themes'">
-                <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
-              </optgroup>
-              <optgroup
-                v-if="!settings.activeCustomThemeId && !themeLabels.some((d) => d.value === settings.theme) && allThemeLabels.some((a) => a.value === settings.theme)"
-                :label="isZh ? '当前正在使用' : 'Active Theme'"
+            <div class="setting-theme-title-line">
+              <label class="setting-row__title">{{ t('settings.theme') }}</label>
+              <label
+                class="setting-inline-check"
+                :class="{ 'setting-inline-check--active': settings.perNoteThemeEnabled }"
+                :title="isZh ? '支持笔记在头部 YAML 中用 theme: newsprint 等声明单篇专属主题' : 'Allow documents to declare theme: newsprint in YAML frontmatter'"
               >
-                <option :value="settings.theme">
-                  {{ allThemeLabels.find((a) => a.value === settings.theme)?.label || settings.theme }}
-                </option>
-              </optgroup>
-              <optgroup v-if="themesStore.installed.length > 0" :label="isZh ? '已安装主题 (社区市场)' : 'Installed Themes (Marketplace)'">
-                <option
-                  v-for="cth in themesStore.installed"
-                  :key="cth.id"
-                  :value="`custom:${cth.id}`"
-                >
-                  {{ cth.name || cth.id }}
-                </option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
-
-        <!-- Row: Theme Extensions & Marketplace -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '主题扩展与社区市场' : 'Theme Extensions & Marketplace' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '浏览社区主题市场一键安装，或导入 Typora .css 主题 / 编辑全局 user.css' : 'Browse theme marketplace, import Typora .css files, or edit user.css' }}</p>
-            <div v-if="settings.customCssPath" class="custom-css-path-badge" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); background: var(--bg-hover); padding: 3px 8px; border-radius: 4px; max-width: 100%; word-break: break-all;">
-              <span>{{ isZh ? '当前自定义 CSS:' : 'Active CSS:' }} {{ settings.customCssPath }}</span>
+                <input
+                  type="checkbox"
+                  :checked="settings.perNoteThemeEnabled"
+                  @change="settings.setPerNoteThemeEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>{{ isZh ? '单篇 Frontmatter 覆盖' : 'Frontmatter Theme' }}</span>
+              </label>
+            </div>
+            <p class="setting-row__hint">{{ isZh ? '界面视觉风格与社区主题扩展' : 'Visual theme & community marketplace' }}</p>
+            <div v-if="settings.customCssPath" class="custom-css-path-badge" style="margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); background: var(--bg-hover); padding: 2px 7px; border-radius: 4px; max-width: 100%; word-break: break-all;">
+              <span>CSS: {{ settings.customCssPath }}</span>
               <button
                 type="button"
-                style="border: none; background: transparent; cursor: pointer; color: var(--accent); padding: 0 2px; font-size: 12px; line-height: 1;"
+                style="border: none; background: transparent; cursor: pointer; color: var(--accent); padding: 0 2px; font-size: 11px; line-height: 1;"
                 :title="isZh ? '重新载入' : 'Reload'"
                 :disabled="isCssRefreshing"
                 @click="refreshCustomCss"
@@ -268,7 +247,7 @@ onMounted(() => {
               </button>
               <button
                 type="button"
-                style="border: none; background: transparent; cursor: pointer; color: var(--text-faint); padding: 0 2px; font-size: 12px; line-height: 1;"
+                style="border: none; background: transparent; cursor: pointer; color: var(--text-faint); padding: 0 2px; font-size: 11px; line-height: 1;"
                 :title="isZh ? '清除' : 'Clear'"
                 @click="settings.setCustomCssPath(''); settings.setActiveCustomThemeId('')"
               >
@@ -276,41 +255,61 @@ onMounted(() => {
               </button>
             </div>
           </div>
-          <div class="setting-row__control">
-            <div class="setting-actions-row" style="flex-wrap: wrap;">
-              <button type="button" class="btn-setting" style="font-weight: 500; border-color: var(--accent); color: var(--accent);" @click="openThemeMarketplace">
-                {{ isZh ? '浏览社区主题' : 'Marketplace' }}
+          <div class="setting-row__control setting-theme-control">
+            <div class="setting-theme-top-bar">
+              <select
+                class="setting-theme-select"
+                :value="currentThemeSelectValue"
+                @change="onThemeSelectChange(($event.target as HTMLSelectElement).value)"
+              >
+                <optgroup :label="isZh ? '官方默认主题' : 'Official Themes'">
+                  <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
+                </optgroup>
+                <optgroup
+                  v-if="!settings.activeCustomThemeId && !themeLabels.some((d) => d.value === settings.theme) && allThemeLabels.some((a) => a.value === settings.theme)"
+                  :label="isZh ? '当前正在使用' : 'Active Theme'"
+                >
+                  <option :value="settings.theme">
+                    {{ allThemeLabels.find((a) => a.value === settings.theme)?.label || settings.theme }}
+                  </option>
+                </optgroup>
+                <optgroup v-if="themesStore.installed.length > 0" :label="isZh ? '已安装主题 (社区市场)' : 'Installed Themes (Marketplace)'">
+                  <option
+                    v-for="cth in themesStore.installed"
+                    :key="cth.id"
+                    :value="`custom:${cth.id}`"
+                  >
+                    {{ cth.name || cth.id }}
+                  </option>
+                </optgroup>
+              </select>
+              <button
+                type="button"
+                class="btn-setting btn-setting--marketplace"
+                @click="openThemeMarketplace"
+              >
+                {{ isZh ? '社区主题' : 'Marketplace' }}
               </button>
-              <button v-if="!isNarrow" type="button" class="btn-setting" @click="pickCustomCss">
+            </div>
+            <div class="setting-theme-subactions">
+              <button v-if="!isNarrow" type="button" class="btn-setting-link" @click="pickCustomCss">
                 {{ isZh ? '导入 .css' : 'Import .css' }}
               </button>
-              <button v-if="!isNarrow" type="button" class="btn-setting" @click="themesStore.openThemeFolder()">
-                {{ isZh ? '打开主题文件夹' : 'Themes Folder' }}
+              <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
+              <button v-if="!isNarrow" type="button" class="btn-setting-link" @click="themesStore.openThemeFolder()">
+                {{ isZh ? '主题文件夹' : 'Themes Folder' }}
               </button>
-              <button v-if="!isNarrow" type="button" class="btn-setting" @click="themesStore.openUserCss()">
+              <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
+              <button v-if="!isNarrow" type="button" class="btn-setting-link" @click="themesStore.openUserCss()">
                 {{ isZh ? '编辑 user.css' : 'user.css' }}
               </button>
-              <button type="button" class="btn-setting" @click="refreshCustomThemes()">
-                {{ isZh ? '刷新' : 'Refresh' }}
+              <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
+              <button type="button" class="btn-setting-link" @click="refreshCustomThemes()">
+                {{ isZh ? '↻ 刷新' : '↻ Refresh' }}
               </button>
             </div>
           </div>
         </div>
-
-        <!-- Row: Per-Note Frontmatter Theme Override -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ isZh ? '单篇文档专属主题 (Frontmatter)' : 'Per-Note Frontmatter Theme' }}</span>
-            <p class="setting-row__hint">{{ isZh ? '支持笔记在头部 YAML 中用 theme: newsprint 等声明单篇专属主题' : 'Allow documents to declare theme: newsprint in YAML frontmatter' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.perNoteThemeEnabled"
-              @change="settings.togglePerNoteThemeEnabled()"
-            />
-          </div>
-        </label>
 
         <!-- Row: Canvas Background -->
         <div class="setting-row">
@@ -449,41 +448,45 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Font Family -->
+        <!-- Row: Typography (Body Font + Code Font Dual) -->
         <div class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.fontFamily') }}</label>
-            <p class="setting-row__hint">{{ t('settings.fontFamilyHint') }}</p>
+            <label class="setting-row__title">{{ isZh ? '字体外观' : 'Typography' }}</label>
+            <p class="setting-row__hint">{{ isZh ? '正文阅读显示字体与代码块等宽字体' : 'UI body text font and code monospace font' }}</p>
           </div>
-          <div class="setting-row__control setting-row__control--stack">
-            <select :value="fontFamilySelectValue" @change="onSelectFontFamily(($event.target as HTMLSelectElement).value)">
-              <option v-for="f in fontFamilies" :key="f.label" :value="f.value">{{ f.label }}</option>
-              <option value="__custom__">{{ t('settings.customFont') }}</option>
-            </select>
-            <input
-              v-if="fontFamilySelectValue === '__custom__'"
-              type="text"
-              :placeholder="t('settings.customFontPlaceholder')"
-              :value="customFontFamily"
-              @input="onCustomFontInput(($event.target as HTMLInputElement).value)"
-              class="setting-custom-font-input"
-            />
-          </div>
-        </div>
+          <div class="setting-row__control setting-fonts-dual">
+            <!-- Body Font Column -->
+            <div class="setting-font-col">
+              <span class="setting-font-tag">{{ isZh ? '正文' : 'Body' }}</span>
+              <div class="setting-font-field-wrap">
+                <select :value="fontFamilySelectValue" @change="onSelectFontFamily(($event.target as HTMLSelectElement).value)">
+                  <option v-for="f in fontFamilies" :key="f.label" :value="f.value">{{ f.label }}</option>
+                  <option value="__custom__">{{ t('settings.customFont') }}</option>
+                </select>
+                <input
+                  v-if="fontFamilySelectValue === '__custom__'"
+                  type="text"
+                  :placeholder="t('settings.customFontPlaceholder')"
+                  :value="customFontFamily"
+                  @input="onCustomFontInput(($event.target as HTMLInputElement).value)"
+                  class="setting-custom-font-input"
+                  style="margin-top: 4px;"
+                />
+              </div>
+            </div>
 
-        <!-- Row: Code Font Family -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.codeFontFamily') }}</label>
-            <p class="setting-row__hint">{{ t('settings.codeFontFamilyHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="text"
-              :placeholder="t('settings.codeFontFamilyPlaceholder')"
-              :value="settings.codeFontFamily"
-              @input="settings.setCodeFontFamily(($event.target as HTMLInputElement).value)"
-            />
+            <!-- Code Font Column -->
+            <div class="setting-font-col">
+              <span class="setting-font-tag">{{ isZh ? '代码' : 'Code' }}</span>
+              <div class="setting-font-field-wrap">
+                <input
+                  type="text"
+                  :placeholder="t('settings.codeFontFamilyPlaceholder')"
+                  :value="settings.codeFontFamily"
+                  @input="settings.setCodeFontFamily(($event.target as HTMLInputElement).value)"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

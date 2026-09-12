@@ -2,7 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue';
 import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, Decoration, type DecorationSet, keymap, lineNumbers, highlightActiveLine, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, undo, redo } from '@codemirror/commands';
 import { searchKeymap, search, openSearchPanel, getSearchQuery, setSearchQuery, SearchQuery } from '@codemirror/search';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, syntaxTree } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -4981,6 +4981,8 @@ function applyFormat(action: string, _options?: any): boolean {
     }
     if (!el) return false;
     switch (action) {
+      case 'undo': plainUndo(); break;
+      case 'redo': plainRedo(); break;
       case 'bold': applyPlainInlineFormat(el, '**'); break;
       case 'italic': applyPlainInlineFormat(el, '*'); break;
       case 'underline': applyPlainInlineFormat(el, '<u>', '</u>'); break;
@@ -5045,6 +5047,8 @@ function applyFormat(action: string, _options?: any): boolean {
   }
   if (!view) return false;
   switch (action) {
+    case 'undo': return undo(view);
+    case 'redo': return redo(view);
     case 'bold': return applyCmInlineFormat(view, '**');
     case 'italic': return applyCmInlineFormat(view, '*');
     case 'underline': return applyCmInlineFormat(view, '<u>', '</u>');
@@ -5304,7 +5308,7 @@ const cls = computed(() => ({
     :top="selectionBubbleState.top"
     :left="selectionBubbleState.left"
     :selected-text="selectionBubbleState.selectedText"
-    :ai-enabled="settings.aiEnabled && settings.aiRewriteEnabled"
+    :ai-enabled="settings.aiRewriteEnabled !== false"
     @action="onBubbleAction"
     @ai-action="onBubbleAiAction"
     @close="selectionBubbleState.visible = false"

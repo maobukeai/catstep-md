@@ -1,73 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" width="480" height="270" style="background:#eff1f5;">
-  <defs>
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15" />
-    </filter>
-  </defs>
-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" width="480" height="270">
   <!-- Background Base -->
   <rect width="480" height="270" fill="#eff1f5" />
 
   <!-- Window Header Bar -->
-  <rect width="480" height="34" fill="#e6e9ef" />
-  <line x1="0" y1="34" x2="480" y2="34" stroke="#ccd0da" stroke-width="1" />
+  <rect width="480" height="32" fill="#e6e9ef" />
+  <line x1="0" y1="32" x2="480" y2="32" stroke="#ccd0da" stroke-width="1" />
 
   <!-- Window Control Dots -->
-  <circle cx="20" cy="17" r="4.5" fill="#ff5f56" />
-  <circle cx="36" cy="17" r="4.5" fill="#ffbd2e" />
-  <circle cx="52" cy="17" r="4.5" fill="#27c93f" />
+  <circle cx="20" cy="16" r="4" fill="#ff5f56" />
+  <circle cx="34" cy="16" r="4" fill="#ffbd2e" />
+  <circle cx="48" cy="16" r="4" fill="#27c93f" />
 
   <!-- Tab Title in Header -->
-  <rect x="180" y="8" width="120" height="20" rx="4" fill="#eff1f5" stroke="#ccd0da" stroke-width="0.8" />
-  <text x="240" y="22" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="10" text-anchor="middle" font-weight="500">catppuccin-latte.md</text>
+  <rect x="180" y="7" width="120" height="18" rx="4" fill="#eff1f5" stroke="#ccd0da" stroke-width="0.8" />
+  <text x="240" y="20" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="10" text-anchor="middle" font-weight="500">catppuccin-latte.md</text>
 
   <!-- Content Container -->
-  <g transform="translate(28, 48)">
+  <g transform="translate(24, 46)">
     <!-- Category Badge -->
-    <rect x="0" y="0" width="auto" height="18" rx="3" fill="#1e66f5" opacity="0.16" />
-    <text x="8" y="13" fill="#1e66f5" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="9.5" font-weight="600">马卡龙 · 柔和护眼</text>
+    <rect x="0" y="0" width="105" height="18" rx="3" fill="#1e66f5" opacity="0.16" />
+    <text x="8" y="13" fill="#1e66f5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9.5" font-weight="600">马卡龙 · 柔和温润</text>
 
     <!-- Main Title (H1) -->
-    <text x="0" y="40" fill="#4c4f69" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="18" font-weight="700">
-      <tspan fill="#1e66f5" font-weight="800"># </tspan>Catppuccin Latte · 暖阳午后
+    <text x="0" y="42" fill="#4c4f69" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="18" font-weight="700">
+      <tspan fill="#1e66f5" font-weight="800"># </tspan>Latte 暖白 · 舒缓视野
     </text>
 
     <!-- Blockquote Section -->
-    <g transform="translate(0, 52)">
-      <rect x="0" y="0" width="3" height="30" fill="#1e66f5" rx="1.5" />
-      <text x="12" y="14" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="11" font-style="italic">
-        温润奶霜基底与糖果色语法点缀，轻盈不刺眼。
+    <g transform="translate(0, 56)">
+      <rect x="0" y="0" width="3" height="32" fill="#1e66f5" rx="1.5" />
+      <text x="12" y="14" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="11" font-style="italic">
+        低饱和柔和浅调，马卡龙暖色点缀，全天写作不刺眼。
       </text>
-      <text x="12" y="28" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="10" opacity="0.75">
+      <text x="12" y="29" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9.5" opacity="0.8">
         马卡龙暖浅色 · 低饱和舒适护眼
       </text>
     </g>
 
     <!-- Code Block Box -->
-    <g transform="translate(0, 96)">
-      <rect x="0" y="0" width="424" height="42" rx="5" fill="#e6e9ef" stroke="#ccd0da" stroke-width="1" />
-      <text x="12" y="16" fill="#1e66f5" font-family=""Fira Code", "JetBrains Mono", Consolas, monospace" font-size="9" font-weight="600" opacity="0.8">pastel.ts</text>
-      <text x="12" y="31" fill="#4c4f69" font-family=""Fira Code", "JetBrains Mono", Consolas, monospace" font-size="10.5">const mood = new PastelWarmth({ eyeCare: true });</text>
+    <g transform="translate(0, 102)">
+      <rect x="0" y="0" width="432" height="42" rx="5" fill="#e6e9ef" stroke="#ccd0da" stroke-width="1" />
+      <text x="12" y="16" fill="#1e66f5" font-family="'Fira Code', 'JetBrains Mono', Consolas, monospace" font-size="9" font-weight="600" opacity="0.85">theme.config.ts</text>
+      <text x="12" y="32" fill="#4c4f69" font-family="'Fira Code', 'JetBrains Mono', Consolas, monospace" font-size="10.5">export const latte = { vibe: 'warm-creamy' };</text>
     </g>
 
     <!-- Bottom Palette Bar -->
-    <g transform="translate(0, 154)">
-      <text x="0" y="18" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="9.5" opacity="0.8">色彩基调</text>
-      
-        <circle cx="70" cy="15" r="7.5" fill="#eff1f5" stroke="#ccd0da" stroke-width="1.2" />
-      
-        <circle cx="92" cy="15" r="7.5" fill="#4c4f69" stroke="#ccd0da" stroke-width="1.2" />
-      
-        <circle cx="114" cy="15" r="7.5" fill="#1e66f5" stroke="#ccd0da" stroke-width="1.2" />
-      
-        <circle cx="136" cy="15" r="7.5" fill="#ea76cb" stroke="#ccd0da" stroke-width="1.2" />
-      
-        <circle cx="158" cy="15" r="7.5" fill="#40a02b" stroke="#ccd0da" stroke-width="1.2" />
-      
-        <circle cx="180" cy="15" r="7.5" fill="#8839ef" stroke="#ccd0da" stroke-width="1.2" />
-      
-
-      <text x="424" y="18" fill="#1e66f5" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="10" text-anchor="end" font-weight="600">Catppuccin 暖白奶霜</text>
+    <g transform="translate(0, 160)">
+      <text x="0" y="18" fill="#7c7f93" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="9.5" opacity="0.8">主题色系</text>
+      <circle cx="68" cy="15" r="6.5" fill="#eff1f5" stroke="#ccd0da" stroke-width="1" />
+      <circle cx="88" cy="15" r="6.5" fill="#4c4f69" stroke="#ccd0da" stroke-width="1" />
+      <circle cx="108" cy="15" r="6.5" fill="#1e66f5" stroke="#ccd0da" stroke-width="1" />
+      <circle cx="128" cy="15" r="6.5" fill="#ea76cb" stroke="#ccd0da" stroke-width="1" />
+      <circle cx="148" cy="15" r="6.5" fill="#40a02b" stroke="#ccd0da" stroke-width="1" />
+      <circle cx="168" cy="15" r="6.5" fill="#8839ef" stroke="#ccd0da" stroke-width="1" />
+      <text x="432" y="18" fill="#1e66f5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif" font-size="10.5" text-anchor="end" font-weight="600">Catppuccin 暖白奶霜</text>
     </g>
   </g>
 </svg>

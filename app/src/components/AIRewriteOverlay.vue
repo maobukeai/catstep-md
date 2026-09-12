@@ -720,4 +720,18 @@ onBeforeUnmount(() => {
   font-size: 10px;
   opacity: 0.75;
 }
+
+@media (max-width: 640px) {
+  .ai-overlay__backdrop {
+    padding-top: 4vh;
+    align-items: flex-start;
+  }
+  .ai-overlay {
+    width: 95vw;
+    max-height: 88vh;
+  }
+  .ai-overlay__actions {
+    flex-wrap: wrap;
+  }
+}
 </style>

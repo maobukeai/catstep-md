@@ -1375,9 +1375,11 @@ onBeforeUnmount(() => {
   .toolbar__right {
     gap: 4px;
   }
-  /* On mobile, shortcuts and AI are accessible via bottom dock & touch bar */
+  /* On mobile, brand logo, shortcuts, AI and settings are accessible via bottom dock & more menu */
+  .toolbar__brand-btn,
   .killer-capsule--shortcuts,
-  .killer-capsule--ai {
+  .killer-capsule--ai,
+  .killer-capsule--settings {
     display: none !important;
   }
   .win-controls {
