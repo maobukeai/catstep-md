@@ -29,7 +29,7 @@ pub fn pip_timer_open(app: AppHandle) -> Result<(), String> {
             return Ok(());
         }
 
-        let win = WebviewWindowBuilder::new(
+        let mut builder = WebviewWindowBuilder::new(
             &app,
             PIP_LABEL,
             WebviewUrl::App("index.html?pipTimer=1".into()),
@@ -41,10 +41,16 @@ pub fn pip_timer_open(app: AppHandle) -> Result<(), String> {
         .decorations(false)
         .always_on_top(true)
         .skip_taskbar(true)
-        .shadow(false)
-        .transparent(true)
-        .build()
-        .map_err(|e| e.to_string())?;
+        .shadow(false);
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            builder = builder.transparent(true);
+        }
+
+        let win = builder
+            .build()
+            .map_err(|e| e.to_string())?;
 
         let _ = win.set_focus();
         Ok(())

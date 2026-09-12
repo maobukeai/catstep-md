@@ -350,6 +350,7 @@ pub fn updater_install_and_restart(
     silent: bool,
 ) -> Result<(), String> {
     let path = PathBuf::from(&file_path);
+    let _ = silent;
     if !path.exists() {
         return Err(format!("Installer file not found at: {file_path}"));
     }

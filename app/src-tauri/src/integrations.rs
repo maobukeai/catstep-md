@@ -183,7 +183,8 @@ pub async fn cli_status() -> Result<CliStatus, String> {
 }
 
 /// One-click native CLI install for the current platform.
-pub fn cli_install_inner(_app: &AppHandle) -> Result<CliStatus, String> {
+pub fn cli_install_inner(app: &AppHandle) -> Result<CliStatus, String> {
+    let _ = app;
     let current_exe = std::env::current_exe().map_err(|e| format!("cannot determine app exe: {e}"))?;
     let exe_str = current_exe.to_string_lossy();
 
@@ -298,7 +299,8 @@ pub async fn cli_install(app: AppHandle) -> Result<CliStatus, String> {
 }
 
 /// One-click native CLI uninstall for the current platform.
-pub fn cli_uninstall_inner(_app: &AppHandle) -> Result<CliStatus, String> {
+pub fn cli_uninstall_inner(app: &AppHandle) -> Result<CliStatus, String> {
+    let _ = app;
     #[cfg(target_os = "windows")]
     {
         if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
