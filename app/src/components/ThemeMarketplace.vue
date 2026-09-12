@@ -15,6 +15,8 @@ import {
   useThemesStore,
   type ThemeManifestEntry,
   type TyporaThemeEntry,
+  type GitHubRepoSummary,
+  type DiscoveredCssFile,
 } from '../stores/themes';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
@@ -30,8 +32,8 @@ const toasts = useToastsStore();
 
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
-// 1. Top-Level Mode: 'builtin' (本地精选) | 'typora' (Typora在线市场) | 'installed' (已安装)
-type MarketMode = 'builtin' | 'typora' | 'installed';
+// 1. Top-Level Mode: 'builtin' (本地精选) | 'typora' (Typora在线市场) | 'github' (全网实时探索) | 'installed' (已安装)
+type MarketMode = 'builtin' | 'typora' | 'github' | 'installed';
 const marketMode = ref<MarketMode>('builtin');
 
 // 2. Sub-category and Search filters
@@ -41,6 +43,19 @@ const builtinCategory = ref<BuiltinCategory>('all');
 
 type TyporaCategory = 'all' | 'light' | 'dark' | 'stars' | 'chinese' | 'developer' | 'reading';
 const typoraCategory = ref<TyporaCategory>('all');
+
+// GitHub Live Exploration state
+const githubSearchInput = ref('');
+const githubSearchTopic = ref('');
+const githubSortMode = ref<'stars' | 'updated'>('stars');
+const isSniffingRepo = ref<Record<string, boolean>>({});
+
+// Variant Picker Modal state
+const variantModalOpen = ref(false);
+const variantModalRepo = ref<GitHubRepoSummary | null>(null);
+const variantModalFiles = ref<DiscoveredCssFile[]>([]);
+const variantModalSelected = ref<DiscoveredCssFile | null>(null);
+const isInstallingVariant = ref(false);
 
 // Custom GitHub URL installation modal state
 const showUrlModal = ref(false);
@@ -61,6 +76,9 @@ watch(marketMode, (mode) => {
   searchQuery.value = '';
   if (mode === 'typora' && themes.typoraManifest === null) {
     void themes.loadTyporaManifest();
+  }
+  if (mode === 'github' && themes.githubRepos.length === 0 && !themes.githubLoading) {
+    void triggerGitHubSearch();
   }
   void themes.refreshInstalled();
 });
@@ -243,14 +261,41 @@ async function onInstallCustomUrl() {
   if (!url || isInstallingUrl.value) return;
   isInstallingUrl.value = true;
   try {
-    const result = await themes.installFromCustomUrl(url);
-    settings.setActiveCustomThemeId(result.id);
-    settings.setCustomCssPath(result.path);
-    settings.setTheme('github-light');
-    toasts.success(isZh.value ? `成功安装主题: ${result.name}` : `Successfully installed: ${result.name}`);
-    customUrlInput.value = '';
-    showUrlModal.value = false;
-    marketMode.value = 'installed';
+    const files = await themes.sniffGitHubRepo(url);
+    if (!files || files.length === 0) {
+      toasts.error(isZh.value ? '未在链接中探查到 CSS 主题文件' : 'No CSS theme files found');
+      return;
+    }
+    if (files.length === 1) {
+      const file = files[0];
+      const path = await themes.installDiscoveredTheme(file);
+      settings.setActiveCustomThemeId(file.id);
+      settings.setCustomCssPath(path);
+      settings.setTheme(file.is_dark ? 'night' : 'github-light');
+      toasts.success(isZh.value ? `成功安装主题: ${file.name}` : `Successfully installed: ${file.name}`);
+      customUrlInput.value = '';
+      showUrlModal.value = false;
+      marketMode.value = 'installed';
+    } else {
+      variantModalRepo.value = {
+        id: 0,
+        name: url.split('/').pop() || 'Custom Theme',
+        full_name: url,
+        owner_login: 'GitHub',
+        owner_avatar: '',
+        html_url: url,
+        description: '',
+        stars: 0,
+        forks: 0,
+        updated_at: '',
+        topics: [],
+        default_branch: 'master',
+      };
+      variantModalFiles.value = files;
+      variantModalSelected.value = files[0];
+      showUrlModal.value = false;
+      variantModalOpen.value = true;
+    }
   } catch (e) {
     toasts.error(isZh.value ? `安装失败: ${(e as Error).message}` : `Install failed: ${(e as Error).message}`);
   } finally {
@@ -268,6 +313,97 @@ async function onOpenRepo(url?: string) {
   }
 }
 
+// GitHub Live Discovery Handlers
+let githubSearchTimer: any = null;
+function onGitHubSearchInput() {
+  clearTimeout(githubSearchTimer);
+  githubSearchTimer = setTimeout(() => {
+    void triggerGitHubSearch();
+  }, 400);
+}
+
+function onSelectGitHubTopic(topic: string) {
+  if (githubSearchTopic.value === topic) {
+    githubSearchTopic.value = '';
+  } else {
+    githubSearchTopic.value = topic;
+  }
+  void triggerGitHubSearch();
+}
+
+function onToggleGitHubSort(sort: 'stars' | 'updated') {
+  if (githubSortMode.value !== sort) {
+    githubSortMode.value = sort;
+    void triggerGitHubSearch();
+  }
+}
+
+async function triggerGitHubSearch() {
+  const combined = [githubSearchTopic.value, githubSearchInput.value.trim()]
+    .filter(Boolean)
+    .join(' ');
+  await themes.searchGitHubThemes(combined, githubSortMode.value);
+}
+
+async function onSniffAndInstallRepo(repo: GitHubRepoSummary) {
+  if (isSniffingRepo.value[repo.full_name]) return;
+  isSniffingRepo.value[repo.full_name] = true;
+  try {
+    const files = await themes.sniffGitHubRepo(repo.full_name);
+    if (!files || files.length === 0) {
+      toasts.error(isZh.value ? '未在仓库中探测到独立 CSS 主题' : 'No CSS theme files detected in repository');
+      return;
+    }
+    if (files.length === 1) {
+      const file = files[0];
+      const path = await themes.installDiscoveredTheme(file);
+      settings.setActiveCustomThemeId(file.id);
+      settings.setCustomCssPath(path);
+      settings.setTheme(file.is_dark ? 'night' : 'github-light');
+      toasts.success(isZh.value ? `成功从 GitHub 安装主题: ${file.name}` : `Installed: ${file.name}`);
+    } else {
+      variantModalRepo.value = repo;
+      variantModalFiles.value = files;
+      variantModalSelected.value = files[0];
+      variantModalOpen.value = true;
+    }
+  } catch (e) {
+    toasts.error(isZh.value ? `嗅探安装失败: ${(e as Error).message}` : `Failed: ${(e as Error).message}`);
+  } finally {
+    isSniffingRepo.value[repo.full_name] = false;
+  }
+}
+
+async function onConfirmVariantInstall() {
+  if (!variantModalSelected.value || isInstallingVariant.value) return;
+  const file = variantModalSelected.value;
+  isInstallingVariant.value = true;
+  try {
+    const path = await themes.installDiscoveredTheme(file);
+    settings.setActiveCustomThemeId(file.id);
+    settings.setCustomCssPath(path);
+    settings.setTheme(file.is_dark ? 'night' : 'github-light');
+    toasts.success(isZh.value ? `成功安装主题: ${file.name}` : `Successfully installed: ${file.name}`);
+    variantModalOpen.value = false;
+    marketMode.value = 'installed';
+  } catch (e) {
+    toasts.error(isZh.value ? `安装失败: ${(e as Error).message}` : `Install failed: ${(e as Error).message}`);
+  } finally {
+    isInstallingVariant.value = false;
+  }
+}
+
+function formatStars(s: number): string {
+  if (!s) return '0';
+  if (s >= 1000) return (s / 1000).toFixed(1) + 'k';
+  return s.toString();
+}
+
+function formatDate(isoStr: string): string {
+  if (!isoStr) return '';
+  return isoStr.split('T')[0];
+}
+
 // Refresh logic
 const isRefreshing = ref(false);
 async function onRefresh() {
@@ -278,6 +414,8 @@ async function onRefresh() {
       await themes.loadManifest(true);
     } else if (marketMode.value === 'typora') {
       await themes.loadTyporaManifest(true);
+    } else if (marketMode.value === 'github') {
+      await triggerGitHubSearch();
     }
     await themes.refreshInstalled();
     toasts.success(isZh.value ? '已刷新主题市场列表' : 'Marketplace refreshed');
@@ -434,6 +572,18 @@ function getDisplayTags(tags?: string[]): string[] {
 
             <button
               class="tm__mode-btn"
+              :class="{ 'is-active': marketMode === 'github' }"
+              @click="marketMode = 'github'"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+              </svg>
+              <span>{{ isZh ? '🌐 GitHub 探索' : 'Live GitHub' }}</span>
+              <span class="tm__mode-badge tm__mode-badge--live">700+</span>
+            </button>
+
+            <button
+              class="tm__mode-btn"
               :class="{ 'is-active': marketMode === 'installed' }"
               @click="marketMode = 'installed'"
             >
@@ -512,6 +662,28 @@ function getDisplayTags(tags?: string[]): string[] {
             </button>
           </div>
 
+          <!-- GitHub Live Sub-Filters -->
+          <div v-else-if="marketMode === 'github'" class="tm__tabs tm__tabs--gh">
+            <button class="tm__tab" :class="{ 'is-active': githubSearchTopic === '' }" @click="onSelectGitHubTopic('')">
+              {{ isZh ? '🔥 热门全部' : 'Top All' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': githubSearchTopic === 'latex' }" @click="onSelectGitHubTopic('latex')">
+              🎓 {{ isZh ? '学术 LaTeX' : 'LaTeX' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': githubSearchTopic === 'code' }" @click="onSelectGitHubTopic('code')">
+              💻 {{ isZh ? '极客代码' : 'Code' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': githubSearchTopic === 'minimal' }" @click="onSelectGitHubTopic('minimal')">
+              🌿 {{ isZh ? '极简清新' : 'Minimal' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': githubSearchTopic === 'notion' }" @click="onSelectGitHubTopic('notion')">
+              🗂️ {{ isZh ? 'Notion 风' : 'Notion' }}
+            </button>
+            <button class="tm__tab" :class="{ 'is-active': githubSearchTopic === 'sakura' }" @click="onSelectGitHubTopic('sakura')">
+              🌸 {{ isZh ? '日系樱花' : 'Sakura' }}
+            </button>
+          </div>
+
           <!-- Installed Mode Info -->
           <div v-else class="tm__installed-hint">
             <span>{{ isZh ? '已在本地安装的主题，离线随时启用' : 'Themes locally installed and ready for offline use' }}</span>
@@ -519,9 +691,29 @@ function getDisplayTags(tags?: string[]): string[] {
 
           <!-- Search & External Action Buttons -->
           <div class="tm__controls-right">
-            <!-- Typora Mode: Quick GitHub URL Import Button -->
+            <!-- GitHub Mode Sort Options -->
+            <div v-if="marketMode === 'github'" class="tm__gh-sort-pills">
+              <button
+                class="tm__sort-pill"
+                :class="{ 'is-active': githubSortMode === 'stars' }"
+                @click="onToggleGitHubSort('stars')"
+                :title="isZh ? '按星标数量降序排列' : 'Sort by stars'"
+              >
+                ⭐ {{ isZh ? '最多星标' : 'Stars' }}
+              </button>
+              <button
+                class="tm__sort-pill"
+                :class="{ 'is-active': githubSortMode === 'updated' }"
+                @click="onToggleGitHubSort('updated')"
+                :title="isZh ? '按最近更新时间排列' : 'Sort by recently updated'"
+              >
+                🕒 {{ isZh ? '最新更新' : 'Updated' }}
+              </button>
+            </div>
+
+            <!-- Typora & GitHub Mode: Quick GitHub URL Import Button -->
             <button
-              v-if="marketMode === 'typora'"
+              v-if="marketMode === 'typora' || marketMode === 'github'"
               class="tm__github-url-btn"
               @click="showUrlModal = true"
             >
@@ -555,6 +747,17 @@ function getDisplayTags(tags?: string[]): string[] {
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input
+                v-if="marketMode === 'github'"
+                v-model="githubSearchInput"
+                type="text"
+                class="tm__search-input"
+                :placeholder="isZh ? '实时搜索 GitHub 700+ 主题 (例如: latex, dracula)...' : 'Search 700+ GitHub theme repos...'"
+                spellcheck="false"
+                @input="onGitHubSearchInput"
+                @keydown.enter="triggerGitHubSearch"
+              />
+              <input
+                v-else
                 v-model="searchQuery"
                 type="text"
                 class="tm__search-input"
@@ -562,10 +765,10 @@ function getDisplayTags(tags?: string[]): string[] {
                 spellcheck="false"
               />
               <button
-                v-if="searchQuery"
+                v-if="marketMode === 'github' ? githubSearchInput : searchQuery"
                 type="button"
                 class="tm__search-clear"
-                @click="searchQuery = ''"
+                @click="marketMode === 'github' ? (githubSearchInput = '', triggerGitHubSearch()) : (searchQuery = '')"
               >
                 ✕
               </button>
@@ -770,7 +973,104 @@ function getDisplayTags(tags?: string[]): string[] {
             </div>
           </div>
 
-          <!-- MODE 3: Locally Installed Themes -->
+          <!-- MODE 3: GitHub Live Discovery -->
+          <div v-else-if="marketMode === 'github'">
+            <!-- Rate limit hint banner if applicable -->
+            <div v-if="themes.githubRateLimited" class="tm__gh-banner tm__gh-banner--warn">
+              <span>⚠️ {{ isZh ? '当前处于 GitHub 匿名访问模式（受每小时 60 次频控限制）。如需无限制探索，可在【设置 → GitHub 同步】绑定 GitHub Token。' : 'GitHub anonymous rate limit active (60 req/h). Add a GitHub Token in Settings to lift limit to 5000 req/h.' }}</span>
+            </div>
+
+            <!-- Loading State -->
+            <div v-if="themes.githubLoading" class="tm__state-box">
+              <div class="tm__state-spinner"></div>
+              <p class="tm__state-desc">{{ isZh ? '正在从 GitHub 实时检索 Typora 社区主题仓库...' : 'Querying GitHub live for Typora themes...' }}</p>
+            </div>
+
+            <!-- Error State -->
+            <div v-else-if="themes.githubError && themes.githubRepos.length === 0" class="tm__state-box tm__state-box--error">
+              <p class="tm__state-title">{{ isZh ? 'GitHub 实时检索失败' : 'GitHub Live Search Failed' }}</p>
+              <p class="tm__state-desc">{{ themes.githubError }}</p>
+              <button class="tm__action-btn tm__action-btn--primary" @click="triggerGitHubSearch">{{ isZh ? '重试搜索' : 'Retry' }}</button>
+            </div>
+
+            <!-- Empty Results -->
+            <div v-else-if="themes.githubRepos.length === 0" class="tm__state-box">
+              <p class="tm__state-title">{{ isZh ? '未在 GitHub 找到相关主题' : 'No themes found on GitHub' }}</p>
+              <p class="tm__state-desc">{{ isZh ? '尝试更换搜索关键词，例如: latex, dark, notion, code...' : 'Try another keyword like latex, dark, notion, code...' }}</p>
+              <button class="tm__action-btn" @click="githubSearchInput = ''; githubSearchTopic = ''; triggerGitHubSearch()">{{ isZh ? '查看全部高赞主题' : 'View Top Themes' }}</button>
+            </div>
+
+            <!-- Repos Grid -->
+            <div v-else class="tm__grid">
+              <article
+                v-for="repo in themes.githubRepos"
+                :key="repo.id"
+                class="tm__card tm__card--github-live"
+              >
+                <!-- Card Header with Avatar and Repo info -->
+                <div class="tm__gh-card-top">
+                  <div class="tm__gh-header-row">
+                    <img
+                      v-if="repo.owner_avatar"
+                      :src="repo.owner_avatar"
+                      :alt="repo.owner_login"
+                      class="tm__gh-avatar"
+                      loading="lazy"
+                    />
+                    <div class="tm__gh-titles">
+                      <h3 class="tm__name" :title="repo.name">{{ repo.name }}</h3>
+                      <span class="tm__author">{{ repo.owner_login }}</span>
+                    </div>
+                    <div class="tm__gh-badges">
+                      <span class="tm__badge tm__badge--stars">⭐ {{ formatStars(repo.stars) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="tm__meta">
+                  <p class="tm__desc" :title="repo.description || 'GitHub Community Theme'">
+                    {{ repo.description || (isZh ? 'GitHub 社区开源 Typora 主题' : 'GitHub community Typora theme') }}
+                  </p>
+
+                  <div class="tm__tags">
+                    <span v-for="tag in (repo.topics || []).slice(0, 3)" :key="tag" class="tm__tag tm__tag--github">
+                      #{{ tag }}
+                    </span>
+                    <span v-if="repo.updated_at" class="tm__tag tm__tag--time">
+                      🕒 {{ formatDate(repo.updated_at) }}
+                    </span>
+                  </div>
+
+                  <div class="tm__card-footer">
+                    <button
+                      type="button"
+                      class="tm__action-btn tm__action-btn--github"
+                      :disabled="isSniffingRepo[repo.full_name]"
+                      @click="onSniffAndInstallRepo(repo)"
+                    >
+                      <span v-if="isSniffingRepo[repo.full_name]" class="tm__btn-spinner"></span>
+                      <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                      </svg>
+                      <span>{{ isSniffingRepo[repo.full_name] ? (isZh ? '正在嗅探安装...' : 'Sniffing...') : (isZh ? '嗅探并安装' : 'Sniff & Install') }}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="tm__action-btn tm__action-btn--ghost"
+                      :title="isZh ? '在浏览器中打开 GitHub 仓库' : 'View on GitHub'"
+                      @click="onOpenRepo(repo.html_url)"
+                    >
+                      {{ isZh ? '仓库 ↗' : 'Repo ↗' }}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- MODE 4: Locally Installed Themes -->
           <div v-else-if="marketMode === 'installed'">
             <div v-if="filteredInstalledThemes.length === 0" class="tm__state-box">
               <p class="tm__state-title">{{ isZh ? '暂无已安装的主题' : 'No Installed Themes' }}</p>
@@ -905,6 +1205,61 @@ function getDisplayTags(tags?: string[]): string[] {
             >
               <span v-if="isInstallingUrl" class="tm__btn-spinner"></span>
               <span>{{ isInstallingUrl ? (isZh ? '正在拉取...' : 'Fetching...') : (isZh ? '一键解析并安装' : 'Fetch & Install') }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Variant Picker Modal (When repo has multiple CSS variants) -->
+      <div v-if="variantModalOpen" class="tm__url-modal-backdrop" @click="variantModalOpen = false">
+        <div class="tm__url-modal tm__variant-modal" @click.stop>
+          <div class="tm__url-modal-header">
+            <h3 class="tm__url-modal-title">
+              <span>🎨 {{ isZh ? '选择要安装的主题变体' : 'Select Theme Variant' }}</span>
+            </h3>
+            <button class="tm__close-btn" @click="variantModalOpen = false">✕</button>
+          </div>
+
+          <div class="tm__url-modal-body">
+            <p class="tm__url-modal-desc">
+              {{ isZh ? `在仓库中探查到以下 ${variantModalFiles.length} 款可用主题变体，请选择您要安装的版本：` : `Detected ${variantModalFiles.length} CSS variants, please select one to install:` }}
+            </p>
+            <div class="tm__variant-list">
+              <label
+                v-for="file in variantModalFiles"
+                :key="file.id"
+                class="tm__variant-item"
+                :class="{ 'is-selected': variantModalSelected?.id === file.id }"
+                @click="variantModalSelected = file"
+              >
+                <input
+                  type="radio"
+                  name="theme-variant"
+                  :checked="variantModalSelected?.id === file.id"
+                  class="tm__variant-radio"
+                />
+                <div class="tm__variant-info">
+                  <div class="tm__variant-name-row">
+                    <span class="tm__variant-name">{{ file.name }}</span>
+                    <span class="tm__badge" :class="file.is_dark ? 'tm__badge--tone' : 'tm__badge--light'">
+                      {{ file.is_dark ? (isZh ? '深色' : 'Dark') : (isZh ? '浅色' : 'Light') }}
+                    </span>
+                  </div>
+                  <span class="tm__variant-file">{{ file.file_name }} <span v-if="file.size">({{ (file.size / 1024).toFixed(1) }} KB)</span></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="tm__url-modal-footer">
+            <button class="tm__action-btn" @click="variantModalOpen = false">{{ isZh ? '取消' : 'Cancel' }}</button>
+            <button
+              class="tm__action-btn tm__action-btn--primary"
+              :disabled="!variantModalSelected || isInstallingVariant"
+              @click="onConfirmVariantInstall"
+            >
+              <span v-if="isInstallingVariant" class="tm__btn-spinner"></span>
+              <span>{{ isInstallingVariant ? (isZh ? '正在安装...' : 'Installing...') : (isZh ? '确认安装并启用' : 'Install Selected') }}</span>
             </button>
           </div>
         </div>
@@ -1706,5 +2061,177 @@ function getDisplayTags(tags?: string[]): string[] {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* Live Badge */
+.tm__mode-badge--live {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #f59e0b !important;
+}
+
+/* GitHub Live Cards */
+.tm__card--github-live {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tm__gh-card-top {
+  padding: 14px 14px 0;
+}
+
+.tm__gh-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tm__gh-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.tm__gh-titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tm__gh-titles .tm__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tm__gh-titles .tm__author {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tm__gh-banner {
+  margin: 0 0 16px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tm__gh-banner--warn {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #d97706;
+}
+
+.tm__gh-sort-pills {
+  display: inline-flex;
+  background: var(--bg);
+  padding: 2px;
+  border-radius: 6px;
+  gap: 2px;
+  border: 1px solid var(--border);
+}
+
+.tm__sort-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  white-space: nowrap;
+}
+
+.tm__sort-pill.is-active {
+  background: var(--bg-elev);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tm__tag--github {
+  background: rgba(99, 102, 241, 0.1) !important;
+  color: #6366f1 !important;
+}
+
+.tm__tag--time {
+  background: var(--bg) !important;
+  color: var(--text-muted) !important;
+}
+
+/* Variant Modal */
+.tm__variant-modal {
+  width: min(540px, 94vw);
+}
+
+.tm__variant-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.tm__variant-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tm__variant-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover, var(--border));
+}
+
+.tm__variant-item.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elev));
+}
+
+.tm__variant-radio {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.tm__variant-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tm__variant-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tm__variant-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tm__variant-file {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
 }
 </style>

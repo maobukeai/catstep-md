@@ -65,6 +65,38 @@ export interface InstalledTheme {
   path: string;
 }
 
+export interface GitHubRepoSummary {
+  id: number;
+  name: string;
+  full_name: string;
+  owner_login: string;
+  owner_avatar: string;
+  html_url: string;
+  description: string;
+  stars: number;
+  forks: number;
+  updated_at: string;
+  topics: string[];
+  default_branch: string;
+}
+
+export interface GitHubSearchResponse {
+  total_count: number;
+  items: GitHubRepoSummary[];
+  rate_limited: boolean;
+  message?: string;
+}
+
+export interface DiscoveredCssFile {
+  id: string;
+  name: string;
+  file_name: string;
+  path: string;
+  download_urls: string[];
+  size: number;
+  is_dark: boolean;
+}
+
 const MANIFEST_URL = '/themes/index.json';
 const TYPORA_MANIFEST_URL = '/themes/typora-manifest.json';
 const MANIFEST_TTL_MS = 5 * 60 * 1000; // 5 min
@@ -82,6 +114,14 @@ interface State {
   installingId: string;
   // Filter chip state — empty array means "all".
   activeTags: string[];
+  // GitHub Live Search state
+  githubRepos: GitHubRepoSummary[];
+  githubTotal: number;
+  githubLoading: boolean;
+  githubError: string;
+  githubRateLimited: boolean;
+  githubSearchQuery: string;
+  githubSort: 'stars' | 'updated';
 }
 
 export const useThemesStore = defineStore('themes', {
@@ -97,6 +137,13 @@ export const useThemesStore = defineStore('themes', {
     installed: [],
     installingId: '',
     activeTags: [],
+    githubRepos: [],
+    githubTotal: 0,
+    githubLoading: false,
+    githubError: '',
+    githubRateLimited: false,
+    githubSearchQuery: '',
+    githubSort: 'stars',
   }),
   getters: {
     /** Manifest entries, optionally narrowed by `activeTags`. */
@@ -320,35 +367,79 @@ export const useThemesStore = defineStore('themes', {
     },
 
     /**
+     * Search GitHub repositories dynamically for Typora themes.
+     */
+    async searchGitHubThemes(query = '', sort: 'stars' | 'updated' = 'stars', page = 1) {
+      this.githubLoading = true;
+      this.githubError = '';
+      this.githubSearchQuery = query;
+      this.githubSort = sort;
+      try {
+        const res = await invoke<GitHubSearchResponse>('theme_search_github_repos', {
+          query,
+          sort,
+          page,
+          perPage: 30,
+        });
+        this.githubRepos = res.items || [];
+        this.githubTotal = res.total_count || 0;
+        this.githubRateLimited = res.rate_limited || false;
+        if (res.message) {
+          this.githubError = res.message;
+        }
+      } catch (e) {
+        this.githubError = String((e as Error)?.message ?? e);
+      } finally {
+        this.githubLoading = false;
+      }
+    },
+
+    /**
+     * Sniff CSS files from any GitHub repository URL or slug.
+     */
+    async sniffGitHubRepo(repoOrUrl: string): Promise<DiscoveredCssFile[]> {
+      return await invoke<DiscoveredCssFile[]>('theme_sniff_github_repo', {
+        repoOrUrl,
+      });
+    },
+
+    /**
+     * Install a discovered CSS file from GitHub.
+     */
+    async installDiscoveredTheme(discovered: DiscoveredCssFile): Promise<string> {
+      this.installingId = discovered.id;
+      try {
+        const result = await invoke<{ path: string }>('theme_download_and_install', {
+          id: discovered.id,
+          urls: discovered.download_urls,
+          fallbackCss: null,
+        });
+        await this.refreshInstalled();
+        return result.path;
+      } finally {
+        this.installingId = '';
+      }
+    },
+
+    /**
      * Install a custom theme directly from any user-provided URL (GitHub repo or raw CSS).
+     * Uses smart repository sniffing to detect all available CSS variants.
      */
     async installFromCustomUrl(inputUrl: string): Promise<{ id: string; name: string; path: string }> {
-      let trimmed = inputUrl.trim();
+      const trimmed = inputUrl.trim();
       if (!trimmed) throw new Error('URL 不能为空');
 
-      let themeId = '';
-      let themeName = '';
-
-      if (!trimmed.endsWith('.css') && trimmed.includes('github.com/')) {
-        const parts = trimmed.replace(/\/$/, '').split('/');
-        const repoName = parts[parts.length - 1];
-        themeId = repoName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-        themeName = repoName;
-      } else {
-        const fileName = trimmed.split('/').pop()?.split('?')[0] || 'custom-theme.css';
-        const baseName = fileName.replace(/\.css$/i, '');
-        themeId = `custom-${baseName.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`;
-        themeName = baseName;
+      // 1. Sniff CSS files from the given URL or repo
+      const files = await this.sniffGitHubRepo(trimmed);
+      if (!files || files.length === 0) {
+        throw new Error('未能在该链接中探查到可用的 CSS 主题文件');
       }
 
-      const result = await invoke<{ path: string }>('theme_download_and_install', {
-        id: themeId,
-        urls: [trimmed],
-        fallbackCss: null,
-      });
-
-      await this.refreshInstalled();
-      return { id: themeId, name: themeName, path: result.path };
+      // 2. Pick the primary file
+      const target = files[0];
+      const path = await this.installDiscoveredTheme(target);
+      return { id: target.id, name: target.name, path };
     },
   },
 });
+

@@ -883,6 +883,8 @@ pub fn run_with(initial_file: Option<String>) {
             cost_meter::cost_meter_set_enabled,
             themes::theme_install,
             themes::theme_download_and_install,
+            themes::theme_search_github_repos,
+            themes::theme_sniff_github_repo,
             themes::theme_uninstall,
             themes::theme_list_installed,
             themes::theme_open_folder,

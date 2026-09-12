@@ -288,6 +288,8 @@ pub fn run() {
             cjk_proofread::cjk_proofread,
             themes::theme_install,
             themes::theme_download_and_install,
+            themes::theme_search_github_repos,
+            themes::theme_sniff_github_repo,
             themes::theme_uninstall,
             themes::theme_list_installed,
             themes::theme_open_folder,

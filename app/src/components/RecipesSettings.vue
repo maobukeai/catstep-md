@@ -603,58 +603,101 @@ async function installCookbookEntry(entry: CookbookEntry) {
     <!-- Wizard modal -->
     <div v-if="showWizard" class="recipes__modalBackdrop" @click.self="showWizard = false">
       <div class="recipes__modal">
-        <h4>{{ t('recipes.wizardHeading') }}</h4>
-        <label>
-          {{ t('recipes.fieldName') }}
-          <input v-model="wizName" type="text" placeholder="Weekly review" />
-        </label>
-        <label>
-          {{ t('recipes.fieldTrigger') }}
-          <select v-model="wizTrigger">
-            <option value="manual">{{ t('recipes.triggerManual') }}</option>
-            <option value="schedule">{{ t('recipes.triggerSchedule') }}</option>
-            <option value="on-save">{{ t('recipes.triggerOnSave') }}</option>
-            <option value="on-commit">{{ t('recipes.triggerOnCommit') }}</option>
-            <option value="on-tag-add">{{ t('recipes.triggerOnTagAdd') }}</option>
-          </select>
-        </label>
-        <label v-if="wizTrigger === 'schedule'">
-          {{ t('recipes.fieldSchedule') }}
-          <input v-model="wizSchedule" type="text" placeholder="0 18 * * SUN" />
-        </label>
-        <label v-if="['on-save', 'on-commit', 'on-tag-add'].includes(wizTrigger)">
-          {{ t('recipes.fieldMatch') }}
-          <input v-model="wizMatch" type="text" placeholder="daily/**/*.md" />
-        </label>
-        <label v-if="wizTrigger === 'on-tag-add'">
-          {{ t('recipes.fieldTag') }}
-          <input v-model="wizTag" type="text" placeholder="review-me" />
-        </label>
-        <label>
-          {{ t('recipes.fieldPrompt') }}
-          <textarea v-model="wizPrompt" rows="6"></textarea>
-        </label>
-        <label class="recipes__inline">
-          <input v-model="wizAllowWrite" type="checkbox" />
-          {{ t('recipes.fieldAllowWrite') }}
-        </label>
-        <label class="recipes__inline">
-          {{ t('recipes.fieldWriteCap') }}
-          <input v-model.number="wizWriteCap" type="number" min="1" max="50" style="width: 80px;" />
-        </label>
-        <div class="recipes__metaSmall">
-          {{ t('recipes.wizardSlugHint', { slug: wizSlug }) }}
+        <div class="recipes__modalHead">
+          <div>
+            <h4>{{ t('recipes.wizardHeading') }}</h4>
+            <p class="recipes__modalSub">配置自动化触发规则与 Agent 执行提示词</p>
+          </div>
+          <button class="recipes__modalClose" @click="showWizard = false; resetWizard()">✕</button>
         </div>
-        <details>
-          <summary>{{ t('recipes.wizardYamlHint') }}</summary>
-          <pre class="recipes__pre">{{ wizYaml }}</pre>
-        </details>
-        <div class="recipes__actions">
-          <button class="recipes__btnPrimary" @click="saveWizard">
-            {{ t('recipes.wizardSavePrompt') }}
-          </button>
-          <button @click="showWizard = false; resetWizard()">
+
+        <div class="recipes__form">
+          <!-- Row 1: Name & Trigger -->
+          <div class="recipes__form-row">
+            <label class="recipes__field">
+              <span class="recipes__label-text">{{ t('recipes.fieldName') }}</span>
+              <input v-model="wizName" type="text" placeholder="例：每周笔记复盘 / 保存自动打标" class="recipes__input" />
+            </label>
+            <label class="recipes__field">
+              <span class="recipes__label-text">{{ t('recipes.fieldTrigger') }}</span>
+              <select v-model="wizTrigger" class="recipes__select">
+                <option value="manual">{{ t('recipes.triggerManual') }}</option>
+                <option value="schedule">{{ t('recipes.triggerSchedule') }}</option>
+                <option value="on-save">{{ t('recipes.triggerOnSave') }}</option>
+                <option value="on-commit">{{ t('recipes.triggerOnCommit') }}</option>
+                <option value="on-tag-add">{{ t('recipes.triggerOnTagAdd') }}</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Conditional Row 2: Trigger parameters -->
+          <div v-if="wizTrigger === 'schedule'" class="recipes__field">
+            <div class="recipes__label-line">
+              <span class="recipes__label-text">{{ t('recipes.fieldSchedule') }}</span>
+              <span class="recipes__field-presets">
+                <button type="button" class="recipes__preset-chip" @click="wizSchedule = '0 18 * * SUN'">每周日 18:00</button>
+                <button type="button" class="recipes__preset-chip" @click="wizSchedule = '0 9 * * 1-5'">工作日 09:00</button>
+                <button type="button" class="recipes__preset-chip" @click="wizSchedule = '0 0 * * *'">每天 00:00</button>
+              </span>
+            </div>
+            <input v-model="wizSchedule" type="text" placeholder="0 18 * * SUN" class="recipes__input recipes__input--mono" />
+          </div>
+
+          <div v-if="['on-save', 'on-commit', 'on-tag-add'].includes(wizTrigger)" class="recipes__field">
+            <div class="recipes__label-line">
+              <span class="recipes__label-text">{{ t('recipes.fieldMatch') }}</span>
+              <span class="recipes__field-presets">
+                <button type="button" class="recipes__preset-chip" @click="wizMatch = 'daily/**/*.md'">daily/**</button>
+                <button type="button" class="recipes__preset-chip" @click="wizMatch = '**/*.md'">全部笔记</button>
+              </span>
+            </div>
+            <input v-model="wizMatch" type="text" placeholder="daily/**/*.md" class="recipes__input recipes__input--mono" />
+          </div>
+
+          <div v-if="wizTrigger === 'on-tag-add'" class="recipes__field">
+            <span class="recipes__label-text">{{ t('recipes.fieldTag') }}</span>
+            <input v-model="wizTag" type="text" placeholder="如 review-me 或 todo-expand" class="recipes__input" />
+          </div>
+
+          <!-- Row 3: Prompt -->
+          <div class="recipes__field">
+            <div class="recipes__label-line">
+              <span class="recipes__label-text">{{ t('recipes.fieldPrompt') }}</span>
+              <span class="recipes__field-tip">支持变量：<code>&#123;&#123;date:YYYY-WW&#125;&#125;</code>、<code>&#123;&#123;date:YYYY-MM-DD&#125;&#125;</code></span>
+            </div>
+            <textarea v-model="wizPrompt" rows="4" class="recipes__textarea"></textarea>
+          </div>
+
+          <!-- Row 4: Permission & write cap card -->
+          <div class="recipes__perm-card">
+            <label class="recipes__perm-label">
+              <input v-model="wizAllowWrite" type="checkbox" />
+              <span>{{ t('recipes.fieldAllowWrite') }} <small class="recipes__perm-tip">（产物先进入独立 Git 分支供你审核）</small></span>
+            </label>
+            <div v-if="wizAllowWrite" class="recipes__cap-wrap">
+              <span class="recipes__cap-label">{{ t('recipes.fieldWriteCap') }}</span>
+              <input v-model.number="wizWriteCap" type="number" min="1" max="50" class="recipes__input-num" />
+              <span class="recipes__cap-unit">篇</span>
+            </div>
+          </div>
+
+          <!-- Row 5: Slug & YAML preview -->
+          <details class="recipes__yaml-preview">
+            <summary>
+              <span>{{ t('recipes.wizardSlugHint', { slug: wizSlug }) }}</span>
+              <span class="recipes__yaml-link">{{ t('recipes.wizardYamlHint') }} ▾</span>
+            </summary>
+            <pre class="recipes__pre">{{ wizYaml }}</pre>
+          </details>
+        </div>
+
+        <!-- Footer -->
+        <div class="recipes__modalFoot">
+          <button class="recipes__btn" @click="showWizard = false; resetWizard()">
             {{ t('recipes.wizardCancel') }}
+          </button>
+          <button class="recipes__btn recipes__btnPrimary" @click="saveWizard">
+            {{ t('recipes.wizardSavePrompt') }}
           </button>
         </div>
       </div>
@@ -663,13 +706,19 @@ async function installCookbookEntry(entry: CookbookEntry) {
     <!-- YAML editor modal -->
     <div v-if="editing" class="recipes__modalBackdrop" @click.self="cancelYamlEdit">
       <div class="recipes__modal recipes__modalLarge">
-        <h4>{{ t('recipes.yamlEditorHeading', { name: editing.name }) }}</h4>
-        <textarea v-model="editingYaml" rows="20" class="recipes__yamlEditor"></textarea>
-        <div class="recipes__actions">
-          <button class="recipes__btnPrimary" @click="saveYamlEdit">
+        <div class="recipes__modalHead">
+          <div>
+            <h4>{{ t('recipes.yamlEditorHeading', { name: editing.name }) }}</h4>
+            <p class="recipes__modalSub">直接编辑配方 YAML 配置定义</p>
+          </div>
+          <button class="recipes__modalClose" @click="cancelYamlEdit">✕</button>
+        </div>
+        <textarea v-model="editingYaml" rows="18" class="recipes__yamlEditor"></textarea>
+        <div class="recipes__modalFoot">
+          <button class="recipes__btn" @click="cancelYamlEdit">{{ t('recipes.yamlCancel') }}</button>
+          <button class="recipes__btn recipes__btnPrimary" @click="saveYamlEdit">
             {{ t('recipes.yamlSave') }}
           </button>
-          <button @click="cancelYamlEdit">{{ t('recipes.yamlCancel') }}</button>
         </div>
       </div>
     </div>
@@ -680,12 +729,14 @@ async function installCookbookEntry(entry: CookbookEntry) {
       class="recipes__modalBackdrop"
       @click.self="showCookbook = false"
     >
-      <div class="recipes__modal recipes__modal--wide">
+      <div class="recipes__modal recipes__modalLarge">
         <div class="recipes__modalHead">
-          <h4>{{ t('cookbook.heading') }}</h4>
-          <button @click="showCookbook = false">×</button>
+          <div>
+            <h4>{{ t('cookbook.heading') }}</h4>
+            <p class="recipes__modalSub">{{ t('cookbook.intro') }}</p>
+          </div>
+          <button class="recipes__modalClose" @click="showCookbook = false">✕</button>
         </div>
-        <p class="recipes__hint">{{ t('cookbook.intro') }}</p>
         <div class="recipes__list">
           <div
             v-for="entry in cookbookEntries"
@@ -705,12 +756,13 @@ async function installCookbookEntry(entry: CookbookEntry) {
               </div>
               <div class="recipes__actions">
                 <button
+                  class="recipes__btn"
                   @click="cookbookExpanded = cookbookExpanded === entry.file_stem ? null : entry.file_stem"
                 >
                   {{ cookbookExpanded === entry.file_stem ? t('cookbook.hidePreview') : t('cookbook.preview') }}
                 </button>
                 <button
-                  class="recipes__btnPrimary"
+                  class="recipes__btn recipes__btnPrimary"
                   :disabled="installing === entry.file_stem"
                   @click="installCookbookEntry(entry)"
                 >
@@ -1062,15 +1114,17 @@ async function installCookbookEntry(entry: CookbookEntry) {
 .recipes__modal {
   background: var(--bg);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 16px;
-  width: 480px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.2));
+  border-radius: 10px;
+  padding: 18px 20px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 14px;
 }
 .recipes__modalLarge {
   width: 720px;
@@ -1080,22 +1134,194 @@ async function installCookbookEntry(entry: CookbookEntry) {
 }
 .recipes__modalHead {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 .recipes__modalHead h4 {
   margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
 }
-.recipes__modalHead button {
-  background: none;
+.recipes__modalSub {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.recipes__modalClose {
+  background: transparent;
   border: none;
-  font-size: 18px;
+  font-size: 14px;
+  color: var(--text-faint);
   cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.recipes__modalClose:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+.recipes__form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.recipes__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.recipes__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.recipes__label-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.recipes__label-text {
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-muted);
 }
-.recipes__cookbookItem {
+.recipes__field-tip {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.recipes__field-tip code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  background: var(--bg-soft);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.recipes__field-presets {
+  display: flex;
+  gap: 4px;
+}
+.recipes__preset-chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.recipes__preset-chip:hover {
+  background: var(--bg-hover, var(--bg-elev));
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.recipes__input,
+.recipes__select,
+.recipes__textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 9px;
+  font-size: 12px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  background: var(--bg-soft);
+  color: var(--text);
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.recipes__input:focus,
+.recipes__select:focus,
+.recipes__textarea:focus {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+.recipes__input--mono {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+}
+.recipes__textarea {
+  font-family: var(--font-mono, monospace);
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 75px;
+}
+.recipes__perm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+  border-radius: 6px;
+}
+.recipes__perm-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.recipes__perm-tip {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+.recipes__cap-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.recipes__cap-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.recipes__input-num {
+  width: 48px;
+  padding: 3px 6px;
+  font-size: 11px;
   border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+  text-align: center;
+}
+.recipes__cap-unit {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.recipes__yaml-preview {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+.recipes__yaml-preview summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  padding: 2px 0;
+}
+.recipes__yaml-link {
+  color: var(--accent);
+}
+.recipes__modalFoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+}
+.recipes__cookbookItem {
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.2));
   border-radius: 6px;
   padding: 8px 12px;
   display: flex;
@@ -1109,37 +1335,21 @@ async function installCookbookEntry(entry: CookbookEntry) {
   gap: 8px;
   flex-wrap: wrap;
 }
-.recipes__modal label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-}
-.recipes__modal input[type="text"],
-.recipes__modal input[type="number"],
-.recipes__modal select,
-.recipes__modal textarea {
-  padding: 6px 8px;
-  font: inherit;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  border-radius: 4px;
-}
-.recipes__modal textarea {
-  font-family: var(--font-mono, monospace);
-  font-size: 12px;
-  resize: vertical;
-}
-.recipes__inline {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 6px;
-}
 .recipes__yamlEditor {
   width: 100%;
   min-height: 360px;
   font-family: var(--font-mono, monospace);
   font-size: 12px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg-soft);
+  color: var(--text);
+  box-sizing: border-box;
+}
+.recipes__yamlEditor:focus {
+  border-color: var(--accent);
+  background: var(--bg);
+  outline: none;
 }
 </style>

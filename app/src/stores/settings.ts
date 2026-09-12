@@ -1691,6 +1691,10 @@ export const useSettingsStore = defineStore('settings', {
       this.wheelZoomEnabled = !this.wheelZoomEnabled;
       this.persist();
     },
+    setWheelZoomEnabled(val: boolean) {
+      this.wheelZoomEnabled = val;
+      this.persist();
+    },
     toggleQuickCapture() {
       this.quickCaptureEnabled = !this.quickCaptureEnabled;
       this.persist();

@@ -70,7 +70,7 @@
 
 .setting-row__info {
   flex: 1;
-  min-width: 0;
+  min-width: 140px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -355,6 +355,77 @@
   .setting-font-field-wrap input[type='text'] {
     width: 100%;
     max-width: 220px;
+  }
+}
+
+/* Typography Metrics Grid (2x2 Dashboard Matrix) */
+.settings-typography-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.settings-typo-cell {
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: transparent;
+  transition: background-color 0.12s ease;
+  min-width: 0;
+}
+
+.settings-typo-cell:hover {
+  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+}
+
+/* Vertical divider between column 1 and column 2 */
+.settings-typo-cell:nth-child(odd) {
+  border-right: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+/* Horizontal divider between row 1 and row 2 */
+.settings-typo-cell:nth-child(1),
+.settings-typo-cell:nth-child(2) {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.settings-typo-cell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-typo-cell__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.settings-typo-cell__slider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.settings-typo-cell__slider input[type='range'] {
+  width: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .settings-typography-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-typo-cell:nth-child(odd) {
+    border-right: none;
+  }
+  .settings-typo-cell:not(:last-child) {
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   }
 }
 

@@ -23,10 +23,27 @@
 //! preference, not workspace state — they should follow the user across
 //! workspaces, and they should not be committed to AutoGit.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
+use std::time::Instant;
 
-use serde::Serialize;
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
+
+fn get_optional_token() -> Option<String> {
+    #[cfg(not(target_os = "android"))]
+    {
+        keyring::Entry::new("catstep-github", "personal-access-token")
+            .ok()
+            .and_then(|e| e.get_password().ok())
+    }
+    #[cfg(target_os = "android")]
+    {
+        None
+    }
+}
 
 /// Resolve `<config_dir>/themes`, creating the directory and seed files if needed.
 fn themes_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -383,6 +400,425 @@ pub async fn theme_open_wallpapers_folder(app: AppHandle) -> Result<(), String> 
         .map_err(|e| format!("failed to open wallpapers folder: {e}"))
 }
 
+// ---------------------------------------------------------------------------
+// GitHub Live Discovery & Smart Sniffing Engine
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GitHubRepoSummary {
+    pub id: u64,
+    pub name: String,
+    pub full_name: String,
+    pub owner_login: String,
+    pub owner_avatar: String,
+    pub html_url: String,
+    pub description: String,
+    pub stars: u64,
+    pub forks: u64,
+    pub updated_at: String,
+    pub topics: Vec<String>,
+    pub default_branch: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GitHubSearchResponse {
+    pub total_count: u64,
+    pub items: Vec<GitHubRepoSummary>,
+    pub rate_limited: bool,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DiscoveredCssFile {
+    pub id: String,
+    pub name: String,
+    pub file_name: String,
+    pub path: String,
+    pub download_urls: Vec<String>,
+    pub size: u64,
+    pub is_dark: bool,
+}
+
+static SEARCH_CACHE: Lazy<Mutex<HashMap<String, (Instant, GitHubSearchResponse)>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn prettify_name(stem: &str) -> String {
+    let mut out = String::new();
+    let words = stem.split(['-', '_']);
+    for (i, w) in words.enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        let mut chars = w.chars();
+        if let Some(first) = chars.next() {
+            out.push_str(&first.to_uppercase().collect::<String>());
+            out.push_str(chars.as_str());
+        }
+    }
+    if out.is_empty() {
+        stem.to_string()
+    } else {
+        out
+    }
+}
+
+fn parse_github_repo_spec(s: &str) -> Result<(String, String, Option<String>), String> {
+    let cleaned = s
+        .trim()
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_start_matches("github.com/")
+        .trim_end_matches('/')
+        .trim_end_matches(".git");
+
+    let parts: Vec<&str> = cleaned.split('/').collect();
+    if parts.len() < 2 {
+        return Err("无效的 GitHub 仓库地址，格式应为 owner/repo".to_string());
+    }
+
+    let owner = parts[0].to_string();
+    let repo = parts[1].to_string();
+    let branch = if parts.len() >= 4 && parts[2] == "tree" {
+        Some(parts[3].to_string())
+    } else {
+        None
+    };
+
+    Ok((owner, repo, branch))
+}
+
+/// Search GitHub repositories for Typora themes with 10-minute in-memory caching.
+#[tauri::command]
+pub async fn theme_search_github_repos(
+    query: String,
+    sort: Option<String>,
+    page: Option<u32>,
+    per_page: Option<u32>,
+) -> Result<GitHubSearchResponse, String> {
+    let q_raw = query.trim().to_string();
+    let sort_mode = sort.unwrap_or_else(|| "stars".to_string());
+    let page_num = page.unwrap_or(1).max(1);
+    let per_page_num = per_page.unwrap_or(24).clamp(5, 50);
+
+    let cache_key = format!("{}:{}:{}:{}", q_raw, sort_mode, page_num, per_page_num);
+    if let Ok(guard) = SEARCH_CACHE.lock() {
+        if let Some((ts, cached)) = guard.get(&cache_key) {
+            if ts.elapsed().as_secs() < 600 {
+                return Ok(cached.clone());
+            }
+        }
+    }
+
+    let search_q = if q_raw.is_empty() {
+        "topic:typora-theme".to_string()
+    } else {
+        format!("topic:typora-theme {} in:name,description", q_raw)
+    };
+
+    let sort_param = if sort_mode == "updated" { "updated" } else { "stars" };
+    let page_str = page_num.to_string();
+    let per_page_str = per_page_num.to_string();
+
+    let url = reqwest::Url::parse_with_params(
+        "https://api.github.com/search/repositories",
+        &[
+            ("q", search_q.as_str()),
+            ("sort", sort_param),
+            ("order", "desc"),
+            ("page", page_str.as_str()),
+            ("per_page", per_page_str.as_str()),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(9))
+        .user_agent("SoloMD-ThemeDiscovery/3.0 (Windows NT 10.0; Win64; x64)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut req = client.get(url).header("Accept", "application/vnd.github.v3+json");
+    if let Some(tok) = get_optional_token() {
+        if !tok.trim().is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", tok.trim()));
+        }
+    }
+
+    let resp = req.send().await.map_err(|e| format!("GitHub API 请求失败: {e}"))?;
+    let status = resp.status();
+
+    if status.as_u16() == 403 {
+        let msg = "GitHub 访问频控（每小时60次），若频繁探索建议在设置中绑定 GitHub Token".to_string();
+        return Ok(GitHubSearchResponse {
+            total_count: 0,
+            items: Vec::new(),
+            rate_limited: true,
+            message: Some(msg),
+        });
+    }
+
+    if !status.is_success() {
+        return Err(format!("GitHub API 响应 HTTP {}", status));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("解析 GitHub 响应失败: {e}"))?;
+    let total_count = body["total_count"].as_u64().unwrap_or(0);
+    let mut items = Vec::new();
+
+    if let Some(arr) = body["items"].as_array() {
+        for it in arr {
+            let id = it["id"].as_u64().unwrap_or(0);
+            let name = it["name"].as_str().unwrap_or("").to_string();
+            let full_name = it["full_name"].as_str().unwrap_or("").to_string();
+            let owner_login = it["owner"]["login"].as_str().unwrap_or("").to_string();
+            let owner_avatar = it["owner"]["avatar_url"].as_str().unwrap_or("").to_string();
+            let html_url = it["html_url"].as_str().unwrap_or("").to_string();
+            let description = it["description"].as_str().unwrap_or("").to_string();
+            let stars = it["stargazers_count"].as_u64().unwrap_or(0);
+            let forks = it["forks_count"].as_u64().unwrap_or(0);
+            let updated_at = it["updated_at"].as_str().unwrap_or("").to_string();
+            let default_branch = it["default_branch"].as_str().unwrap_or("master").to_string();
+
+            let mut topics = Vec::new();
+            if let Some(top_arr) = it["topics"].as_array() {
+                for t in top_arr {
+                    if let Some(s) = t.as_str() {
+                        topics.push(s.to_string());
+                    }
+                }
+            }
+
+            items.push(GitHubRepoSummary {
+                id,
+                name,
+                full_name,
+                owner_login,
+                owner_avatar,
+                html_url,
+                description,
+                stars,
+                forks,
+                updated_at,
+                topics,
+                default_branch,
+            });
+        }
+    }
+
+    let response = GitHubSearchResponse {
+        total_count,
+        items,
+        rate_limited: false,
+        message: None,
+    };
+
+    if let Ok(mut guard) = SEARCH_CACHE.lock() {
+        guard.insert(cache_key, (Instant::now(), response.clone()));
+    }
+
+    Ok(response)
+}
+
+/// Intelligently sniff CSS theme files from any GitHub repository URL or slug.
+#[tauri::command]
+pub async fn theme_sniff_github_repo(repo_or_url: String) -> Result<Vec<DiscoveredCssFile>, String> {
+    let trimmed = repo_or_url.trim().trim_end_matches('/');
+
+    // Case 1: Direct CSS URL
+    if trimmed.ends_with(".css") {
+        let file_name = trimmed
+            .split('/')
+            .last()
+            .unwrap_or("custom.css")
+            .split('?')
+            .next()
+            .unwrap_or("custom.css");
+        let base_name = file_name.trim_end_matches(".css");
+        let id = format!(
+            "custom-{}",
+            base_name
+                .to_lowercase()
+                .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
+        );
+        let is_dark = file_name.to_lowercase().contains("dark")
+            || file_name.to_lowercase().contains("night");
+        return Ok(vec![DiscoveredCssFile {
+            id,
+            name: prettify_name(base_name),
+            file_name: file_name.to_string(),
+            path: file_name.to_string(),
+            download_urls: vec![trimmed.to_string()],
+            size: 0,
+            is_dark,
+        }]);
+    }
+
+    // Case 2: GitHub repository URL or slug
+    let (owner, repo, branch_opt) = parse_github_repo_spec(trimmed)?;
+    let branches_to_try = if let Some(b) = branch_opt {
+        vec![b]
+    } else {
+        vec!["master".to_string(), "main".to_string()]
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .user_agent("SoloMD-ThemeSniffer/3.0 (Windows NT 10.0; Win64; x64)")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut discovered: Vec<DiscoveredCssFile> = Vec::new();
+    let mut seen_filenames = std::collections::HashSet::new();
+
+    // Step A: Attempt GitHub Contents API
+    let api_url = format!("https://api.github.com/repos/{owner}/{repo}/contents");
+    let mut req = client.get(&api_url).header("Accept", "application/vnd.github.v3+json");
+    if let Some(tok) = get_optional_token() {
+        if !tok.trim().is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", tok.trim()));
+        }
+    }
+
+    if let Ok(resp) = req.send().await {
+        if resp.status().is_success() {
+            if let Ok(arr) = resp.json::<Vec<serde_json::Value>>().await {
+                for item in &arr {
+                    let name = item["name"].as_str().unwrap_or("");
+                    if name.ends_with(".css") {
+                        let path = item["path"].as_str().unwrap_or(name);
+                        let size = item["size"].as_u64().unwrap_or(0);
+                        let is_dark = name.to_lowercase().contains("dark")
+                            || name.to_lowercase().contains("night");
+                        let base = name.trim_end_matches(".css");
+                        let id = format!(
+                            "gh-{}-{}",
+                            owner.to_lowercase(),
+                            base.to_lowercase()
+                                .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
+                        );
+
+                        let default_b = branches_to_try
+                            .first()
+                            .cloned()
+                            .unwrap_or_else(|| "master".to_string());
+                        let urls = vec![
+                            format!("https://ghproxy.net/https://raw.githubusercontent.com/{owner}/{repo}/{default_b}/{path}"),
+                            format!("https://mirror.ghproxy.com/https://raw.githubusercontent.com/{owner}/{repo}/{default_b}/{path}"),
+                            format!("https://cdn.jsdelivr.net/gh/{owner}/{repo}@{default_b}/{path}"),
+                            format!("https://raw.githubusercontent.com/{owner}/{repo}/{default_b}/{path}"),
+                        ];
+
+                        if seen_filenames.insert(name.to_string()) {
+                            discovered.push(DiscoveredCssFile {
+                                id,
+                                name: prettify_name(base),
+                                file_name: name.to_string(),
+                                path: path.to_string(),
+                                download_urls: urls,
+                                size,
+                                is_dark,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // If API found CSS files, return them directly
+    if !discovered.is_empty() {
+        return Ok(discovered);
+    }
+
+    // Step B: Heuristic Probing (Offline/Rate-Limit-Proof Fallback)
+    let short_name = repo
+        .trim_start_matches("typora-theme-")
+        .trim_start_matches("typora-")
+        .trim_end_matches("-theme");
+
+    let mut candidates = vec![
+        format!("{short_name}.css"),
+        format!("{short_name}-dark.css"),
+        format!("{short_name}-night.css"),
+        format!("{short_name}-light.css"),
+        format!("{repo}.css"),
+        "theme.css".to_string(),
+        "style.css".to_string(),
+    ];
+
+    // Read README to extract any other .css file mentions
+    for b in &branches_to_try {
+        let rm_url = format!("https://ghproxy.net/https://raw.githubusercontent.com/{owner}/{repo}/{b}/README.md");
+        if let Ok(resp) = client.get(&rm_url).send().await {
+            if resp.status().is_success() {
+                if let Ok(text) = resp.text().await {
+                    for word in text.split_whitespace() {
+                        let clean_w = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '.' && c != '-' && c != '_');
+                        if clean_w.ends_with(".css") && !clean_w.contains('/') && !candidates.contains(&clean_w.to_string()) {
+                            candidates.push(clean_w.to_string());
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    // Probe candidates via fast multi-mirror
+    for c_file in candidates {
+        if seen_filenames.contains(&c_file) {
+            continue;
+        }
+        for b in &branches_to_try {
+            let probe_url = format!("https://ghproxy.net/https://raw.githubusercontent.com/{owner}/{repo}/{b}/{c_file}");
+            if let Ok(resp) = client.get(&probe_url).send().await {
+                if resp.status().is_success() {
+                    let bytes_len = resp.content_length().unwrap_or(0);
+                    let base = c_file.trim_end_matches(".css");
+                    let id = format!(
+                        "gh-{}-{}",
+                        owner.to_lowercase(),
+                        base.to_lowercase()
+                            .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "-")
+                    );
+                    let is_dark = c_file.to_lowercase().contains("dark")
+                        || c_file.to_lowercase().contains("night");
+                    let urls = vec![
+                        probe_url,
+                        format!("https://mirror.ghproxy.com/https://raw.githubusercontent.com/{owner}/{repo}/{b}/{c_file}"),
+                        format!("https://cdn.jsdelivr.net/gh/{owner}/{repo}@{b}/{c_file}"),
+                        format!("https://raw.githubusercontent.com/{owner}/{repo}/{b}/{c_file}"),
+                    ];
+
+                    seen_filenames.insert(c_file.clone());
+                    discovered.push(DiscoveredCssFile {
+                        id,
+                        name: prettify_name(base),
+                        file_name: c_file.clone(),
+                        path: c_file.clone(),
+                        download_urls: urls,
+                        size: bytes_len,
+                        is_dark,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+
+    if discovered.is_empty() {
+        return Err(format!(
+            "未能从仓库 {}/{} 自动嗅探到独立 CSS 文件。请确认仓库中包含 .css 文件，或直接输入该 CSS 文件的原始链接。",
+            owner, repo
+        ));
+    }
+
+    Ok(discovered)
+}
+
 #[cfg(test)]
 mod tests {
     use super::validate_id;
@@ -402,5 +838,28 @@ mod tests {
         assert!(validate_id("").is_err());
         // 65 chars
         assert!(validate_id(&"a".repeat(65)).is_err());
+    }
+
+    #[test]
+    fn test_github_repo_spec_parsing() {
+        use super::{parse_github_repo_spec, prettify_name};
+
+        let (owner, repo, branch) = parse_github_repo_spec("blinkfox/typora-vue-theme").unwrap();
+        assert_eq!(owner, "blinkfox");
+        assert_eq!(repo, "typora-vue-theme");
+        assert_eq!(branch, None);
+
+        let (owner, repo, branch) = parse_github_repo_spec("https://github.com/blinkfox/typora-vue-theme.git/").unwrap();
+        assert_eq!(owner, "blinkfox");
+        assert_eq!(repo, "typora-vue-theme");
+        assert_eq!(branch, None);
+
+        let (owner, repo, branch) = parse_github_repo_spec("https://github.com/YiNNx/typora-theme-lapis/tree/main").unwrap();
+        assert_eq!(owner, "YiNNx");
+        assert_eq!(repo, "typora-theme-lapis");
+        assert_eq!(branch, Some("main".to_string()));
+
+        assert_eq!(prettify_name("vue-dark"), "Vue Dark");
+        assert_eq!(prettify_name("academic_latex"), "Academic Latex");
     }
 }

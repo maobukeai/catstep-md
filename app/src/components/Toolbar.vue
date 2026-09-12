@@ -27,6 +27,7 @@ import { useThemesStore } from '../stores/themes';
 import type { Theme } from '../types';
 
 const ThemeMarketplace = defineAsyncComponent(() => import('./ThemeMarketplace.vue'));
+const MobileActionSheet = defineAsyncComponent(() => import('./MobileActionSheet.vue'));
 
 const { t } = useI18n();
 
@@ -71,6 +72,18 @@ function onToolbarActivate(e: Event): void {
   const el = e.target as HTMLElement | null;
   if (el?.closest('[data-phone-more]')) return;
   if (el?.closest('button, [role="menuitem"], a')) phoneMoreOpen.value = false;
+}
+
+function onMobileExport(type: 'image' | 'pdf' | 'docx' | 'html') {
+  if (type === 'image') exporter.exportImage();
+  else if (type === 'pdf') exporter.exportPdfPrint();
+  else if (type === 'docx') exporter.exportDocx();
+  else if (type === 'html') exporter.exportHtml();
+}
+
+function onMobileOutline() {
+  if (!settings.showFileTree) settings.toggleFileTree();
+  settings.setLeftSidebarTab('outline');
 }
 
 const isMarkdown = computed(() => tabs.activeTab?.language === 'markdown');
@@ -965,6 +978,19 @@ onBeforeUnmount(() => {
     <ThemeMarketplace
       :open="themeMarketplaceOpen"
       @close="themeMarketplaceOpen = false"
+    />
+
+    <!-- Mobile More Action Sheet -->
+    <MobileActionSheet
+      :open="isNarrow && phoneMoreOpen"
+      @close="phoneMoreOpen = false"
+      @export="onMobileExport"
+      @clean-ai="onCleanAI"
+      @cjk-proofread="onOpenCjkProofread"
+      @open-outline="onMobileOutline"
+      @open-help="emit('open-help')"
+      @open-about="emit('open-about')"
+      @open-settings="(sec) => emit('open-settings', sec)"
     />
   </div>
 </template>

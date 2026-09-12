@@ -496,13 +496,15 @@ onMounted(() => {
     <div class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupTypography') }}</div>
       <div class="settings-group__card">
-        <!-- Row: Editor Font Size -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.fontSize') }}</label>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
+        <!-- Typography Metrics 2x2 Grid -->
+        <div class="settings-typography-grid">
+          <!-- Cell 1: Editor Font Size -->
+          <div class="settings-typo-cell">
+            <div class="settings-typo-cell__header">
+              <span class="settings-typo-cell__title">{{ isZh ? '编辑器字号' : t('settings.fontSize') }}</span>
+              <span class="setting-val-badge">{{ settings.fontSize }}px</span>
+            </div>
+            <div class="settings-typo-cell__slider">
               <input
                 type="range"
                 min="10"
@@ -510,18 +512,34 @@ onMounted(() => {
                 :value="settings.fontSize"
                 @input="settings.setFontSize(+($event.target as HTMLInputElement).value)"
               />
-              <span class="setting-val-badge">{{ settings.fontSize }}px</span>
             </div>
           </div>
-        </div>
 
-        <!-- Row: UI Font Size -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.uiFontSize') }}</label>
+          <!-- Cell 2: Line Height -->
+          <div class="settings-typo-cell">
+            <div class="settings-typo-cell__header">
+              <span class="settings-typo-cell__title">{{ isZh ? '正文行高' : 'Line Height' }}</span>
+              <span class="setting-val-badge">{{ settings.lineHeight }}</span>
+            </div>
+            <div class="settings-typo-cell__slider">
+              <input
+                type="range"
+                min="1.3"
+                max="2.4"
+                step="0.05"
+                :value="settings.lineHeight"
+                @input="settings.setLineHeight(+($event.target as HTMLInputElement).value)"
+              />
+            </div>
           </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
+
+          <!-- Cell 3: UI Font Size -->
+          <div class="settings-typo-cell">
+            <div class="settings-typo-cell__header">
+              <span class="settings-typo-cell__title">{{ isZh ? '界面字号' : t('settings.uiFontSize') }}</span>
+              <span class="setting-val-badge">{{ settings.uiFontSize }}px</span>
+            </div>
+            <div class="settings-typo-cell__slider">
               <input
                 type="range"
                 min="10"
@@ -529,16 +547,48 @@ onMounted(() => {
                 :value="settings.uiFontSize"
                 @input="settings.setUiFontSize(+($event.target as HTMLInputElement).value)"
               />
-              <span class="setting-val-badge">{{ settings.uiFontSize }}px</span>
+            </div>
+          </div>
+
+          <!-- Cell 4: Paragraph Spacing -->
+          <div class="settings-typo-cell">
+            <div class="settings-typo-cell__header">
+              <span class="settings-typo-cell__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</span>
+              <span class="setting-val-badge">{{ settings.paragraphSpacing }}em</span>
+            </div>
+            <div class="settings-typo-cell__slider">
+              <input
+                type="range"
+                min="0.4"
+                max="2.0"
+                step="0.1"
+                :value="settings.paragraphSpacing"
+                @input="settings.setParagraphSpacing(+($event.target as HTMLInputElement).value)"
+              />
             </div>
           </div>
         </div>
 
-        <!-- Row: Global Zoom -->
+        <!-- Row 3: Global Zoom + Wheel Zoom -->
         <div class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.globalZoom') }}</label>
-            <p class="setting-row__hint">{{ t('settings.globalZoomHint') }}</p>
+            <div class="setting-theme-title-line">
+              <label class="setting-row__title">{{ t('settings.globalZoom') }}</label>
+              <label
+                v-if="!isNarrow"
+                class="setting-inline-check"
+                :class="{ 'setting-inline-check--active': settings.wheelZoomEnabled }"
+                :title="t('settings.wheelZoomHint')"
+              >
+                <input
+                  type="checkbox"
+                  :checked="settings.wheelZoomEnabled"
+                  @change="settings.setWheelZoomEnabled(($event.target as HTMLInputElement).checked)"
+                />
+                <span>{{ isZh ? 'Ctrl+滚轮缩放' : 'Wheel Zoom' }}</span>
+              </label>
+            </div>
+            <p class="setting-row__hint">{{ isZh ? '全局缩放应用界面，快捷键：Ctrl/⌘ + 加号/减号/0' : t('settings.globalZoomHint') }}</p>
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
@@ -562,64 +612,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Wheel Zoom (Desktop only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.wheelZoom') }}</span>
-            <p class="setting-row__hint">{{ t('settings.wheelZoomHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.wheelZoomEnabled"
-              @change="settings.toggleWheelZoom()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Line Height -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '正文行高' : 'Line Height' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '微调编辑器与阅读排版行间距（默认 1.75）' : 'Fine-tune line height for editor & preview (default 1.75)' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
-              <input
-                type="range"
-                min="1.3"
-                max="2.4"
-                step="0.05"
-                :value="settings.lineHeight"
-                @input="settings.setLineHeight(+($event.target as HTMLInputElement).value)"
-              />
-              <span class="setting-val-badge">{{ settings.lineHeight }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row: Paragraph Spacing -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '微调段落上下边距（默认 1.0em）' : 'Spacing between paragraphs (default 1.0em)' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
-              <input
-                type="range"
-                min="0.4"
-                max="2.0"
-                step="0.1"
-                :value="settings.paragraphSpacing"
-                @input="settings.setParagraphSpacing(+($event.target as HTMLInputElement).value)"
-              />
-              <span class="setting-val-badge">{{ settings.paragraphSpacing }}em</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row: Heading Serif Toggle -->
+        <!-- Row 4: Heading Serif Toggle -->
         <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ isZh ? '标题衬线字体' : 'Serif Headings' }}</span>
