@@ -56,11 +56,11 @@ function onSelection(text: string) {
   }
 }
 
-function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false, endLine?: number) {
+function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false, endLine?: number, smooth = true, pulse = true) {
   if (settings.viewMode === 'preview') {
-    if (line) previewRef.value?.scrollToLine(line);
+    if (line) previewRef.value?.scrollToLine(line, smooth);
   } else {
-    editorRef.value?.gotoLine(line, from, to, original, isProofread, heading, isAgentJump, endLine);
+    editorRef.value?.gotoLine(line, from, to, original, isProofread, heading, isAgentJump, endLine, smooth, pulse);
   }
 }
 
@@ -274,25 +274,36 @@ function getCurrentTopLine(paneEl: Element, fromMode: string): number | null {
 }
 
 function restoreToLine(paneEl: Element, toMode: string, line: number) {
-  if (toMode === 'edit' || toMode === 'liveEdit' || toMode === 'split') {
-    const cmRef = editorRef.value as any;
-    if (cmRef?.scrollToLine) cmRef.scrollToLine(line);
-  }
-  if (toMode === 'preview' || toMode === 'reading' || toMode === 'split') {
-    const preview = paneEl.querySelector('.pane--preview .preview-host') as HTMLElement | null;
-    if (preview) {
-      const list = getPreviewElementsByLine(preview);
-      const entry = findNearestEntry(list, line);
-      if (entry) {
-        const elRect = entry.el.getBoundingClientRect();
-        const wrapRect = preview.getBoundingClientRect();
-        preview.scrollTop += elRect.top - wrapRect.top - 8;
+  try {
+    if (toMode === 'edit' || toMode === 'liveEdit' || toMode === 'split') {
+      const cmRef = editorRef.value as any;
+      if (cmRef?.scrollToLine) cmRef.scrollToLine(line);
+    }
+    if (toMode === 'preview' || toMode === 'reading' || toMode === 'split') {
+      const preview = paneEl.querySelector('.pane--preview .preview-host') as HTMLElement | null;
+      if (preview) {
+        const list = getPreviewElementsByLine(preview);
+        const entry = findNearestEntry(list, line);
+        if (entry) {
+          const elRect = entry.el.getBoundingClientRect();
+          const wrapRect = preview.getBoundingClientRect();
+          preview.scrollTop += elRect.top - wrapRect.top - 8;
+        }
       }
     }
-  }
+  } catch {}
 }
 
 watch(() => settings.viewMode, async (newMode, oldMode) => {
+  const isBothEditor =
+    (oldMode === 'edit' || oldMode === 'liveEdit') &&
+    (newMode === 'edit' || newMode === 'liveEdit');
+  if (isBothEditor) {
+    // Both modes share the exact same Editor.vue instance which manages its own in-place
+    // extension reconfiguration. Never fire delayed restoreToLine across edit/liveEdit!
+    bindScrollSync();
+    return;
+  }
   // Snapshot the logical position from the OLD view while it's still mounted.
   const paneEl = document.querySelector(`[data-pane-id="${props.paneId}"]`);
   const savedLine = paneEl ? getCurrentTopLine(paneEl, oldMode) : null;
@@ -344,10 +355,10 @@ onBeforeUnmount(() => {
 defineExpose({ gotoLine, editorRef });
 
 function onOutlineGotoEvent(e: Event) {
-  const { line, paneId, from, to, original, isProofread, heading, isAgentJump, endLine } = (e as CustomEvent).detail || {};
+  const { line, paneId, from, to, original, isProofread, heading, isAgentJump, endLine, smooth, pulse } = (e as CustomEvent).detail || {};
   if (paneId && paneId !== props.paneId) return;
   tiles.setFocusedPane(props.paneId);
-  gotoLine(line, from, to, original, !!isProofread, heading, !!isAgentJump, endLine);
+  gotoLine(line, from, to, original, !!isProofread, heading, !!isAgentJump, endLine, smooth ?? true, pulse ?? true);
 }
 
 function onInsertMarkdownEvent(e: Event) {

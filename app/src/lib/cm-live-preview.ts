@@ -203,7 +203,6 @@ const liveTheme = EditorView.theme({
   // `.cm-selectionLayer`, parking selection beneath the per-char
   // backgrounds painted by `t.monospace`. Need `!important` to beat
   // the inline style; 45% alpha keeps glyphs readable underneath.
-  '.cm-selectionLayer': { zIndex: '2 !important', pointerEvents: 'none !important' },
   '.cm-selectionBackground': {
     backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
     pointerEvents: 'none !important',
@@ -215,32 +214,41 @@ export function livePreviewExtension() {
   return [syntaxHighlighting(markdownRichStyle), liveMarkdownPlugin, liveTheme];
 }
 
-/** Just the rich highlight style without hiding markers (raw source mode). */
-// Plain-source highlight used when the livePreview toggle is OFF. Unlike
-// `markdownRichStyle` it applies NO font-size / font-weight / italic changes
-// to markdown structure — headings stay body-sized, `**bold**` and `# head`
-// read as literal source. Only light token COLORS remain (plus full syntax
-// highlighting inside fenced code, which is genuinely code). This keeps the
-// source ↔ live toggle meaningfully distinct: "off" is plain editing, "on" is
-// a rendered preview — instead of both looking like a preview. (User ask,
-// 2026-06-20: "没打开实时预览时标题还是被预览了 / 两个按钮等于一样了".)
+
+/** Typora-style Source Mode highlight style.
+ * Uses semantic color coding harmonious with the user's active theme:
+ * - Headings: theme accent color with clear size hierarchy
+ * - Links and images: theme accent / link tone
+ * - URLs: secondary muted tone
+ * - Strong: deep contrast bold
+ * - Monospace: clean code gray
+ * - Punctuation: dimmed soft tone */
 export const markdownPlainStyle = HighlightStyle.define([
-  { tag: t.heading1, color: 'var(--md-h1)' },
-  { tag: t.heading2, color: 'var(--md-h2)' },
-  { tag: t.heading3, color: 'var(--md-h3)' },
-  { tag: t.heading4, color: 'var(--md-h4)' },
-  { tag: t.heading5, color: 'var(--md-h5)' },
-  { tag: t.heading6, color: 'var(--md-h6)' },
-  { tag: t.strong, color: 'var(--md-strong)' },
-  { tag: t.emphasis, color: 'var(--md-em)' },
-  { tag: t.strikethrough, color: 'var(--text-muted)' },
-  { tag: t.link, color: 'var(--md-link)' },
-  { tag: t.url, color: 'var(--md-url)' },
-  { tag: t.monospace, fontFamily: 'var(--font-mono)' },
-  { tag: t.quote, color: 'var(--md-quote)' },
-  { tag: t.processingInstruction, color: 'var(--text-faint)' },
-  { tag: t.contentSeparator, color: 'var(--md-hr)' },
-  // Fenced-code syntax — genuinely code, keep the colors (no size changes).
+  { tag: t.heading1, fontSize: '1.45em', fontWeight: '700', color: 'var(--source-heading, color-mix(in srgb, var(--accent) 52%, var(--text)))' },
+  { tag: t.heading2, fontSize: '1.28em', fontWeight: '700', color: 'var(--source-heading, color-mix(in srgb, var(--accent) 52%, var(--text)))' },
+  { tag: t.heading3, fontSize: '1.15em', fontWeight: '600', color: 'var(--source-heading, color-mix(in srgb, var(--accent) 52%, var(--text)))' },
+  { tag: t.heading4, fontSize: '1.05em', fontWeight: '600', color: 'var(--source-heading, color-mix(in srgb, var(--accent) 52%, var(--text)))' },
+  { tag: t.heading5, fontSize: '1em', fontWeight: '600', color: 'var(--source-heading, color-mix(in srgb, var(--accent) 52%, var(--text)))' },
+  { tag: t.heading6, fontSize: '1em', fontWeight: '600', color: 'var(--source-heading, color-mix(in srgb, var(--accent) 52%, var(--text)))' },
+  { tag: t.strong, fontWeight: '700', color: 'var(--source-strong, var(--text))' },
+  { tag: t.emphasis, fontStyle: 'italic', color: 'var(--text)' },
+  { tag: t.strikethrough, textDecoration: 'line-through', color: 'var(--text-muted)' },
+  { tag: t.link, color: 'var(--source-link, color-mix(in srgb, var(--accent) 60%, var(--text)))' },
+  { tag: t.url, color: 'var(--source-url, var(--text-muted))' },
+  {
+    tag: t.monospace,
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--source-code, var(--text))',
+    backgroundColor: 'var(--code-inline-bg, rgba(125, 125, 125, 0.08))',
+    borderRadius: '3px',
+  },
+  { tag: t.quote, color: 'var(--md-quote, var(--text-muted))' },
+  { tag: t.contentSeparator, color: 'var(--text-faint, #94a3b8)' },
+  // Dim syntax markers (Typora's signature style: #, **, [], (), -, ` etc.)
+  { tag: t.punctuation, color: 'var(--text-faint, #94a3b8)', opacity: '0.42' },
+  { tag: t.bracket, color: 'var(--source-link, var(--accent))', opacity: '0.6' },
+  { tag: t.processingInstruction, color: 'var(--source-heading-mark, color-mix(in srgb, var(--accent) 25%, var(--text-faint, #94a3b8)))' },
+  // Fenced-code syntax — genuinely code, keep the colors
   { tag: t.keyword, color: 'var(--syn-keyword)' },
   { tag: t.string, color: 'var(--syn-string)' },
   { tag: t.number, color: 'var(--syn-number)' },
@@ -250,10 +258,26 @@ export const markdownPlainStyle = HighlightStyle.define([
   { tag: t.typeName, color: 'var(--syn-type)' },
   { tag: t.propertyName, color: 'var(--syn-property)' },
   { tag: t.operator, color: 'var(--syn-operator)' },
-  { tag: t.punctuation, color: 'var(--text-muted)' },
-  { tag: t.bracket, color: 'var(--text-muted)' },
 ]);
 
+/** Typora Source Mode theme for comfortable line height, subtle active-line bar and signature caret. */
+export const typoraSourceTheme = EditorView.theme({
+  '.cm-line': {
+    lineHeight: '1.75',
+    fontVariantLigatures: 'none',
+  },
+  '.cm-activeLine': {
+    backgroundColor: 'var(--source-active-line, color-mix(in srgb, var(--accent) 2.5%, transparent)) !important',
+  },
+  '.cm-cursor, .cm-dropCursor': {
+    borderLeftColor: 'var(--source-caret, var(--accent)) !important',
+    borderLeftWidth: '2px',
+  },
+  '.cm-selectionBackground': {
+    backgroundColor: 'var(--selection-bg, color-mix(in srgb, var(--accent) 18%, transparent)) !important',
+  },
+});
+
 export function richHighlightOnly() {
-  return [syntaxHighlighting(markdownPlainStyle)];
+  return [syntaxHighlighting(markdownPlainStyle), typoraSourceTheme];
 }

@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores/settings';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { isIOS } from '../../lib/platform';
+import { isMobile } from '../../lib/platform';
 import { useViewport } from '../../composables/useViewport';
 
 const { t } = useI18n();
@@ -12,7 +12,7 @@ const settings = useSettingsStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 
-const isMobilePlatform = isIOS();
+const isMobilePlatform = isMobile();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
 const settingDefault = ref(false);
@@ -218,7 +218,7 @@ const defaultBtnText = computed(() => {
         </label>
 
         <!-- 用系统默认程序打开链接的文件 (Desktop only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isMobilePlatform && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.openLinkedFilesExternally') }}</span>
             <span class="setting-row__desc">{{ t('settings.openLinkedFilesExternallyHint') }}</span>
@@ -236,7 +236,7 @@ const defaultBtnText = computed(() => {
     </div>
 
     <!-- Group 4: 系统文件关联 (Desktop only) -->
-    <div v-if="!isNarrow" class="settings-group">
+    <div v-if="!isMobilePlatform && !isNarrow" class="settings-group">
       <div class="settings-group__title">
         {{ isZh ? '系统与文件关联' : 'System & File Association' }}
       </div>

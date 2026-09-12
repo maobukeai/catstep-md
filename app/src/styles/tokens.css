@@ -41,8 +41,8 @@
   --z-pane: 10;
   --z-sticky: 50;
   --z-pop: 1000;
-  --z-modal: 2000;
-  --z-toast: 3000;
+  --z-modal: 12000;
+  --z-toast: 15000;
 
   /* Motion */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);

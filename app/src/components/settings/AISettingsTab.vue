@@ -4,7 +4,7 @@ import { useWorkspaceStore } from '../../stores/workspace';
 import { useRagStore } from '../../stores/rag';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { isMacOS, hasGitBackend } from '../../lib/platform';
+import { isMacOS, hasGitBackend, isMobile } from '../../lib/platform';
 import { useViewport } from '../../composables/useViewport';
 import { IS_APP_STORE_BUILD } from '../../lib/app-build';
 import AISettings from '../AISettings.vue';
@@ -21,6 +21,7 @@ const rag = useRagStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 
+const isMobilePlatform = isMobile();
 const gitBackend = hasGitBackend();
 const shortcutKey = isMacOS() ? '⌘⇧F' : 'Ctrl+Shift+F';
 
@@ -118,7 +119,7 @@ async function onReindexNow() {
     </div>
 
     <!-- CLI + MCP Integrations (Desktop only) -->
-    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
+    <div v-if="!isMobilePlatform && !isNarrow" class="settings-subcomponent-wrap">
       <IntegrationsSettings />
     </div>
 
@@ -128,12 +129,12 @@ async function onReindexNow() {
     </div>
 
     <!-- Capture Endpoint (Desktop only) -->
-    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
+    <div v-if="!isMobilePlatform && !isNarrow" class="settings-subcomponent-wrap">
       <CaptureEndpointSettings />
     </div>
 
     <!-- REST API (Desktop only) -->
-    <div v-if="!isNarrow" class="settings-subcomponent-wrap">
+    <div v-if="!isMobilePlatform && !isNarrow" class="settings-subcomponent-wrap">
       <RestApiSettings />
     </div>
   </div>

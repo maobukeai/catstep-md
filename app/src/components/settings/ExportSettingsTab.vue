@@ -3,12 +3,14 @@ import { ref, computed } from 'vue';
 import { useSettingsStore } from '../../stores/settings';
 import { useI18n } from '../../i18n';
 import { useViewport } from '../../composables/useViewport';
+import { isMobile } from '../../lib/platform';
 import CitationPickerSettings from '../CitationPickerSettings.vue';
 import SettingSlider from './SettingSlider.vue';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
 const { isNarrow } = useViewport();
+const isMobilePlatform = isMobile();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 const pdfFontSizeSliderRef = ref<InstanceType<typeof SettingSlider>>();
 
@@ -356,7 +358,7 @@ function onSelectPdfFont(v: string) {
     </div>
 
     <!-- Group 3: Citation Picker (Desktop Pandoc Academic Only) -->
-    <div v-if="!isNarrow">
+    <div v-if="!isMobilePlatform && !isNarrow">
       <CitationPickerSettings />
     </div>
   </div>

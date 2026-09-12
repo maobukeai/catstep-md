@@ -13,6 +13,8 @@ import {
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
+import { useViewport } from '../composables/useViewport';
+import { isAndroid, isMobile } from '../lib/platform';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -27,6 +29,7 @@ const emit = defineEmits<{
 const { t } = useI18n();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
+const { isNarrow } = useViewport();
 
 const autoInstallCountdown = ref<number | null>(null);
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
@@ -98,6 +101,23 @@ async function handleStartDownload() {
   }
 }
 
+async function handlePrimaryAction() {
+  clearCountdown();
+  if (isAndroid()) {
+    const asset = matchedAsset.value || (props.updateInfo?.assets && props.updateInfo.assets.find(a => a.name.endsWith('.apk')));
+    if (asset?.browser_download_url) {
+      toasts.info(t('settings.apkDownloadStarting') || '已开始通过系统下载管理器下载 APK，完成后点击通知栏即可安装');
+      await openReleaseUrl(asset.browser_download_url);
+      handleClose();
+    } else {
+      await openReleaseUrl(props.updateInfo?.url);
+      handleClose();
+    }
+    return;
+  }
+  await handleStartDownload();
+}
+
 async function handleCancelDownload() {
   clearCountdown();
   await cancelUpdateDownload();
@@ -105,6 +125,13 @@ async function handleCancelDownload() {
 
 async function handleInstall() {
   clearCountdown();
+  if (isAndroid()) {
+    const asset = matchedAsset.value || (props.updateInfo?.assets && props.updateInfo.assets.find(a => a.name.endsWith('.apk')));
+    toasts.info('正在打开 APK 安装包…');
+    await openReleaseUrl(asset?.browser_download_url || props.updateInfo?.url);
+    handleClose();
+    return;
+  }
   try {
     toasts.info(t('settings.updateInstalling') || '正在启动更新程序，应用即将重启…');
     await installUpdateAndRestart(undefined, settings.autoInstallUpdate);
@@ -128,6 +155,7 @@ function handleOpenBrowser() {
   <DsModal
     :model-value="modelValue"
     width="540px"
+    z-index="12000"
     @update:model-value="handleClose"
   >
     <div class="update-modal">
@@ -248,8 +276,8 @@ function handleOpenBrowser() {
           </div>
         </div>
 
-        <!-- Automation Settings Toggles in Modal -->
-        <div class="update-modal__options">
+        <!-- Automation Settings Toggles in Modal (Desktop only) -->
+        <div v-if="!isMobile() && !isNarrow" class="update-modal__options">
           <label class="update-modal__checkbox-label">
             <input
               type="checkbox"
@@ -311,7 +339,7 @@ function handleOpenBrowser() {
                 <path d="M3 22v-6h6" />
                 <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
               </svg>
-              <span>{{ t('settings.installAndRestart') || '立即安装并重启' }}</span>
+              <span>{{ isAndroid() ? '打开安装包' : (t('settings.installAndRestart') || '立即安装并重启') }}</span>
             </button>
           </template>
 
@@ -320,7 +348,7 @@ function handleOpenBrowser() {
             <button
               type="button"
               class="update-btn update-btn--primary"
-              @click="handleStartDownload"
+              @click="handlePrimaryAction"
             >
               {{ t('settings.retryDownload') || '重新下载' }}
             </button>
@@ -338,14 +366,14 @@ function handleOpenBrowser() {
             <button
               type="button"
               class="update-btn update-btn--primary"
-              @click="handleStartDownload"
+              @click="handlePrimaryAction"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>{{ t('settings.updateNow') || '立即一键升级' }}</span>
+              <span>{{ (isAndroid() || isNarrow) ? (t('settings.downloadApk') || '下载最新 APK') : (t('settings.updateNow') || '立即一键升级') }}</span>
             </button>
           </template>
         </div>
@@ -674,5 +702,56 @@ function handleOpenBrowser() {
 }
 .update-btn--danger:hover {
   background: rgba(239, 68, 68, 0.18);
+}
+
+@media (max-width: 640px) {
+  .update-modal__header {
+    padding: 16px 18px 12px;
+  }
+
+  .update-modal__icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .update-modal__title {
+    font-size: 15.5px;
+  }
+
+  .update-modal__body {
+    padding: 14px 18px;
+    gap: 12px;
+  }
+
+  .update-modal__notes-card {
+    border-radius: 8px;
+  }
+
+  .update-modal__notes-content {
+    max-height: 180px;
+    font-size: 12px;
+  }
+
+  .update-modal__footer {
+    padding: 14px 18px 18px;
+    flex-direction: column-reverse;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .update-modal__footer-right {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .update-btn {
+    width: 100%;
+    height: 38px;
+    font-size: 13px;
+    border-radius: 8px;
+    justify-content: center;
+  }
 }
 </style>

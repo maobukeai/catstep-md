@@ -22,7 +22,7 @@ const { t } = useI18n();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
 
-const VERSION = ref('1.0.0');
+const VERSION = ref('1.0.1');
 const copied = ref(false);
 let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,7 +51,7 @@ onMounted(async () => {
   try {
     VERSION.value = await getVersion();
   } catch {
-    VERSION.value = '1.0.0';
+    VERSION.value = '1.0.1';
   }
 });
 

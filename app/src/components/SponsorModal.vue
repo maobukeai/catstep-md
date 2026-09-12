@@ -60,7 +60,7 @@ function close() {
   <DsModal
     :model-value="modelValue"
     width="390px"
-    :z-index="2100"
+    :z-index="12000"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <div class="sponsor-modal">

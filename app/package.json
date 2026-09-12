@@ -1,12 +1,14 @@
 {
   "name": "catstep-md",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
+    "test": "node --import ./scripts/register-loader.mjs --test src/lib/*.test.ts",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

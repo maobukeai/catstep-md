@@ -14,7 +14,7 @@
  */
 
 import { computed, onMounted, ref, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { safeInvoke as invoke } from '../lib/tauri-bridge';
 import {
   PROVIDERS,
   providerById,
@@ -2205,5 +2205,82 @@ input[type='checkbox']:focus-visible,
 .ai-settings__modal-models-input-row {
   display: flex;
   gap: 6px;
+}
+
+/* Mobile Responsive Adjustments (<=640px) */
+@media (max-width: 640px) {
+  .ai-settings__card-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .ai-settings__card-header-row .ai-settings__card-info {
+    width: 100%;
+    flex: none;
+  }
+  .ai-settings__card-header-row .ai-settings__header-actions {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ai-settings__card-header-row .ai-settings__switch-combo {
+    margin-left: auto;
+  }
+
+  .ai-settings__row-line {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .ai-settings__row-line .ai-settings__card-info {
+    width: 100%;
+    flex: none;
+  }
+  .ai-settings__row-line .ai-settings__header-actions {
+    width: 100%;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ai-settings__model-add-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .ai-settings__model-input-wrap {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+  .ai-settings__btn--fetch {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ai-settings__info-code {
+    max-width: 200px;
+  }
+
+  .ai-settings__profile-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .ai-settings__profile-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .ai-settings__profile-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .ai-settings__modal {
+    width: 94vw;
+    max-height: 85vh;
+  }
 }
 </style>

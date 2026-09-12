@@ -11,6 +11,7 @@ import { checkForUpdate, sharedUpdaterState, type UpdateResult } from '../lib/ch
 import UpdateModal from './UpdateModal.vue';
 import { useI18n } from '../i18n';
 import { useViewport } from '../composables/useViewport';
+import { isMobile } from '../lib/platform';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
@@ -29,7 +30,7 @@ onMounted(async () => {
   try {
     appVersion.value = await getVersion();
   } catch {
-    appVersion.value = '1.0.0';
+    appVersion.value = '1.0.1';
   }
 });
 
@@ -156,8 +157,8 @@ async function manualCheckUpdate() {
       </div>
     </div>
 
-    <!-- Group 1: 版本与更新 (Desktop only) -->
-    <div v-if="!isNarrow" class="settings-group">
+    <!-- Group 1: 版本与更新 -->
+    <div class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupAboutUpdates') }}</div>
       <div class="settings-group__card">
         <label class="setting-row setting-row--clickable">
@@ -175,35 +176,38 @@ async function manualCheckUpdate() {
           </div>
         </label>
 
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.autoDownloadUpdate') }}</span>
-            <span class="setting-row__desc">{{ t('settings.autoDownloadUpdateHint') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              class="micro-toggle"
-              :checked="settings.autoDownloadUpdate"
-              @change="settings.toggleAutoDownloadUpdate()"
-            />
-          </div>
-        </label>
+        <!-- Desktop background download & install -->
+        <template v-if="!isMobile() && !isNarrow">
+          <label class="setting-row setting-row--clickable">
+            <div class="setting-row__info">
+              <span class="setting-row__title">{{ t('settings.autoDownloadUpdate') }}</span>
+              <span class="setting-row__desc">{{ t('settings.autoDownloadUpdateHint') }}</span>
+            </div>
+            <div class="setting-row__control">
+              <input
+                type="checkbox"
+                class="micro-toggle"
+                :checked="settings.autoDownloadUpdate"
+                @change="settings.toggleAutoDownloadUpdate()"
+              />
+            </div>
+          </label>
 
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.autoInstallUpdate') }}</span>
-            <span class="setting-row__desc">{{ t('settings.autoInstallUpdateHint') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              class="micro-toggle"
-              :checked="settings.autoInstallUpdate"
-              @change="settings.toggleAutoInstallUpdate()"
-            />
-          </div>
-        </label>
+          <label class="setting-row setting-row--clickable">
+            <div class="setting-row__info">
+              <span class="setting-row__title">{{ t('settings.autoInstallUpdate') }}</span>
+              <span class="setting-row__desc">{{ t('settings.autoInstallUpdateHint') }}</span>
+            </div>
+            <div class="setting-row__control">
+              <input
+                type="checkbox"
+                class="micro-toggle"
+                :checked="settings.autoInstallUpdate"
+                @change="settings.toggleAutoInstallUpdate()"
+              />
+            </div>
+          </label>
+        </template>
 
         <div class="setting-row">
           <div class="setting-row__info">
@@ -666,6 +670,15 @@ async function manualCheckUpdate() {
 .check-update-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+@media (max-width: 640px) {
+  .check-update-btn {
+    height: 30px;
+    padding: 3px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
 }
 
 .is-spinning {

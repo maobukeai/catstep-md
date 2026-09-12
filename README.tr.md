@@ -1,171 +1,134 @@
-# 猫步 MD (Catstep MD)
+﻿# 猫步 MD (Catstep MD)
 
-> Ajanların yaşadığı editör.
+> Sessiz adımlar, akıcı düşünceler. Agent'ların yaşadığı Typora tarzı hafif Markdown editörü.
 
-[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.1-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
 [![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
-🌐 **[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
+🌐 **[中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)** · 🪞 **[Gitee mirror →](https://gitee.com/maobukeai/catstep-md)**
 
-[**v4.0'u indir**](https://github.com/maobukeai/catstep-md/releases) · [**Lansman yazısı**](https://solomd.app/blog/v4-0-0-agent-native-author/) · [**Web sitesi**](https://solomd.app) · [**Güvenlik**](https://solomd.app/security)
+[**Download Releases**](https://github.com/maobukeai/catstep-md/releases) · [**Roadmap**](docs/roadmap.md) · [**Privacy & Security**](#privacy--security)
 
-![Catstep MD Editor](web/public/demo/solomd-demo.svg)
+---
 
-Notlarınız bir klasörde yaşar. **SoloMD bunun üzerindeki editördür — editör içi birinci sınıf bir ajan yüzeyi ve Claude Code / Cursor'un dışarıdan sürebileceği MCP uç noktası ile birlikte.** Aynı `.md` dosyaları. Vault'unuzla sohbet edin. Klavyenin başında olmadığınızda çalışan tarifler planlayın. Aynı vault'u herhangi bir MCP istemcisine devredin.
+## 📸 Real Screenshots
 
-Tauri 2 + Vue 3 + CodeMirror 6 üzerine kuruludur. Universal macOS dmg ~32 MB. Ücretsiz, MIT, abonelik yok, SoloMD tarafından barındırılan sunucu yok. Notlarınız, AI anahtarlarınız, embedding indeksiniz ve Git geçmişinizin tamamı makinenizde kalır.
+### 🌟 Real WYSIWYG Live Preview & Smooth-Scrolling Outline Navigator
+![Catstep MD Live Preview and Outline Navigator](docs/screenshots/catstep-live-preview.png)
 
-## Bir ürünün üç yarısı
+### 🎨 Theme-Adaptive Subdued Source Mode & Immersive Eye-Care Dark Mode
+<p align="center">
+  <img src="docs/screenshots/catstep-source-light.png" width="49%" alt="Typora-Style Theme Adaptive Source Mode" />
+  <img src="docs/screenshots/catstep-dark-mode.png" width="49%" alt="Immersive Dark Mode" />
+</p>
 
-**Editör.** WYSIWYG canlı düzenleme (Typora tarzı), sekmeler + bölünmüş paneller, KaTeX + Mermaid, `_assets/` içine resim yapıştırma, slayt gösterisi modu (`⌘⌥P`), Vim modu, Hunspell + CJK yazım denetimi, semantik arama (`⌘⇧F`), wikilink'ler + geri bağlantılar, Pandoc dışa aktarımı. CJK kodlamaları (GBK / Big5 / Shift-JIS) otomatik algılanır.
+---
 
-**Uç nokta.** Paketlenmiş bir `solomd-mcp` ikilisi, aynı vault'u herhangi bir MCP istemcisine açar — varsayılan olarak 13 araç, bunların 5'i SoloMD'ye özel (`autogit_log`, `autogit_diff`, `autogit_rollback`, `sync_status`, `share_url`) ve başka hiçbir Markdown sunucusunda yoktur. v4.0, `--workspace path1 --workspace path2` federasyonunu ekler — tek bir MCP oturumu, birçok vault. Ayrıca önceden bağlanmış MCP ile Claude Code / Codex CLI'ya devreden bir `solomd agent <prompt>` CLI'ı.
+## 🍃 What is Catstep MD?
 
-**Ajan yüzeyi (v4.0).** Sağ taraf ajan paneli: akış halinde vault ile sohbet, `[[wikilink]]` atıfları, satır içi araç çağrı kartları, **Ekle** / **Kopyala** düğmeleri yanıtı aktif nota düşürür. Ayrıca `<workspace>/.solomd/agents/*.yml` içinde YAML olarak bildirimsel **tarifler** — `cron` / `on-save` / `on-commit` / `on-tag-add` / manuel tetikleyiciler. **Her ajan yazma eylemi, `main`'e dokunmadan önce kabul edebileceğiniz veya reddedebileceğiniz kendi AutoGit dalına iner**; varsayılan write-cap 5; çalışma ağacı kirliyse başlamayı reddeder; çalıştırma başına `read_agent_trace` MCP aracıyla yeniden oynatılabilir `trace.jsonl`.
+Your notes should simply be transparent Markdown files in a local folder.
 
-| Özellik | |
-|---|---|
-| **Ajan paneli** *(v4.0)* | Outline / Backlinks / Tags / History ile aynı seviyede akış halinde vault sohbeti. Araç çağrı kartları satır içinde açılır; aktif editöre yanıt Ekle / Kopyala; çalıştırma günlüğü `.solomd/agent-runs/` altında saf Markdown olarak korunur. |
-| **Zamanlanmış tarifler** *(v4.0)* | Vault'unuzdaki YAML işleri. Birleştirme öncesi AutoGit dal kum havuzu + kabul/red UI'ı. Çalıştırma başına write-cap (varsayılan 5, maksimum 50). Ağaçta 11 tariflik bir tarif kitabı. |
-| **Yeniden oynatılabilir iz** *(v4.0)* | Adım başına `trace.jsonl` (`prompt` / `model_call` / `tool_call` / `tool_result` / `git_commit`). Adımdan tekrar oynatma geri sarar ve yeniden çalıştırır. |
-| **Çalışma alanı federasyonu** *(v4.0)* | `solomd-mcp --workspace path1 --workspace path2`. Tek bir Claude Desktop oturumu, birçok vault. Ayarlar → Entegrasyonlar'da MCP profil UI'ı. |
-| **Ollama birinci sınıf** *(v4.0)* | `localhost:11434` üzerinde otomatik algılama. Üç model ön ayarı (`qwen2.5:1.5b/7b/14b`). Bulutsuz özerk döngüler için `provider: local` tarif takma adı. |
-| **AI yeniden yazma, BYOK** | 14 sağlayıcı — OpenAI · Claude · Gemini · DeepSeek · Qwen · GLM · Kimi · Doubao · SiliconFlow · OpenRouter · Mistral · Groq · xAI · Ollama. Doğrudan satıcı çağrıları. Anahtarlar OS keychain'de. |
-| **GitHub destekli senkronizasyon** | Vault'unuzu her kayıtta özel bir GitHub deposuna gönderin. Opsiyonel E2EE (Argon2id + XChaCha20-Poly1305). GitLab / Gitea / herhangi bir HTTPS git URL'si de çalışır. |
-| **Not başına AutoGit** | Her `⌘S`, çalışma alanındaki yerel bir `.git`'e yapılan bir commit'tir. libgit2 paketlenmiştir, sistem git'ine gerek yoktur. Asla otomatik push edilmez. |
-| **MCP sunucusu paketlenmiş** | `solomd-mcp` kuruluma dahildir. 13 araç (8 jenerik + 5 SoloMD'ye özel). Yalnızca stdio, ağ portu yok. Varsayılan olarak salt okunur; `--allow-write` ile opt-in. |
-| **REST API** *(v4.0)* | Yalnızca localhost, token kimlik doğrulama. Henüz MCP konuşmayan istemciler için MCP ile aynı yüzey — Alfred / Raycast / n8n / kendi betikleriniz. |
-| **BYOK maliyet ölçer** *(v4.0)* | Sağlayıcı başına çalışan token kullanım sayacı, opt-in. Ayarlar → Entegrasyonlar. |
-| **Bulut klasörü modu** | Vault'unuz `~/Library/Mobile Documents/...` veya `~/Dropbox/...` altındaysa SoloMD bunu algılar ve cihazlar arası oturum geri yüklemesi ekler — dosya senkronizasyonunu zaten OS yapıyor. |
-| **Genel salt okunur paylaşım** | Komut paleti → bir `solomd.app/share/?repo=...&path=...` bağlantısı kopyalayın. Görüntülemek için SoloMD hesabına gerek olmadan, genel GitHub deponuzdaki herhangi bir dosyayı işler. |
+**Catstep MD** is a desktop Markdown knowledge editor crafted for pure, distraction-free writing. It harmoniously combines **Typora-grade immersive typography and minimalist aesthetics**, a **modern local-first AutoGit time machine**, and a **first-class built-in AI Agent assistant with native MCP endpoint capabilities**.
 
-## Kullanım
+Engineered on **Tauri 2 + Vue 3 + CodeMirror 6**, Catstep MD weighs only ~15–30 MB, launches in milliseconds, and uses less than a quarter of the memory consumed by typical Electron alternatives. 100% free and open-source (MIT), with no cloud account lock-in. Your prose, version history, API credentials, and local vectors remain strictly on your machine.
 
-SoloMD'yi macOS / Linux'a kurduktan sonra:
+---
 
-**1. Vault'unuzla sohbet edin.** Sağ taraftaki ajan panelini açın (gizliyse ⌘⇧P → "View: Toggle Agent Panel"). Notlarınıza karşı akış halinde çok adımlı sohbet; araç çağrı kartları her okuma/yazmayı satır içinde gösterir. Yanıt çok mu uzun? **Ekle** onu aktif notta imleç konumuna düşürür (seçimi değiştirir); **Kopyala** panoya kopyalar.
+## ✨ Key Features
 
-**2. Bir tarif planlayın.** Ayarlar → Tarifler → tarif kitabına göz atın. 11 hazır başlangıç tarifi: haftalık özet, günlük özet, TODO çıkarma, çeviri geçişi, atıf temizleme, CJK yazım denetleyici ajanı, link çürümesi dedektörü, frontmatter normalleştirici, taslaktan bloga, refactor geçişi, haftalık etiket triyajı. Birini yükleyin, prompt'u düzenleyin, çalıştırın.
+### 1. ✍️ Typora-Grade Pure Writing Experience
+- **WYSIWYG Live Preview**: Seamless typing and formatting integration. Markdown tokens appear on cursor focus and render instantly as you move away;
+- **Subdued Theme-Adaptive Source Mode (`Ctrl+/`)**: Headings, markers, links, code, and active line glow adapt gracefully to your active theme's accent color without visual glare;
+- **Smooth-Scrolling Outline Navigator**: Heading navigation features natural physics-damped smooth scrolling to locate exact positions in long documents;
+- **In-Place Interactive Markdown Tables**: Navigate cells effortlessly with `Tab` / `Shift+Tab`; hitting Enter in the last cell automatically extends a new row;
+- **Immersive Reading View**: Clean distraction-free reading; double-click any paragraph to return instantly to live editing;
+- **Rich Theme Ecosystem**: Ships with Light, Dark, Amber, Nord, Catppuccin, Dracula, and Warm themes with full custom CSS token flexibility.
 
-**3. Aynı vault'u başka bir LLM istemcisinden sürün.** Tek seferde:
+### 2. 🤖 Built-in Catstep AI Assistant & MCP Protocol Endpoint
+- **First-Class AI Agent Panel**: Streamed multi-turn conversations with your notes, inline tool call inspection, and context awareness;
+- **Smart Polish & One-Click Insertion**: Polish, expand, or summarize selected text; insert AI responses directly at the cursor or replace current selections;
+- **14+ Direct LLM Providers (BYOK)**: Connect directly to OpenAI, Claude, Gemini, DeepSeek, Qwen, GLM, Kimi, Doubao, SiliconFlow, and local Ollama. API keys are safely stored in your operating system's native keychain;
+- **Built-in MCP Server**: Exposes standard MCP tools so Claude Code, Cursor, Windsurf, or custom AI agents can query and manipulate your local vault from outside.
 
-```bash
-# AI istemciniz için MCP yapılandırma parçacığını yazdırın.
-solomd mcp-config
-```
+### 3. 🛡️ Local-First & AutoGit Time Machine
+- **Plain Text Freedom**: Standard `.md` files residing in your filesystem. Zero proprietary formats, zero database lock-in;
+- **Millisecond AutoGit Time Machine**: Automatic lightweight local git commits on save. Inspect per-note commit history, view visual line diffs, and revert changes with a single click;
+- **Bidirectional Links & Knowledge Graph**: Link your ideas with `[[wikilink]]`, inspect backlinks, and explore connected concepts visually via the Neighborhood Graph.
 
-```json
-{
-  "mcpServers": {
-    "solomd": {
-      "command": "/Applications/SoloMD.app/Contents/Resources/solomd-mcp",
-      "args": ["--workspace", "/Users/me/Documents/SoloMD"]
-    }
-  }
-}
-```
+---
 
-Claude Desktop / Cursor / vb.'ye yapıştırın. Çoklu vault federasyonu için `--workspace`'i tekrarlayın:
+## 📊 Feature Comparison
 
-```json
-"args": [
-  "--workspace", "/Users/me/Documents/SoloMD",
-  "--workspace", "/Users/me/Documents/work-notes"
-]
-```
+| Feature | Catstep MD | Obsidian | Typora |
+| :--- | :---: | :---: | :---: |
+| **License** | **MIT (100% Free & Open Source)** | Proprietary (Free personal) | Paid Commercial ($14.99) |
+| **Architecture** | **Tauri 2 (Rust + Native WebView)** | Electron | Electron |
+| **Installer Size** | **~15–30 MB (Ultra Lightweight)** | ~120 MB | ~95 MB |
+| **Memory & Startup** | **Instant launch, minimal memory footprint** | Slower startup, high memory | Medium startup & memory |
+| **WYSIWYG Live Preview** | ✅ **Pure Typora-style typography** | ✅ Live Preview | ✅ Classic WYSIWYG |
+| **Theme-Adaptive Source Mode** | ✅ **Subdued semantic hierarchy** | ❌ Plain text highlighting | ✅ Fixed magenta palette |
+| **Smooth Outline Navigation** | ✅ **Damped smooth scrolling** | ❌ Instant jump | ✅ Smooth scrolling |
+| **Interactive Tables** | ✅ **Tab / Enter auto-expand** | 🟡 Requires complex setup | ✅ Native table editor |
+| **Built-in AI Assistant (BYOK)** | ✅ **14+ providers + one-click insert** | 🟡 Third-party plugins | ❌ No built-in AI |
+| **Version Time Machine (AutoGit)** | ✅ **Automatic local commits + diff** | 🟡 Requires Git plugin | ❌ Basic file history |
+| **Built-in MCP Endpoint** | ✅ **Ready out of the box** | ❌ No official support | ❌ None |
+| **Data Privacy** | ✅ **Zero cloud dependency, OS keychain** | 🟡 Paid sync cloud | ✅ Local files |
 
-**4. Veya bir prompt'u doğrudan claude / codex CLI'ya devredin:**
+---
 
-```bash
-solomd agent "bu haftanın günlük notlarını haftalık bir özete yeniden yaz ve commit et"
-```
+## 🚀 Download & Installation
 
-Path traversal'a karşı korumalı. Ağ portu yok. LLM yalnızca çalışma alanını yönelttiğiniz yeri görür.
+Grab the latest release from GitHub Releases: [**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases)
 
-## Kurulum
+- **Windows (x64 / ARM64)**: Fast `.msi` installers and standalone `.zip` portable versions;
+- **macOS (Apple Silicon & Intel Universal)**: Standard `.dmg` installer packages;
+- **Linux (x86_64 / aarch64)**: `.AppImage`, `.deb`, and `.rpm` packages.
 
-En son sürüm: [**v4.0.0**](https://github.com/maobukeai/catstep-md/releases).
+---
 
-### macOS — Universal dmg (Apple Silicon + Intel, imzalı + noterlenmiş)
+## 🔒 Privacy & Security
 
-```bash
-brew install --cask maobukeai/catstep-md/solomd
-```
+1. **Strictly Local**: All your Markdown notes reside exclusively on your local storage. No content is ever sent to private cloud servers;
+2. **Hardware Credential Isolation**: API keys are saved directly into your operating system's native credential vault (Windows Credential Manager, macOS Keychain, Linux Secret Service);
+3. **Direct Vendor Requests**: AI network calls connect point-to-point from your machine directly to the provider endpoints without intermediate proxies;
+4. **Transparent & Auditable**: 100% open-source under the MIT license for full community review.
 
-Veya dmg'yi doğrudan indirin:
+---
 
-```
-https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal.dmg
-```
+## 🛠️ Building from Source
 
-Veya tek satırlık shell kurulumu:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
-```
-
-### Windows — x64
-
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — kurulumcu yok
-
-```powershell
-irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
-```
-
-```powershell
-winget install solomd
-```
-
-### Linux — x86_64 + aarch64
-
-- `.AppImage` (evrensel), `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) — her iki mimari de [sürümler sayfasından](https://github.com/maobukeai/catstep-md/releases).
-- Arch kullanıcıları: AUR'da [`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin).
-
-### iPad
-
-[App Store](https://apps.apple.com/app/solomd/id6762498874) — aynı motor, yerel iPad UI.
-
-## Gizlilik ve güvenlik
-
-Saf istemci tarafı. `.md` dosyalarınız seçtiğiniz klasörde kalır. API anahtarları OS keychain'de yaşar (macOS Keychain / Windows Credential Manager / Linux libsecret), asla `localStorage`'da veya bir yapılandırma dosyasında değil. AI istekleri makinenizden seçilen sağlayıcıya doğrudan gider — SoloMD röleyi yok. RAG embedding'leri ve AutoGit deposu yalnızca yereldir. MCP sunucusu stdio konuşur, asla bir ağ portu açmaz. Tüm kod tabanı MIT'tir ve denetlenebilir.
-
-**Ajan güvenlik bariyerleri (v4.0).** Her tarif çalıştırması kendi AutoGit dalında başlar — diff üzerinde Kabul Et'e tıklayana kadar `main`'iniz dokunulmadan kalır. Çalıştırma başına write-cap (varsayılan 5, sert maksimum 50) kontrolden çıkmış döngüleri önler. Tarif çalıştırıcı, çalışma ağacı kirliyse başlamayı reddeder (hiçbir ajan commit'i WIP'inizi süpürmeyecektir). Path traversal koruyucuları, kullanıcı tarafından sağlanan bir yolu kabul eden her Tauri / MCP / REST uç noktasında `..` segmentlerini ve mutlak yolları önceden reddeder.
-
-E2EE senkronizasyonu Argon2id (RFC9106 varsayılan parametreleri) → deterministik nonce'lar ve AAD olarak yol ile XChaCha20-Poly1305 kullanır. Düz metin cihazlarınızda kalır; uzaktaki yalnızca şifreli metni görür. `sync.json` ayrıştırma başarısızlığı fail-closed'tır — düz metne düşmek yerine push'u reddeder (bir v3.0.x denetim düzeltmesi).
-
-Tam yazı: <https://solomd.app/security>.
-
-## Kaynaktan derleme
-
-Önkoşullar: Rust (stable), Node 18+, pnpm.
+Prerequisites: Rust (stable), Node 18+, pnpm.
 
 ```bash
+# Clone repository
 git clone https://github.com/maobukeai/catstep-md.git
-cd solomd/app
+cd catstep-md/app
+
+# Install dependencies
 pnpm install
-pnpm tauri dev      # hot reload ile dev
-pnpm tauri build    # release artefaktları → src-tauri/target/release/bundle/
+
+# Start development with hot reload
+pnpm tauri dev
+
+# Build release bundle
+pnpm tauri build
 ```
 
-Linux ek olarak keychain backend'i için `libdbus-1-dev`'e ihtiyaç duyar.
+---
 
-MCP sunucusu `mcp-server/` altında ayrı bir crate'tir; uçtan uca testler için dev-MCP harness'ı `dev-mcp/` altında yaşar. Uçtan uca test giriş noktası: `scripts/v4-self-test.sh` (tam kapsama için `--with-release --with-ollama --with-ui` ile çalıştırın).
+## 🤝 Community & Contributions
 
-## Katkıda bulunma
+Contributions, bug reports, and feature ideas are warmly welcome:
+- **Report an issue:** [GitHub Issues](https://github.com/maobukeai/catstep-md/issues)
+- **Join discussions:** [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions)
+- **Explore our roadmap:** [docs/roadmap.md](docs/roadmap.md)
 
-Issue ve PR'lar memnuniyetle karşılanır — [bir tane açın](https://github.com/maobukeai/catstep-md/issues). Yön hissi için [`docs/roadmap.md`](docs/roadmap.md)'e bakın. v4.0 derleme günlüğü [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) adresindedir — bir PR göndermeden önce mühendislik ilkelerini anlamak istiyorsanız oradan başlayın.
+---
 
-## İletişim
+## 📄 License & Acknowledgments
 
-Tek bir bakımcı, iki ön kapı. Asenkron olarak [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions). Gerçek zamanlı sohbet:
+This project is open-sourced under the [MIT License](LICENSE).
 
-- **Telegram (uluslararası):** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — sürüm duyuruları + sohbet
-- **WeChat (中文):** beni eklemek için tarayın — not "SoloMD"
-
-## Lisans ve katkıda bulunanlar
-
-[MIT](LICENSE) © 2026 maobukeai. SoloMD; Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` ve `rmcp` üzerinde durur. [GitHub Sponsors](https://github.com/maobukeai/catstep-md) veya [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md) üzerinden sponsor olun.
+Special thanks to Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, and all contributors across the open-source ecosystem.

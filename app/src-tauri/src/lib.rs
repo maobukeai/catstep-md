@@ -126,7 +126,8 @@ pub fn run() {
             .with_state_flags(
                 tauri_plugin_window_state::StateFlags::all()
                     - tauri_plugin_window_state::StateFlags::DECORATIONS
-                    - tauri_plugin_window_state::StateFlags::FULLSCREEN,
+                    - tauri_plugin_window_state::StateFlags::FULLSCREEN
+                    - tauri_plugin_window_state::StateFlags::MAXIMIZED,
             )
             // The quick-capture box and focus-pip timer are undecorated, fixed-size and always on
             // top by design. Restoring a remembered geometry (decorations

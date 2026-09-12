@@ -106,7 +106,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Limit editor width (Desktop only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.limitEditorWidth') || '居中限制编辑器最大宽度' }}</span>
             <p class="setting-row__hint">{{ isZh ? '宽屏显示器下保持舒适的人体工程学阅读行长' : 'Keep comfortable reading line length on wide screens' }}</p>
@@ -162,7 +162,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Vim 模式 (桌面端专享) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.vimMode') }}</span>
             <p class="setting-row__hint">{{ isZh ? '启用 CodeMirror 原生 Vim 键盘编辑模式与快捷键' : 'Enable Vim keybindings for CodeMirror editor' }}</p>
@@ -239,7 +239,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Preview fit width (Desktop only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.previewFitWidth') }}</span>
             <p class="setting-row__hint">{{ isZh ? '预览区域铺满窗口，忽略最大宽度限制' : 'Fit preview area to window width' }}</p>
@@ -251,7 +251,7 @@ void refreshSpellDicts();
 
         <!-- Row: Preview max width (Desktop only) -->
         <div
-          v-if="!isNarrow"
+          v-if="!isPhoneOrTablet && !isNarrow"
           class="setting-row"
           tabindex="0"
           @mouseenter="previewMaxWidthSliderRef?.activate()"
@@ -287,7 +287,7 @@ void refreshSpellDicts();
         </div>
 
         <!-- Row: PlantUML (Desktop only) -->
-        <div v-if="!isNarrow" class="setting-row setting-row--stack-mobile">
+        <div v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--stack-mobile">
           <div class="setting-row__info">
             <label class="setting-row__title-wrap">
               <span class="setting-row__title">{{ t('settings.plantuml') }}</span>
@@ -333,7 +333,7 @@ void refreshSpellDicts();
       <div class="settings-group__title">{{ t('settings.groupOutlineSidebars') }}</div>
       <div class="settings-group__card">
         <!-- Row: Show outline (Desktop dock only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showOutline') }}</span>
             <p class="setting-row__hint">{{ isZh ? '在编辑区侧边默认浮现目录大纲导航' : 'Show outline panel by default' }}</p>
@@ -344,7 +344,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Outline side (Desktop dock only) -->
-        <div v-if="!isNarrow" class="setting-row">
+        <div v-if="!isPhoneOrTablet && !isNarrow" class="setting-row">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.outlineSide') }}</label>
             <p class="setting-row__hint">{{ isZh ? '控制大纲停靠在编辑区左侧或右侧' : 'Position outline on left or right' }}</p>
@@ -373,7 +373,7 @@ void refreshSpellDicts();
             >
               <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
               <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
-              <option v-if="!isNarrow" value="jump">{{ t('settings.outlineMarkerJump') }}</option>
+              <option v-if="!isPhoneOrTablet && !isNarrow" value="jump">{{ t('settings.outlineMarkerJump') }}</option>
             </select>
           </div>
         </div>
@@ -394,7 +394,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Show file tree (Desktop sidebar only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showFileTree') }}</span>
             <p class="setting-row__hint">{{ isZh ? '侧边栏显示文件目录树导航' : 'Show file explorer in sidebar' }}</p>
@@ -405,7 +405,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Show backlinks (Desktop sidebar only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showBacklinks') }}</span>
             <p class="setting-row__hint">{{ isZh ? '侧边栏显示当前笔记的双向反向链接' : 'Show bidirectional backlinks in sidebar' }}</p>
@@ -416,7 +416,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Show tags panel (Desktop sidebar only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+        <label v-if="!isPhoneOrTablet && !isNarrow" class="setting-row setting-row--clickable">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.showTagsPanel') }}</span>
             <p class="setting-row__hint">{{ isZh ? '侧边栏显示工作区全部标签面板' : 'Show workspace tags explorer in sidebar' }}</p>
@@ -571,7 +571,7 @@ void refreshSpellDicts();
               >
                 <option v-for="code in spellDicts" :key="code" :value="code">{{ code }}</option>
               </select>
-              <button v-if="!isNarrow" type="button" class="btn-setting" @click="openDictsFolder">
+              <button v-if="!isPhoneOrTablet && !isNarrow" type="button" class="btn-setting" @click="openDictsFolder">
                 {{ t('settings.spellcheckAddDict') }}
               </button>
             </div>
@@ -659,8 +659,8 @@ void refreshSpellDicts();
               @change="settings.setImageUpload({ imageUploader: ($event.target as HTMLSelectElement).value as any })"
             >
               <option value="none">{{ t('settings.imageUploaderNone') }}</option>
-              <option v-if="!isNarrow" value="picgo">{{ t('settings.imageUploaderPicgo') }}</option>
-              <option v-if="!isNarrow" value="command">{{ t('settings.imageUploaderCommand') }}</option>
+              <option v-if="!isPhoneOrTablet && !isNarrow" value="picgo">{{ t('settings.imageUploaderPicgo') }}</option>
+              <option v-if="!isPhoneOrTablet && !isNarrow" value="command">{{ t('settings.imageUploaderCommand') }}</option>
               <option value="smms">{{ t('settings.imageUploaderSmms') }}</option>
               <option value="s3">{{ t('settings.imageUploaderS3') }}</option>
               <option value="github">{{ t('settings.imageUploaderGithub') }}</option>

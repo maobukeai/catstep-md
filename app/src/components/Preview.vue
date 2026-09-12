@@ -660,7 +660,7 @@ function openSearch() {
  * Used by the outline when viewMode === 'preview' (the editor is unmounted
  * so its gotoLine is unavailable).
  */
-function scrollToLine(line: number) {
+function scrollToLine(line: number, smooth = true) {
   const article = host.value;
   if (!article) return;
   const container = article.parentElement as HTMLElement | null;
@@ -686,8 +686,8 @@ function scrollToLine(line: number) {
     }
   }
   const target = nodes[best];
-  const offset = target.offsetTop - 8;
-  container.scrollTo({ top: offset, behavior: 'smooth' });
+  const offset = Math.max(0, target.offsetTop - 32);
+  container.scrollTo({ top: offset, behavior: smooth ? 'smooth' : 'auto' });
 }
 
 // #189 — copying rendered content into mail clients / rich editors dropped
@@ -798,7 +798,8 @@ defineExpose({ scrollToLine, openSearch });
 <style>
 .preview-host {
   height: 100%;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg);
   border-left: 1px solid var(--border);
 }
@@ -857,6 +858,20 @@ defineExpose({ scrollToLine, openSearch });
   background: var(--bg-hover);
   padding: 0.15em 0.4em;
   border-radius: 4px;
+}
+:where(.preview-content) kbd {
+  display: inline-block;
+  padding: 0.15em 0.45em;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  line-height: 1.2;
+  color: var(--text);
+  background-color: var(--bg-hover, #f3f4f6);
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 4px;
+  box-shadow: 0 1px 0 1px rgba(0, 0, 0, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  vertical-align: middle;
+  white-space: nowrap;
 }
 :where(.preview-content) pre {
   font-family: var(--font-mono);
@@ -929,10 +944,10 @@ defineExpose({ scrollToLine, openSearch });
   -webkit-user-select: none;
 }
 :where(.preview-content) blockquote {
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--md-quote, var(--accent));
   margin: 1em 0;
   padding: 0.2em 1em;
-  color: var(--text-muted);
+  color: var(--md-quote-text, var(--text-muted));
 }
 :where(.preview-content) ul,
 :where(.preview-content) ol {
@@ -952,7 +967,7 @@ defineExpose({ scrollToLine, openSearch });
 }
 :where(.preview-content) hr {
   border: none;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--md-hr, var(--border));
   margin: 2em 0;
 }
 :where(.preview-content) img {

@@ -8,6 +8,7 @@ import { themeLabels, allThemeLabels, isValidTheme } from '../../lib/themes';
 import { reloadAllCustomStyles, loadCustomTheme } from '../../lib/custom-theme';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useViewport } from '../../composables/useViewport';
+import { isMobile } from '../../lib/platform';
 import ThemeMarketplace from '../ThemeMarketplace.vue';
 import SettingSlider from './SettingSlider.vue';
 import type { Theme } from '../../types';
@@ -17,6 +18,7 @@ const settings = useSettingsStore();
 const themesStore = useThemesStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
+const isMobilePlatform = isMobile();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
 const bgOpacitySliderRef = ref<InstanceType<typeof SettingSlider>>();
@@ -66,7 +68,7 @@ async function refreshCustomCss() {
 async function refreshCustomThemes() {
   await themesStore.refreshInstalled();
   await reloadAllCustomStyles(settings.customCssPath);
-  toasts.success(isZh.value ? '已刷新主题与样式' : 'Themes and styles reloaded');
+  toasts.success(t('settings.themeRefreshBtn') ? (isZh.value ? '已刷新主题与样式' : 'Themes and styles reloaded') : 'Themes and styles reloaded');
 }
 
 const currentThemeSelectValue = computed(() =>
@@ -225,35 +227,35 @@ onMounted(() => {
               <label
                 class="setting-inline-check"
                 :class="{ 'setting-inline-check--active': settings.perNoteThemeEnabled }"
-                :title="isZh ? '支持笔记在头部 YAML 中用 theme: newsprint 等声明单篇专属主题' : 'Allow documents to declare theme: newsprint in YAML frontmatter'"
+                :title="t('settings.perNoteThemeHint')"
               >
                 <input
                   type="checkbox"
                   :checked="settings.perNoteThemeEnabled"
                   @change="settings.setPerNoteThemeEnabled(($event.target as HTMLInputElement).checked)"
                 />
-                <span>{{ isZh ? '单篇 Frontmatter 覆盖' : 'Frontmatter Theme' }}</span>
+                <span>{{ t('settings.perNoteTheme') }}</span>
               </label>
             </div>
-            <p class="setting-row__hint">{{ isZh ? '界面视觉风格与社区主题扩展' : 'Visual theme & community marketplace' }}</p>
+            <p class="setting-row__hint">{{ t('settings.appearanceHint') }}</p>
             <div v-if="settings.customCssPath" class="custom-css-path-badge" style="margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); background: var(--bg-hover); padding: 2px 7px; border-radius: 4px; max-width: 100%; word-break: break-all;">
               <span>CSS: {{ settings.customCssPath }}</span>
               <button
                 type="button"
                 style="border: none; background: transparent; cursor: pointer; color: var(--accent); padding: 0 2px; font-size: 11px; line-height: 1;"
-                :title="isZh ? '重新载入' : 'Reload'"
+                :title="t('settings.themeReload')"
                 :disabled="isCssRefreshing"
                 @click="refreshCustomCss"
               >
-                {{ isZh ? '[重载]' : '[Reload]' }}
+                [{{ t('settings.themeReload') }}]
               </button>
               <button
                 type="button"
                 style="border: none; background: transparent; cursor: pointer; color: var(--text-faint); padding: 0 2px; font-size: 11px; line-height: 1;"
-                :title="isZh ? '清除' : 'Clear'"
+                :title="t('settings.themeClear')"
                 @click="settings.setCustomCssPath(''); settings.setActiveCustomThemeId('')"
               >
-                {{ isZh ? '[清除]' : '[Clear]' }}
+                [{{ t('settings.themeClear') }}]
               </button>
             </div>
           </div>
@@ -264,18 +266,18 @@ onMounted(() => {
                 :value="currentThemeSelectValue"
                 @change="onThemeSelectChange(($event.target as HTMLSelectElement).value)"
               >
-                <optgroup :label="isZh ? '官方默认主题' : 'Official Themes'">
+                <optgroup :label="t('settings.themeOfficialGroup')">
                   <option v-for="th in themeLabels" :key="th.value" :value="th.value">{{ th.label }}</option>
                 </optgroup>
                 <optgroup
                   v-if="!settings.activeCustomThemeId && !themeLabels.some((d) => d.value === settings.theme) && allThemeLabels.some((a) => a.value === settings.theme)"
-                  :label="isZh ? '当前正在使用' : 'Active Theme'"
+                  :label="t('settings.themeActiveGroup')"
                 >
                   <option :value="settings.theme">
                     {{ allThemeLabels.find((a) => a.value === settings.theme)?.label || settings.theme }}
                   </option>
                 </optgroup>
-                <optgroup v-if="themesStore.installed.length > 0" :label="isZh ? '已安装主题 (社区市场)' : 'Installed Themes (Marketplace)'">
+                <optgroup v-if="themesStore.installed.length > 0" :label="t('settings.themeInstalledGroup')">
                   <option
                     v-for="cth in themesStore.installed"
                     :key="cth.id"
@@ -290,24 +292,38 @@ onMounted(() => {
                 class="btn-setting btn-setting--marketplace"
                 @click="openThemeMarketplace"
               >
-                {{ isZh ? '社区主题' : 'Marketplace' }}
+                {{ t('settings.themeMarketplaceBtn') }}
+              </button>
+              <button
+                v-if="isNarrow"
+                type="button"
+                class="btn-setting btn-setting--icon"
+                :title="t('settings.themeRefreshBtn')"
+                @click="refreshCustomThemes()"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 21h5v-5"/>
+                </svg>
               </button>
             </div>
-            <div class="setting-theme-subactions">
-              <button v-if="!isNarrow" type="button" class="btn-setting-link" @click="pickCustomCss">
-                {{ isZh ? '导入 .css' : 'Import .css' }}
+            <div v-if="!isMobilePlatform && !isNarrow" class="setting-theme-subactions">
+              <button type="button" class="btn-setting-link" @click="pickCustomCss">
+                {{ t('settings.themeImportBtn') }}
               </button>
-              <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
-              <button v-if="!isNarrow" type="button" class="btn-setting-link" @click="themesStore.openThemeFolder()">
-                {{ isZh ? '主题文件夹' : 'Themes Folder' }}
+              <span class="setting-subactions-dot">·</span>
+              <button type="button" class="btn-setting-link" @click="themesStore.openThemeFolder()">
+                {{ t('settings.themeFolderBtn') }}
               </button>
-              <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
-              <button v-if="!isNarrow" type="button" class="btn-setting-link" @click="themesStore.openUserCss()">
-                {{ isZh ? '编辑 user.css' : 'user.css' }}
+              <span class="setting-subactions-dot">·</span>
+              <button type="button" class="btn-setting-link" @click="themesStore.openUserCss()">
+                {{ t('settings.themeUserCssBtn') }}
               </button>
-              <span v-if="!isNarrow" class="setting-subactions-dot">·</span>
+              <span class="setting-subactions-dot">·</span>
               <button type="button" class="btn-setting-link" @click="refreshCustomThemes()">
-                {{ isZh ? '刷新' : 'Refresh' }}
+                {{ t('settings.themeRefreshBtn') }}
               </button>
             </div>
           </div>
@@ -316,17 +332,17 @@ onMounted(() => {
         <!-- Row: Canvas Background -->
         <div class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '软件背景与画布' : 'App & Canvas Background' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '为整个软件窗口衬托质感微纹理或自定义沉浸壁纸' : 'Decorate the entire app window with subtle texture or custom wallpaper' }}</p>
+            <label class="setting-row__title">{{ t('settings.bgTitle') }}</label>
+            <p class="setting-row__hint">{{ t('settings.bgHint') }}</p>
           </div>
           <div class="setting-row__control">
             <select
               :value="settings.bgType"
               @change="settings.setBgType(($event.target as HTMLSelectElement).value as any)"
             >
-              <option value="none">{{ isZh ? '无（纯净经典）' : 'None (Classic)' }}</option>
-              <option value="texture">{{ isZh ? '质感平铺纹理' : 'Subtle Texture' }}</option>
-              <option value="image">{{ isZh ? '自定义图片壁纸' : 'Custom Image Wallpaper' }}</option>
+              <option value="none">{{ t('settings.bgModeNone') }}</option>
+              <option value="texture">{{ t('settings.bgModeTexture') }}</option>
+              <option value="image">{{ t('settings.bgModeImage') }}</option>
             </select>
           </div>
         </div>
@@ -334,18 +350,18 @@ onMounted(() => {
         <!-- Row: Texture Style Preset -->
         <div v-if="settings.bgType === 'texture'" class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '纹理样式' : 'Texture Style' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '无缝高清矢量微质感背景' : 'Seamless vector texture preset' }}</p>
+            <label class="setting-row__title">{{ t('settings.textureTitle') }}</label>
+            <p class="setting-row__hint">{{ t('settings.textureHint') }}</p>
           </div>
           <div class="setting-row__control">
             <select
               :value="settings.bgTexture"
               @change="settings.setBgTexture(($event.target as HTMLSelectElement).value as any)"
             >
-              <option value="paper">{{ isZh ? '羊皮宣纸 (Paper)' : 'Paper' }}</option>
-              <option value="grid">{{ isZh ? '工程网格 (Grid)' : 'Grid' }}</option>
-              <option value="dots">{{ isZh ? '点阵笔记 (Dots)' : 'Dots' }}</option>
-              <option value="linen">{{ isZh ? '细织亚麻 (Linen)' : 'Linen' }}</option>
+              <option value="paper">{{ t('settings.texturePaper') }}</option>
+              <option value="grid">{{ t('settings.textureGrid') }}</option>
+              <option value="dots">{{ t('settings.textureDots') }}</option>
+              <option value="linen">{{ t('settings.textureLinen') }}</option>
             </select>
           </div>
         </div>
@@ -354,9 +370,9 @@ onMounted(() => {
         <template v-if="settings.bgType === 'image'">
           <div class="setting-row setting-row--stack-mobile">
             <div class="setting-row__info">
-              <label class="setting-row__title">{{ isZh ? '自定义背景壁纸' : 'Custom Wallpapers' }}</label>
+              <label class="setting-row__title">{{ t('settings.wallpaperTitle') }}</label>
               <p class="setting-row__hint">
-                {{ isZh ? '支持浅色与深色专属壁纸独立配置，深色主题下自动切换' : 'Configure distinct wallpapers for light and dark themes' }}
+                {{ t('settings.wallpaperHint') }}
               </p>
             </div>
             <div class="setting-row__control setting-actions-row">
@@ -364,38 +380,38 @@ onMounted(() => {
               <button
                 type="button"
                 class="btn-setting"
-                :title="settings.bgImage ? (isZh ? '已配置浅色壁纸，点击更换' : 'Light wallpaper set, click to change') : (isZh ? '选择浅色壁纸' : 'Pick light wallpaper')"
+                :title="settings.bgImage ? t('settings.wallpaperLightSet') : t('settings.wallpaperLight')"
                 @click="pickWallpaper('light')"
               >
-                {{ settings.bgImage ? (isZh ? '浅色: 已配置' : 'Light: Set') : (isZh ? '浅色图片…' : 'Light Image…') }}
+                {{ settings.bgImage ? t('settings.wallpaperLightSet') : t('settings.wallpaperLight') }}
               </button>
               <button
                 v-if="settings.bgImage"
                 type="button"
                 class="btn-setting btn-setting--danger"
-                :title="isZh ? '清除浅色壁纸' : 'Clear light wallpaper'"
+                :title="t('settings.wallpaperClear')"
                 @click="clearWallpaper('light')"
               >
-                {{ isZh ? '清除' : 'Clear' }}
+                {{ t('settings.wallpaperClear') }}
               </button>
 
               <!-- Dark Wallpaper Button -->
               <button
                 type="button"
                 class="btn-setting"
-                :title="settings.bgImageDark ? (isZh ? '已配置深色专属壁纸，点击更换' : 'Dark wallpaper set, click to change') : (isZh ? '选择深色专属壁纸' : 'Pick dark wallpaper')"
+                :title="settings.bgImageDark ? t('settings.wallpaperDarkSet') : t('settings.wallpaperDark')"
                 @click="pickWallpaper('dark')"
               >
-                {{ settings.bgImageDark ? (isZh ? '深色: 已配置' : 'Dark: Set') : (isZh ? '深色图片…' : 'Dark Image…') }}
+                {{ settings.bgImageDark ? t('settings.wallpaperDarkSet') : t('settings.wallpaperDark') }}
               </button>
               <button
                 v-if="settings.bgImageDark"
                 type="button"
                 class="btn-setting btn-setting--danger"
-                :title="isZh ? '清除深色壁纸' : 'Clear dark wallpaper'"
+                :title="t('settings.wallpaperClear')"
                 @click="clearWallpaper('dark')"
               >
-                {{ isZh ? '清除' : 'Clear' }}
+                {{ t('settings.wallpaperClear') }}
               </button>
 
               <!-- Fit Mode Select -->
@@ -403,21 +419,21 @@ onMounted(() => {
                 :value="settings.bgFit || 'cover'"
                 @change="settings.setBgFit(($event.target as HTMLSelectElement).value as any)"
                 class="setting-wallpaper-fit-select"
-                :title="isZh ? '壁纸展示模式' : 'Wallpaper Fit Mode'"
+                :title="t('settings.wallpaperFit')"
               >
-                <option value="cover">{{ isZh ? '居中铺满' : 'Cover' }}</option>
-                <option value="contain">{{ isZh ? '完整自适应' : 'Contain' }}</option>
-                <option value="stamp">{{ isZh ? '右下水印' : 'Stamp' }}</option>
-                <option value="tile">{{ isZh ? '无缝平铺' : 'Tile' }}</option>
+                <option value="cover">{{ t('settings.wallpaperFitCover') }}</option>
+                <option value="contain">{{ t('settings.wallpaperFitContain') }}</option>
+                <option value="stamp">{{ t('settings.wallpaperFitStamp') }}</option>
+                <option value="tile">{{ t('settings.wallpaperFitTile') }}</option>
               </select>
 
               <button
-                v-if="!isNarrow"
+                v-if="!isMobilePlatform && !isNarrow"
                 type="button"
                 class="btn-setting-link"
                 @click="themesStore.openWallpapersFolder()"
               >
-                {{ isZh ? '目录' : 'Folder' }}
+                {{ t('settings.wallpaperFolder') }}
               </button>
             </div>
           </div>
@@ -431,7 +447,7 @@ onMounted(() => {
               @keydown.enter.prevent="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
             >
               <div class="settings-typo-cell__header">
-                <span class="settings-typo-cell__title">{{ isZh ? '壁纸透明度' : 'Opacity' }}</span>
+                <span class="settings-typo-cell__title">{{ t('settings.wallpaperOpacity') }}</span>
                 <span
                   class="setting-val-badge"
                   :class="{ 'setting-val-badge--modified': settings.bgOpacity !== 25 }"
@@ -462,7 +478,7 @@ onMounted(() => {
               @keydown.enter.prevent="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
             >
               <div class="settings-typo-cell__header">
-                <span class="settings-typo-cell__title">{{ isZh ? '背景模糊度' : 'Blur' }}</span>
+                <span class="settings-typo-cell__title">{{ t('settings.wallpaperBlur') }}</span>
                 <span
                   class="setting-val-badge"
                   :class="{ 'setting-val-badge--modified': settings.bgBlur !== 0 }"
@@ -491,13 +507,13 @@ onMounted(() => {
         <!-- Row: Typography (Body Font + Code Font Dual) -->
         <div class="setting-row setting-fonts-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '字体外观' : 'Typography' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '正文阅读与代码块等宽字体' : 'Body text and code font' }}</p>
+            <label class="setting-row__title">{{ t('settings.typographyTitle') }}</label>
+            <p class="setting-row__hint">{{ t('settings.typographyHint') }}</p>
           </div>
           <div class="setting-row__control setting-fonts-dual">
             <!-- Body Font Column -->
             <div class="setting-font-col">
-              <span class="setting-font-tag">{{ isZh ? '正文' : 'Body' }}</span>
+              <span class="setting-font-tag">{{ t('settings.fontBody') }}</span>
               <div class="setting-font-field-wrap">
                 <select :value="fontFamilySelectValue" @change="onSelectFontFamily(($event.target as HTMLSelectElement).value)">
                   <option v-for="f in fontFamilies" :key="f.label" :value="f.value">{{ f.label }}</option>
@@ -517,7 +533,7 @@ onMounted(() => {
 
             <!-- Code Font Column -->
             <div class="setting-font-col">
-              <span class="setting-font-tag">{{ isZh ? '代码' : 'Code' }}</span>
+              <span class="setting-font-tag">{{ t('settings.fontCode') }}</span>
               <div class="setting-font-field-wrap">
                 <input
                   type="text"
@@ -546,7 +562,7 @@ onMounted(() => {
             @keydown.enter.prevent="fontSizeSliderRef?.resetToDefault(); settings.setFontSize(14)"
           >
             <div class="settings-typo-cell__header">
-              <span class="settings-typo-cell__title">{{ isZh ? '编辑器字号' : t('settings.fontSize') }}</span>
+              <span class="settings-typo-cell__title">{{ t('settings.fontSize') }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.fontSize !== 14 }"
@@ -578,7 +594,7 @@ onMounted(() => {
             @keydown.enter.prevent="lineHeightSliderRef?.resetToDefault(); settings.setLineHeight(1.75)"
           >
             <div class="settings-typo-cell__header">
-              <span class="settings-typo-cell__title">{{ isZh ? '正文行高' : 'Line Height' }}</span>
+              <span class="settings-typo-cell__title">{{ t('settings.lineHeight') }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.lineHeight !== 1.75 }"
@@ -609,7 +625,7 @@ onMounted(() => {
             @keydown.enter.prevent="uiFontSizeSliderRef?.resetToDefault(); settings.setUiFontSize(13)"
           >
             <div class="settings-typo-cell__header">
-              <span class="settings-typo-cell__title">{{ isZh ? '界面字号' : t('settings.uiFontSize') }}</span>
+              <span class="settings-typo-cell__title">{{ t('settings.uiFontSize') }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.uiFontSize !== 13 }"
@@ -641,7 +657,7 @@ onMounted(() => {
             @keydown.enter.prevent="paragraphSpacingSliderRef?.resetToDefault(); settings.setParagraphSpacing(1.0)"
           >
             <div class="settings-typo-cell__header">
-              <span class="settings-typo-cell__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</span>
+              <span class="settings-typo-cell__title">{{ t('settings.paragraphSpacing') }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.paragraphSpacing !== 1.0 }"
@@ -677,7 +693,7 @@ onMounted(() => {
             <div class="setting-theme-title-line">
               <label class="setting-row__title">{{ t('settings.globalZoom') }}</label>
               <label
-                v-if="!isNarrow"
+                v-if="!isMobilePlatform && !isNarrow"
                 class="setting-inline-check"
                 :class="{ 'setting-inline-check--active': settings.wheelZoomEnabled }"
                 :title="t('settings.wheelZoomHint')"
@@ -687,10 +703,10 @@ onMounted(() => {
                   :checked="settings.wheelZoomEnabled"
                   @change="settings.setWheelZoomEnabled(($event.target as HTMLInputElement).checked)"
                 />
-                <span>{{ isZh ? 'Ctrl+滚轮缩放' : 'Wheel Zoom' }}</span>
+                <span>{{ t('settings.wheelZoom') }}</span>
               </label>
             </div>
-            <p class="setting-row__hint">{{ isZh ? '全局缩放应用界面，快捷键：Ctrl/⌘ + 加号/减号/0' : t('settings.globalZoomHint') }}</p>
+            <p class="setting-row__hint">{{ t('settings.globalZoomHint') }}</p>
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
@@ -726,8 +742,8 @@ onMounted(() => {
         <!-- Row 4: Heading Serif Toggle -->
         <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
-            <span class="setting-row__title">{{ isZh ? '标题衬线字体' : 'Serif Headings' }}</span>
-            <p class="setting-row__hint">{{ isZh ? '各级标题渲染为优雅衬线宋体，呈现文学与报刊质感' : 'Render headings in elegant Serif typography' }}</p>
+            <span class="setting-row__title">{{ t('settings.serifHeadings') }}</span>
+            <p class="setting-row__hint">{{ t('settings.serifHeadingsHint') }}</p>
           </div>
           <div class="setting-row__control">
             <input

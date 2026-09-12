@@ -1,11 +1,9 @@
-name: Release SoloMD
+name: Release Catstep MD
 
 # Trigger: push a tag that starts with `v`, e.g.
-#   git tag v0.1.0 && git push --tags
-# This kicks off a matrix build across macOS / Windows / Linux and uploads
-# the bundles to a draft GitHub Release named after the tag. The release
-# stays a draft so you can review the artifacts before flipping the
-# "Publish" switch.
+#   git tag v1.0.0 && git push origin main --tags
+# This kicks off a matrix build across Windows / macOS / Linux / Android and uploads
+# the bundles to a draft GitHub Release named after the tag.
 on:
   push:
     tags:
@@ -20,33 +18,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Windows x64
+          # Windows x64 (MSI)
           - platform: windows-latest
-            # MSI is the single supported installed channel. A portable ZIP is
-            # packed below for users who do not want an installation.
             args: '--bundles msi'
             rust_targets: ''
-          # Windows ARM64 — for Snapdragon X / Copilot+ PCs and Apple Silicon
-          # Macs running Windows 11 ARM in a VM. Native build avoids the x64
-          # emulation layer Windows-on-ARM would otherwise use.
+          # Windows ARM64 (MSI)
           - platform: windows-11-arm
             args: '--bundles msi'
+            rust_targets: ''
+          # macOS Apple Silicon (M1/M2/M3/M4)
+          - platform: macos-latest
+            args: '--bundles dmg'
+            rust_targets: ''
+          # macOS Intel (x86_64)
+          - platform: macos-13
+            args: '--bundles dmg'
             rust_targets: ''
           # Linux x64 (.deb / .AppImage / .rpm)
           - platform: ubuntu-22.04
             args: '--bundles appimage,deb,rpm'
             rust_targets: ''
-          # Linux ARM64 — for Raspberry Pi 4/5, Mac users running Linux VMs,
-          # Ampere servers, and ARM Chromebooks.
-          # Cross-compiled from x86_64 runner via aarch64 toolchain.
+          # Linux ARM64 (Raspberry Pi / ARM64 servers)
           - platform: ubuntu-22.04-arm
             args: '--bundles appimage,deb,rpm'
             rust_targets: ''
-          # NOTE: macOS removed from CI matrix.
-          # Build locally with `./scripts/build-mac.sh` (full sign + notarize)
-          # then upload the resulting .dmg manually to the GitHub release.
-          # Reason: notarytool can hang indefinitely on GitHub-hosted runners
-          # without producing a clear error, burning hours of CI time.
 
     runs-on: ${{ matrix.platform }}
 
@@ -112,34 +107,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # macOS signing/notarization secrets are no longer wired here —
-          # the macOS build is done locally on the maintainer's machine via
-          # scripts/build-mac.sh. See scripts/README.md.
         with:
           projectPath: app
           tagName: ${{ github.ref_name }}
-          releaseName: 'SoloMD ${{ github.ref_name }}'
+          releaseName: '猫步 MD (Catstep MD) ${{ github.ref_name }}'
           releaseBody: |
-            ## SoloMD ${{ github.ref_name }}
+            ## 猫步 MD (Catstep MD) ${{ github.ref_name }}
 
-            ### What's new / 更新内容
+            轻量、跨平台、无干扰的 Markdown 与纯文本编辑器。
 
-            https://solomd.app/whats-new · [中文](https://solomd.app/zh/whats-new)
+            ### 下载与安装 / Download & Install
 
-            ### Install / 安装
+            - **Windows**: 下载 `.msi` 安装包或 `.zip` 便携免安装版。首次运行若提示 "Windows 已保护你的电脑"，点击 **更多信息** → **仍要运行** 即可。
+            - **Android (安卓)**: 手机/平板下载 `CatstepMD_*_universal.apk` 或 `CatstepMD_*_arm64-v8a.apk` 直接点击安装；亦提供 Google Play `.aab` 格式。
+            - **macOS**: 下载 `.dmg`，双击打开并将猫步 MD 拖入 `Applications` 应用程序文件夹。
+            - **Linux**: 下载 `.AppImage` (`chmod +x` 赋予执行权限即可直接运行)，亦提供 `.deb` (Ubuntu/Debian) 与 `.rpm` (Fedora/openSUSE)。
+            - **浏览器剪藏插件**: 附件提供 Chrome MV3 与 Firefox 扩展压缩包。
 
-            - **macOS**: download `.dmg`, drag SoloMD to `/Applications`
-            - **Windows**: download `.msi`. On first launch you may see "Windows protected your PC" → click **More info** → **Run anyway** (one-time, until SmartScreen reputation builds). 首次运行点 "更多信息" → "仍要运行" 即可
-            - **Linux**: download `.AppImage` (`chmod +x` and run) or `.deb` / `.rpm`
+            ### 校验 / Verify
 
-            ### Verify / 校验
-
-            The Windows builds are not code-signed yet, so Chrome's Enhanced
-            Protection scans each new release and reports "No viruses detected"
-            — that is a pass, not a warning. `SHA256SUMS.txt` is attached below
-            if you want to verify the download yourself.
-
-            Windows 版尚未代码签名，Chrome「增强保护」会扫描每个新版本并提示
-            "未检测到病毒" —— 这是通过，不是警告。附件 `SHA256SUMS.txt` 可用于自行校验。
+            附件包含全部平台二进制产物的 SHA-256 哈希列表 `SHA256SUMS.txt`，可供校验下载文件完整性。
 
             🤖 Auto-built by GitHub Actions
           releaseDraft: true
@@ -185,8 +172,8 @@ jobs:
 
           $targets = @()
           $targets += Get-ChildItem "app/src-tauri/target/release/bundle/msi" -Filter *.msi -ErrorAction SilentlyContinue
-          $targets += Get-ChildItem "app/src-tauri/target/release/SoloMD.exe" -ErrorAction SilentlyContinue
-          $targets += Get-ChildItem "mcp-server/target" -Recurse -Filter "solomd-mcp.exe" -ErrorAction SilentlyContinue |
+          $targets += Get-ChildItem "app/src-tauri/target/release/CatstepMD.exe", "app/src-tauri/target/release/SoloMD.exe" -ErrorAction SilentlyContinue
+          $targets += Get-ChildItem "mcp-server/target" -Recurse -Filter "solomd-mcp.exe", "catstep-mcp.exe" -ErrorAction SilentlyContinue |
                       Where-Object { $_.FullName -match "\\release\\" } | Select-Object -First 1
           if (-Not $targets) {
             Write-Error "Nothing to scan — the bundle layout moved and this gate is now blind"
@@ -258,6 +245,28 @@ jobs:
           tar -C "$STAGE" -czf "$ASSET" solomd-mcp
           gh release upload "${{ github.ref_name }}" "$ASSET" --clobber
 
+      - name: Pack solomd-mcp tarball (macOS)
+        if: startsWith(matrix.platform, 'macos-')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platform }}" in
+            macos-13)     ARCH="x64" ;;
+            macos-latest) ARCH="arm64" ;;
+            *)            ARCH="arm64" ;;
+          esac
+          ASSET="solomd-mcp-darwin-${ARCH}.tar.gz"
+          BIN="$(find mcp-server/target -type f \( -name solomd-mcp -o -name catstep-mcp \) -path '*/release/*' | head -1)"
+          if [[ -n "$BIN" && -x "$BIN" ]]; then
+            STAGE="$(mktemp -d)"
+            cp "$BIN" "$STAGE/solomd-mcp"
+            chmod +x "$STAGE/solomd-mcp"
+            tar -C "$STAGE" -czf "$ASSET" solomd-mcp
+            gh release upload "${{ github.ref_name }}" "$ASSET" --clobber
+          fi
+
       # ----------------------------------------------------------------------
       # Windows portable .zip (issue #27) — same .exe Tauri produces, just
       # zipped without an installer. Modern Win10/11 already
@@ -276,19 +285,25 @@ jobs:
           # names (x64 vs arm64). install-mcp.sh expects the matching mcp zip.
           $arch = if ("${{ matrix.platform }}" -eq "windows-11-arm") { "arm64" } else { "x64" }
           $version = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
-          $exe = "app/src-tauri/target/release/SoloMD.exe"
-          if (-Not (Test-Path $exe)) {
-            Write-Error "Missing $exe — Tauri build did not run as expected"
+          $exe = if (Test-Path "app/src-tauri/target/release/CatstepMD.exe") { "app/src-tauri/target/release/CatstepMD.exe" }
+                 elseif (Test-Path "app/src-tauri/target/release/SoloMD.exe") { "app/src-tauri/target/release/SoloMD.exe" }
+                 else { (Get-ChildItem "app/src-tauri/target/release/*.exe" -Exclude "*.d.exe", "build_script_build.exe" | Select-Object -First 1).FullName }
+          if (-Not $exe -or -Not (Test-Path $exe)) {
+            Write-Error "Missing desktop executable in app/src-tauri/target/release/ — Tauri build did not run as expected"
             exit 1
           }
-          # Locate the solomd-mcp.exe Tauri's externalBin built before the bundle.
-          $mcpExe = Get-ChildItem -Path "mcp-server/target" -Recurse -Filter "solomd-mcp.exe" |
+          # Locate the solomd-mcp.exe / catstep-mcp.exe Tauri's externalBin built before the bundle.
+          $mcpExe = Get-ChildItem -Path "mcp-server/target" -Recurse -Filter "*mcp.exe" |
                     Where-Object { $_.FullName -match "\\release\\" } |
                     Select-Object -First 1
-          $stage = "SoloMD_${version}_${arch}-portable"
+          $stage = "CatstepMD_${version}_${arch}-portable"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item $exe -Destination "$stage/CatstepMD.exe"
           Copy-Item $exe -Destination "$stage/SoloMD.exe"
-          if ($mcpExe) { Copy-Item $mcpExe.FullName -Destination "$stage/solomd-mcp.exe" }
+          if ($mcpExe) {
+            Copy-Item $mcpExe.FullName -Destination "$stage/catstep-mcp.exe"
+            Copy-Item $mcpExe.FullName -Destination "$stage/solomd-mcp.exe"
+          }
           # Tiny README the user finds inside the zip.
           @"
           SoloMD ${version} — portable build (${arch})
@@ -300,9 +315,12 @@ jobs:
           If launch fails with a WebView2 missing error, install from
           https://go.microsoft.com/fwlink/p/?LinkId=2124703
           "@ | Set-Content -Path "$stage/README.txt" -Encoding UTF8
-          $zip = "SoloMD_${version}_${arch}-portable.zip"
-          Compress-Archive -Path "$stage/*" -DestinationPath $zip -Force
-          gh release upload "${{ github.ref_name }}" $zip --clobber
+          $zipCatstep = "CatstepMD_${version}_${arch}-portable.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $zipCatstep -Force
+          gh release upload "${{ github.ref_name }}" $zipCatstep --clobber
+          $zipSolo = "SoloMD_${version}_${arch}-portable.zip"
+          Copy-Item $zipCatstep -Destination $zipSolo
+          gh release upload "${{ github.ref_name }}" $zipSolo --clobber
 
           # solomd-mcp standalone .zip (install-mcp.sh on Windows expects this).
           if ($mcpExe) {
@@ -388,32 +406,152 @@ jobs:
           cp chrome.zip solomd-clipper-chrome.zip
           cp firefox.zip solomd-clipper-firefox.zip
           cp source.zip solomd-clipper-source.zip
+          cp chrome.zip catstep-clipper-chrome.zip
+          cp firefox.zip catstep-clipper-firefox.zip
+          cp source.zip catstep-clipper-source.zip
 
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.ref_name }}" \
+            web-clipper/dist/catstep-clipper-chrome.zip \
+            web-clipper/dist/catstep-clipper-firefox.zip \
+            web-clipper/dist/catstep-clipper-source.zip \
             web-clipper/dist/solomd-clipper-chrome.zip \
             web-clipper/dist/solomd-clipper-firefox.zip \
             web-clipper/dist/solomd-clipper-source.zip \
             --clobber
 
   # ---------------------------------------------------------------------------
+  # Android APKs & Google Play AAB
+  #
+  # Builds full native Android artifacts:
+  # - CatstepMD_<version>_universal.apk (Runs on any Android phone/tablet)
+  # - CatstepMD_<version>_arm64-v8a.apk (Optimized for modern 64-bit devices)
+  # - CatstepMD_<version>_armeabi-v7a.apk (Legacy 32-bit devices)
+  # - CatstepMD_<version>_x86_64.apk (Emulators / ChromeOS)
+  # - CatstepMD_<version>_play.aab (Google Play Store bundle)
+  # ---------------------------------------------------------------------------
+  android:
+    needs: publish
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK & CMake
+        run: |
+          sdkmanager "ndk;26.3.11579264" "cmake;3.22.1"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Setup Android Keystore
+        run: |
+          KEYSTORE_DIR="$RUNNER_TEMP/keystore"
+          mkdir -p "$KEYSTORE_DIR"
+          KEYSTORE_FILE="$KEYSTORE_DIR/release.keystore"
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Using repository secret keystore..."
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE_FILE"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE" >> $GITHUB_ENV
+            echo "ANDROID_KEYSTORE_PASS=${{ secrets.ANDROID_KEYSTORE_PASS }}" >> $GITHUB_ENV
+            echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "ANDROID_KEY_PASS=${{ secrets.ANDROID_KEY_PASS }}" >> $GITHUB_ENV
+          else
+            echo "Generating release keystore on the fly for direct APK installation..."
+            keytool -genkeypair -v -keystore "$KEYSTORE_FILE" \
+              -alias catstepmd -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass catstep123 -keypass catstep123 \
+              -dname "CN=Catstep MD, OU=Mobile, O=Catstep, L=City, ST=State, C=CN"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE" >> $GITHUB_ENV
+            echo "ANDROID_KEYSTORE_PASS=catstep123" >> $GITHUB_ENV
+            echo "ANDROID_KEY_ALIAS=catstepmd" >> $GITHUB_ENV
+            echo "ANDROID_KEY_PASS=catstep123" >> $GITHUB_ENV
+          fi
+
+      - name: Build Android APKs & AAB
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.3.11579264
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/26.3.11579264
+        run: |
+          TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export PATH="$TOOLCHAIN:$PATH"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android24-clang"
+          export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="$TOOLCHAIN/armv7a-linux-androideabi24-clang"
+          export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$TOOLCHAIN/x86_64-linux-android24-clang"
+
+          cd app
+          pnpm install --frozen-lockfile
+          pnpm tauri android build --apk --aab
+
+      - name: Upload Android Artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./app/package.json').version")
+          echo "Processing Android APK outputs for version ${VERSION}..."
+          
+          # Upload per-abi and universal APKs
+          find app/src-tauri/gen/android/app/build/outputs/apk -name "*release*.apk" | while read -r apk; do
+            abi="universal"
+            if [[ "$apk" == *"/arm64-v8a/"* ]]; then abi="arm64-v8a";
+            elif [[ "$apk" == *"/armeabi-v7a/"* ]]; then abi="armeabi-v7a";
+            elif [[ "$apk" == *"/x86_64/"* ]]; then abi="x86_64";
+            elif [[ "$apk" == *"/universal/"* ]]; then abi="universal";
+            fi
+            
+            target="CatstepMD_${VERSION}_${abi}.apk"
+            cp "$apk" "$target"
+            echo "Uploading $target..."
+            gh release upload "${{ github.ref_name }}" "$target" --clobber
+            
+            # Legacy alias
+            cp "$target" "SoloMD_${VERSION}_${abi}.apk"
+            gh release upload "${{ github.ref_name }}" "SoloMD_${VERSION}_${abi}.apk" --clobber
+          done
+
+          # Upload Google Play AAB
+          find app/src-tauri/gen/android/app/build/outputs/bundle -name "*.aab" | while read -r aab; do
+            target="CatstepMD_${VERSION}_play.aab"
+            cp "$aab" "$target"
+            echo "Uploading $target..."
+            gh release upload "${{ github.ref_name }}" "$target" --clobber
+          done
+
+  # ---------------------------------------------------------------------------
   # SHA256SUMS.txt over every asset on the draft release.
   #
-  # The Windows builds are unsigned, so Chrome and SmartScreen treat each new
-  # version as an unknown binary with zero download reputation. A published
-  # checksum manifest at least lets users verify what they downloaded until a
-  # code-signing certificate is in place.
-  #
-  # Runs last so it covers the desktop matrix and the web-clipper zips. The
-  # macOS .dmg and the Android .apk are uploaded by hand afterwards — re-run
-  # `./scripts/checksums.sh <tag>` locally once those land to refresh the
-  # manifest.
+  # Aggregates checksums across Windows, macOS, Linux, Android, Web Clipper, and MCP.
   # ---------------------------------------------------------------------------
   checksums:
-    needs: [publish, web-clipper]
+    needs: [publish, web-clipper, android]
     permissions:
       contents: write
     runs-on: ubuntu-latest

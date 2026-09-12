@@ -1980,7 +1980,7 @@ body.dark .cm-panel.cm-search button[name="close"]:hover {
 }
 
 .app.has-app-custom-bg .cm-gutters {
-  border-right: 1px solid color-mix(in srgb, var(--border) 45%, transparent) !important;
+  border-right: none !important;
 }
 
 .app.has-app-custom-bg .tab--active {

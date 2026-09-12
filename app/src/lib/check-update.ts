@@ -128,7 +128,7 @@ export function compareSemver(a: string, b: string): number {
   return 0;
 }
 
-const MAS_BUILD = import.meta.env.VITE_MAS_BUILD === '1';
+const MAS_BUILD = Boolean(typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAS_BUILD === '1');
 export const isMasBuild = (): boolean => MAS_BUILD;
 
 /** Get platform and architecture from Rust backend */
@@ -137,8 +137,19 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
     return await invoke<PlatformInfo>('updater_get_platform_info');
   } catch {
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const os = /windows/i.test(ua) ? 'windows' : /mac/i.test(ua) ? 'macos' : /linux/i.test(ua) ? 'linux' : 'unknown';
-    return { os, arch: 'x86_64' };
+    const os = /android/i.test(ua)
+      ? 'android'
+      : /iphone|ipad|ipod/i.test(ua)
+        ? 'ios'
+        : /windows/i.test(ua)
+          ? 'windows'
+          : /mac/i.test(ua)
+            ? 'macos'
+            : /linux/i.test(ua)
+              ? 'linux'
+              : 'unknown';
+    const arch = /arm64|aarch64/i.test(ua) ? 'aarch64' : /arm/i.test(ua) ? 'arm' : 'x86_64';
+    return { os, arch };
   }
 }
 
@@ -176,6 +187,31 @@ export function pickBestAsset(assets: ReleaseAsset[], platform: PlatformInfo): R
     if (appImage) return appImage;
     const deb = assets.find(a => a.name.endsWith('.deb'));
     if (deb) return deb;
+  } else if (os === 'android') {
+    // Android APK assets:
+    // Priority: arch-specific (arm64-v8a / aarch64, armeabi-v7a / armv7, x86_64) -> universal -> any .apk
+    const isArm64 = arch.includes('arm64') || arch.includes('aarch64') || arch.includes('v8a');
+    const isArmV7 = arch.includes('armv7') || arch.includes('v7a') || (arch.includes('arm') && !isArm64);
+    const isX86_64 = arch.includes('x86_64') || arch.includes('x64');
+
+    if (isArm64) {
+      const apkArm64 = assets.find(a => a.name.endsWith('.apk') && (a.name.includes('arm64') || a.name.includes('v8a') || a.name.includes('aarch64')));
+      if (apkArm64) return apkArm64;
+    } else if (isArmV7) {
+      const apkArmV7 = assets.find(a => a.name.endsWith('.apk') && (a.name.includes('v7a') || a.name.includes('armv7') || a.name.includes('armeabi')));
+      if (apkArmV7) return apkArmV7;
+    } else if (isX86_64) {
+      const apkX86 = assets.find(a => a.name.endsWith('.apk') && (a.name.includes('x86_64') || a.name.includes('x64')));
+      if (apkX86) return apkX86;
+    }
+
+    // Universal APK fallback
+    const apkUniversal = assets.find(a => a.name.endsWith('.apk') && a.name.includes('universal'));
+    if (apkUniversal) return apkUniversal;
+
+    // Any APK fallback
+    const anyApk = assets.find(a => a.name.endsWith('.apk'));
+    if (anyApk) return anyApk;
   }
 
   // Fallback: pick any common installer or archive
@@ -199,7 +235,7 @@ interface GitHubReleaseJson {
 /** Fetch latest release info from GitHub official Releases API */
 async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.0');
+    const current = await getVersion().catch(() => '1.0.1');
     const res = await fetch(GITHUB_API_URL, {
       cache: 'no-store',
       headers: {
@@ -243,7 +279,7 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
 /** Fetch latest release by following GitHub's web release redirect (fallback) */
 async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.0');
+    const current = await getVersion().catch(() => '1.0.1');
     const res = await fetch(LATEST_RELEASE_PAGE, {
       cache: 'no-store',
       redirect: 'follow',
@@ -271,7 +307,7 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
 
 /** Fetch repository latest package version from GitHub Raw / jsDelivr mirror (fallback) */
 async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
-  const current = await getVersion().catch(() => '1.0.0');
+  const current = await getVersion().catch(() => '1.0.1');
   for (const url of [GITHUB_RAW_URL, JSDELIVR_MIRROR_URL]) {
     try {
       const res = await fetch(url, { cache: 'no-store' });
@@ -299,7 +335,7 @@ async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '1.0.0');
+  const current = await getVersion().catch(() => '1.0.1');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }

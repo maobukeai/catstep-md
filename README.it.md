@@ -1,171 +1,134 @@
-# 猫步 MD (Catstep MD)
+﻿# 猫步 MD (Catstep MD)
 
-> L'editor dove vivono gli agent.
+> Passi silenziosi, pensieri fluidi. L’editor Markdown leggero in stile Typora dove vivono gli agent.
 
-[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.1-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
 [![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
-🌐 **[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
+🌐 **[中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)** · 🪞 **[Gitee mirror →](https://gitee.com/maobukeai/catstep-md)**
 
-[**Scarica v4.0**](https://github.com/maobukeai/catstep-md/releases) · [**Post di lancio**](https://solomd.app/blog/v4-0-0-agent-native-author/) · [**Sito web**](https://solomd.app) · [**Sicurezza**](https://solomd.app/security)
+[**Download Releases**](https://github.com/maobukeai/catstep-md/releases) · [**Roadmap**](docs/roadmap.md) · [**Privacy & Security**](#privacy--security)
 
-![Catstep MD Editor](web/public/demo/solomd-demo.svg)
+---
 
-Le tue note vivono in una cartella. **SoloMD è l'editor sopra — con una superficie agent di prima classe dentro l'editor e l'endpoint MCP che Claude Code / Cursor possono pilotare dall'esterno.** Stessi file `.md`. Chatta con il tuo vault. Pianifica recipes che girano quando non sei alla tastiera. Consegna lo stesso vault a qualsiasi client MCP.
+## 📸 Real Screenshots
 
-Costruito su Tauri 2 + Vue 3 + CodeMirror 6. Universal macOS dmg ~32 MB. Gratis, MIT, senza abbonamento, senza server ospitati da SoloMD. Le tue note, chiavi AI, indice di embeddings e cronologia git restano tutti sulla tua macchina.
+### 🌟 Real WYSIWYG Live Preview & Smooth-Scrolling Outline Navigator
+![Catstep MD Live Preview and Outline Navigator](docs/screenshots/catstep-live-preview.png)
 
-## Tre metà di un prodotto
+### 🎨 Theme-Adaptive Subdued Source Mode & Immersive Eye-Care Dark Mode
+<p align="center">
+  <img src="docs/screenshots/catstep-source-light.png" width="49%" alt="Typora-Style Theme Adaptive Source Mode" />
+  <img src="docs/screenshots/catstep-dark-mode.png" width="49%" alt="Immersive Dark Mode" />
+</p>
 
-**L'editor.** Modifica live WYSIWYG (stile Typora), schede + pannelli divisi, KaTeX + Mermaid, incolla immagini in `_assets/`, modalità presentazione (`⌘⌥P`), modalità Vim, Hunspell + revisione CJK, ricerca semantica (`⌘⇧F`), wikilinks + backlinks, esportazione Pandoc. Codifiche CJK (GBK / Big5 / Shift-JIS) auto-rilevate.
+---
 
-**L'endpoint.** Un binario `solomd-mcp` empacchettato espone lo stesso vault a qualsiasi client MCP — 13 strumenti pronti, inclusi 5 specifici di SoloMD (`autogit_log`, `autogit_diff`, `autogit_rollback`, `sync_status`, `share_url`) che nessun altro server markdown ha. v4.0 aggiunge federazione `--workspace path1 --workspace path2` — una sessione MCP, molti vault. Più un CLI `solomd agent <prompt>` che consegna a Claude Code / Codex CLI con MCP pre-cablato.
+## 🍃 What is Catstep MD?
 
-**La superficie agent (v4.0).** Pannello Agent a destra: chat-with-vault streamato, citazioni `[[wikilink]]`, schede di chiamata strumento inline, pulsanti **Inserisci** / **Copia** lasciano cadere la risposta nella nota attiva. Più **recipes** dichiarativi come YAML in `<workspace>/.solomd/agents/*.yml` — trigger `cron` / `on-save` / `on-commit` / `on-tag-add` / manuali. **Ogni scrittura agent atterra sulla propria branch AutoGit che accetti o rifiuti** prima che tocchi `main`; write-cap predefinito 5; rifiuta di partire quando l'albero di lavoro è dirty; `trace.jsonl` ripetibile per esecuzione con strumento MCP `read_agent_trace`.
+Your notes should simply be transparent Markdown files in a local folder.
 
-| Funzionalità | |
-|---|---|
-| **Pannello Agent** *(v4.0)* | Chat-with-vault streamato allo stesso livello di Outline / Backlinks / Tags / History. Schede di chiamata strumento si espandono inline; risposta Insert / Copy nell'editor attivo; cronologia esecuzione persiste come markdown semplice sotto `.solomd/agent-runs/`. |
-| **Recipes pianificati** *(v4.0)* | Job YAML nel tuo vault. Sandbox di branch AutoGit + UI accept/reject prima del merge. Write-cap per esecuzione (predefinito 5, soffitto 50). Cookbook da 11 recipes nell'albero. |
-| **Trace ripetibile** *(v4.0)* | `trace.jsonl` per passo (`prompt` / `model_call` / `tool_call` / `tool_result` / `git_commit`). Replay-from-step riavvolge e riesegue. |
-| **Federazione workspace** *(v4.0)* | `solomd-mcp --workspace path1 --workspace path2`. Una sessione Claude Desktop, molti vault. UI profili MCP in Impostazioni → Integrazioni. |
-| **Ollama prima classe** *(v4.0)* | Auto-rilevamento su `localhost:11434`. Tre preset di modello (`qwen2.5:1.5b/7b/14b`). Alias recipe `provider: local` per loop autonomi a costo zero in cloud. |
-| **Riscrittura AI, BYOK** | 14 provider — OpenAI · Claude · Gemini · DeepSeek · Qwen · GLM · Kimi · Doubao · SiliconFlow · OpenRouter · Mistral · Groq · xAI · Ollama. Chiamate dirette al fornitore. Chiavi nel portachiavi OS. |
-| **Sync supportato da GitHub** | Spingi il tuo vault in un repo privato GitHub a ogni salvataggio. E2EE opzionale (Argon2id + XChaCha20-Poly1305). GitLab / Gitea / qualsiasi URL git HTTPS funziona anche. |
-| **AutoGit per nota** | Ogni `⌘S` è un commit in un `.git` locale dentro il workspace. libgit2 incluso, nessun git di sistema necessario. Mai auto-pushato. |
-| **Server MCP empacchettato** | `solomd-mcp` viene nell'installazione. 13 strumenti (8 generici + 5 specifici SoloMD). Solo stdio, nessuna porta di rete. Sola lettura di default; `--allow-write` opt-in. |
-| **API REST** *(v4.0)* | Solo localhost, auth con token. Stessa superficie di MCP per client che ancora non parlano MCP — Alfred / Raycast / n8n / i tuoi script. |
-| **Contatore costi BYOK** *(v4.0)* | Contatore corrente di token spesi per provider, opt-in. Impostazioni → Integrazioni. |
-| **Modalità cartella cloud** | Se il tuo vault vive in `~/Library/Mobile Documents/...` o `~/Dropbox/...`, SoloMD lo rileva e aggiunge ripristino sessione cross-device sopra — l'OS fa già la sync dei file. |
-| **Condivisione pubblica sola lettura** | Tavolozza comandi → copia link `solomd.app/share/?repo=...&path=...`. Renderizza qualsiasi file nel tuo repo GitHub pubblico, nessun account SoloMD richiesto per visualizzare. |
+**Catstep MD** is a desktop Markdown knowledge editor crafted for pure, distraction-free writing. It harmoniously combines **Typora-grade immersive typography and minimalist aesthetics**, a **modern local-first AutoGit time machine**, and a **first-class built-in AI Agent assistant with native MCP endpoint capabilities**.
 
-## Uso
+Engineered on **Tauri 2 + Vue 3 + CodeMirror 6**, Catstep MD weighs only ~15–30 MB, launches in milliseconds, and uses less than a quarter of the memory consumed by typical Electron alternatives. 100% free and open-source (MIT), with no cloud account lock-in. Your prose, version history, API credentials, and local vectors remain strictly on your machine.
 
-Dopo aver installato SoloMD su macOS / Linux:
+---
 
-**1. Chatta con il tuo vault.** Apri il pannello Agent a destra (⌘⇧P → "View: Toggle Agent Panel" se nascosto). Multi-turno streamato contro le tue note; le schede di chiamata strumento mostrano ogni lettura/scrittura inline. Risposta troppo lunga? **Inserisci** la lascia alla posizione del cursore nella nota attiva (sostituisce selezione); **Copia** negli appunti.
+## ✨ Key Features
 
-**2. Pianifica un recipe.** Impostazioni → Recipes → Sfoglia cookbook. 11 starter pronti: revisione settimanale, riepilogo giornaliero, estrazione TODO, passaggio di traduzione, pulizia citazioni, agent revisione CJK, rilevatore link rot, normalizzatore frontmatter, outline-a-blog, passaggio refactor, triage tag settimanale. Installane uno, modifica il prompt, eseguilo.
+### 1. ✍️ Typora-Grade Pure Writing Experience
+- **WYSIWYG Live Preview**: Seamless typing and formatting integration. Markdown tokens appear on cursor focus and render instantly as you move away;
+- **Subdued Theme-Adaptive Source Mode (`Ctrl+/`)**: Headings, markers, links, code, and active line glow adapt gracefully to your active theme's accent color without visual glare;
+- **Smooth-Scrolling Outline Navigator**: Heading navigation features natural physics-damped smooth scrolling to locate exact positions in long documents;
+- **In-Place Interactive Markdown Tables**: Navigate cells effortlessly with `Tab` / `Shift+Tab`; hitting Enter in the last cell automatically extends a new row;
+- **Immersive Reading View**: Clean distraction-free reading; double-click any paragraph to return instantly to live editing;
+- **Rich Theme Ecosystem**: Ships with Light, Dark, Amber, Nord, Catppuccin, Dracula, and Warm themes with full custom CSS token flexibility.
 
-**3. Pilota lo stesso vault da un altro client LLM.** One-shot:
+### 2. 🤖 Built-in Catstep AI Assistant & MCP Protocol Endpoint
+- **First-Class AI Agent Panel**: Streamed multi-turn conversations with your notes, inline tool call inspection, and context awareness;
+- **Smart Polish & One-Click Insertion**: Polish, expand, or summarize selected text; insert AI responses directly at the cursor or replace current selections;
+- **14+ Direct LLM Providers (BYOK)**: Connect directly to OpenAI, Claude, Gemini, DeepSeek, Qwen, GLM, Kimi, Doubao, SiliconFlow, and local Ollama. API keys are safely stored in your operating system's native keychain;
+- **Built-in MCP Server**: Exposes standard MCP tools so Claude Code, Cursor, Windsurf, or custom AI agents can query and manipulate your local vault from outside.
 
-```bash
-# Stampa lo snippet di config MCP per il tuo client AI.
-solomd mcp-config
-```
+### 3. 🛡️ Local-First & AutoGit Time Machine
+- **Plain Text Freedom**: Standard `.md` files residing in your filesystem. Zero proprietary formats, zero database lock-in;
+- **Millisecond AutoGit Time Machine**: Automatic lightweight local git commits on save. Inspect per-note commit history, view visual line diffs, and revert changes with a single click;
+- **Bidirectional Links & Knowledge Graph**: Link your ideas with `[[wikilink]]`, inspect backlinks, and explore connected concepts visually via the Neighborhood Graph.
 
-```json
-{
-  "mcpServers": {
-    "solomd": {
-      "command": "/Applications/SoloMD.app/Contents/Resources/solomd-mcp",
-      "args": ["--workspace", "/Users/me/Documents/SoloMD"]
-    }
-  }
-}
-```
+---
 
-Incolla in Claude Desktop / Cursor / ecc. Per federazione multi-vault, ripeti `--workspace`:
+## 📊 Feature Comparison
 
-```json
-"args": [
-  "--workspace", "/Users/me/Documents/SoloMD",
-  "--workspace", "/Users/me/Documents/work-notes"
-]
-```
+| Feature | Catstep MD | Obsidian | Typora |
+| :--- | :---: | :---: | :---: |
+| **License** | **MIT (100% Free & Open Source)** | Proprietary (Free personal) | Paid Commercial ($14.99) |
+| **Architecture** | **Tauri 2 (Rust + Native WebView)** | Electron | Electron |
+| **Installer Size** | **~15–30 MB (Ultra Lightweight)** | ~120 MB | ~95 MB |
+| **Memory & Startup** | **Instant launch, minimal memory footprint** | Slower startup, high memory | Medium startup & memory |
+| **WYSIWYG Live Preview** | ✅ **Pure Typora-style typography** | ✅ Live Preview | ✅ Classic WYSIWYG |
+| **Theme-Adaptive Source Mode** | ✅ **Subdued semantic hierarchy** | ❌ Plain text highlighting | ✅ Fixed magenta palette |
+| **Smooth Outline Navigation** | ✅ **Damped smooth scrolling** | ❌ Instant jump | ✅ Smooth scrolling |
+| **Interactive Tables** | ✅ **Tab / Enter auto-expand** | 🟡 Requires complex setup | ✅ Native table editor |
+| **Built-in AI Assistant (BYOK)** | ✅ **14+ providers + one-click insert** | 🟡 Third-party plugins | ❌ No built-in AI |
+| **Version Time Machine (AutoGit)** | ✅ **Automatic local commits + diff** | 🟡 Requires Git plugin | ❌ Basic file history |
+| **Built-in MCP Endpoint** | ✅ **Ready out of the box** | ❌ No official support | ❌ None |
+| **Data Privacy** | ✅ **Zero cloud dependency, OS keychain** | 🟡 Paid sync cloud | ✅ Local files |
 
-**4. O consegna un prompt direttamente al CLI claude / codex:**
+---
 
-```bash
-solomd agent "riscrivi questa settimana di note giornaliere come una revisione settimanale e fai commit"
-```
+## 🚀 Download & Installation
 
-Path-traversal protetto. Nessuna porta di rete. L'LLM vede solo dove punti il workspace.
+Grab the latest release from GitHub Releases: [**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases)
 
-## Installazione
+- **Windows (x64 / ARM64)**: Fast `.msi` installers and standalone `.zip` portable versions;
+- **macOS (Apple Silicon & Intel Universal)**: Standard `.dmg` installer packages;
+- **Linux (x86_64 / aarch64)**: `.AppImage`, `.deb`, and `.rpm` packages.
 
-Release più recente: [**v4.0.0**](https://github.com/maobukeai/catstep-md/releases).
+---
 
-### macOS — universal dmg (Apple Silicon + Intel, firmato + notarizzato)
+## 🔒 Privacy & Security
 
-```bash
-brew install --cask maobukeai/catstep-md/solomd
-```
+1. **Strictly Local**: All your Markdown notes reside exclusively on your local storage. No content is ever sent to private cloud servers;
+2. **Hardware Credential Isolation**: API keys are saved directly into your operating system's native credential vault (Windows Credential Manager, macOS Keychain, Linux Secret Service);
+3. **Direct Vendor Requests**: AI network calls connect point-to-point from your machine directly to the provider endpoints without intermediate proxies;
+4. **Transparent & Auditable**: 100% open-source under the MIT license for full community review.
 
-O scarica il dmg direttamente:
+---
 
-```
-https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal.dmg
-```
+## 🛠️ Building from Source
 
-O installazione shell in una riga:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
-```
-
-### Windows — x64
-
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — senza installer
-
-```powershell
-irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
-```
-
-```powershell
-winget install solomd
-```
-
-### Linux — x86_64 + aarch64
-
-- `.AppImage` (universale), `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) — entrambe le architetture dalla [pagina releases](https://github.com/maobukeai/catstep-md/releases).
-- Utenti Arch: [`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin) su AUR.
-
-### iPad
-
-[App Store](https://apps.apple.com/app/solomd/id6762498874) — stesso motore, UI iPad nativa.
-
-## Privacy e sicurezza
-
-Puramente lato client. I tuoi file `.md` restano nella cartella che hai scelto. Le chiavi API vivono nel portachiavi OS (macOS Keychain / Windows Credential Manager / Linux libsecret), mai in `localStorage` o un file di config. Le richieste AI vanno dirette dalla tua macchina al provider che hai scelto — nessun relay SoloMD. Gli embeddings RAG e il repo AutoGit sono solo locali. Il server MCP parla stdio, mai apre una porta di rete. L'intera codebase è MIT e auditabile.
-
-**Guardrail agent (v4.0).** Ogni esecuzione di recipe parte sulla propria branch AutoGit — il tuo `main` resta intoccato finché non clicchi Accetta sul diff. Write-cap per esecuzione (predefinito 5, tetto duro 50) previene loop fuori controllo. Il runner di recipe rifiuta di partire quando l'albero di lavoro è dirty (nessun commit agent porterà via il tuo WIP). I guardiani path-traversal rifiutano segmenti `..` e percorsi assoluti in anticipo in ogni endpoint Tauri / MCP / REST che accetta un percorso fornito dall'utente.
-
-La sync E2EE usa Argon2id (parametri predefiniti RFC9106) → XChaCha20-Poly1305 con nonce deterministici e percorso-come-AAD. Il testo in chiaro resta sui tuoi dispositivi; il remoto vede solo cifrato. Il parsing fallito di `sync.json` è fail-closed — rifiuta di pushare invece di degradare a testo in chiaro (un fix di audit v3.0.x).
-
-Writeup completo: <https://solomd.app/security>.
-
-## Compilare dai sorgenti
-
-Prerequisiti: Rust (stable), Node 18+, pnpm.
+Prerequisites: Rust (stable), Node 18+, pnpm.
 
 ```bash
+# Clone repository
 git clone https://github.com/maobukeai/catstep-md.git
-cd solomd/app
+cd catstep-md/app
+
+# Install dependencies
 pnpm install
-pnpm tauri dev      # dev con hot reload
-pnpm tauri build    # artefatti release → src-tauri/target/release/bundle/
+
+# Start development with hot reload
+pnpm tauri dev
+
+# Build release bundle
+pnpm tauri build
 ```
 
-Linux necessita inoltre `libdbus-1-dev` per il backend del portachiavi.
+---
 
-Il server MCP è un crate separato in `mcp-server/`; il dev MCP harness usato per i test end-to-end vive in `dev-mcp/`. Punto di ingresso dei test end-to-end: `scripts/v4-self-test.sh` (esegui con `--with-release --with-ollama --with-ui` per copertura completa).
+## 🤝 Community & Contributions
 
-## Contribuire
+Contributions, bug reports, and feature ideas are warmly welcome:
+- **Report an issue:** [GitHub Issues](https://github.com/maobukeai/catstep-md/issues)
+- **Join discussions:** [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions)
+- **Explore our roadmap:** [docs/roadmap.md](docs/roadmap.md)
 
-Issue e PR benvenuti — [aprine uno](https://github.com/maobukeai/catstep-md/issues). Per un senso della direzione, vedi [`docs/roadmap.md`](docs/roadmap.md). Il log di build v4.0 è su [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/) — inizia da lì se vuoi capire i principi di ingegneria prima di inviare un PR.
+---
 
-## Contatto
+## 📄 License & Acknowledgments
 
-Un manutentore, due porte d'ingresso. Asincrono su [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions). Chat in tempo reale:
+This project is open-sourced under the [MIT License](LICENSE).
 
-- **Telegram (internazionale):** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — annunci release + chat
-- **WeChat (中文):** scansiona per aggiungermi — nota "SoloMD"
-
-## Licenza e crediti
-
-[MIT](LICENSE) © 2026 maobukeai. SoloMD si appoggia su Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs` e `rmcp`. Sponsorizza su [GitHub Sponsors](https://github.com/maobukeai/catstep-md) o via [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md).
+Special thanks to Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, and all contributors across the open-source ecosystem.

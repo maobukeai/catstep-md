@@ -40,9 +40,9 @@ const bodyEl = ref<HTMLElement | null>(null);
 const mobileBodyEl = ref<HTMLElement | null>(null);
 
 const isZh = computed(() => (kbSettings.language || 'zh').startsWith('zh'));
-const backLabel = computed(() => (isZh.value ? '返回' : 'Back'));
-const doneLabel = computed(() => (isZh.value ? '完成' : 'Done'));
-const settingsTitle = computed(() => (isZh.value ? '偏好设置' : 'Settings'));
+const backLabel = computed(() => t('common.back') || (isZh.value ? '返回' : 'Back'));
+const doneLabel = computed(() => t('common.done') || (isZh.value ? '完成' : 'Done'));
+const settingsTitle = computed(() => t('settings.title') || (isZh.value ? '偏好设置' : 'Settings'));
 
 interface CategoryMeta {
   id: SettingsCategory;
@@ -173,17 +173,17 @@ const mobileCategories = computed(() => {
 });
 
 const mobileCategoryGroups = computed(() => [
-  { id: 'appearance', title: isZh.value ? '外观与编辑体验' : 'Appearance & Editor' },
-  { id: 'data', title: isZh.value ? '数据同步与输出' : 'Cloud Sync & Export' },
-  { id: 'extension', title: isZh.value ? '智能与高级扩展' : 'Intelligence & Extensions' },
-  { id: 'system', title: isZh.value ? '系统与关于' : 'System & About' },
+  { id: 'appearance', title: t('settings.groupAppearance') || (isZh.value ? '外观与编辑体验' : 'Appearance & Editor') },
+  { id: 'data', title: t('settings.groupSyncGit') || (isZh.value ? '数据同步与输出' : 'Cloud Sync & Export') },
+  { id: 'extension', title: t('settings.groupIntegrations') || (isZh.value ? '智能与高级扩展' : 'Intelligence & Extensions') },
+  { id: 'system', title: t('settings.groupSystemAdvanced') || (isZh.value ? '系统与关于' : 'System & About') },
 ]);
 
 const currentCategoryMeta = computed(() => {
   const cat = categories.find((c) => c.id === activeCategory.value) || categories[0];
   return {
     ...cat,
-    label: isZh.value ? cat.labelZh : cat.labelEn,
+    label: t(cat.labelKey) || (isZh.value ? cat.labelZh : cat.labelEn),
     subtitle: isZh.value ? cat.subtitleZh : cat.subtitleEn,
     desc: isZh.value ? cat.descZh : cat.descEn,
   };
@@ -811,7 +811,7 @@ onBeforeUnmount(() => {
                   </div>
                   <div class="settings-mobile-entry__info">
                     <div class="settings-mobile-entry__name">
-                      {{ isZh ? cat.labelZh : cat.labelEn }}
+                      {{ t(cat.labelKey) || (isZh ? cat.labelZh : cat.labelEn) }}
                     </div>
                     <div class="settings-mobile-entry__sub">
                       {{ isZh ? cat.subtitleZh : cat.subtitleEn }}
@@ -855,7 +855,7 @@ onBeforeUnmount(() => {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="15 18 9 12 15 6"></polyline>
               </svg>
-              <span>{{ isZh ? '设置' : 'Settings' }}</span>
+              <span>{{ settingsTitle }}</span>
             </button>
             <div class="settings-mobile-subpage__title">
               <div

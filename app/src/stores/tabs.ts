@@ -176,6 +176,8 @@ function loadPersisted(): PersistedState {
   return { tabs: [], activeId: '' };
 }
 
+const tabScrollMemory = new Map<string, { line: number; scrollTop: number }>();
+
 export const useTabsStore = defineStore('tabs', {
   state: (): TabsState => ({
     ...loadPersisted(),
@@ -506,5 +508,12 @@ export const useTabsStore = defineStore('tabs', {
       if (this.tabs.length === 0) this.newTab();
       this.persist();
     },
+    setTabScroll(id: string, line: number, scrollTop: number) {
+      tabScrollMemory.set(id, { line, scrollTop });
+    },
+    getTabScroll(id: string): { line: number; scrollTop: number } | undefined {
+      return tabScrollMemory.get(id);
+    },
   },
 });
+

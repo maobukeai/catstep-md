@@ -1,8 +1,8 @@
-# 猫步 MD (Catstep MD)
+﻿# 猫步 MD (Catstep MD)
 
 > Silent steps. Fluid thoughts. The lightweight Typora-grade Markdown editor where agents live.
 
-[![Version](https://img.shields.io/badge/version-v1.0.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.1-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
 [![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
@@ -11,186 +11,124 @@
 
 [**Download Releases**](https://github.com/maobukeai/catstep-md/releases) · [**Roadmap**](docs/roadmap.md) · [**Privacy & Security**](#privacy--security)
 
-![Catstep MD - Typora-grade Lightweight Markdown Editor](web/public/demo/solomd-demo.svg)
+---
 
-Your notes live in a folder. **Catstep MD is the lightweight Typora-grade Markdown editor on top — with a first-class AI Agent surface, seamless AutoGit time machine, and an MCP endpoint Claude Code / Cursor can drive from outside.** Same `.md` files. Focus on distraction-free writing, chat with your knowledge vault, and hand the same vault to any MCP client.
+## 📸 Real Screenshots
 
-Built on Tauri 2 + Vue 3 + CodeMirror 6. Ultra-fast, minimal memory footprint. Free, open-source MIT, no subscription, no private cloud servers. Your notes, AI keys, embeddings index, and AutoGit history all stay securely on your machine.
+### 🌟 Real WYSIWYG Live Preview & Smooth-Scrolling Outline Navigator
+![Catstep MD Live Preview and Outline Navigator](docs/screenshots/catstep-live-preview.png)
 
-## New in 4.6 — the knowledge-graph layer
+### 🎨 Theme-Adaptive Subdued Source Mode & Immersive Eye-Care Dark Mode
+<p align="center">
+  <img src="docs/screenshots/catstep-source-light.png" width="49%" alt="Typora-Style Theme Adaptive Source Mode" />
+  <img src="docs/screenshots/catstep-dark-mode.png" width="49%" alt="Immersive Dark Mode" />
+</p>
 
-The structural half Obsidian and Tolaria had and SoloMD didn't — now built, and on SoloMD's own warm design system:
+---
 
-- **Properties inspector** (`⌘⇧I`) — edit YAML frontmatter with type/date/status/relation pickers; line-surgical writes preserve your comments, inline arrays and quoting byte-for-byte.
-- **Type-driven sidebar** — give a note `type: Project` and its members become a first-class collapsible section with custom icon/colour/columns (types-as-lenses).
-- **Typed relationships** — `belongs_to` / `related_to` / `has` frontmatter with automatic inverses, resolved server-side for big vaults.
-- **Relationship graph** ("Neighborhood") — per-note explorer of outgoing + inverse links; click to navigate, ⌘-click to pivot.
-- **Saved filtered views** — persistent sidebar views (`.solomd/views/*.yml`) with a recursive all/any filter builder (type / status / date / regex).
-- **Inbox workflow** — `⌘E` mark-organized + auto-advance to inbox-zero.
-- **tldraw whiteboards** — Markdown-backed boards (` ```tldraw ` fence), cross-compatible with Tolaria's on-disk format, lazy-loaded so the core stays light.
+## 🍃 What is Catstep MD?
 
-Plus a **unified macOS title bar** (traffic lights inline in the toolbar) and a from-scratch design-system + Vue component library. Still ~15–32 MB, still free, still local-first. → [Compare vs Obsidian / Typora / Tolaria](https://solomd.app/compare)
+Your notes should simply be transparent Markdown files in a local folder.
 
-## Three halves of one product
+**Catstep MD** is a desktop Markdown knowledge editor crafted for pure, distraction-free writing. It harmoniously combines **Typora-grade immersive typography and minimalist aesthetics**, a **modern local-first AutoGit time machine**, and a **first-class built-in AI Agent assistant with native MCP endpoint capabilities**.
 
-**The editor.** WYSIWYG live edit (Typora-style), tabs + split panes, KaTeX + Mermaid, image paste to `_assets/`, slideshow mode (`⌘⌥P`), Vim mode, Hunspell + CJK proofread, semantic search (`⌘⇧F`), wikilinks + backlinks, Pandoc export. CJK encodings (GBK / Big5 / Shift-JIS) auto-detected.
+Engineered on **Tauri 2 + Vue 3 + CodeMirror 6**, Catstep MD weighs only ~15–30 MB, launches in milliseconds, and uses less than a quarter of the memory consumed by typical Electron alternatives. 100% free and open-source (MIT), with no cloud account lock-in. Your prose, version history, API credentials, and local vectors remain strictly on your machine.
 
-**The endpoint.** A bundled `solomd-mcp` binary exposes the same vault to any MCP client — 13 tools out of the box, including 5 SoloMD-only ones (`autogit_log`, `autogit_diff`, `autogit_rollback`, `sync_status`, `share_url`) that no other markdown server has. v4.0 adds `--workspace path1 --workspace path2` federation — one MCP session, many vaults. Plus a `solomd agent <prompt>` CLI that hands off to Claude Code / Codex CLI with the MCP pre-wired.
+---
 
-**The agent surface (v4.0).** Right-side Agent Panel: streamed chat-with-vault, `[[wikilink]]` citations, tool-call cards inline, **Insert** / **Copy** buttons drop the reply into the active note. Plus declarative **recipes** as YAML in `<workspace>/.solomd/agents/*.yml` — `cron` / `on-save` / `on-commit` / `on-tag-add` / manual triggers. **Every agent write lands on its own AutoGit branch you accept or reject** before it touches `main`; write-cap default 5; refuses to start when the working tree is dirty; replayable `trace.jsonl` per run with `read_agent_trace` MCP tool.
+## ✨ Key Features
 
-| Feature | |
-|---|---|
-| **Agent Panel** *(v4.0)* | Streamed chat-with-vault peer to Outline / Backlinks / Tags / History. Tool-call cards expand inline; reply Insert / Copy to active editor; run history persists as plain markdown under `.solomd/agent-runs/`. |
-| **Scheduled recipes** *(v4.0)* | YAML jobs in your vault. AutoGit branch sandbox + accept/reject UI before merge. Per-run write-cap (default 5, ceiling 50). 11-recipe cookbook ships in-tree. |
-| **Replayable trace** *(v4.0)* | `trace.jsonl` per step (`prompt` / `model_call` / `tool_call` / `tool_result` / `git_commit`). Replay-from-step rewinds and re-executes. |
-| **Workspace federation** *(v4.0)* | `solomd-mcp --workspace path1 --workspace path2`. One Claude Desktop session, many vaults. MCP profiles UI in Settings → Integrations. |
-| **Ollama first-class** *(v4.0)* | Auto-detect at `localhost:11434`. Three model presets (`qwen2.5:1.5b/7b/14b`). `provider: local` recipe alias for zero-cloud-cost autonomous loops. |
-| **AI rewrite, BYOK** | 14 providers — OpenAI · Claude · Gemini · DeepSeek · Qwen · GLM · Kimi · Doubao · SiliconFlow · OpenRouter · Mistral · Groq · xAI · Ollama. Direct vendor calls. Keys in OS keychain. |
-| **GitHub-backed sync** | Push your vault to a private GitHub repo on every save. Optional E2EE (Argon2id + XChaCha20-Poly1305). GitLab / Gitea / any HTTPS git URL works too. |
-| **AutoGit per note** | Every `⌘S` is a commit in a local `.git` inside the workspace. libgit2 vendored, no system git needed. Never auto-pushed. |
-| **MCP server bundled** | `solomd-mcp` ships in the install. 13 tools (8 generic + 5 SoloMD-only). stdio only, no network port. Read-only by default; `--allow-write` opt-in. |
-| **REST API** *(v4.0)* | Localhost only, token auth. Same surface as MCP for clients that don't speak MCP yet — Alfred / Raycast / n8n / your own scripts. |
-| **BYOK cost meter** *(v4.0)* | Per-provider running tokens-spent counter, opt-in. Settings → Integrations. |
-| **Cloud-folder mode** | If your vault lives in `~/Library/Mobile Documents/...` or `~/Dropbox/...`, SoloMD detects it and adds cross-device session restore on top — the OS already does the file sync. |
-| **Public read-only share** | Command palette → copy `solomd.app/share/?repo=...&path=...` link. Renders any file in your public GitHub repo, no SoloMD account needed to view. |
+### 1. ✍️ Typora-Grade Pure Writing Experience
+- **WYSIWYG Live Preview**: Seamless typing and formatting integration. Markdown tokens appear on cursor focus and render instantly as you move away;
+- **Subdued Theme-Adaptive Source Mode (`Ctrl+/`)**: Headings, markers, links, code, and active line glow adapt gracefully to your active theme's accent color without visual glare;
+- **Smooth-Scrolling Outline Navigator**: Heading navigation features natural physics-damped smooth scrolling to locate exact positions in long documents;
+- **In-Place Interactive Markdown Tables**: Navigate cells effortlessly with `Tab` / `Shift+Tab`; hitting Enter in the last cell automatically extends a new row;
+- **Immersive Reading View**: Clean distraction-free reading; double-click any paragraph to return instantly to live editing;
+- **Rich Theme Ecosystem**: Ships with Light, Dark, Amber, Nord, Catppuccin, Dracula, and Warm themes with full custom CSS token flexibility.
 
-## Use it
+### 2. 🤖 Built-in Catstep AI Assistant & MCP Protocol Endpoint
+- **First-Class AI Agent Panel**: Streamed multi-turn conversations with your notes, inline tool call inspection, and context awareness;
+- **Smart Polish & One-Click Insertion**: Polish, expand, or summarize selected text; insert AI responses directly at the cursor or replace current selections;
+- **14+ Direct LLM Providers (BYOK)**: Connect directly to OpenAI, Claude, Gemini, DeepSeek, Qwen, GLM, Kimi, Doubao, SiliconFlow, and local Ollama. API keys are safely stored in your operating system's native keychain;
+- **Built-in MCP Server**: Exposes standard MCP tools so Claude Code, Cursor, Windsurf, or custom AI agents can query and manipulate your local vault from outside.
 
-After installing SoloMD on macOS / Linux:
+### 3. 🛡️ Local-First & AutoGit Time Machine
+- **Plain Text Freedom**: Standard `.md` files residing in your filesystem. Zero proprietary formats, zero database lock-in;
+- **Millisecond AutoGit Time Machine**: Automatic lightweight local git commits on save. Inspect per-note commit history, view visual line diffs, and revert changes with a single click;
+- **Bidirectional Links & Knowledge Graph**: Link your ideas with `[[wikilink]]`, inspect backlinks, and explore connected concepts visually via the Neighborhood Graph.
 
-**1. Chat with your vault.** Open the right-side Agent Panel (⌘⇧P → "View: Toggle Agent Panel" if hidden). Streamed multi-turn against your notes; tool-call cards show every read/write inline. Reply too long? **Insert** drops it into the active note at the cursor (replaces selection); **Copy** to clipboard.
+---
 
-**2. Schedule a recipe.** Settings → Recipes → Browse cookbook. 11 starters ready: weekly review, daily summary, TODO extraction, translation pass, citation cleanup, CJK proofread agent, link-rot detector, frontmatter normalizer, outline-to-blog, refactor pass, weekly tag triage. Install one, edit the prompt, run it.
+## 📊 Feature Comparison
 
-**3. Drive the same vault from another LLM client.** One-shot:
+| Feature | Catstep MD | Obsidian | Typora |
+| :--- | :---: | :---: | :---: |
+| **License** | **MIT (100% Free & Open Source)** | Proprietary (Free personal) | Paid Commercial ($14.99) |
+| **Architecture** | **Tauri 2 (Rust + Native WebView)** | Electron | Electron |
+| **Installer Size** | **~15–30 MB (Ultra Lightweight)** | ~120 MB | ~95 MB |
+| **Memory & Startup** | **Instant launch, minimal memory footprint** | Slower startup, high memory | Medium startup & memory |
+| **WYSIWYG Live Preview** | ✅ **Pure Typora-style typography** | ✅ Live Preview | ✅ Classic WYSIWYG |
+| **Theme-Adaptive Source Mode** | ✅ **Subdued semantic hierarchy** | ❌ Plain text highlighting | ✅ Fixed magenta palette |
+| **Smooth Outline Navigation** | ✅ **Damped smooth scrolling** | ❌ Instant jump | ✅ Smooth scrolling |
+| **Interactive Tables** | ✅ **Tab / Enter auto-expand** | 🟡 Requires complex setup | ✅ Native table editor |
+| **Built-in AI Assistant (BYOK)** | ✅ **14+ providers + one-click insert** | 🟡 Third-party plugins | ❌ No built-in AI |
+| **Version Time Machine (AutoGit)** | ✅ **Automatic local commits + diff** | 🟡 Requires Git plugin | ❌ Basic file history |
+| **Built-in MCP Endpoint** | ✅ **Ready out of the box** | ❌ No official support | ❌ None |
+| **Data Privacy** | ✅ **Zero cloud dependency, OS keychain** | 🟡 Paid sync cloud | ✅ Local files |
 
-```bash
-# Print the MCP config snippet for your AI client.
-solomd mcp-config
-```
+---
 
-```json
-{
-  "mcpServers": {
-    "solomd": {
-      "command": "/Applications/SoloMD.app/Contents/Resources/solomd-mcp",
-      "args": ["--workspace", "/Users/me/Documents/SoloMD"]
-    }
-  }
-}
-```
+## 🚀 Download & Installation
 
-Paste into Claude Desktop / Cursor / etc. For multi-vault federation, repeat `--workspace`:
+Grab the latest release from GitHub Releases: [**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases)
 
-```json
-"args": [
-  "--workspace", "/Users/me/Documents/SoloMD",
-  "--workspace", "/Users/me/Documents/work-notes"
-]
-```
+- **Windows (x64 / ARM64)**: Fast `.msi` installers and standalone `.zip` portable versions;
+- **macOS (Apple Silicon & Intel Universal)**: Standard `.dmg` installer packages;
+- **Linux (x86_64 / aarch64)**: `.AppImage`, `.deb`, and `.rpm` packages.
 
-**4. Or hand a prompt to claude / codex CLI directly:**
+---
 
-```bash
-solomd agent "rewrite this week of dailies into a weekly review and commit it"
-```
+## 🔒 Privacy & Security
 
-Path-traversal guarded. No network port. The LLM only sees what you point the workspace at.
+1. **Strictly Local**: All your Markdown notes reside exclusively on your local storage. No content is ever sent to private cloud servers;
+2. **Hardware Credential Isolation**: API keys are saved directly into your operating system's native credential vault (Windows Credential Manager, macOS Keychain, Linux Secret Service);
+3. **Direct Vendor Requests**: AI network calls connect point-to-point from your machine directly to the provider endpoints without intermediate proxies;
+4. **Transparent & Auditable**: 100% open-source under the MIT license for full community review.
 
-## Download & Installation
+---
 
-Get the latest release for your platform from GitHub Releases: [**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases).
+## 🛠️ Building from Source
 
-**System requirements:** Windows 10+, macOS 10.15+, mainstream Linux distributions.
-
-### Desktop Downloads
-
-- **Windows (x64)**: Download the `.msi` installer or portable `.zip` from [Releases](https://github.com/maobukeai/catstep-md/releases).
-- **macOS (Universal / Apple Silicon & Intel)**: Download the signed `.dmg` from [Releases](https://github.com/maobukeai/catstep-md/releases).
-- **Linux (x86_64 / aarch64)**: `.AppImage`, `.deb`, and `.rpm` packages available on [Releases](https://github.com/maobukeai/catstep-md/releases).
-
-## Marketplaces & integrations
-
-The bundled `solomd-mcp` server runs against any folder of Markdown files — you don't need to install SoloMD itself to drive your vault from Claude / Cursor / Cline / Continue / Zed. Install snippets for each:
-
-| Client | Config snippet |
-|---|---|
-| **Claude Desktop** | [`marketplace/client-docs/claude-desktop.md`](marketplace/client-docs/claude-desktop.md) |
-| **Claude Code** | [`marketplace/client-docs/claude-code.md`](marketplace/client-docs/claude-code.md) |
-| **Cursor** | [`marketplace/client-docs/cursor.md`](marketplace/client-docs/cursor.md) |
-| **Cline** (VS Code) | [`marketplace/client-docs/cline.md`](marketplace/client-docs/cline.md) |
-| **Continue.dev** | [`marketplace/client-docs/continue.md`](marketplace/client-docs/continue.md) |
-| **Zed** | [`marketplace/client-docs/zed.md`](marketplace/client-docs/zed.md) |
-
-Available as:
-
-- **[Skill Pack](https://github.com/maobukeai/catstep-md/releases)** — 11 reference Agent Recipes (weekly review, todo extract, link suggester, …) you can drop into `<vault>/.solomd/agents/`. Ships with every release.
-- **[Claude Code Skill](marketplace/claude-code-skill/)** — `SKILL.md` + `install.sh` that registers `solomd-mcp` as a user-scope MCP server and exposes the 13 tools to Claude Code with patterns and starter recipes.
-- **Smithery** — `smithery.yaml` + Dockerfile at [`marketplace/smithery/`](marketplace/smithery/) (submission pending).
-- **Awesome MCP Servers** — PR entries for the three biggest community indices (`punkpeye/`, `appcypher/`, `wong2/awesome-mcp-servers`, ~14k forks combined) at [`marketplace/awesome-mcp/`](marketplace/awesome-mcp/).
-
-Full overview + submission status: [`marketplace/README.md`](marketplace/README.md).
-
-## Compared
-
-| | SoloMD v4.5 | Obsidian | Typora | Tolaria |
-|---|---|---|---|---|
-| License | **MIT** | proprietary (free) | paid ($14.99) | AGPL |
-| Stack | Tauri 2 (Rust + WebView) | Electron | Electron | Tauri 2 |
-| Platforms | macOS · Win · Linux · **iPad/iOS/Android** | macOS · Win · Linux · iOS · Android | macOS · Win · Linux | macOS · Win · Linux |
-| Installer | ~32 MB (mac) / ~10 MB (win) | ~120 MB | ~95 MB | ~25 MB |
-| **Inline Agent Panel** | **✅ v4.0** | 🟡 paid plugins (Smart Composer / Copilot) | ❌ | 🟡 providers + agents, no inline panel |
-| **Scheduled agent recipes** | **✅ v4.0** | ❌ | ❌ | ❌ |
-| **AutoGit branch sandbox + accept/reject** | **✅ v4.0** | ❌ | ❌ | ❌ |
-| **Replayable agent trace** | **✅ v4.0** | ❌ | ❌ | ❌ |
-| **Multi-workspace** | **✅ v4.0 MCP federation** | ❌ | ❌ | 🟡 multi-vault |
-| **MCP server bundled** | **✅ 13 tools, 5 SoloMD-only** | ❌ (community plugins) | ❌ | ✅ generic |
-| **Built-in AI rewrite** | **✅ 14 BYOK providers** | plugin only | ❌ | ✅ built-in providers |
-| GitHub-backed sync | ✅ | ❌ (Obsidian Sync $5/mo) | ❌ | ❌ |
-| End-to-end encryption | ✅ on your repo | ✅ on Obsidian's servers | ❌ | ❌ |
-| Local RAG / semantic search | ✅ off by default | plugin only | ❌ | ❌ |
-| Version history per note | ✅ AutoGit | plugin only | ❌ | ✅ |
-| Markdown whiteboards (tldraw) | ❌ | 🟡 Canvas (own format) | ❌ | ✅ |
-| CJK encodings (GBK / Big5) | ✅ auto-detect | ❌ | ❌ | ❌ |
-
-Detailed breakdowns: [vs Obsidian](https://solomd.app/compare/vs-obsidian) · [vs Typora](https://solomd.app/compare/vs-typora) · [vs Tolaria](https://solomd.app/compare/vs-tolaria) · [vs Marktext](https://solomd.app/compare/vs-marktext).
-
-## Privacy & security
-
-Pure client-side. Your `.md` files stay in the folder you chose. API keys live in the OS keychain (macOS Keychain / Windows Credential Manager / Linux libsecret), never in `localStorage` or any config file. AI requests go direct from your machine to the provider you picked — no SoloMD relay. RAG embeddings and the AutoGit repo are local-only. The MCP server speaks stdio, never opens a network port. The whole codebase is MIT and auditable.
-
-**Agent safety rails (v4.0).** Every recipe run starts on its own AutoGit branch — your `main` stays untouched until you click Accept on the diff. Per-run write-cap (default 5, hard ceiling 50) prevents runaway loops. Recipe runner refuses to start when the working tree is dirty (no agent commit will ever sweep your work-in-progress). Path-traversal guards reject `..` segments and absolute paths upfront in every Tauri / MCP / REST endpoint that accepts a user-supplied path.
-
-E2EE sync uses Argon2id (RFC9106 default params) → XChaCha20-Poly1305 with deterministic nonces and path-as-AAD. Plaintext stays on your devices; the remote sees only ciphertext. Failed `sync.json` parsing is fail-closed — refuses to push rather than degrading to plaintext (a v3.0.x audit fix).
-
-Full writeup: <https://solomd.app/security>.
-
-## Build from source
-
-Prereqs: Rust (stable), Node 18+, pnpm.
+Prerequisites: Rust (stable), Node 18+, pnpm.
 
 ```bash
+# Clone repository
 git clone https://github.com/maobukeai/catstep-md.git
 cd catstep-md/app
+
+# Install dependencies
 pnpm install
-pnpm tauri dev      # dev with hot reload
-pnpm tauri build    # release artifacts → src-tauri/target/release/bundle/
+
+# Start development with hot reload
+pnpm tauri dev
+
+# Build release bundle
+pnpm tauri build
 ```
 
-Linux additionally needs `libdbus-1-dev` for the keychain backend.
+---
 
-The MCP server is a separate crate at `mcp-server/`; the dev MCP harness used for end-to-end testing lives at `dev-mcp/`. End-to-end test entry point: `scripts/v4-self-test.sh` (run with `--with-release --with-ollama --with-ui` for full coverage).
+## 🤝 Community & Contributions
 
-## Contributing
+Contributions, bug reports, and feature ideas are warmly welcome:
+- **Report an issue:** [GitHub Issues](https://github.com/maobukeai/catstep-md/issues)
+- **Join discussions:** [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions)
+- **Explore our roadmap:** [docs/roadmap.md](docs/roadmap.md)
 
-Issues and PRs welcome — [open one on GitHub](https://github.com/maobukeai/catstep-md/issues). For our development plan, see [`docs/roadmap.md`](docs/roadmap.md).
+---
 
-## Community & Discussions
+## 📄 License & Acknowledgments
 
-- **GitHub Discussions:** [Join discussions](https://github.com/maobukeai/catstep-md/discussions)
-- **Issues & Bug Reports:** [File an issue](https://github.com/maobukeai/catstep-md/issues)
+This project is open-sourced under the [MIT License](LICENSE).
 
-## License & credits
-
-[MIT](LICENSE) © 2026 maobukeai. Catstep MD stands on Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, and `rmcp`. Repository: [GitHub (maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md).
+Special thanks to Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, and all contributors across the open-source ecosystem.

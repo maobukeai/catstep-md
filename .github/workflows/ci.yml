@@ -1,0 +1,81 @@
+name: CI Quality Gate
+
+on:
+  push:
+    branches: [main, master, dev]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend Quality Gate (i18n, Tests, Build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd app
+          pnpm install --frozen-lockfile
+
+      - name: Verify 14-Language i18n Parity (100% Coverage)
+        run: |
+          cd app
+          pnpm run i18n:check
+
+      - name: Run Unit Test Suite
+        run: |
+          cd app
+          pnpm test
+
+      - name: Type Check & Production Build (vue-tsc + vite)
+        run: |
+          cd app
+          pnpm run build
+
+  backend:
+    name: Rust Backend Gate (cargo check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libdbus-1-dev
+
+      - name: Cargo Check
+        run: |
+          cd app/src-tauri
+          cargo check

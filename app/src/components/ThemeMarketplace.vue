@@ -1344,7 +1344,7 @@ function getDisplayTags(tags?: string[]): string[] {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 2100;
+  z-index: var(--z-modal);
   padding: 20px;
 }
 
@@ -2377,5 +2377,22 @@ function getDisplayTags(tags?: string[]): string[] {
   font-size: 11px;
   color: var(--text-muted);
   font-family: monospace;
+}
+
+@media (max-width: 640px) {
+  .tm-backdrop {
+    padding: 0;
+  }
+  .tm {
+    width: 100vw;
+    height: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    border: none;
+  }
+  .tm__header {
+    padding: 12px 14px;
+    flex-wrap: wrap;
+  }
 }
 </style>

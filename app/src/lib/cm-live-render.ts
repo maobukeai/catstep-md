@@ -180,7 +180,7 @@ class HrWidget extends WidgetType {
     hr.style.height = '0';
     hr.style.margin = '0.2em 0';
     hr.style.border = 'none';
-    hr.style.borderTop = '1px solid var(--border)';
+    hr.style.borderTop = '1px solid var(--md-hr, var(--border))';
     hr.style.verticalAlign = 'middle';
     return hr;
   }
@@ -493,16 +493,21 @@ function buildDecorations(view: EditorView): DecorationSet {
         // ---- Marker hiding (inline-specific off-caret, block-specific off-line) ----
         if (HIDDEN_MARK_NODES.has(name)) {
           const inlineContainer = getInlineContainer(node);
-          const touches = inlineContainer
-            ? caretTouchesInline(
-                inlineContainer.from,
-                inlineContainer.to,
-                sel.from,
-                sel.to,
-                lineObj.from,
-                lineObj.to,
-              )
-            : caretTouchesLine;
+          // For ATX heading markers (#, ##), only reveal the marker when the caret
+          // is placed directly at or touching the marker prefix itself, not when
+          // the user is editing the heading title text (matches Typora WYSIWYG behavior).
+          const touches = name === 'HeaderMark'
+            ? (sel.from <= nTo + 1 && sel.to >= lineObj.from)
+            : (inlineContainer
+                ? caretTouchesInline(
+                    inlineContainer.from,
+                    inlineContainer.to,
+                    sel.from,
+                    sel.to,
+                    lineObj.from,
+                    lineObj.to,
+                  )
+                : caretTouchesLine);
 
           if (!touches && nTo > nFrom) {
             // v4.3.5 #83 — for ATX heading marks (`#`, `##`, …) also hide
@@ -864,12 +869,18 @@ const liveEditTheme = EditorView.theme({
   '.cm-md-html-sub': { fontSize: '0.75em', verticalAlign: 'sub' },
   '.cm-md-html-sup': { fontSize: '0.75em', verticalAlign: 'super' },
   '.cm-md-html-kbd': {
+    display: 'inline-block',
     fontFamily: 'var(--font-mono)',
     fontSize: '0.82em',
-    backgroundColor: 'var(--bg-hover)',
-    border: '1px solid var(--border)',
+    lineHeight: '1.2',
+    color: 'var(--text)',
+    backgroundColor: 'var(--bg-hover, #f3f4f6)',
+    border: '1px solid var(--border, #d1d5db)',
     borderRadius: '4px',
-    padding: '0.05em 0.3em',
+    boxShadow: '0 1px 0 1px rgba(0, 0, 0, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.15)',
+    padding: '0.15em 0.45em',
+    verticalAlign: 'middle',
+    whiteSpace: 'nowrap',
   },
 
   // Inline code: matches Preview.vue / Reading mode exactly — inherits prose text color,
@@ -904,14 +915,14 @@ const liveEditTheme = EditorView.theme({
     height: '0',
     margin: '0.2em 0',
     border: 'none',
-    borderTop: '1px solid var(--border)',
+    borderTop: '1px solid var(--md-hr, var(--border))',
     verticalAlign: 'middle',
   },
 
   '.cm-md-quote-line': {
-    borderLeft: '3px solid var(--accent)',
+    borderLeft: '3px solid var(--md-quote-border, var(--md-quote, var(--accent)))',
     paddingLeft: '12px',
-    color: 'var(--text-muted)',
+    color: 'var(--md-quote-text, var(--text-muted))',
     backgroundColor: 'var(--bg-elev, transparent)',
   },
 

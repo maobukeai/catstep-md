@@ -15,6 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { renderMarkdown, preprocessMarkdown } from './markdown';
+import { scopeTyporaCss } from './custom-theme';
 
 /** The text markdown-it put inside <code>, HTML-entities decoded. */
 function codeText(html: string): string {
@@ -106,3 +107,55 @@ test('indented code blocks keep their content', () => {
   assert.ok(code.includes('a ==b== c'), code);
   assert.ok(code.includes('x ~~y~~ z'), code);
 });
+
+test('scopeTyporaCss does not map pre container styles onto line-level .cm-md-fenced-line', () => {
+  const inputCss = `
+    #write pre {
+      background-color: #222426;
+      border: 1px solid #313438;
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+    .md-fences {
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+    }
+  `;
+
+  const output = scopeTyporaCss(inputCss, 'typora-night.css', true);
+
+  // 1. Should NOT map raw #write pre rule to .cm-md-fenced-line
+  const lines = output.split('\n');
+  const leakedRule = lines.find((line) => line.includes('.cm-md-fenced-line') && line.includes('border-radius: 6px'));
+  assert.equal(leakedRule, undefined, 'No theme pre rule should map border-radius directly to .cm-md-fenced-line');
+
+  // 2. Pre rules should be safely scoped to preview container / #write
+  assert.ok(
+    output.includes(':root[data-theme] :is(#write, .preview-content) pre'),
+    'Theme pre rule should target preview container',
+  );
+
+  // 3. Bridge block should enforce unified continuous code block container
+  assert.ok(
+    output.includes('.cm-editor .cm-md-fenced-line'),
+    'Bridge block must define .cm-editor .cm-md-fenced-line',
+  );
+  assert.ok(
+    output.includes('border-top: none !important'),
+    'Bridge block must enforce border-top: none on code lines',
+  );
+  assert.ok(
+    output.includes('border-radius: 0 !important'),
+    'Bridge block must enforce border-radius: 0 on code lines',
+  );
+  assert.ok(
+    output.includes('.cm-editor .cm-md-fenced-start'),
+    'Bridge block must define .cm-editor .cm-md-fenced-start',
+  );
+  assert.ok(
+    output.includes('.cm-editor .cm-md-fenced-end'),
+    'Bridge block must define .cm-editor .cm-md-fenced-end',
+  );
+});
+

@@ -92,7 +92,11 @@ pub async fn updater_start_download(
     state.cancel_flag.store(false, Ordering::SeqCst);
     let cancel_flag = Arc::clone(&state.cancel_flag);
 
-    let temp_dir = std::env::temp_dir().join(UPDATE_DIR_NAME);
+    let temp_dir = app
+        .path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join(UPDATE_DIR_NAME);
     if let Err(e) = tokio::fs::create_dir_all(&temp_dir).await {
         *active = false;
         let err_msg = format!("Failed to create temp directory: {e}");

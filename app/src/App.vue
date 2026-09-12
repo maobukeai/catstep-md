@@ -10,7 +10,6 @@ import { setMarkdownHardBreaks, setMarkdownAutoNumberHeadings, setMarkdownSmartQ
 import { openNewWindow } from './lib/new-window';
 import { toggleFullscreen } from './lib/fullscreen';
 import Toolbar from './components/Toolbar.vue';
-import Icon from './components/Icons.vue';
 import TileRoot from './components/TileRoot.vue';
 import StatusBar from './components/StatusBar.vue';
 import FileTree from './components/FileTree.vue';
@@ -81,7 +80,7 @@ import { useExport } from './composables/useExport';
 import { useShortcuts } from './composables/useShortcuts';
 import { useFileWatcher } from './composables/useFileWatcher';
 import { loadUserCss, reloadAllCustomStyles } from './lib/custom-theme';
-import { isIOS, isMacOS, isAndroid, isMobile } from './lib/platform';
+import { isIOS, isMacOS, isAndroid, isMobile, isTauri, isWindowsDesktop } from './lib/platform';
 import { useViewport } from './composables/useViewport';
 import { nativeMenuAccelerators } from './lib/keybindings';
 import { useI18n } from './i18n';
@@ -500,9 +499,9 @@ function onSelection(text: string) {
 function onOutlineGoto(line: number) {
   // Dispatch a custom event that PaneContent listens for
   window.dispatchEvent(new CustomEvent('solomd:outline-goto', {
-    detail: { line, paneId: tiles.focusedPaneId },
+    detail: { line, paneId: tiles.focusedPaneId, smooth: true },
   }));
-  if (isNarrow.value && narrowDrawer.value) {
+  if (isOverlayLayout.value && narrowDrawer.value) {
     closeNarrowDrawer();
   }
 }
@@ -594,12 +593,10 @@ const applyWindowTitle = async (name?: string) => {
   // which overlaps and obscures the in-app toolbar's document name.
   // Skip the native call on macOS; document.title above is enough for
   // taskbar / mission-control / window-switcher labels.
-  if (isMacOS()) return;
+  if (isMacOS() || !isTauri()) return;
   try {
     await getCurrentWindow().setTitle(title);
   } catch (err) {
-    // Non-Tauri context (Vitest, SSR) — or a window not yet ready to
-    // accept it; document.title above is the cross-platform fallback.
     console.debug('setTitle failed (document.title fallback applied)', err);
   }
 };
@@ -723,7 +720,7 @@ watchEffect(() => {
 // a rebound action must lose its old chord from the native menu, or macOS
 // keeps firing the original and the rebind only ever adds a second key.
 watchEffect(() => {
-  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+  if (typeof window === 'undefined' || !isTauri()) return;
   // Spread rather than passing the reactive object straight through: reading
   // it with `hasOwnProperty` (as nativeMenuAccelerators does) does not register
   // a dependency on a key that does not exist yet, so the first rebind of an
@@ -796,7 +793,7 @@ watchEffect(() => {
 // world, so the localhost HTTP server knows where to write captured notes
 // (or returns 503 when no folder is open).
 watchEffect(() => {
-  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+  if (typeof window === 'undefined' || !isTauri()) return;
   const folder = workspace.currentFolder;
   invoke('capture_set_workspace', { folder: folder ?? null }).catch(() => {});
   // v4.0: same dance for the public REST API server. Both endpoints share
@@ -810,7 +807,7 @@ watchEffect(() => {
 // every change. Passing null unregisters, which is what "off" has to mean for
 // a chord that would otherwise stay stolen from every other application.
 watchEffect(() => {
-  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+  if (typeof window === 'undefined' || !isTauri()) return;
   const accel = settings.quickCaptureEnabled ? settings.quickCaptureShortcut : null;
   invoke('quick_capture_set_shortcut', { accelerator: accel })
     .then(() => {
@@ -1411,12 +1408,14 @@ onMounted(async () => {
 
   // OS file association — an OS-level file-open always belongs in the current
   // window (this window was just spawned for it). Bypass new-window routing.
-  try {
-    unlistenOpened = await listen<string>('solomd://opened-file', async (e) => {
-      if (e.payload) await files.openPath(e.payload, { bypassNewWindow: true });
-    });
-  } catch (err) {
-    console.warn('opened-file listener not available', err);
+  if (isTauri()) {
+    try {
+      unlistenOpened = await listen<string>('solomd://opened-file', async (e) => {
+        if (e.payload) await files.openPath(e.payload, { bypassNewWindow: true });
+      });
+    } catch (err) {
+      console.warn('opened-file listener not available', err);
+    }
   }
 
   // #148 / #151 — Android real-folder vault picking wiring.
@@ -1435,38 +1434,42 @@ onMounted(async () => {
   // strings. file:// URLs point into our app's Documents dir (the OS
   // already copied the file there before launching us, or it's a
   // bookmark into a third-party cloud-folder we asked to open in place).
-  try {
-    const { onOpenUrl, getCurrent } = await import('@tauri-apps/plugin-deep-link');
-    const handleUrls = async (urls: string[] | null | undefined) => {
-      if (!urls) return;
-      for (const raw of urls) {
-        try {
-          // openPath normalizes file:// → path itself (#139); pass raw through.
-          await files.openPath(raw, { bypassNewWindow: true });
-        } catch (err) {
-          console.warn('deep-link openPath failed', raw, err);
+  if (isTauri() && (isIOS() || isAndroid())) {
+    try {
+      const { onOpenUrl, getCurrent } = await import('@tauri-apps/plugin-deep-link');
+      const handleUrls = async (urls: string[] | null | undefined) => {
+        if (!urls) return;
+        for (const raw of urls) {
+          try {
+            // openPath normalizes file:// → path itself (#139); pass raw through.
+            await files.openPath(raw, { bypassNewWindow: true });
+          } catch (err) {
+            console.warn('deep-link openPath failed', raw, err);
+          }
         }
-      }
-    };
-    // Live listener — files arriving while the app is already open.
-    await onOpenUrl(handleUrls);
-    // Initial payload — file that LAUNCHED the app (iOS cold start with
-    // tap-on-file from Files / Mail).
-    const initial = await getCurrent();
-    await handleUrls(initial);
-  } catch (err) {
-    // Plugin only present on mobile + matching platforms; harmless to
-    // skip on macOS/Linux/Windows (those use 'solomd://opened-file' above).
-    console.debug('deep-link plugin not active', err);
+      };
+      // Live listener — files arriving while the app is already open.
+      await onOpenUrl(handleUrls);
+      // Initial payload — file that LAUNCHED the app (iOS cold start with
+      // tap-on-file from Files / Mail).
+      const initial = await getCurrent();
+      await handleUrls(initial);
+    } catch (err) {
+      // Plugin only present on mobile + matching platforms; harmless to
+      // skip on macOS/Linux/Windows (those use 'solomd://opened-file' above).
+      console.debug('deep-link plugin not active', err);
+    }
   }
 
-  try {
-    const pending = await invoke<string[]>('drain_pending_opens');
-    for (const p of pending || []) {
-      await files.openPath(p, { bypassNewWindow: true });
+  if (isTauri()) {
+    try {
+      const pending = await invoke<string[]>('drain_pending_opens');
+      for (const p of pending || []) {
+        await files.openPath(p, { bypassNewWindow: true });
+      }
+    } catch (err) {
+      console.warn('drain_pending_opens failed', err);
     }
-  } catch (err) {
-    console.warn('drain_pending_opens failed', err);
   }
 
   // New-window launched via `?path=<encoded>` (used by the "open in new
@@ -1483,26 +1486,17 @@ onMounted(async () => {
   // #103 follow-up — auxiliary windows ("Open file in new window") close
   // independently of the main window (handled in runner.rs, the original #103
   // fix). We intentionally do NOT auto-resurrect them on launch.
-  //
-  // An earlier version re-spawned every *registered* aux window on every
-  // start. Entries left behind by a force-quit (onCloseRequested never fires)
-  // or by a since-deleted/temp file were never pruned, so a "ghost" window
-  // reappeared on every launch — even for paths that no longer exist (user
-  // report: "每次打开都冒出一个额外窗口"). Closed windows now stay closed.
-  //
-  // On the main window we also clear any stale registry entries so users
-  // already affected by the old behavior stop seeing the ghost window after
-  // updating. (spawnAuxWindow still works for the current session; the
-  // registry simply isn't replayed across restarts anymore.)
-  try {
-    if (!isAuxLabel(getCurrentWindow().label)) {
-      windowsStore.reload();
-      for (const label of [...windowsStore.auxLabels]) {
-        windowsStore.unregister(label);
+  if (isTauri()) {
+    try {
+      if (!isAuxLabel(getCurrentWindow().label)) {
+        windowsStore.reload();
+        for (const label of [...windowsStore.auxLabels]) {
+          windowsStore.unregister(label);
+        }
       }
+    } catch (err) {
+      console.warn('aux-window registry cleanup failed', err);
     }
-  } catch (err) {
-    console.warn('aux-window registry cleanup failed', err);
   }
 
   // First-launch welcome tour: only when there are no tabs at all (fresh
@@ -1555,74 +1549,77 @@ onMounted(async () => {
   }
   tiles.syncActiveTab();
 
-  // Window close
-  try {
-    await listen('solomd://close-requested', async () => {
-      tabs.persist?.();
-      tiles.persist();
-      await invoke('force_close_window');
-    });
-  } catch (err) {
-    console.warn('close-requested listener failed', err);
+  // Window close & desktop shell listeners
+  if (isTauri()) {
+    try {
+      await listen('solomd://close-requested', async () => {
+        tabs.persist?.();
+        tiles.persist();
+        await invoke('force_close_window');
+      });
+    } catch (err) {
+      console.warn('close-requested listener failed', err);
+    }
+
+    // #103 — backstop registry cleanup. The destroyed window normally
+    // unregisters itself via onCloseRequested, but a webview teardown that
+    // skips CloseRequested would leave a stale entry that resurrects on the
+    // next launch. Rust emits `solomd://window-destroyed` with the label so
+    // any surviving window drops it from the registry.
+    try {
+      unlistenWindowDestroyed = await listen<string>('solomd://window-destroyed', (e) => {
+        if (e.payload && isAuxLabel(e.payload)) windowsStore.unregister(e.payload);
+      });
+    } catch (err) {
+      console.warn('window-destroyed listener not available', err);
+    }
+
+    // Native menu bar
+    try {
+      unlistenMenu = await listen<string>('solomd://menu', (e) => {
+        if (e.payload) dispatchMenuAction(e.payload);
+      });
+    } catch (err) {
+      console.warn('menu listener not available', err);
+    }
+
+    // Drag-drop file open
+    try {
+      const webview = getCurrentWebview();
+      const IMAGE_DROP_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'tiff']);
+      await webview.onDragDropEvent(async (event) => {
+        if (event.payload.type === 'drop') {
+          for (const path of event.payload.paths) {
+            const ext = (path.split('.').pop() || '').toLowerCase();
+            if (IMAGE_DROP_EXTS.has(ext)) {
+              // An image file dropped onto the editor should be inserted, not
+              // run through the markitdown document converter (png/jpg/etc are
+              // in useFiles' CONVERT_CLI set). Route it to the focused editor's
+              // insertImageFromPath, which copies it into the note's assets dir
+              // and inserts a Markdown image link.
+              window.dispatchEvent(
+                new CustomEvent('solomd:insert-image-path', {
+                  detail: { path, paneId: tiles.focusedPaneId },
+                }),
+              );
+              continue;
+            }
+            // Drop targets this window explicitly — bypass new-window routing.
+            await files.openPath(path, { bypassNewWindow: true });
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('drag-drop not available', e);
+    }
   }
 
-  // #103 — backstop registry cleanup. The destroyed window normally
-  // unregisters itself via onCloseRequested, but a webview teardown that
-  // skips CloseRequested would leave a stale entry that resurrects on the
-  // next launch. Rust emits `solomd://window-destroyed` with the label so
-  // any surviving window drops it from the registry.
-  try {
-    unlistenWindowDestroyed = await listen<string>('solomd://window-destroyed', (e) => {
-      if (e.payload && isAuxLabel(e.payload)) windowsStore.unregister(e.payload);
-    });
-  } catch (err) {
-    console.warn('window-destroyed listener not available', err);
-  }
-
-  // Native menu bar
-  try {
-    unlistenMenu = await listen<string>('solomd://menu', (e) => {
-      if (e.payload) dispatchMenuAction(e.payload);
-    });
-  } catch (err) {
-    console.warn('menu listener not available', err);
-  }
   // Windows unified title bar: the in-app menubar (Toolbar.vue) dispatches
   // the same action ids through a DOM event — no Tauri round-trip needed.
   window.addEventListener('solomd:menu-action', onDomMenuAction);
 
-  // Drag-drop file open
-  try {
-    const webview = getCurrentWebview();
-    const IMAGE_DROP_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'tiff']);
-    await webview.onDragDropEvent(async (event) => {
-      if (event.payload.type === 'drop') {
-        for (const path of event.payload.paths) {
-          const ext = (path.split('.').pop() || '').toLowerCase();
-          if (IMAGE_DROP_EXTS.has(ext)) {
-            // An image file dropped onto the editor should be inserted, not
-            // run through the markitdown document converter (png/jpg/etc are
-            // in useFiles' CONVERT_CLI set). Route it to the focused editor's
-            // insertImageFromPath, which copies it into the note's assets dir
-            // and inserts a Markdown image link.
-            window.dispatchEvent(
-              new CustomEvent('solomd:insert-image-path', {
-                detail: { path, paneId: tiles.focusedPaneId },
-              }),
-            );
-            continue;
-          }
-          // Drop targets this window explicitly — bypass new-window routing.
-          await files.openPath(path, { bypassNewWindow: true });
-        }
-      }
-    });
-  } catch (e) {
-    console.warn('drag-drop not available', e);
-  }
-
   // Auto-check for updates
-  if (!isIOS() && settings.autoCheckUpdate) {
+  if (isTauri() && !isIOS() && settings.autoCheckUpdate) {
     try {
       const {
         checkForUpdateOnStartup,
@@ -1639,8 +1636,8 @@ onMounted(async () => {
         const { t: tr } = useI18n();
 
         const asset = result.matchedAsset || (result.assets && result.assets.length > 0 ? result.assets[0] : null);
-        if (settings.autoDownloadUpdate && asset) {
-          // Zero-distraction: silently download update in background
+        if (settings.autoDownloadUpdate && asset && !isMobile()) {
+          // Zero-distraction: silently download update in background (desktop only)
           void startUpdateDownload(asset, result.latest || '').then(() => {
             if (settings.autoInstallUpdate) {
               toastsStore.info(
@@ -1679,6 +1676,12 @@ onMounted(async () => {
     // Guard against startup fullscreen trap (e.g. stale window-state or accidental F11 before closing)
     if (await win.isFullscreen()) {
       await win.setFullscreen(false);
+    }
+    // Prevent startup maximized trap — start in standard centered window
+    if (await win.isMaximized()) {
+      try {
+        await win.unmaximize();
+      } catch {}
     }
     const isMax = await win.isMaximized();
     if (!isMax) {
@@ -1947,32 +1950,7 @@ const showRightSidebar = computed(() => {
   );
 });
 // #168 — phone and tablet shell.
-const { isNarrow } = useViewport();
-
-// On compact screens (< 960px, e.g. tablet portrait), prevent left and right sidebars
-// from simultaneously squeezing the editor into a tiny column.
-watch(
-  () => showRightSidebar.value,
-  (open) => {
-    if (open && !isNarrow.value && typeof window !== 'undefined' && window.innerWidth < 960) {
-      if (settings.showFileTree) {
-        settings.showFileTree = false;
-        settings.persist();
-      }
-    }
-  },
-);
-watch(
-  () => settings.showFileTree,
-  (open) => {
-    if (open && !isNarrow.value && typeof window !== 'undefined' && window.innerWidth < 960) {
-      if (!settings.rightSidebarHidden) {
-        settings.rightSidebarHidden = true;
-        settings.persist();
-      }
-    }
-  },
-);
+const { isNarrow, isTablet, isCompactTablet } = useViewport();
 
 const mobileAgentOpen = ref(false);
 const mobileOutlineOpen = ref(false);
@@ -2079,13 +2057,15 @@ function onFocusOut(e: FocusEvent) {
   }
 }
 
+const isOverlayLayout = computed(() => isMobile() && (isNarrow.value || isTablet.value || isCompactTablet.value));
+
 /**
  * #168 — which side pane, if any, is floating over the editor on a phone or compact tablet.
  * Only one at a time: side panes float over the editor as slide-over drawers so
  * the editor maintains ample width.
  */
 const narrowDrawer = computed<'left' | 'right' | null>(() => {
-  if (isNarrow.value) {
+  if (isOverlayLayout.value) {
     if (settings.showFileTree || settings.showViewsPanel) return 'left';
     if (showRightSidebar.value) return 'right';
     return null;
@@ -2101,7 +2081,7 @@ function closeNarrowDrawer(): void {
 }
 
 function onHandleCloseDrawer(): void {
-  if (isNarrow.value && narrowDrawer.value) {
+  if (isOverlayLayout.value && narrowDrawer.value) {
     closeNarrowDrawer();
   }
 }
@@ -2267,7 +2247,11 @@ function paneStyle(id: string) {
 const sideSidebarStyle = computed(() => {
   if (isNarrow.value) return undefined;
   const w = settings.sideSidebarWidth || (showAgentPane.value ? 440 : 260);
-  return { width: `${w}px`, flexBasis: `${w}px` };
+  return {
+    width: `${w}px`,
+    flexBasis: `${w}px`,
+    '--side-sidebar-w': `${w}px`,
+  };
 });
 
 const isSideSidebarResizing = ref(false);
@@ -2299,8 +2283,17 @@ function onSidebarResize(side: 'left' | 'right', ev: MouseEvent) {
 const typoraSidebarStyle = computed(() => {
   if (isNarrow.value) return undefined;
   const w = Math.max(220, settings.fileTreeWidth || 240);
-  return { width: `${w}px`, flexBasis: `${w}px` };
+  return {
+    width: `${w}px`,
+    flexBasis: `${w}px`,
+    '--typora-sidebar-w': `${w}px`,
+  };
 });
+
+function onSidebarTransitionEnd(): void {
+  // Let CodeMirror's native ResizeObserver handle viewport re-measurement
+  // smoothly without forcing layout thrashing or end-of-transition twitches.
+}
 
 const isTyporaSidebarResizing = ref(false);
 
@@ -2359,6 +2352,16 @@ async function refreshAiHasKey() {
     aiHasKey.value = false;
   }
 }
+
+onMounted(() => {
+  if (isWindowsDesktop()) {
+    document.body.classList.add('os-windows');
+    document.documentElement.classList.add('os-windows');
+  }
+  document.body.classList.add('no-collapse-outline');
+  document.documentElement.classList.add('no-collapse-outline');
+});
+
 watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAiHasKey(); });
 </script>
 
@@ -2426,63 +2429,83 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
           aria-hidden="true"
           @click="closeNarrowDrawer"
         />
-        <div
-          v-if="(settings.showFileTree || settings.showViewsPanel) && (!isNarrow || narrowDrawer === 'left')"
-          class="left-stack typora-sidebar"
-          :style="typoraSidebarStyle"
+        <Transition
+          name="sidebar-left"
+          @after-enter="onSidebarTransitionEnd"
+          @after-leave="onSidebarTransitionEnd"
         >
           <div
-            class="typora-sidebar__resize"
-            :class="{ 'is-resizing': isTyporaSidebarResizing }"
-            @mousedown="onTyporaSidebarResize"
-          />
-          <div class="typora-sidebar__tabs">
-            <button
-              class="typora-sidebar__tab"
-              :class="{ active: settings.leftSidebarTab === 'files' }"
-              @click="settings.setLeftSidebarTab('files')"
-              :title="t('toolbar.fileTreeTooltip') + ' (Ctrl+Shift+2)'"
-            >
-              <Icon name="folder" :size="13" />
-              <span>{{ t('toolbar.fileTree') }}</span>
-            </button>
-            <button
-              class="typora-sidebar__tab"
-              :class="{ active: settings.leftSidebarTab === 'outline' }"
-              @click="settings.setLeftSidebarTab('outline')"
-              :title="t('menubar.toggleOutline') + ' (Ctrl+Shift+1)'"
-            >
-              <Icon name="outline" :size="13" />
-              <span>{{ t('toolbar.outline') }}</span>
-            </button>
-            <button
-              class="typora-sidebar__tab-close"
-              @click="isNarrow ? closeNarrowDrawer() : settings.toggleLeftSidebar()"
-              :title="t('toolbar.closeSidebar') + ' (Ctrl+Shift+L)'"
-            >
-              <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
-                <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
-              </svg>
-            </button>
-          </div>
+            v-if="(settings.showFileTree || settings.showViewsPanel) && (!isOverlayLayout || narrowDrawer === 'left')"
+            id="typora-sidebar"
+            :class="[
+              'left-stack typora-sidebar pane-sm sidebar no-collapse-outline',
+              settings.leftSidebarTab === 'files' ? 'active-tab-files' : '',
+              settings.leftSidebarTab === 'outline' ? 'active-tab-outline' : '',
+              settings.leftSidebarTab === 'search' ? 'ty-show-search' : '',
+              isTyporaSidebarResizing ? 'is-resizing' : '',
+            ]"
+            :style="typoraSidebarStyle"
+          >
+            <div
+              class="typora-sidebar__resize"
+              :class="{ 'is-resizing': isTyporaSidebarResizing }"
+              @mousedown="onTyporaSidebarResize"
+            />
+            <div class="typora-sidebar__header">
+              <div class="typora-sidebar__tabs info-panel-tab-wrapper sidebar-tabs">
+                <div
+                  class="typora-sidebar__tab-glider"
+                  :class="{ 'is-outline': settings.leftSidebarTab === 'outline' }"
+                  aria-hidden="true"
+                />
+                <button
+                  id="info-panel-tab-file"
+                  class="typora-sidebar__tab typora-sidebar__tab--files info-panel-tab"
+                  :class="{ active: settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search' }"
+                  @click="settings.setLeftSidebarTab('files')"
+                  :title="t('toolbar.fileTreeTooltip') + ' (Ctrl+Shift+2)'"
+                >
+                  <span class="info-panel-tab-title typora-sidebar__tab-title">
+                    <span class="typora-sidebar__tab-text">{{ t('menubar.file') }}</span>
+                  </span>
+                </button>
+                <button
+                  id="info-panel-tab-outline"
+                  class="typora-sidebar__tab typora-sidebar__tab--outline info-panel-tab"
+                  :class="{ active: settings.leftSidebarTab === 'outline' }"
+                  @click="settings.setLeftSidebarTab('outline')"
+                  :title="t('menubar.toggleOutline') + ' (Ctrl+Shift+1)'"
+                >
+                  <span class="info-panel-tab-title typora-sidebar__tab-title">
+                    <span class="typora-sidebar__tab-text">{{ t('toolbar.outline') }}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
 
-          <div class="typora-sidebar__body">
-            <template v-if="settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
-              <FileTree v-if="settings.showFileTree" />
-              <ViewsPanel v-if="settings.showViewsPanel" />
-            </template>
-            <template v-else-if="settings.leftSidebarTab === 'outline'">
-              <Outline :cursor-line="cursorLine" @goto="onOutlineGoto" />
-            </template>
+            <div class="typora-sidebar__body">
+              <template v-if="settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
+                <FileTree v-if="!settings.showViewsPanel" />
+                <ViewsPanel v-if="settings.showViewsPanel" />
+              </template>
+              <template v-else-if="settings.leftSidebarTab === 'outline'">
+                <Outline :cursor-line="cursorLine" @goto="onOutlineGoto" />
+              </template>
+            </div>
           </div>
-        </div>
-        <aside
-          v-if="showRightSidebar && settings.outlineSide === 'left' && (!isNarrow || narrowDrawer === 'left')"
-          class="side-sidebar side-sidebar--left"
-          :style="sideSidebarStyle"
-          @contextmenu.prevent="openSidebarCtx"
+        </Transition>
+        <Transition
+          name="sidebar-left"
+          @after-enter="onSidebarTransitionEnd"
+          @after-leave="onSidebarTransitionEnd"
         >
+          <aside
+            v-if="showRightSidebar && settings.outlineSide === 'left' && (!isOverlayLayout || narrowDrawer === 'left')"
+            class="side-sidebar side-sidebar--left"
+            :class="{ 'is-resizing': isSideSidebarResizing }"
+            :style="sideSidebarStyle"
+            @contextmenu.prevent="openSidebarCtx"
+          >
           <div
             class="side-sidebar__resize side-sidebar__resize--right"
             :class="{ 'is-resizing': isSideSidebarResizing }"
@@ -2577,10 +2600,16 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             </div>
           </template>
         </aside>
+        </Transition>
         <div class="content" :class="{ 'has-custom-bg': hasActiveBackground }">
           <!-- Prose Writing Area -->
           <div class="catstep-prose-wrap">
-            <ReadingView v-if="settings.viewMode === 'reading'" />
+            <ReadingView
+              v-if="settings.viewMode === 'reading'"
+              :cursor-line="cursorLine"
+              @cursor="onCursor"
+              @goto="onOutlineGoto"
+            />
             <BasesView v-else-if="basesOpen" />
             <InboxView v-else-if="inboxViewOpen" />
             <TypeLensView v-else-if="typeLensOpen" :type-name="typeLensName" />
@@ -2588,12 +2617,18 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             <TileRoot v-else :node="tiles.root" @cursor="onCursor" @selection="onSelection" />
           </div>
         </div>
-        <aside
-          v-if="showRightSidebar && settings.outlineSide !== 'left' && (!isNarrow || narrowDrawer === 'right')"
-          class="side-sidebar side-sidebar--right typora-right-drawer"
-          :style="sideSidebarStyle"
-          @contextmenu.prevent="openSidebarCtx"
+        <Transition
+          name="sidebar-right"
+          @after-enter="onSidebarTransitionEnd"
+          @after-leave="onSidebarTransitionEnd"
         >
+          <aside
+            v-if="showRightSidebar && settings.outlineSide !== 'left' && (!isOverlayLayout || narrowDrawer === 'right')"
+            class="side-sidebar side-sidebar--right typora-right-drawer"
+            :class="{ 'is-resizing': isSideSidebarResizing }"
+            :style="sideSidebarStyle"
+            @contextmenu.prevent="openSidebarCtx"
+          >
           <div
             class="side-sidebar__resize side-sidebar__resize--left"
             :class="{ 'is-resizing': isSideSidebarResizing }"
@@ -2688,6 +2723,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             </div>
           </template>
         </aside>
+        </Transition>
       </div>
 
       <!-- Mobile Bottom Dock (Floating 3-action bar on mobile < 640px) -->
@@ -3014,12 +3050,17 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   display: none;
 }
 /* Touch-friendly tabs in mobile drawer */
-.app--narrow .typora-sidebar__tabs {
+.app--narrow .typora-sidebar__header {
   height: 44px;
+  min-height: 44px;
   padding: 0 10px;
-  gap: 6px;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+}
+.app--narrow .typora-sidebar__tabs {
+  gap: 6px;
+  background: transparent;
+  border-bottom: none;
 }
 .app--narrow .typora-sidebar__tab {
   height: 32px;
@@ -3056,9 +3097,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   position: absolute;
   inset: 0;
   z-index: 45;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.38);
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -3272,6 +3311,95 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   position: relative;
 }
 
+/* ============================================================
+ * Desktop & Mobile Sidebar Slide Transitions (Typora / Native Feel)
+ * ============================================================ */
+.sidebar-left-enter-active,
+.sidebar-left-leave-active {
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.sidebar-left-enter-from,
+.sidebar-left-leave-to {
+  margin-left: calc(-1 * var(--typora-sidebar-w, 240px)) !important;
+}
+
+.side-sidebar--left.sidebar-left-enter-from,
+.side-sidebar--left.sidebar-left-leave-to {
+  margin-left: calc(-1 * var(--side-sidebar-w, 260px)) !important;
+}
+
+.sidebar-left-enter-to,
+.sidebar-left-leave-from {
+  margin-left: 0 !important;
+}
+
+.sidebar-right-enter-active,
+.sidebar-right-leave-active {
+  transition: margin-right 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.sidebar-right-enter-from,
+.sidebar-right-leave-to {
+  margin-right: calc(-1 * var(--side-sidebar-w, 260px)) !important;
+}
+
+.sidebar-right-enter-to,
+.sidebar-right-leave-from {
+  margin-right: 0 !important;
+}
+
+/* Mobile overlay drawer slide overrides */
+.app--narrow .sidebar-left-enter-active,
+.app--narrow .sidebar-left-leave-active {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.2s ease !important;
+  animation: none !important;
+}
+.app--narrow .sidebar-left-enter-from,
+.app--narrow .sidebar-left-leave-to {
+  transform: translateX(-100%) !important;
+  opacity: 0 !important;
+  margin-left: 0 !important;
+}
+.app--narrow .sidebar-left-enter-to,
+.app--narrow .sidebar-left-leave-from {
+  transform: translateX(0) !important;
+  opacity: 1 !important;
+  margin-left: 0 !important;
+}
+
+.app--narrow .sidebar-right-enter-active,
+.app--narrow .sidebar-right-leave-active {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.2s ease !important;
+  animation: none !important;
+}
+.app--narrow .sidebar-right-enter-from,
+.app--narrow .sidebar-right-leave-to {
+  transform: translateX(100%) !important;
+  opacity: 0 !important;
+  margin-right: 0 !important;
+}
+.app--narrow .sidebar-right-enter-to,
+.app--narrow .sidebar-right-leave-from {
+  transform: translateX(0) !important;
+  opacity: 1 !important;
+  margin-right: 0 !important;
+}
+
+/* During drag resizing, eliminate transitions completely for instantaneous response */
+.typora-sidebar.is-resizing,
+.side-sidebar.is-resizing,
+.typora-sidebar__resize.is-resizing,
+.side-sidebar__resize.is-resizing {
+  transition: none !important;
+}
+
 /* Typora-style 3-in-1 Left Sidebar */
 .typora-sidebar {
   position: relative;
@@ -3312,70 +3440,100 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   background: rgba(99, 102, 241, 0.55);
   background: color-mix(in srgb, var(--accent, #6366f1) 55%, transparent);
 }
-.typora-sidebar__tabs {
+.typora-sidebar__header {
+  height: var(--tabbar-h, 38px);
+  min-height: var(--tabbar-h, 38px);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  height: var(--tabbar-h, 34px);
-  box-sizing: border-box;
-  gap: 2px;
-  padding: 0 6px;
+  justify-content: center;
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
   white-space: nowrap;
+  position: relative;
+}
+.typora-sidebar__tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 2px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+  border-radius: 7px;
+  box-sizing: border-box;
+  user-select: none;
+  min-width: 0;
+}
+:root[data-theme="dark"] .typora-sidebar__tabs,
+body.dark .typora-sidebar__tabs {
+  background: rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.typora-sidebar__tab-glider {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  background: var(--bg);
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 0.5px 1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.25, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+:root[data-theme="dark"] .typora-sidebar__tab-glider,
+body.dark .typora-sidebar__tab-glider {
+  background: var(--bg-elev, #2b303c);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.typora-sidebar__tab-glider.is-outline {
+  transform: translateX(100%);
 }
 .typora-sidebar__tab {
+  position: relative;
+  z-index: 2;
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 4px 5px;
-  font-size: 11px;
+  height: 100%;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-muted);
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
   background: transparent;
+  border: none;
   white-space: nowrap;
   word-break: keep-all;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
-  transition: all 0.12s ease;
+  transition: color 0.18s ease;
 }
-.typora-sidebar__tab span {
+.typora-sidebar__tab-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   white-space: nowrap;
   word-break: keep-all;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .typora-sidebar__tab:hover {
-  background: var(--bg-hover);
   color: var(--text);
 }
 .typora-sidebar__tab.active {
-  background: var(--bg);
   color: var(--accent);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-.typora-sidebar__tab-close {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-faint);
-  border-radius: 4px;
-  cursor: pointer;
   background: transparent;
-  border: 1px solid transparent;
-  padding: 0;
-  transition: all 0.12s ease;
-}
-.typora-sidebar__tab-close:hover {
-  color: var(--text);
-  background: var(--bg-hover);
-  border-color: var(--border);
+  box-shadow: none;
 }
 .typora-sidebar__body {
   flex: 1;

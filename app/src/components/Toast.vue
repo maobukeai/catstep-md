@@ -55,7 +55,7 @@ function onToastAction(t: Toast) {
   position: fixed;
   bottom: 36px;
   right: 18px;
-  z-index: 2000;
+  z-index: var(--z-toast, 15000);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -119,4 +119,19 @@ function onToastAction(t: Toast) {
 .toast-enter-active { transition: all 0.2s ease-out; }
 .toast-leave-to { opacity: 0; transform: translateX(20px); }
 .toast-leave-active { transition: all 0.2s ease-in; position: absolute; right: 0; }
+
+@media (max-width: 640px) {
+  .toasts {
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    align-items: center;
+  }
+  .toast {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
 </style>

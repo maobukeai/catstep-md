@@ -114,7 +114,7 @@ fn set_config_dir(p: PathBuf) {
     }
     #[cfg(not(test))]
     {
-        let mut g = CONFIG_DIR.lock().unwrap();
+        let mut g = CONFIG_DIR.lock().unwrap_or_else(|e| e.into_inner());
         *g = Some(p);
     }
 }
@@ -124,7 +124,7 @@ fn current_config_dir() -> Option<PathBuf> {
     if let Some(p) = TEST_CONFIG_DIR.with(|d| d.borrow().clone()) {
         return Some(p);
     }
-    if let Some(p) = CONFIG_DIR.lock().unwrap().clone() {
+    if let Some(p) = CONFIG_DIR.lock().unwrap_or_else(|e| e.into_inner()).clone() {
         return Some(p);
     }
     // Fallback heuristic — only used when no Tauri command has primed the

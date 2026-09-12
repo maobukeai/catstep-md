@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import Icon from './Icons.vue';
 import BrandMark from './BrandMark.vue';
 import PomodoroPopover from './PomodoroPopover.vue';
@@ -341,6 +341,83 @@ function closeAllDropdowns() {
 const isEditing = computed(() => (settings.viewMode === 'liveEdit' || settings.viewMode === 'edit') && settings.livePreview);
 const isReading = computed(() => settings.viewMode === 'reading');
 const isSource = computed(() => (settings.viewMode === 'edit' && !settings.livePreview) || (settings.viewMode as any) === 'source');
+
+const segmentedControlRef = ref<HTMLElement | null>(null);
+const editBtnRef = ref<HTMLElement | null>(null);
+const readingBtnRef = ref<HTMLElement | null>(null);
+const sourceBtnRef = ref<HTMLElement | null>(null);
+
+const indicatorReady = ref(false);
+const indicatorPos = ref<{ left: number; width: number } | null>(null);
+
+const indicatorStyle = computed(() => {
+  if (!indicatorPos.value) return { opacity: 0 };
+  return {
+    transform: `translateX(${indicatorPos.value.left}px)`,
+    width: `${indicatorPos.value.width}px`,
+    opacity: 1,
+  };
+});
+
+function updateIndicator(animate = true) {
+  if (!segmentedControlRef.value) return;
+  let targetBtn: HTMLElement | null = null;
+  if (isEditing.value) {
+    targetBtn = editBtnRef.value;
+  } else if (isReading.value) {
+    targetBtn = readingBtnRef.value;
+  } else if (isSource.value) {
+    targetBtn = sourceBtnRef.value;
+  }
+  if (!targetBtn) {
+    indicatorPos.value = null;
+    return;
+  }
+
+  const left = targetBtn.offsetLeft;
+  const width = targetBtn.offsetWidth;
+  indicatorPos.value = { left, width };
+
+  if (animate) {
+    if (!indicatorReady.value) {
+      requestAnimationFrame(() => {
+        indicatorReady.value = true;
+      });
+    }
+  }
+}
+
+watch(
+  [isEditing, isReading, isSource, () => settings.viewMode, () => settings.livePreview],
+  () => {
+    nextTick(() => {
+      updateIndicator(true);
+    });
+  },
+  { flush: 'post' },
+);
+
+watch(
+  () => settings.language,
+  () => {
+    nextTick(() => {
+      updateIndicator(false);
+    });
+  },
+);
+
+watch(isMarkdown, (val) => {
+  if (val) {
+    nextTick(() => {
+      updateIndicator(false);
+      if (segmentedControlRef.value && segmentedResizeObserver) {
+        segmentedResizeObserver.observe(segmentedControlRef.value);
+      }
+    });
+  }
+});
+
+let segmentedResizeObserver: ResizeObserver | null = null;
 
 function onSelectEditMode() {
   settings.setTripleMode('edit');
@@ -735,6 +812,16 @@ onMounted(() => {
   window.addEventListener('solomd:toggle-pomodoro', onTogglePomodoroEvent);
   window.addEventListener('solomd:open-pomodoro', onOpenPomodoroEvent);
   window.addEventListener('solomd:open-theme-marketplace', openThemeMarketplace);
+
+  nextTick(() => {
+    updateIndicator(false);
+    if (segmentedControlRef.value && typeof ResizeObserver !== 'undefined') {
+      segmentedResizeObserver = new ResizeObserver(() => {
+        updateIndicator(false);
+      });
+      segmentedResizeObserver.observe(segmentedControlRef.value);
+    }
+  });
 });
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick, true);
@@ -743,6 +830,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('solomd:toggle-pomodoro', onTogglePomodoroEvent);
   window.removeEventListener('solomd:open-pomodoro', onOpenPomodoroEvent);
   window.removeEventListener('solomd:open-theme-marketplace', openThemeMarketplace);
+  segmentedResizeObserver?.disconnect();
 });
 </script>
 
@@ -812,8 +900,21 @@ onBeforeUnmount(() => {
     <!-- Center Section: Mode Switcher Capsule + Active Document Title -->
     <div class="toolbar__center" data-tauri-drag-region>
       <!-- Top Bar Triple Mode Switcher: [ 编辑 | 阅读 | 源码 ] -->
-      <div v-if="isMarkdown" class="segmented-control" data-no-drag>
+      <div
+        v-if="isMarkdown"
+        ref="segmentedControlRef"
+        class="segmented-control"
+        :class="{ 'is-initialized': indicatorReady }"
+        data-no-drag
+      >
+        <div
+          class="segmented-indicator"
+          :class="{ 'has-transition': indicatorReady }"
+          :style="indicatorStyle"
+          aria-hidden="true"
+        ></div>
         <button
+          ref="editBtnRef"
           class="segmented-btn"
           :class="{ 'is-active': isEditing }"
           @click="onSelectEditMode"
@@ -826,6 +927,7 @@ onBeforeUnmount(() => {
           <span class="segmented-text">{{ t('toolbar.edit') }}</span>
         </button>
         <button
+          ref="readingBtnRef"
           class="segmented-btn"
           :class="{ 'is-active': isReading }"
           @click="onSelectReadingMode"
@@ -838,6 +940,7 @@ onBeforeUnmount(() => {
           <span class="segmented-text">{{ t('toolbar.read') }}</span>
         </button>
         <button
+          ref="sourceBtnRef"
           class="segmented-btn"
           :class="{ 'is-active': isSource }"
           @click="onSelectSourceMode"
@@ -845,7 +948,7 @@ onBeforeUnmount(() => {
         >
           <svg class="segmented-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6" />
-            <polyline points="8 6 2 12 8 18" />
+            <path d="M8 6 2 12 8 18" />
           </svg>
           <span class="segmented-text">{{ t('toolbar.source') }}</span>
         </button>
@@ -1088,6 +1191,7 @@ onBeforeUnmount(() => {
   cursor: default;
 }
 .segmented-control {
+  position: relative;
   display: inline-flex;
   align-items: center;
   background: var(--bg-soft, rgba(0, 0, 0, 0.04));
@@ -1097,8 +1201,34 @@ onBeforeUnmount(() => {
   gap: 2px;
   flex-shrink: 0;
   box-shadow: inset 0 1px 1.5px rgba(0, 0, 0, 0.03);
+  user-select: none;
+}
+.segmented-indicator {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--bg-elev, #ffffff);
+  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.04);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  will-change: transform, width;
+}
+.segmented-indicator.has-transition {
+  transition: transform 0.26s cubic-bezier(0.2, 0.85, 0.25, 1),
+              width 0.22s cubic-bezier(0.2, 0.85, 0.25, 1),
+              opacity 0.15s ease;
+}
+:root[data-theme="dark"] .segmented-indicator {
+  background: var(--bg-elev, #23221f);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0.5px 1px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .segmented-btn {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1112,26 +1242,43 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.18s ease, font-weight 0.18s ease, transform 0.1s ease;
   user-select: none;
   white-space: nowrap;
 }
 .segmented-btn:hover:not(.is-active) {
   color: var(--text);
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.segmented-btn:focus {
+  outline: none;
+}
+.segmented-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+.segmented-btn:active {
+  transform: scale(0.96);
+}
+/* Fallback before indicator is initialized */
+.segmented-control:not(.is-initialized) .segmented-btn.is-active {
+  background: var(--bg-elev, #ffffff);
+  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="dark"] .segmented-control:not(.is-initialized) .segmented-btn.is-active {
+  background: var(--bg-elev, #23221f);
 }
 .segmented-btn.is-active {
   color: var(--text, #0f172a);
-  background: var(--bg-elev, #ffffff);
-  box-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.04);
   font-weight: 600;
+  background: transparent;
+  box-shadow: none;
 }
 .segmented-icon {
   display: inline-block;
   vertical-align: middle;
   stroke: currentColor;
   opacity: 0.82;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.18s ease;
 }
 .segmented-btn.is-active .segmented-icon {
   opacity: 1;

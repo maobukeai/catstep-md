@@ -3,12 +3,8 @@ import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { extractOutline, type OutlineItem } from '../lib/markdown';
+import OutlineTreeItem, { type OutlineNode } from './OutlineTreeItem.vue';
 import { useI18n } from '../i18n';
-
-interface OutlineNode {
-  item: OutlineItem;
-  children: OutlineNode[];
-}
 
 interface VisibleOutlineItem extends OutlineItem {
   hasChildren: boolean;
@@ -27,6 +23,18 @@ const collapsedByTab = ref<Record<string, number[]>>({});
 
 // Search filter state
 const searchQuery = ref('');
+const isSearchActive = ref(false);
+
+function openSearch() {
+  isSearchActive.value = true;
+  nextTick(() => filterInputRef.value?.focus());
+}
+
+function closeSearch() {
+  searchQuery.value = '';
+  isSearchActive.value = false;
+  filterInputRef.value?.blur();
+}
 
 // ---------------------------------------------------------------------------
 // v3.1.x keyboard jump (vimium-style)
@@ -212,30 +220,6 @@ const countTooltip = computed(() => {
 });
 
 
-function splitMatch(text: string, query: string): { text: string; isMatch: boolean }[] {
-  const q = query.trim();
-  if (!q) return [{ text, isMatch: false }];
-  const lowerText = text.toLowerCase();
-  const lowerQ = q.toLowerCase();
-  const idx = lowerText.indexOf(lowerQ);
-  if (idx === -1) return [{ text, isMatch: false }];
-  const res: { text: string; isMatch: boolean }[] = [];
-  let start = 0;
-  let pos = idx;
-  while (pos !== -1) {
-    if (pos > start) {
-      res.push({ text: text.slice(start, pos), isMatch: false });
-    }
-    res.push({ text: text.slice(pos, pos + q.length), isMatch: true });
-    start = pos + q.length;
-    pos = lowerText.indexOf(lowerQ, start);
-  }
-  if (start < text.length) {
-    res.push({ text: text.slice(start), isMatch: false });
-  }
-  return res;
-}
-
 function onFilterKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -248,14 +232,40 @@ function onFilterKeydown(e: KeyboardEvent) {
     }
   } else if (e.key === 'Escape') {
     e.preventDefault();
-    searchQuery.value = '';
-    filterInputRef.value?.blur();
+    closeSearch();
   }
 }
 
 function clearSearch() {
-  searchQuery.value = '';
-  filterInputRef.value?.focus();
+  closeSearch();
+}
+
+const rootTree = computed(() => buildTree(items.value));
+
+const displayedTree = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return rootTree.value;
+  return filterTree(rootTree.value, q);
+});
+
+const currentCollapsedSet = computed(() => new Set(collapsedLinesFor(activeMarkdownTab.value?.id)));
+
+const activeLine = computed(() => {
+  const idx = activeIndex.value;
+  if (idx >= 0 && idx < visibleItems.value.length) {
+    return visibleItems.value[idx].line;
+  }
+  return -1;
+});
+
+function labelForLine(line: number): string {
+  const idx = visibleItems.value.findIndex((it) => it.line === line);
+  if (idx === -1) return '';
+  return labelAt(idx);
+}
+
+function onOutlineSearchEvent() {
+  openSearch();
 }
 
 function toggleCollapsed(line: number) {
@@ -383,8 +393,14 @@ function onWindowKey(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onWindowKey));
-onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
+onMounted(() => {
+  window.addEventListener('keydown', onWindowKey);
+  window.addEventListener('solomd:outline-toggle-search', onOutlineSearchEvent);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onWindowKey);
+  window.removeEventListener('solomd:outline-toggle-search', onOutlineSearchEvent);
+});
 </script>
 
 <template>
@@ -406,8 +422,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
       </button>
     </div>
     <div v-show="!collapsed" class="outline__body">
-      <!-- Instant Search Filter & Actions Bar (Single combined row) -->
-      <div v-if="items.length > 0" class="outline__filter-box">
+      <!-- Instant Search Filter & Actions Bar (Shown on demand or while searching) -->
+      <div v-if="items.length > 0 && (isSearchActive || searchQuery.trim())" class="outline__filter-box ty-show-outline-filter">
         <div class="outline__filter-input-wrap">
           <svg class="outline__filter-icon" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <circle cx="6.5" cy="6.5" r="4.5" />
@@ -425,7 +441,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
             {{ countBadgeText }}
           </span>
           <button
-            v-if="searchQuery.trim()"
             class="outline__filter-clear"
             :title="t('outline.clearFilter')"
             @click="clearSearch"
@@ -466,58 +481,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
       </div>
 
       <!-- Headings list -->
-      <ul ref="listRef" class="outline__list" v-else>
-        <li
-          v-for="(it, i) in visibleItems"
-          :key="`${it.line}-${it.text}`"
-          :class="['outline__item', { 'outline__item--active': i === activeIndex }]"
-          :style="{ '--outline-pl': 4 + it.depth * 8 + 'px' }"
-        >
-          <button
-            v-if="it.hasChildren"
-            class="outline__twisty"
-            :title="it.collapsed ? t('outline.expandSection') : t('outline.collapseSection')"
-            @click.stop="toggleCollapsed(it.line)"
-          >
-            <svg
-              class="outline__twisty-icon"
-              :class="{ 'is-expanded': !it.collapsed }"
-              viewBox="0 0 16 16"
-              width="6.5"
-              height="6.5"
-              aria-hidden="true"
-            >
-              <path
-                d="M5.5 3.5l4.5 4.5L5.5 12.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
-          <span v-else class="outline__twisty outline__twisty--spacer" aria-hidden="true"></span>
-          <span
-            v-if="labelAt(i)"
-            class="outline__keylabel"
-            :title="t('outline.jumpHint', { key: labelAt(i) })"
-            aria-hidden="true"
-          >{{ labelAt(i) }}</span>
-          <button
-            class="outline__label"
-            @click="emit('goto', it.line)"
-            :title="it.text"
-          >
-            <template v-if="searchQuery.trim()">
-              <template v-for="(part, pIdx) in splitMatch(it.text, searchQuery)" :key="pIdx">
-                <mark v-if="part.isMatch" class="outline__mark">{{ part.text }}</mark>
-                <span v-else>{{ part.text }}</span>
-              </template>
-            </template>
-            <template v-else>{{ it.text }}</template>
-          </button>
-        </li>
+      <ul
+        ref="listRef"
+        id="outline-content"
+        class="outline__list outline-content no-collapse-outline"
+        :class="{ 'ty-on-outline-filter': isSearchActive || searchQuery.trim() }"
+        v-else
+      >
+        <OutlineTreeItem
+          v-for="node in displayedTree"
+          :key="node.item.line"
+          :node="node"
+          :active-line="activeLine"
+          :collapsed-lines="currentCollapsedSet"
+          :search-query="searchQuery"
+          :depth="0"
+          :get-label="labelForLine"
+          @goto="emit('goto', $event)"
+          @toggle="toggleCollapsed"
+        />
       </ul>
 
       <!-- Jump hints status bar -->
@@ -765,36 +747,90 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   border-color: var(--border);
 }
 
-.outline__list {
+.outline__list,
+.outline-content {
   list-style: none;
   margin: 0;
-  padding: 6px 0;
+  padding: 10px 14px 10px 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
 }
 
-.outline__item {
-  font-size: 12px;
-  line-height: 1.45;
-  padding: 2px 6px 2px var(--outline-pl, 4px);
+:deep(.outline-children),
+:deep(.outline__children) {
+  list-style: none;
+  margin: 0 0 0 16px;
+  padding: 0;
+}
+
+:deep(.no-collapse-outline .outline-expander),
+:deep(.no-collapse-outline .outline__twisty) {
+  display: none !important;
+}
+
+:deep(.outline-item-wrapper),
+:deep(.outline__item-wrapper) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+:deep(.outline-item),
+:deep(.outline__item) {
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 3px 6px;
+  margin: 1px 0;
   display: flex;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
   color: var(--text);
-  transition: background 0.1s ease, color 0.1s ease;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
-.outline__item:hover {
-  background: var(--bg-hover);
-  color: var(--accent);
+:deep(.outline-item:hover),
+:deep(.outline__item:hover) {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.045));
+  color: inherit;
 }
 
-.outline__item--active {
-  background: var(--bg-active);
+:root[data-theme="dark"] :deep(.outline-item:hover),
+:root[data-theme="dark"] :deep(.outline__item:hover),
+body.dark :deep(.outline-item:hover),
+body.dark :deep(.outline__item:hover) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:deep(.outline-item-active),
+:deep(.outline__item--active) {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-hover, rgba(0, 0, 0, 0.05)));
+  color: var(--text);
+}
+
+:root[data-theme="dark"] :deep(.outline-item-active),
+:root[data-theme="dark"] :deep(.outline__item--active),
+body.dark :deep(.outline-item-active),
+body.dark :deep(.outline__item--active) {
+  background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.08));
+  color: var(--text);
+}
+
+:deep(.outline-item-active .outline-label),
+:deep(.outline-item-active .outline__label),
+:deep(.outline__item--active .outline-label),
+:deep(.outline__item--active .outline__label) {
+  font-weight: 550;
+  color: var(--text);
+}
+
+:deep(.outline-item-active .outline-expander),
+:deep(.outline-item-active .outline__twisty),
+:deep(.outline__item--active .outline-expander),
+:deep(.outline__item--active .outline__twisty) {
   color: var(--accent);
-  font-weight: 600;
-  border-left: 2px solid var(--accent);
-  padding-left: calc(var(--outline-pl, 4px) - 2px);
 }
 
 @keyframes outline-pulse {
@@ -806,48 +842,52 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   }
 }
 
-.outline__item--highlight-pulse {
+:deep(.outline__item--highlight-pulse) {
   animation: outline-pulse 1.2s ease-out;
 }
 
-.outline__twisty {
-  width: 8px;
-  height: 14px;
-  flex: 0 0 8px;
+:deep(.outline-expander),
+:deep(.outline__twisty) {
+  width: 12px;
+  height: 18px;
+  flex: 0 0 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-faint);
   border-radius: 2px;
-  margin-top: 1.5px;
   padding: 0;
+  margin-top: 0;
   background: transparent;
   border: none;
   cursor: pointer;
 }
 
-.outline__twisty:hover {
+:deep(.outline-expander:hover),
+:deep(.outline__twisty:hover) {
   color: var(--accent);
 }
 
-.outline__twisty-icon {
+:deep(.outline__twisty-icon) {
   width: 6.5px;
   height: 6.5px;
   transition: transform 0.15s ease;
   transform-origin: center;
 }
 
-.outline__twisty-icon.is-expanded {
+:deep(.outline__twisty-icon.is-expanded) {
   transform: rotate(90deg);
 }
 
-.outline__twisty--spacer {
-  width: 8px;
-  flex: 0 0 8px;
+:deep(.outline__twisty--spacer) {
+  width: 12px;
+  height: 18px;
+  flex: 0 0 12px;
   pointer-events: none;
 }
 
-.outline__label {
+:deep(.outline-label),
+:deep(.outline__label) {
   min-width: 0;
   flex: 1;
   font: inherit;
@@ -856,7 +896,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onWindowKey));
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
-  line-height: 1.45;
+  line-height: 1.4;
   background: transparent;
   border: none;
   padding: 0;

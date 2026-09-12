@@ -284,7 +284,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true));
 /* Context Menu */
 .pomo-pill__menu {
   position: fixed;
-  z-index: 99999;
+  z-index: var(--z-popover);
   min-width: 160px;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.12);

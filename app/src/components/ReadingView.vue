@@ -16,6 +16,15 @@ import { useSettingsStore } from '../stores/settings';
 import { useTilesStore } from '../stores/tiles';
 import { useI18n } from '../i18n';
 
+const props = defineProps<{
+  cursorLine?: number;
+}>();
+
+const emit = defineEmits<{
+  (e: 'cursor', line: number, col: number): void;
+  (e: 'goto', line: number): void;
+}>();
+
 const tabs = useTabsStore();
 const settings = useSettingsStore();
 const tiles = useTilesStore();
@@ -29,12 +38,41 @@ function onOutlineGoto(e: Event) {
   if (!detail) return;
   const line = detail.line;
   if (line && previewRef.value) {
-    previewRef.value.scrollToLine(line);
+    previewRef.value.scrollToLine(line, detail.smooth ?? true);
   }
 }
 
+function getCurrentVisibleLine(): number {
+  const nodes = document.querySelectorAll<HTMLElement>('.reading-view [data-source-line]');
+  for (const node of Array.from(nodes)) {
+    const rect = node.getBoundingClientRect();
+    if (rect.bottom >= 70) {
+      const n = parseInt(node.getAttribute('data-source-line') || '1', 10);
+      if (!isNaN(n) && n >= 1) {
+        return n;
+      }
+    }
+  }
+  return 1;
+}
+
+function dispatchTargetLine(targetLine: number, pulse = false) {
+  emit('cursor', targetLine, 1);
+  const dispatchGoto = () => {
+    window.dispatchEvent(
+      new CustomEvent('solomd:outline-goto', {
+        detail: { line: targetLine, paneId: tiles.focusedPaneId, smooth: false, pulse },
+      }),
+    );
+  };
+  nextTick(dispatchGoto);
+  setTimeout(dispatchGoto, 60);
+}
+
 function exit() {
+  const targetLine = getCurrentVisibleLine();
   settings.exitReadingMode();
+  dispatchTargetLine(targetLine, false);
 }
 
 function onDocDblClick(e: MouseEvent) {
@@ -48,16 +86,7 @@ function onDocDblClick(e: MouseEvent) {
   const line = lineAttr ? parseInt(lineAttr, 10) : 1;
   const targetLine = isNaN(line) || line < 1 ? 1 : line;
   settings.setTripleMode('edit');
-  const dispatchGoto = () => {
-    window.dispatchEvent(
-      new CustomEvent('solomd:outline-goto', {
-        detail: { line: targetLine, paneId: tiles.focusedPaneId },
-      }),
-    );
-  };
-  nextTick(dispatchGoto);
-  setTimeout(dispatchGoto, 60);
-  setTimeout(dispatchGoto, 180);
+  dispatchTargetLine(targetLine, false);
 }
 
 function onDocKeyDown(e: KeyboardEvent) {
@@ -68,40 +97,46 @@ function onDocKeyDown(e: KeyboardEvent) {
       return;
     }
     e.preventDefault();
-    let targetLine = 1;
-    const nodes = document.querySelectorAll<HTMLElement>('.reading-view [data-source-line]');
-    for (const node of Array.from(nodes)) {
-      const rect = node.getBoundingClientRect();
-      if (rect.bottom >= 60) {
-        const n = parseInt(node.getAttribute('data-source-line') || '1', 10);
-        if (!isNaN(n) && n >= 1) {
-          targetLine = n;
-          break;
-        }
-      }
-    }
+    const targetLine = getCurrentVisibleLine();
     settings.setTripleMode('edit');
-    const dispatchGoto = () => {
-      window.dispatchEvent(
-        new CustomEvent('solomd:outline-goto', {
-          detail: { line: targetLine, paneId: tiles.focusedPaneId },
-        }),
-      );
-    };
-    nextTick(dispatchGoto);
-    setTimeout(dispatchGoto, 60);
-    setTimeout(dispatchGoto, 180);
+    dispatchTargetLine(targetLine, false);
+  }
+}
+
+function onScrollCapture(e: Event) {
+  const target = e.target as HTMLElement | null;
+  if (!target || !target.classList?.contains('preview-host')) return;
+  const targetLine = getCurrentVisibleLine();
+  if (tab.value) {
+    tabs.setTabScroll(tab.value.id, targetLine, target.scrollTop);
   }
 }
 
 onMounted(() => {
   window.addEventListener('keydown', onDocKeyDown);
   window.addEventListener('solomd:outline-goto', onOutlineGoto);
+  window.addEventListener('scroll', onScrollCapture, { capture: true, passive: true });
+  const targetLine = props.cursorLine || (tab.value ? tabs.getTabScroll(tab.value.id)?.line : undefined);
+  if (targetLine && targetLine > 1) {
+    const scrollTarget = () => {
+      previewRef.value?.scrollToLine(targetLine, false);
+    };
+    nextTick(scrollTarget);
+    setTimeout(scrollTarget, 40);
+    setTimeout(scrollTarget, 120);
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onDocKeyDown);
   window.removeEventListener('solomd:outline-goto', onOutlineGoto);
+  window.removeEventListener('scroll', onScrollCapture, { capture: true });
+  const targetLine = getCurrentVisibleLine();
+  if (tab.value) {
+    const previewHost = document.querySelector('.reading-view .preview-host') as HTMLElement | null;
+    tabs.setTabScroll(tab.value.id, targetLine, previewHost?.scrollTop ?? 0);
+  }
+  emit('cursor', targetLine, 1);
 });
 </script>
 
@@ -173,14 +208,15 @@ onBeforeUnmount(() => {
 
 .reading-view__doc :deep(.preview-content),
 .reading-view__doc :deep(.preview-content--reading) {
-  max-width: 780px;
+  max-width: var(--preview-max-width, 780px);
   margin: 0 auto;
-  padding: 36px 44px 100px;
-  line-height: 1.85;
-  font-size: 15.5px;
+  padding: calc(32px + var(--tabbar-h, 34px)) 44px 120px;
+  line-height: 1.75;
+  font-size: var(--preview-font-size, 15.5px);
   letter-spacing: 0.015em;
   caret-color: transparent !important;
   user-select: text;
+  box-sizing: border-box;
 }
 
 .reading-view__doc :deep(*) {

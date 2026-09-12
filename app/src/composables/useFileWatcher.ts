@@ -1,6 +1,7 @@
 import { watch, onMounted, onBeforeUnmount } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { isTauri } from '../lib/platform';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import type { FileReadResult } from '../types';
@@ -16,6 +17,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
   const pendingPaths = new Set<string>();
 
   async function syncWatchedPaths() {
+    if (!isTauri()) return;
     const currentPaths = new Set<string>();
     for (const tab of tabs.tabs) {
       if (tab.filePath) {
@@ -121,6 +123,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
   );
 
   onMounted(async () => {
+    if (!isTauri()) return;
     await syncWatchedPaths();
 
     try {
@@ -134,6 +137,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
 
   onBeforeUnmount(async () => {
     stopWatcher();
+    if (!isTauri()) return;
     if (unlisten) {
       unlisten();
       unlisten = null;

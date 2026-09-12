@@ -33,7 +33,7 @@ const emit = defineEmits<{
 
 const tabs = useTabsStore();
 const settings = useSettingsStore();
-const { lang } = useI18n();
+const { lang, t } = useI18n();
 
 function toggleReadingMode() {
   if (settings.viewMode === 'reading') {
@@ -96,16 +96,16 @@ function handleAction(callback: () => void) {
             <div class="docinfo-header">
               <div class="docinfo-title-wrap">
                 <span class="docinfo-icon">📄</span>
-                <span class="docinfo-filename" :title="activeTab?.fileName || '未命名文档'">
-                  {{ activeTab?.fileName || (isZh ? '未命名文档' : 'Untitled') }}
+                <span class="docinfo-filename" :title="activeTab?.fileName || t('tabs.untitled') || '未命名文档'">
+                  {{ activeTab?.fileName || t('tabs.untitled') || (isZh ? '未命名文档' : 'Untitled') }}
                 </span>
-                <span v-if="activeTab && tabs.isDirty(activeTab.id)" class="docinfo-dirty-badge" title="未保存修改">●</span>
+                <span v-if="activeTab && tabs.isDirty(activeTab.id)" class="docinfo-dirty-badge" :title="t('unsaved.title') || '未保存修改'">●</span>
               </div>
               <button
                 type="button"
                 class="docinfo-close-btn"
                 @click="emit('close')"
-                aria-label="关闭"
+                :aria-label="t('common.close') || '关闭'"
               >
                 ✕
               </button>
@@ -114,25 +114,25 @@ function handleAction(callback: () => void) {
             <div class="docinfo-grid">
               <div class="docinfo-stat">
                 <div class="stat-value">{{ wordCount.toLocaleString() }}</div>
-                <div class="stat-label">{{ isZh ? '总字数' : 'Words' }}</div>
+                <div class="stat-label">{{ t('statusbar.totalWords') || (isZh ? '总字数' : 'Words') }}</div>
               </div>
               <div class="docinfo-stat">
                 <div class="stat-value">{{ charCount.toLocaleString() }}</div>
-                <div class="stat-label">{{ isZh ? '字符数' : 'Chars' }}</div>
+                <div class="stat-label">{{ t('statusbar.charsWithSpaces') || (isZh ? '字符数' : 'Chars') }}</div>
               </div>
               <div class="docinfo-stat">
                 <div class="stat-value">{{ lineCount.toLocaleString() }}</div>
-                <div class="stat-label">{{ isZh ? '行数' : 'Lines' }}</div>
+                <div class="stat-label">{{ t('statusbar.totalLines') || (isZh ? '行数' : 'Lines') }}</div>
               </div>
               <div class="docinfo-stat">
-                <div class="stat-value">{{ readingTime }}<span class="stat-unit">{{ isZh ? '分' : 'm' }}</span></div>
-                <div class="stat-label">{{ isZh ? '预计阅读' : 'Read Time' }}</div>
+                <div class="stat-value">{{ readingTime }}<span class="stat-unit">{{ t('statusbar.minuteUnit') || (isZh ? '分' : 'm') }}</span></div>
+                <div class="stat-label">{{ t('statusbar.readingTime') || (isZh ? '预计阅读' : 'Read Time') }}</div>
               </div>
             </div>
           </section>
 
           <!-- 2. Export Quick Grid -->
-          <div class="mobile-sheet__section-title">{{ isZh ? '分享与导出' : 'Share & Export' }}</div>
+          <div class="mobile-sheet__section-title">{{ t('menubar.exportPdf') ? (isZh ? '分享与导出' : 'Share & Export') : (isZh ? '分享与导出' : 'Share & Export') }}</div>
           <div class="mobile-sheet__grid">
             <button
               type="button"
@@ -146,7 +146,7 @@ function handleAction(callback: () => void) {
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
               </div>
-              <span class="grid-btn-label">{{ isZh ? '导出长图' : 'Long Image' }}</span>
+              <span class="grid-btn-label">{{ t('menubar.exportImage') || (isZh ? '导出长图' : 'Long Image') }}</span>
             </button>
 
             <button
@@ -163,7 +163,7 @@ function handleAction(callback: () => void) {
                   <polyline points="10 9 9 9 8 9" />
                 </svg>
               </div>
-              <span class="grid-btn-label">{{ isZh ? '导出 PDF' : 'PDF' }}</span>
+              <span class="grid-btn-label">{{ t('menubar.exportPdf') || (isZh ? '导出 PDF' : 'PDF') }}</span>
             </button>
 
             <button
@@ -177,7 +177,7 @@ function handleAction(callback: () => void) {
                   <polyline points="7 9 9 15 12 10 15 15 17 9" />
                 </svg>
               </div>
-              <span class="grid-btn-label">{{ isZh ? '导出 Word' : 'Word DOCX' }}</span>
+              <span class="grid-btn-label">{{ t('menubar.exportDocx') || (isZh ? '导出 Word' : 'Word DOCX') }}</span>
             </button>
 
             <button
@@ -191,12 +191,12 @@ function handleAction(callback: () => void) {
                   <polyline points="8 6 2 12 8 18" />
                 </svg>
               </div>
-              <span class="grid-btn-label">{{ isZh ? '导出 HTML' : 'HTML' }}</span>
+              <span class="grid-btn-label">{{ t('menubar.exportHtml') || (isZh ? '导出 HTML' : 'HTML') }}</span>
             </button>
           </div>
 
           <!-- 3. Text & Writing Assistants (List Items) -->
-          <div class="mobile-sheet__section-title">{{ isZh ? '排版与写作辅助' : 'Writing & Tools' }}</div>
+          <div class="mobile-sheet__section-title">{{ t('menubar.tools') || (isZh ? '排版与写作辅助' : 'Writing & Tools') }}</div>
           <div class="mobile-sheet__list-card">
             <button
               type="button"
@@ -207,7 +207,7 @@ function handleAction(callback: () => void) {
                 🧹
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ isZh ? '去 AI 味 / 清理 AI 痕迹' : 'Clean AI Artifacts' }}</div>
+                <div class="list-item__name">{{ t('menubar.cleanAI') || (isZh ? '去 AI 味 / 清理 AI 痕迹' : 'Clean AI Artifacts') }}</div>
                 <div class="list-item__desc">{{ isZh ? '智能清除 AI 对话客套话、残留 Markdown 围栏等' : 'Remove conversational clutter' }}</div>
               </div>
               <span class="list-item__arrow">›</span>
@@ -222,7 +222,7 @@ function handleAction(callback: () => void) {
                 ✍️
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ isZh ? '中英文标点与排版规范化' : 'CJK Typographic Proofread' }}</div>
+                <div class="list-item__name">{{ t('menubar.cjkProofread') || (isZh ? '中英文标点与排版规范化' : 'CJK Typographic Proofread') }}</div>
                 <div class="list-item__desc">{{ isZh ? '自动纠正全半角标点、中英盘古空格等' : 'Fix punctuation & spacing' }}</div>
               </div>
               <span class="list-item__arrow">›</span>
@@ -237,7 +237,7 @@ function handleAction(callback: () => void) {
                 📑
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ isZh ? '文档结构与大纲目录' : 'Table of Contents' }}</div>
+                <div class="list-item__name">{{ t('menubar.docOutline') || (isZh ? '文档结构与大纲目录' : 'Table of Contents') }}</div>
                 <div class="list-item__desc">{{ isZh ? '快速浏览各级标题并定位跳转' : 'Jump to headings' }}</div>
               </div>
               <span class="list-item__arrow">›</span>
@@ -252,7 +252,7 @@ function handleAction(callback: () => void) {
                 📖
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ settings.viewMode === 'reading' ? (isZh ? '退出阅读模式 (返回实时编辑)' : 'Exit Reading Mode') : (isZh ? '沉浸阅读模式' : 'Zen Reading Mode') }}</div>
+                <div class="list-item__name">{{ settings.viewMode === 'reading' ? (t('statusbar.returnToLive') || (isZh ? '退出阅读模式 (返回实时编辑)' : 'Exit Reading Mode')) : (t('menubar.readingMode') || (isZh ? '沉浸阅读模式' : 'Zen Reading Mode')) }}</div>
                 <div class="list-item__desc">{{ settings.viewMode === 'reading' ? (isZh ? '返回可编辑输入模式' : 'Return to editor') : (isZh ? '无干扰全屏排版与纯净阅读' : 'Clean distraction-free typography') }}</div>
               </div>
               <span class="list-item__arrow">{{ settings.viewMode === 'reading' ? '✓' : '›' }}</span>
@@ -271,7 +271,7 @@ function handleAction(callback: () => void) {
                 ❓
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ isZh ? 'Markdown 语法速查手册' : 'Markdown Cheat Sheet' }}</div>
+                <div class="list-item__name">{{ t('help.syntaxTitle') || (isZh ? 'Markdown 语法速查手册' : 'Markdown Cheat Sheet') }}</div>
               </div>
               <span class="list-item__arrow">›</span>
             </button>
@@ -285,7 +285,7 @@ function handleAction(callback: () => void) {
                 <BrandMark :size="18" />
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ isZh ? '关于 猫步 MD (Catstep MD)' : 'About Catstep MD' }}</div>
+                <div class="list-item__name">{{ t('about.title') || (isZh ? '关于 猫步 MD (Catstep MD)' : 'About Catstep MD') }}</div>
               </div>
               <span class="list-item__arrow">›</span>
             </button>

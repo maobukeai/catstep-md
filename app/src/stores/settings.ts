@@ -116,6 +116,7 @@ interface Settings {
   // #109 — constrain the editor pane to a centered readable column instead of
   // letting long lines stretch the full window width.
   limitEditorWidth: boolean;
+  limitEditorWidthDefaultMigrated?: boolean;
   // Custom CSS theme override (path to a .css file on disk)
   customCssPath: string;
   // v5.0 — Catstep Visual & Theme Engine 2.0
@@ -553,10 +554,11 @@ function defaults(): Settings {
       } catch { return 'en'; }
     })() as 'en' | 'zh' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt' | 'it' | 'pl' | 'nl' | 'tr' | 'sv' | 'uk',
     previewFitWidth: false,
-    previewMaxWidth: 760,
+    previewMaxWidth: 780,
     plantumlEnabled: false,
     plantumlServer: 'https://www.plantuml.com/plantuml',
-    limitEditorWidth: false,
+    limitEditorWidth: true,
+    limitEditorWidthDefaultMigrated: true,
     customCssPath: '',
     activeCustomThemeId: '',
     perNoteThemeEnabled: true,
@@ -802,6 +804,11 @@ function load(): Settings {
       if (!parsed.typewriterDefaultMigrated) {
         merged.typewriterMode = true;
         merged.typewriterDefaultMigrated = true;
+      }
+      // Centered readable column width migration: default to true to match reading view.
+      if (!parsed.limitEditorWidthDefaultMigrated) {
+        merged.limitEditorWidth = true;
+        merged.limitEditorWidthDefaultMigrated = true;
       }
       // Quick capture conflict migration: migrate default CmdOrCtrl+Alt+M to CmdOrCtrl+Alt+C
       // so in-app formula editor (Mod+Alt+M) is never shadowed.

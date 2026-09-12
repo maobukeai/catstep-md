@@ -8,7 +8,8 @@
  * already writes into each `agent-runs/<id>/meta.json`.
  */
 import { computed, onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '../lib/platform';
+import { safeInvoke } from '../lib/tauri-bridge';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
 
@@ -35,8 +36,10 @@ const meter = ref<CostMeter>({
 });
 
 async function refresh() {
+  if (!isTauri()) return;
   try {
-    meter.value = await invoke<CostMeter>('cost_meter_get');
+    const res = await safeInvoke<CostMeter>('cost_meter_get');
+    if (res) meter.value = res;
   } catch (e) {
     // Match the toast pattern used by onToggleEnabled / onReset below —
     // a silent console.warn means the user has no idea why the table is
@@ -46,11 +49,13 @@ async function refresh() {
 }
 
 async function onToggleEnabled() {
+  if (!isTauri()) return;
   const next = !meter.value.enabled;
   try {
-    meter.value = await invoke<CostMeter>('cost_meter_set_enabled', {
+    const res = await safeInvoke<CostMeter>('cost_meter_set_enabled', {
       enabled: next,
     });
+    if (res) meter.value = res;
     toasts.info(next ? t('cost.enabled') : t('cost.disabled'));
   } catch (e) {
     toasts.error(`${e}`);
@@ -58,8 +63,10 @@ async function onToggleEnabled() {
 }
 
 async function onReset() {
+  if (!isTauri()) return;
   try {
-    meter.value = await invoke<CostMeter>('cost_meter_reset');
+    const res = await safeInvoke<CostMeter>('cost_meter_reset');
+    if (res) meter.value = res;
     toasts.success(t('cost.resetDone'));
   } catch (e) {
     toasts.error(`${e}`);
@@ -101,15 +108,17 @@ onMounted(refresh);
 <template>
   <section class="cost">
     <div class="cost__head">
-      <h4 class="cost__heading">{{ t('cost.heading') }}</h4>
-      <label class="cost__toggle">
+      <div class="cost__info">
+        <h4 class="cost__heading">{{ t('cost.heading') }}</h4>
+        <p class="cost__sub">{{ t('cost.enable') }}</p>
+      </div>
+      <label class="cost__toggle" :title="t('cost.enable')">
         <input
           type="checkbox"
           class="micro-toggle"
           :checked="meter.enabled"
           @change="onToggleEnabled"
         />
-        <span>{{ t('cost.enable') }}</span>
       </label>
     </div>
     <p class="cost__hint">{{ t('cost.hint') }}</p>
@@ -121,34 +130,36 @@ onMounted(refresh);
         <button class="cost__btn" @click="onReset">{{ t('cost.reset') }}</button>
       </div>
 
-      <table v-if="rows.length" class="cost__table">
-        <thead>
-          <tr>
-            <th>{{ t('cost.provider') }}</th>
-            <th class="cost__num">{{ t('cost.runs') }}</th>
-            <th class="cost__num">{{ t('cost.input') }}</th>
-            <th class="cost__num">{{ t('cost.output') }}</th>
-            <th class="cost__num">{{ t('cost.cost') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="r in rows" :key="r.name">
-            <td>{{ r.name }}</td>
-            <td class="cost__num">{{ r.runs }}</td>
-            <td class="cost__num">{{ fmtTok(r.input) }}</td>
-            <td class="cost__num">{{ fmtTok(r.output) }}</td>
-            <td class="cost__num">{{ fmtUsd(r.cost_usd) }}</td>
-          </tr>
-          <tr class="cost__total">
-            <td>{{ t('cost.total') }}</td>
-            <td class="cost__num">{{ totalRuns }}</td>
-            <td class="cost__num">{{ fmtTok(totalIn) }}</td>
-            <td class="cost__num">{{ fmtTok(totalOut) }}</td>
-            <td class="cost__num">{{ fmtUsd(totalCost) }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else class="cost__empty">{{ t('cost.empty') }}</p>
+      <div class="cost__table-container">
+        <table v-if="rows.length" class="cost__table">
+          <thead>
+            <tr>
+              <th>{{ t('cost.provider') }}</th>
+              <th class="cost__num">{{ t('cost.runs') }}</th>
+              <th class="cost__num">{{ t('cost.input') }}</th>
+              <th class="cost__num">{{ t('cost.output') }}</th>
+              <th class="cost__num">{{ t('cost.cost') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="r in rows" :key="r.name">
+              <td>{{ r.name }}</td>
+              <td class="cost__num">{{ r.runs }}</td>
+              <td class="cost__num">{{ fmtTok(r.input) }}</td>
+              <td class="cost__num">{{ fmtTok(r.output) }}</td>
+              <td class="cost__num">{{ fmtUsd(r.cost_usd) }}</td>
+            </tr>
+            <tr class="cost__total">
+              <td>{{ t('cost.total') }}</td>
+              <td class="cost__num">{{ totalRuns }}</td>
+              <td class="cost__num">{{ fmtTok(totalIn) }}</td>
+              <td class="cost__num">{{ fmtTok(totalOut) }}</td>
+              <td class="cost__num">{{ fmtUsd(totalCost) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="cost__empty">{{ t('cost.empty') }}</p>
+      </div>
     </div>
   </section>
 </template>
@@ -157,36 +168,57 @@ onMounted(refresh);
 .cost {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg-secondary, transparent);
+  background: color-mix(in srgb, var(--bg-hover) 25%, transparent);
 }
 .cost__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
+}
+.cost__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
 }
 .cost__heading {
   margin: 0;
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text);
+  line-height: 1.35;
+}
+.cost__sub {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text);
+  opacity: 0.85;
+  line-height: 1.35;
 }
 .cost__toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
   cursor: pointer;
   user-select: none;
+  flex-shrink: 0;
+  padding-top: 2px;
 }
 .cost__hint {
   margin: 0;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-muted);
+  line-height: 1.45;
+}
+.cost__table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .micro-toggle {
   appearance: none;

@@ -297,7 +297,14 @@ const workspaceIndex = useWorkspaceIndexStore();
 const toasts = useToastsStore();
 const { t } = useI18n();
 const { isNarrow } = useViewport();
-const effectiveShowLineNumbers = computed(() => !isNarrow.value && settings.showLineNumbers);
+const isSourceMode = computed(
+  () =>
+    props.tab.language === 'markdown' &&
+    ((settings.viewMode === 'edit' && !settings.livePreview) || (settings.viewMode as any) === 'source'),
+);
+const effectiveShowLineNumbers = computed(
+  () => !isNarrow.value && settings.showLineNumbers,
+);
 
 /** Shared image paste/drop/insert options — file context + the configured
  *  image-host uploader (图床) + toast surface. Used by the CodeMirror paste
@@ -494,6 +501,7 @@ const plainLiveEnabled = computed(
 );
 
 const plainEditorStyle = computed(() => ({
+  '--preview-max-width': `${settings.previewMaxWidth || 780}px`,
   '--plain-editor-font-size': `${settings.fontSize || 14}px`,
   '--plain-editor-font-family': buildEditorFontStack(settings.fontFamily),
   '--plain-preview-font-size': `${settings.previewFontSize || settings.fontSize || 15}px`,
@@ -1136,7 +1144,7 @@ function plainLineStartOffset(line: number): number {
   return offset;
 }
 
-function plainScrollToLine(line: number) {
+function plainScrollToLine(line: number, smooth = false) {
   if (plainLiveEnabled.value) {
     plainSetCaret(plainLineStartOffset(Math.floor(line)));
     return;
@@ -1146,14 +1154,19 @@ function plainScrollToLine(line: number) {
   const safeLine = Math.max(1, Math.floor(line));
   const frac = Math.max(0, Math.min(line - safeLine, 0.999));
   const tops = plainLineTops.value;
+  let targetTop = 0;
   if (tops && safeLine <= tops.length) {
     const i = safeLine - 1;
     const h = i + 1 < tops.length ? tops[i + 1] - tops[i] : plainLineHeightPx();
-    // 8px top margin matches the CodeMirror path and the preview pane's own
-    // 8px offset — the old 40px here left the panes ~32px apart at rest.
-    el.scrollTop = Math.max(0, plainPaddingTopPx(el) + tops[i] + frac * h - 8);
+    // 32px top margin matches Typora heading offset with breathing room
+    targetTop = Math.max(0, plainPaddingTopPx(el) + tops[i] + frac * h - 32);
   } else {
-    el.scrollTop = Math.max(0, (safeLine - 1 + frac) * plainLineHeightPx() - 8);
+    targetTop = Math.max(0, (safeLine - 1 + frac) * plainLineHeightPx() - 32);
+  }
+  if (smooth) {
+    el.scrollTo({ top: targetTop, behavior: 'smooth' });
+  } else {
+    el.scrollTop = targetTop;
   }
   syncPlainLiveScroll();
 }
@@ -2525,14 +2538,14 @@ const fontSizeTheme = (px: number, family: string) =>
   EditorView.theme({
     '&': { fontSize: `${px}px`, height: '100%' },
     '.cm-scroller': { fontFamily: buildEditorFontStack(family), lineHeight: 'var(--content-line-height, 1.75)' },
-    '.cm-content': { padding: '12px 16px' },
+    '.cm-content': { padding: '16px 24px 80px 24px' },
     '.cm-gutters': {
-      backgroundColor: 'transparent',
-      border: 'none',
+      backgroundColor: 'var(--bg)',
+      borderRight: 'none',
       color: 'var(--text-faint)',
     },
     '.cm-activeLine': { backgroundColor: 'transparent' },
-    '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)' },
+    '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--accent)', fontWeight: '600' },
     '.cm-selectionLayer': { pointerEvents: 'none !important' },
     '.cm-selectionBackground, ::selection': {
       backgroundColor: 'var(--selection-bg, rgba(56, 139, 253, 0.24)) !important',
@@ -2769,7 +2782,7 @@ function buildExtensions() {
       mousedown: (ev, cmView) => {
         if (ev.button === 0 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
           const target = ev.target as HTMLElement | null;
-          if (target && !target.closest('.cm-content') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
+          if (target && !target.closest('.cm-content') && !target.closest('.cm-gutters') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
             const pos = cmView.posAtCoords({ x: ev.clientX, y: ev.clientY }, false) ?? cmView.state.doc.length;
             cmView.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: false });
             cmView.focus();
@@ -2784,6 +2797,10 @@ function buildExtensions() {
       scroll: (_ev, cmView) => {
         updateInPlaceOverlays(cmView);
         updateSelectionBubble(cmView);
+        const top = cmView.scrollDOM.scrollTop;
+        const block = cmView.lineBlockAtHeight(top);
+        const lineNum = cmView.state.doc.lineAt(block.from).number;
+        tabs.setTabScroll(props.tab.id, lineNum, top);
         return false;
       },
       blur: () => {
@@ -3179,6 +3196,51 @@ function onMobileFindAction(e: Event) {
   }
 }
 
+// #144 — per-tab caret + scroll memory (runtime-only, per editor pane; a tab
+// shown in two split panes keeps an independent position in each). Without
+// this, switching tabs dropped the position: the plain textarea's `el.value =`
+// re-sync moves the caret to the END of the document, and the CodeMirror
+// `setState` reset it to 0.
+const tabCaretMemory = new Map<string, { caret: number; scrollTop: number }>();
+
+// #169 (Windows) — one synchronous scrollTop assignment is not enough on the
+// plain paths: focusPlainEditor() focuses on nextTick, and the browser then
+// scrolls the caret back into view — line 1 when the user only scrolled and
+// never clicked, which is exactly the reported "switch back → reset to top".
+// The live block editor additionally re-renders its blocks asynchronously,
+// growing scrollHeight after the restore. Pin the saved position through that
+// settle window, backing off the moment the user scrolls themselves.
+function restorePlainScroll(saved?: { caret: number; scrollTop: number }) {
+  const scroller = (): HTMLElement | null =>
+    plainLiveEnabled.value ? plainLiveHost.value : plainEditor.value;
+  const el = scroller();
+  if (!el) return;
+  if (!plainLiveEnabled.value) {
+    const ta = el as HTMLTextAreaElement;
+    const pos = Math.min(saved?.caret ?? 0, ta.value.length);
+    ta.setSelectionRange(pos, pos);
+  }
+  const st = saved?.scrollTop ?? 0;
+  el.scrollTop = st;
+  let cancelled = false;
+  const cancel = () => {
+    cancelled = true;
+  };
+  const intentEvents = ['wheel', 'pointerdown', 'keydown', 'touchstart'] as const;
+  for (const ev of intentEvents) el.addEventListener(ev, cancel, { passive: true });
+  const reassert = () => {
+    const cur = scroller();
+    if (!cancelled && cur && Math.abs(cur.scrollTop - st) > 1) cur.scrollTop = st;
+  };
+  nextTick(() => requestAnimationFrame(reassert));
+  setTimeout(reassert, 120);
+  setTimeout(reassert, 400);
+  setTimeout(() => {
+    for (const ev of intentEvents) el.removeEventListener(ev, cancel);
+  }, 800);
+  setTimeout(reassert, 780);
+}
+
 onMounted(() => {
   // Registered before the plain-editor early return below — this listener has
   // to exist on ALL three editor paths, and the CodeMirror-only setup that
@@ -3195,6 +3257,11 @@ onMounted(() => {
   window.addEventListener('solomd:move-cursor', onMoveCursor);
   window.addEventListener('solomd:mobile-find-action', onMobileFindAction as EventListener);
 
+  const tabSaved = props.tab?.id ? tabs.getTabScroll(props.tab.id) : undefined;
+  const memSaved = props.tab?.id ? tabCaretMemory.get(props.tab.id) : undefined;
+  const savedCaret = memSaved?.caret ?? 0;
+  const savedScrollTop = memSaved?.scrollTop ?? tabSaved?.scrollTop ?? 0;
+  const saved = { caret: savedCaret, scrollTop: savedScrollTop };
   if (usePlainWindowsEditor) {
     syncPlainEditorFromStore(props.tab.content);
     maybeRestoreSession();
@@ -3207,14 +3274,45 @@ onMounted(() => {
       const text = plainSelectionText();
       return sel && text ? { selection: text, from: sel.from, to: sel.to } : null;
     });
+    restorePlainScroll(saved);
     return;
   }
   if (!host.value) return;
+  const targetLine = tabSaved?.line && tabSaved.line > 1 ? tabSaved.line : undefined;
+  let initialCaret = Math.min(saved.caret, props.tab.content.length);
+  if (targetLine && (!initialCaret || initialCaret === 0)) {
+    // Estimate initial caret at targetLine start so CM's initial measure doesn't pin line 1
+    const lines = props.tab.content.split('\n');
+    let offset = 0;
+    for (let i = 0; i < Math.min(targetLine - 1, lines.length); i++) {
+      offset += lines[i].length + 1;
+    }
+    initialCaret = Math.min(offset, props.tab.content.length);
+  }
+
   view = new EditorView({
-    state: EditorState.create({ doc: props.tab.content, extensions: buildExtensions() }),
+    state: EditorState.create({
+      doc: props.tab.content,
+      extensions: buildExtensions(),
+      selection: { anchor: initialCaret },
+    }),
     parent: host.value,
   });
   maybeRestoreSession();
+
+  const targetSt = memSaved?.scrollTop ?? (tabSaved?.scrollTop && tabSaved.line <= 1 ? tabSaved.scrollTop : undefined);
+  const restoreScroll = () => {
+    if (!view) return;
+    if (targetLine && targetLine > 1) {
+      scrollToLine(targetLine, false);
+    } else if (targetSt != null && targetSt > 0) {
+      view.scrollDOM.scrollTop = targetSt;
+    }
+  };
+  requestAnimationFrame(restoreScroll);
+  setTimeout(restoreScroll, 60);
+  setTimeout(restoreScroll, 180);
+  setTimeout(restoreScroll, 400);
   // Expose the focused EditorView on `window` for dev-bridge / self-test
   // harnesses. Vite injects `import.meta.env.DEV === true` only in dev
   // builds; production bundles dead-code-eliminate this entire block.
@@ -3231,7 +3329,7 @@ onMounted(() => {
   const onEditorDomMouseDown = (ev: MouseEvent) => {
     if (ev.button === 0 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey && view) {
       const target = ev.target as HTMLElement | null;
-      if (target && !target.closest('.cm-content') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
+      if (target && !target.closest('.cm-content') && !target.closest('.cm-gutters') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
         const pos = view.posAtCoords({ x: ev.clientX, y: ev.clientY }, false) ?? view.state.doc.length;
         view.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: false });
         view.focus();
@@ -4072,6 +4170,7 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 }
 
 onBeforeUnmount(() => {
+  cancelCurrentSmoothScroll();
   window.removeEventListener('pointerup', onGlobalPointerUp);
   window.removeEventListener('keydown', onGlobalKeyDown);
   window.removeEventListener('solomd:table-toolbar-show', onTableToolbarShow);
@@ -4104,6 +4203,31 @@ onBeforeUnmount(() => {
     clearTimeout(contentSyncTimer);
     contentSyncTimer = null;
   }
+  // Snapshot outgoing tab position & visible top line before destroying view!
+  if (props.tab?.id) {
+    const vLine = getViewLine();
+    const curLine = Math.max(1, Math.floor(vLine ?? 1));
+    let st = 0;
+    let caret = 0;
+    if (usePlainWindowsEditor) {
+      if (plainLiveEnabled.value) {
+        st = plainLiveHost.value?.scrollTop ?? 0;
+        tabCaretMemory.set(props.tab.id, { caret: 0, scrollTop: st });
+      } else if (plainEditor.value) {
+        caret = plainEditor.value.selectionStart ?? 0;
+        st = plainEditor.value.scrollTop;
+        tabCaretMemory.set(props.tab.id, { caret, scrollTop: st });
+      }
+    } else if (view) {
+      caret = view.state.selection.main.head;
+      st = view.scrollDOM.scrollTop;
+      tabCaretMemory.set(props.tab.id, { caret, scrollTop: st });
+    }
+    tabs.setTabScroll(props.tab.id, curLine, st);
+    if (vLine != null) {
+      emit('cursor', curLine, 1);
+    }
+  }
   if (import.meta.env.DEV) {
     const w = window as unknown as { __solomdActiveView?: EditorView };
     if (w.__solomdActiveView === view) delete w.__solomdActiveView;
@@ -4114,50 +4238,6 @@ onBeforeUnmount(() => {
 
 // Switching tabs: replace doc (and rebuild extensions so the
 // session-restore plugin is recreated with the new tab id).
-// #144 — per-tab caret + scroll memory (runtime-only, per editor pane; a tab
-// shown in two split panes keeps an independent position in each). Without
-// this, switching tabs dropped the position: the plain textarea's `el.value =`
-// re-sync moves the caret to the END of the document, and the CodeMirror
-// `setState` reset it to 0.
-const tabCaretMemory = new Map<string, { caret: number; scrollTop: number }>();
-
-// #169 (Windows) — one synchronous scrollTop assignment is not enough on the
-// plain paths: focusPlainEditor() focuses on nextTick, and the browser then
-// scrolls the caret back into view — line 1 when the user only scrolled and
-// never clicked, which is exactly the reported "switch back → reset to top".
-// The live block editor additionally re-renders its blocks asynchronously,
-// growing scrollHeight after the restore. Pin the saved position through that
-// settle window, backing off the moment the user scrolls themselves.
-function restorePlainScroll(saved?: { caret: number; scrollTop: number }) {
-  const scroller = (): HTMLElement | null =>
-    plainLiveEnabled.value ? plainLiveHost.value : plainEditor.value;
-  const el = scroller();
-  if (!el) return;
-  if (!plainLiveEnabled.value) {
-    const ta = el as HTMLTextAreaElement;
-    const pos = Math.min(saved?.caret ?? 0, ta.value.length);
-    ta.setSelectionRange(pos, pos);
-  }
-  const st = saved?.scrollTop ?? 0;
-  el.scrollTop = st;
-  let cancelled = false;
-  const cancel = () => {
-    cancelled = true;
-  };
-  const intentEvents = ['wheel', 'pointerdown', 'keydown', 'touchstart'] as const;
-  for (const ev of intentEvents) el.addEventListener(ev, cancel, { passive: true });
-  const reassert = () => {
-    const cur = scroller();
-    if (!cancelled && cur && Math.abs(cur.scrollTop - st) > 1) cur.scrollTop = st;
-  };
-  nextTick(() => requestAnimationFrame(reassert));
-  setTimeout(reassert, 120);
-  setTimeout(reassert, 400);
-  setTimeout(() => {
-    for (const ev of intentEvents) el.removeEventListener(ev, cancel);
-  }, 800);
-  setTimeout(reassert, 780);
-}
 
 watch(
   () => props.tab.id,
@@ -4403,21 +4483,67 @@ watch(
   }
 );
 
-watch(
-  () => settings.livePreview,
-  () => {
-    view?.dispatch({ effects: richCompartment.reconfigure(richExtensionsFor(props.tab)) });
-    syncPlainEditorAfterModeSwitch();
-  }
-);
-
 // v2.3: switching into / out of `liveEdit` swaps the rich extension
 // bundle (live-edit decorations are MUCH more aggressive than the
 // livePreview fallback, so we need a real reconfigure).
+// Consolidated into a single watcher to eliminate double reconfigure and anchor viewport line.
 watch(
   () => [settings.viewMode, settings.livePreview],
   () => {
-    view?.dispatch({ effects: richCompartment.reconfigure(richExtensionsFor(props.tab)) });
+    if (view) {
+      const scrollDOM = view.scrollDOM;
+      const isNearTop = scrollDOM.scrollTop <= 60;
+
+      if (isNearTop) {
+        view.dispatch({ effects: richCompartment.reconfigure(richExtensionsFor(props.tab)) });
+        scrollDOM.scrollTop = 0;
+        view.requestMeasure({
+          read: () => null,
+          write: () => {
+            if (scrollDOM.scrollTop < 60) {
+              scrollDOM.scrollTop = 0;
+            }
+          },
+        });
+      } else {
+        const scrollRect = scrollDOM.getBoundingClientRect();
+        const cursorHead = view.state.selection.main.head;
+        const cursorCoords = view.coordsAtPos(cursorHead);
+        const cursorVisible =
+          cursorCoords && cursorCoords.top >= scrollRect.top && cursorCoords.bottom <= scrollRect.bottom;
+
+        let anchorPos = cursorHead;
+        let originalScreenY = cursorCoords ? cursorCoords.top : 0;
+
+        if (!cursorVisible) {
+          try {
+            const anchor = view.posAtCoords({
+              x: scrollRect.left + 80,
+              y: scrollRect.top + 40,
+            });
+            if (anchor != null) {
+              anchorPos = anchor;
+              const blockCoords = view.coordsAtPos(anchorPos);
+              originalScreenY = blockCoords ? blockCoords.top : scrollRect.top + 40;
+            }
+          } catch {}
+        }
+
+        view.dispatch({ effects: richCompartment.reconfigure(richExtensionsFor(props.tab)) });
+
+        view.requestMeasure({
+          read: (v) => {
+            const newCoords = v.coordsAtPos(anchorPos);
+            return newCoords && originalScreenY ? newCoords.top - originalScreenY : null;
+          },
+          write: (diff, v) => {
+            if (diff != null && Math.abs(diff) > 0.5) {
+              v.scrollDOM.scrollTop += diff;
+            }
+          },
+        });
+      }
+    }
     syncPlainEditorAfterModeSwitch();
     void processPlainLiveRenderedBlocks();
   }
@@ -4456,7 +4582,7 @@ watch(
   },
 );
 
-function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false, endLine?: number) {
+function gotoLine(line?: number, from?: number, to?: number, original?: string, isProofread = false, heading?: string, isAgentJump = false, endLine?: number, smooth = false, pulse = true) {
   if (heading && (!line || isNaN(line) || line < 1)) {
     const hNorm = heading.trim().toLowerCase().replace(/^#+\s*/, '');
     if (!usePlainWindowsEditor && view) {
@@ -4538,13 +4664,13 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
         nextTick(() => {
           const activeEl = plainBlockEditors.value[plainActiveBlock.value];
           if (activeEl) {
-            activeEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            activeEl.scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
             activeEl.focus();
           }
         });
       } else {
         plainSetCaret(plainLineStartOffset(safeLine));
-        plainScrollToLine(safeLine);
+        plainScrollToLine(safeLine, smooth);
       }
       if (isProofread || isAgentJump) {
         if (isAgentJump) {
@@ -4559,11 +4685,11 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     if (!el) return;
     if (from != null) {
       plainSetCaret(from, to);
-      plainScrollToLine(safeLine);
+      plainScrollToLine(safeLine, smooth);
       el.focus();
     } else {
       plainSetCaret(plainLineStartOffset(safeLine));
-      plainScrollToLine(safeLine);
+      plainScrollToLine(safeLine, smooth);
     }
     if (isProofread || isAgentJump) {
       if (isAgentJump) {
@@ -4692,9 +4818,10 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   const finalFrom = targetFrom ?? 0;
   const finalTo = targetTo ?? finalFrom;
 
-  const effects: any[] = [
-    EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }),
-  ];
+  const effects: any[] = [];
+  if (!smooth) {
+    effects.push(EditorView.scrollIntoView(finalFrom, { y: 'center', yMargin: 60 }));
+  }
 
   if (isAgentJump) {
     suppressSelectionBubbleUntil = Date.now() + 2500;
@@ -4729,7 +4856,107 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     effects,
   });
   view.focus();
-  triggerJumpPulse();
+
+  if (smooth) {
+    smoothScrollToPos(finalFrom, pulse);
+  } else if (pulse) {
+    triggerJumpPulse();
+  }
+}
+
+let activeSmoothScrollRaf: number | null = null;
+let activeSmoothScrollCancelCleanup: (() => void) | null = null;
+
+function cancelCurrentSmoothScroll() {
+  if (activeSmoothScrollRaf != null) {
+    cancelAnimationFrame(activeSmoothScrollRaf);
+    activeSmoothScrollRaf = null;
+  }
+  if (activeSmoothScrollCancelCleanup) {
+    activeSmoothScrollCancelCleanup();
+    activeSmoothScrollCancelCleanup = null;
+  }
+}
+
+/**
+ * Typora-like smooth sliding scroll animation for outline and chapter navigation.
+ * Uses an ease-out quartic deceleration curve to give a swift initial response
+ * followed by a silky smooth arrival at the target heading.
+ */
+function smoothScrollToPos(pos: number, pulse = true) {
+  if (!view) return;
+  cancelCurrentSmoothScroll();
+
+  const scroller = view.scrollDOM;
+  if (!scroller) return;
+
+  const safePos = Math.max(0, Math.min(pos, view.state.doc.length));
+  const block = view.lineBlockAt(safePos);
+
+  // Position the target heading comfortably near the top (32px margin, matching Typora)
+  const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+  const targetTop = Math.max(0, Math.min(block.top - 32, maxScroll));
+  const startTop = scroller.scrollTop;
+  const distance = targetTop - startTop;
+
+  // If already at or very close to target, complete immediately
+  if (Math.abs(distance) <= 2) {
+    scroller.scrollTop = targetTop;
+    if (pulse) triggerJumpPulse();
+    return;
+  }
+
+  // Adaptive duration: 200ms - 380ms based on distance
+  const duration = Math.min(380, Math.max(200, 180 + Math.sqrt(Math.abs(distance)) * 4.5));
+  const startTime = performance.now();
+
+  // Ease-out quartic curve: swift initial response, gentle soft deceleration (Typora-like)
+  function easeOutQuart(x: number): number {
+    return 1 - Math.pow(1 - x, 4);
+  }
+
+  // Cancel immediately if the user interacts during the slide (wheel, touch, keydown)
+  const cancelEvents = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
+  const onUserInterrupt = () => {
+    cancelCurrentSmoothScroll();
+  };
+  for (const ev of cancelEvents) {
+    scroller.addEventListener(ev, onUserInterrupt, { passive: true });
+    window.addEventListener(ev, onUserInterrupt, { passive: true });
+  }
+  activeSmoothScrollCancelCleanup = () => {
+    for (const ev of cancelEvents) {
+      scroller.removeEventListener(ev, onUserInterrupt);
+      window.removeEventListener(ev, onUserInterrupt);
+    }
+  };
+
+  const step = (now: number) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(1, elapsed / duration);
+    const eased = easeOutQuart(progress);
+
+    scroller.scrollTop = startTop + distance * eased;
+
+    if (progress < 1) {
+      activeSmoothScrollRaf = requestAnimationFrame(step);
+    } else {
+      cancelCurrentSmoothScroll();
+
+      // Recalculate once lines have materialized to guarantee pixel-perfect placement
+      if (view) {
+        const finalBlock = view.lineBlockAt(safePos);
+        const finalMax = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        const finalTarget = Math.max(0, Math.min(finalBlock.top - 32, finalMax));
+        if (Math.abs(scroller.scrollTop - finalTarget) > 1 && Math.abs(scroller.scrollTop - finalTarget) < 60) {
+          scroller.scrollTop = finalTarget;
+        }
+      }
+      if (pulse) triggerJumpPulse();
+    }
+  };
+
+  activeSmoothScrollRaf = requestAnimationFrame(step);
 }
 
 function triggerJumpPulse() {
@@ -4925,25 +5152,35 @@ function lineTopY(line: number): number | null {
  * the cursor). Accepts fractional lines (12.5 = halfway down line 12) so the
  * split-pane sync can interpolate inside tall wrapped lines.
  */
-function scrollToLine(line: number): void {
+function scrollToLine(line: number, smooth = false): void {
   if (usePlainWindowsEditor) {
-    plainScrollToLine(line);
+    plainScrollToLine(line, smooth);
     return;
   }
   if (!view) return;
-  const safe = Math.max(1, Math.min(Math.floor(line), view.state.doc.lines));
-  const frac = Math.max(0, Math.min(line - safe, 0.999));
-  const lineObj = view.state.doc.line(safe);
-  if (frac > 0.001) {
-    const block = view.lineBlockAt(lineObj.from);
-    const y = view.documentTop + block.top + frac * block.height;
-    const scroller = view.scrollDOM.getBoundingClientRect();
-    view.scrollDOM.scrollTop += y - scroller.top - 8;
-    return;
-  }
-  view.dispatch({
-    effects: EditorView.scrollIntoView(lineObj.from, { y: 'start', yMargin: 8 }),
-  });
+  try {
+    const safe = Math.max(1, Math.min(Math.floor(line), view.state.doc.lines));
+    if (safe <= 1) {
+      view.scrollDOM.scrollTop = 0;
+      return;
+    }
+    const lineObj = view.state.doc.line(safe);
+    if (smooth) {
+      smoothScrollToPos(lineObj.from);
+      return;
+    }
+    const frac = Math.max(0, Math.min(line - safe, 0.999));
+    if (frac > 0.001) {
+      const block = view.lineBlockAt(lineObj.from);
+      const y = view.documentTop + block.top + frac * block.height;
+      const scroller = view.scrollDOM.getBoundingClientRect();
+      view.scrollDOM.scrollTop += y - scroller.top - 8;
+      return;
+    }
+    view.dispatch({
+      effects: EditorView.scrollIntoView(lineObj.from, { y: 'start', yMargin: 8 }),
+    });
+  } catch {}
 }
 
 /**
@@ -5125,6 +5362,8 @@ const cls = computed(() => ({
   'cm-host--dark': isDarkTheme(effectiveEditorTheme.value),
   // #109 — constrain the editing column to a centered readable width.
   'cm-host--limit-width': settings.limitEditorWidth,
+  'cm-host--source-mode': isSourceMode.value,
+  'is-source-mode': isSourceMode.value,
   // #211 — soft-wrap fenced code in the LIVE-rendered blocks too. Only
   // Preview.vue carried `cb-wrap-on` before, so the code-block-wrap setting
   // silently did nothing in Live Edit (CodeMirror live blocks + the Windows
@@ -5132,10 +5371,14 @@ const cls = computed(() => ({
   // CSS as the preview so behaviour matches across modes.
   'cb-wrap-on': settings.codeBlockWrap,
 }));
+
+const editorHostStyle = computed(() => ({
+  '--preview-max-width': `${settings.previewMaxWidth || 780}px`,
+}));
 </script>
 
 <template>
-  <div v-if="!usePlainWindowsEditor" :class="cls" ref="host" @contextmenu="onEditorContextMenu" @mousedown="clearAgentJumpSpotlight"></div>
+  <div v-if="!usePlainWindowsEditor" :class="cls" ref="host" :style="editorHostStyle" @contextmenu="onEditorContextMenu" @mousedown="clearAgentJumpSpotlight"></div>
   <div v-else class="plain-host" @contextmenu="onEditorContextMenu" @mousedown="clearAgentJumpSpotlight">
     <div
       v-if="plainLiveEnabled"
@@ -5344,19 +5587,142 @@ const cls = computed(() => ({
 }
 /* #109 — readable editing column. Centre the CodeMirror content (and the
    Windows plain-block editor) instead of letting long lines run full-bleed.
-   Width matches the preview pane's readable column (760px) so editor and
+   Width matches the preview pane's readable column (780px) so editor and
    preview line up. */
 .cm-host--limit-width :deep(.cm-content) {
-  max-width: 760px;
+  max-width: var(--preview-max-width, 780px);
+  margin-left: auto;
+  margin-right: auto;
+  padding: 32px 44px 120px 44px;
+}
+.cm-host--limit-width :deep(.cm-scroller) {
+  overflow-x: hidden;
+}
+.cm-host--limit-width :deep(.cm-gutters) {
+  width: 0 !important;
+  overflow: visible !important;
+  margin-left: 0;
+}
+.cm-host--limit-width :deep(.cm-gutters + .cm-content) {
   margin-left: auto;
   margin-right: auto;
 }
 .cm-host--limit-width.plain-block-editor :deep(.plain-block),
 .cm-host--limit-width.plain-block-editor :deep(.plain-block__textarea),
 .cm-host--limit-width :deep(.plain-editor) {
-  max-width: 760px;
+  max-width: var(--preview-max-width, 780px);
   margin-left: auto;
   margin-right: auto;
+  padding-left: 44px;
+  padding-right: 44px;
+}
+.cm-host--limit-width.plain-source {
+  display: flex;
+}
+.cm-host--limit-width .plain-gutter {
+  margin-left: 0;
+}
+.cm-host--limit-width .plain-gutter + .plain-editor {
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (max-width: 640px) {
+  .cm-host--limit-width :deep(.cm-content) {
+    padding: 16px 20px 80px 20px;
+  }
+}
+
+/* ── Typora-Style Source Mode ───────────────────────────────────────────── */
+.cm-host--source-mode {
+  --source-heading: color-mix(in srgb, var(--accent) 52%, var(--text));
+  --source-heading-mark: color-mix(in srgb, var(--accent) 25%, var(--text-faint, #94a3b8));
+  --source-link: color-mix(in srgb, var(--accent) 60%, var(--text));
+  --source-url: var(--text-muted);
+  --source-code: var(--text);
+  --source-strong: var(--text);
+  --source-active-line: color-mix(in srgb, var(--accent) 2.5%, transparent);
+  --source-caret: var(--accent);
+}
+
+.cm-host--source-mode.cm-host--dark {
+  --source-heading: color-mix(in srgb, var(--accent) 55%, var(--text));
+  --source-heading-mark: color-mix(in srgb, var(--accent) 25%, var(--text-faint, #6b7280));
+  --source-link: color-mix(in srgb, var(--accent) 65%, var(--text));
+  --source-url: var(--text-muted);
+  --source-code: var(--text);
+  --source-strong: var(--text);
+  --source-active-line: color-mix(in srgb, var(--accent) 4.5%, transparent);
+  --source-caret: var(--accent);
+}
+
+.cm-host--source-mode :deep(.cm-content) {
+  max-width: var(--preview-max-width, 780px) !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 32px 44px 120px 44px !important;
+  line-height: 1.75 !important;
+  box-sizing: border-box;
+}
+
+.cm-host--source-mode :deep(.cm-activeLine) {
+  background-color: var(--source-active-line) !important;
+}
+
+.cm-host--source-mode :deep(.cm-cursor) {
+  border-left-color: var(--source-caret) !important;
+  border-left-width: 2px !important;
+}
+
+.cm-host--source-mode :deep(.cm-line) {
+  line-height: 1.75;
+}
+
+/* Subtle line numbers matching Typora (faint gray, no border line) */
+.cm-host--source-mode :deep(.cm-gutters) {
+  background-color: transparent !important;
+  border-right: none !important;
+}
+
+.cm-host--source-mode :deep(.cm-lineNumbers .cm-gutterElement) {
+  color: #c7c7c7 !important;
+  opacity: 0.55 !important;
+  padding: 0 16px 0 0 !important;
+  font-size: 12px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-host--source-mode.cm-host--dark :deep(.cm-lineNumbers .cm-gutterElement) {
+  color: #6b7280 !important;
+  opacity: 0.5 !important;
+}
+
+.cm-host--source-mode :deep(.cm-lineNumbers .cm-activeLineGutter) {
+  color: var(--source-heading) !important;
+  opacity: 0.85 !important;
+  font-weight: 600;
+}
+
+.cm-host--source-mode :deep(.cm-foldGutter) {
+  display: none !important;
+}
+
+/* Windows plain-source editor matching Typora layout */
+.cm-host--source-mode .plain-editor {
+  max-width: var(--preview-max-width, 780px) !important;
+  width: 100% !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 32px 44px 120px 44px !important;
+  line-height: 1.75 !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .cm-host--source-mode :deep(.cm-content),
+  .cm-host--source-mode .plain-editor {
+    padding: 16px 20px 80px 20px !important;
+  }
 }
 :deep(.cm-editor) {
   height: 100%;
@@ -5366,7 +5732,65 @@ const cls = computed(() => ({
 }
 :deep(.cm-gutters) {
   background-color: var(--bg);
+  color: var(--text-faint, #94a3b8);
+  border-right: none;
+  user-select: none;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+:deep(.cm-lineNumbers) {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  letter-spacing: -0.2px;
+}
+:deep(.cm-lineNumbers .cm-gutterElement) {
+  padding: 0 6px 0 14px;
+  min-width: 28px;
+  text-align: right;
+  color: var(--text-faint, #94a3b8);
+  opacity: 0.75;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+:deep(.cm-lineNumbers .cm-activeLineGutter) {
+  color: var(--accent, #6366f1) !important;
+  font-weight: 600;
+  opacity: 1;
+}
+:deep(.cm-foldGutter) {
+  width: 18px;
+}
+:deep(.cm-foldGutter .cm-gutterElement) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px 0 0;
+  cursor: pointer;
   color: var(--text-muted);
+  opacity: 0.45;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+:deep(.cm-gutters:hover .cm-foldGutter .cm-gutterElement) {
+  opacity: 0.85;
+}
+:deep(.cm-foldGutter .cm-gutterElement:hover) {
+  opacity: 1 !important;
+  color: var(--accent, #6366f1) !important;
+}
+:deep(.cm-fold-marker) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+:deep(.cm-fold-marker:hover) {
+  background-color: color-mix(in srgb, var(--accent, #6366f1) 12%, transparent);
 }
 :deep(.cm-editor.cm-focused) {
   outline: none;
@@ -5509,7 +5933,7 @@ const cls = computed(() => ({
   box-sizing: border-box;
   /* Top padding must match .plain-editor's 12px or numbers drift off rows. */
   padding: 12px 8px 12px 0;
-  border-right: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+  border-right: none;
   background: var(--bg);
   color: var(--text-faint, #999);
   font-family: var(--plain-editor-font-family, var(--font-editor, var(--font-mono)));
@@ -5900,5 +6324,41 @@ const cls = computed(() => ({
   100% {
     box-shadow: inset 0 0 0 2.5px #ef4444, 0 0 14px rgba(239, 68, 68, 0.7);
   }
+}
+
+/* Enforce unified continuous fenced code block container across all themes */
+:deep(.cm-editor .cm-md-fenced-line) {
+  border-top: none !important;
+  border-bottom: none !important;
+  border-radius: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+:deep(.cm-editor .cm-md-fenced-start) {
+  border-top: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  margin-top: 1.2em !important;
+  margin-bottom: 0 !important;
+}
+:deep(.cm-editor .cm-md-fenced-end) {
+  border-top: none !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  margin-bottom: 1.2em !important;
+  margin-top: 0 !important;
+}
+:deep(.cm-editor .cm-md-fenced-start.cm-md-fenced-end) {
+  border-top: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  margin-top: 1.2em !important;
+  margin-bottom: 1.2em !important;
 }
 </style>

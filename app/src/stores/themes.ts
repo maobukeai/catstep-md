@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '../lib/platform';
+import { safeInvoke } from '../lib/tauri-bridge';
 
 /**
  * v2.5 — Community theme marketplace store.
@@ -226,12 +227,16 @@ export const useThemesStore = defineStore('themes', {
     },
 
     async refreshInstalled() {
+      if (!isTauri()) {
+        this.installed = [];
+        return;
+      }
       try {
-        const raw = await invoke<InstalledTheme[]>('theme_list_installed');
+        const raw = await safeInvoke<InstalledTheme[]>('theme_list_installed', undefined, []);
         if (this.manifest === null && !this.loading) {
           void this.loadManifest();
         }
-        this.installed = raw.map((t) => {
+        this.installed = (raw || []).map((t) => {
           const matched = this.manifest?.themes?.find((m) => m.id === t.id);
           return {
             ...t,
@@ -251,25 +256,27 @@ export const useThemesStore = defineStore('themes', {
      * `settings.customCssPath`.
      */
     async install(theme: ThemeManifestEntry): Promise<string> {
+      if (!isTauri()) return '';
       this.installingId = theme.id;
       try {
         const res = await fetch(theme.url, { cache: 'no-store' });
         if (!res.ok) throw new Error(`download HTTP ${res.status}`);
         const css = await res.text();
         if (!css.trim()) throw new Error('downloaded CSS is empty');
-        const result = await invoke<{ path: string }>('theme_install', {
+        const result = await safeInvoke<{ path: string }>('theme_install', {
           id: theme.id,
           css,
         });
         await this.refreshInstalled();
-        return result.path;
+        return result?.path || '';
       } finally {
         this.installingId = '';
       }
     },
 
     async uninstall(id: string): Promise<void> {
-      await invoke('theme_uninstall', { id });
+      if (!isTauri()) return;
+      await safeInvoke('theme_uninstall', { id });
       await this.refreshInstalled();
     },
 
@@ -281,24 +288,27 @@ export const useThemesStore = defineStore('themes', {
     },
 
     async openThemeFolder() {
+      if (!isTauri()) return;
       try {
-        await invoke('theme_open_folder');
+        await safeInvoke('theme_open_folder');
       } catch (e) {
         console.error('Failed to open theme folder:', e);
       }
     },
 
     async openUserCss() {
+      if (!isTauri()) return;
       try {
-        await invoke('theme_open_user_css');
+        await safeInvoke('theme_open_user_css');
       } catch (e) {
         console.error('Failed to open user.css:', e);
       }
     },
 
     async readUserCss(): Promise<string> {
+      if (!isTauri()) return '';
       try {
-        return await invoke<string>('theme_read_user_css');
+        return await safeInvoke<string>('theme_read_user_css', undefined, '');
       } catch (e) {
         console.warn('Failed to read user.css:', e);
         return '';
@@ -306,12 +316,14 @@ export const useThemesStore = defineStore('themes', {
     },
 
     async saveWallpaper(sourcePath: string): Promise<string> {
-      return await invoke<string>('theme_save_wallpaper', { sourcePath });
+      if (!isTauri()) return '';
+      return await safeInvoke<string>('theme_save_wallpaper', { sourcePath }, '');
     },
 
     async openWallpapersFolder() {
+      if (!isTauri()) return;
       try {
-        await invoke('theme_open_wallpapers_folder');
+        await safeInvoke('theme_open_wallpapers_folder');
       } catch (e) {
         console.error('Failed to open wallpapers folder:', e);
       }
@@ -355,6 +367,7 @@ export const useThemesStore = defineStore('themes', {
      * with instant local bundled fallback.
      */
     async installTyporaTheme(theme: TyporaThemeEntry): Promise<string> {
+      if (!isTauri()) return '';
       this.installingId = theme.id;
       try {
         // 1. Fetch bundled fallback CSS if available locally
@@ -373,7 +386,7 @@ export const useThemesStore = defineStore('themes', {
         if (theme.cdnUrl) candidateUrls.push(theme.cdnUrl);
 
         // 3. Invoke Rust native multi-mirror downloader
-        const result = await invoke<{ path: string }>('theme_download_and_install', {
+        const result = await safeInvoke<{ path: string }>('theme_download_and_install', {
           id: theme.id,
           urls: candidateUrls,
           fallbackCss: fallbackCss || null,
@@ -382,7 +395,7 @@ export const useThemesStore = defineStore('themes', {
         });
 
         await this.refreshInstalled();
-        return result.path;
+        return result?.path || '';
       } finally {
         this.installingId = '';
       }
@@ -392,21 +405,22 @@ export const useThemesStore = defineStore('themes', {
      * Search GitHub repositories dynamically for Typora themes.
      */
     async searchGitHubThemes(query = '', sort: 'stars' | 'updated' = 'stars', page = 1) {
+      if (!isTauri()) return;
       this.githubLoading = true;
       this.githubError = '';
       this.githubSearchQuery = query;
       this.githubSort = sort;
       try {
-        const res = await invoke<GitHubSearchResponse>('theme_search_github_repos', {
+        const res = await safeInvoke<GitHubSearchResponse>('theme_search_github_repos', {
           query,
           sort,
           page,
           perPage: 30,
         });
-        this.githubRepos = res.items || [];
-        this.githubTotal = res.total_count || 0;
-        this.githubRateLimited = res.rate_limited || false;
-        if (res.message) {
+        this.githubRepos = res?.items || [];
+        this.githubTotal = res?.total_count || 0;
+        this.githubRateLimited = res?.rate_limited || false;
+        if (res?.message) {
           this.githubError = res.message;
         }
       } catch (e) {
@@ -420,18 +434,22 @@ export const useThemesStore = defineStore('themes', {
      * Sniff CSS files from any GitHub repository URL or slug.
      */
     async sniffGitHubRepo(repoOrUrl: string): Promise<DiscoveredCssFile[]> {
-      return await invoke<DiscoveredCssFile[]>('theme_sniff_github_repo', {
-        repoOrUrl,
-      });
+      if (!isTauri()) return [];
+      return (
+        (await safeInvoke<DiscoveredCssFile[]>('theme_sniff_github_repo', {
+          repoOrUrl,
+        }, [])) || []
+      );
     },
 
     /**
      * Install a discovered CSS file from GitHub.
      */
     async installDiscoveredTheme(discovered: DiscoveredCssFile): Promise<string> {
+      if (!isTauri()) return '';
       this.installingId = discovered.id;
       try {
-        const result = await invoke<{ path: string }>('theme_download_and_install', {
+        const result = await safeInvoke<{ path: string }>('theme_download_and_install', {
           id: discovered.id,
           urls: discovered.download_urls,
           fallbackCss: null,
@@ -439,7 +457,7 @@ export const useThemesStore = defineStore('themes', {
           author: null,
         });
         await this.refreshInstalled();
-        return result.path;
+        return result?.path || '';
       } finally {
         this.installingId = '';
       }

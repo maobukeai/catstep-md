@@ -51,7 +51,7 @@ class TaskWidget extends WidgetType {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = this.checked;
-    cb.className = 'cm-task-checkbox';
+    cb.className = 'cm-task-checkbox task-list-item-checkbox md-task-list-item-checkbox';
     cb.style.cursor = 'pointer';
     cb.style.verticalAlign = 'middle';
     cb.style.margin = '0 4px 0 0';

@@ -7,7 +7,10 @@
  * binary". `isMobile()` also catches Android (future-proofing).
  */
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || 'isTauri' in window);
+  return (
+    typeof window !== 'undefined' &&
+    (typeof (window as any).__TAURI_INTERNALS__?.invoke === 'function' || 'isTauri' in window)
+  );
 }
 
 export function isIOS(): boolean {

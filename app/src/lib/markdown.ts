@@ -302,7 +302,7 @@ md.core.ruler.after('inline', 'task_lists', (state) => {
 
     // Insert an html_inline checkbox at the start of the inline children.
     const checkboxToken = new state.Token('html_inline', '', 0);
-    checkboxToken.content = `<input class="task-list-item-checkbox" type="checkbox"${
+    checkboxToken.content = `<input class="task-list-item-checkbox md-task-list-item-checkbox" type="checkbox"${
       checked ? ' checked=""' : ''
     } disabled=""> `;
     inlineTok.children.unshift(checkboxToken);
@@ -311,7 +311,7 @@ md.core.ruler.after('inline', 'task_lists', (state) => {
     const existingClass = tok.attrGet('class');
     tok.attrSet(
       'class',
-      existingClass ? `${existingClass} task-list-item` : 'task-list-item',
+      existingClass ? `${existingClass} task-list-item md-task-list-item` : 'task-list-item md-task-list-item',
     );
     const line = tok.map && tok.map.length > 0 ? tok.map[0] + 1 : 0;
     tok.attrSet('data-line', String(line));
@@ -366,7 +366,7 @@ md.core.ruler.after('inline', 'github_callouts', (state) => {
     const m = CALLOUT_RE.exec(first.content);
     if (!m) continue;
     const kind = m[1].toLowerCase();
-    tokens[i].attrJoin('class', `md-callout md-callout--${kind}`);
+    tokens[i].attrJoin('class', `md-callout md-callout--${kind} md-alert md-alert-${kind}`);
     first.content = first.content.slice(m[0].length);
     if (first.content === '') {
       // Marker sat alone on its line — drop the empty text node and the
@@ -399,7 +399,7 @@ function renderFrontMatterHtml(raw: string): string {
   try {
     parsed = yaml.load(raw);
   } catch {
-    return `<pre class="md-frontmatter md-frontmatter--raw">${escapeHtml(
+    return `<pre class="md-frontmatter md-frontmatter--raw md-meta-block">${escapeHtml(
       raw,
     )}</pre>`;
   }
@@ -410,13 +410,13 @@ function renderFrontMatterHtml(raw: string): string {
     Array.isArray(parsed)
   ) {
     // Not a key/value map — fall back to raw display.
-    return `<pre class="md-frontmatter md-frontmatter--raw">${escapeHtml(
+    return `<pre class="md-frontmatter md-frontmatter--raw md-meta-block">${escapeHtml(
       raw,
     )}</pre>`;
   }
   const entries = Object.entries(parsed as Record<string, unknown>);
   if (entries.length === 0) {
-    return `<pre class="md-frontmatter md-frontmatter--raw">${escapeHtml(
+    return `<pre class="md-frontmatter md-frontmatter--raw md-meta-block">${escapeHtml(
       raw,
     )}</pre>`;
   }
@@ -431,7 +431,7 @@ function renderFrontMatterHtml(raw: string): string {
       return `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(valueText)}</dd>`;
     })
     .join('');
-  return `<div class="md-frontmatter"><dl>${rows}</dl></div>`;
+  return `<div class="md-frontmatter md-meta-block"><dl>${rows}</dl></div>`;
 }
 
 // Tags that markdown-it will treat as HTML blocks when they start at column 0

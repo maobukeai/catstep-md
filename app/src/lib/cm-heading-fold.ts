@@ -169,7 +169,21 @@ export function headingFoldExtension(opts: HeadingFoldOptions = {}): Extension {
         return el;
       },
     }),
-    ...(opts.gutter === false ? [] : [foldGutter({ openText: '⌄', closedText: '›' })]),
+    ...(opts.gutter === false
+      ? []
+      : [
+          foldGutter({
+            markerDOM: (open) => {
+              const span = document.createElement('span');
+              span.className = 'cm-fold-marker ' + (open ? 'cm-fold-marker--open' : 'cm-fold-marker--closed');
+              span.setAttribute('aria-label', open ? '折叠' : '展开');
+              span.innerHTML = open
+                ? '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>'
+                : '<svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l4 4-4 4"/></svg>';
+              return span;
+            },
+          }),
+        ]),
     keymap.of(foldKeymap),
     EditorView.baseTheme({
       '.cm-heading-fold-placeholder': {

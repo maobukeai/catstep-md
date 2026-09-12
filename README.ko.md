@@ -1,171 +1,129 @@
-# 猫步 MD (Catstep MD)
+# 캣스텝 MD (Catstep MD)
 
-> Agent가 머무는 에디터.
+> 가벼운 발걸음, 샘솟는 영감. Agent가 살아 숨 쉬는 Typora 스타일 초경량 Markdown 에디터.
 
-[![Version](https://img.shields.io/badge/version-v4.12.0-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.1-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
 [![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)
 
-🌐 **[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)**
+🌐 **[English](README.md) · [中文](README.zh.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [Italiano](README.it.md) · [Polski](README.pl.md) · [Nederlands](README.nl.md) · [Türkçe](README.tr.md) · [Svenska](README.sv.md) · [Українська](README.uk.md)** · 🪞 **[Gitee mirror →](https://gitee.com/maobukeai/catstep-md)**
 
-[**v4.0 다운로드**](https://github.com/maobukeai/catstep-md/releases) · [**런치 글**](https://solomd.app/ko/blog/) · [**웹사이트**](https://solomd.app/ko/) · [**보안**](https://solomd.app/ko/security/)
+[**최신 버전 다운로드**](https://github.com/maobukeai/catstep-md/releases) · [**로드맵**](docs/roadmap.md) · [**개인정보 및 보안**](#privacy--security)
 
-![Catstep MD 에디터](web/public/demo/solomd-demo.svg)
+---
 
-당신의 노트는 폴더에 있습니다. **SoloMD는 그 위의 에디터 — 에디터 내부에 일등 시민 Agent 표면, 외부에서는 Claude Code / Cursor가 호출할 수 있는 MCP 엔드포인트.** 같은 `.md` 파일. vault와 채팅. 키보드 앞에 없을 때 실행되는 Recipe. 같은 vault를 어떤 MCP 클라이언트에든 넘길 수 있습니다.
+## 📸 실제 구동 화면 (Real Screenshots)
 
-Tauri 2 + Vue 3 + CodeMirror 6 위에 구축. Mac universal dmg는 약 32 MB. 무료, MIT, 구독 없음, SoloMD 호스팅 서버 없음. 노트, AI 키, 임베딩 인덱스, git 기록 모두 본인 머신에 남습니다.
+### 🌟 실시간 WYSIWYG 라이브 프리뷰 & 부드러운 목차 스크롤 탐색
+![Catstep MD Live Preview](docs/screenshots/catstep-live-preview.png)
 
-## 한 제품의 세 반쪽
+### 🎨 테마 적응형 소스코드 모드 & 눈이 편안한 다크 모드
+<p align="center">
+  <img src="docs/screenshots/catstep-source-light.png" width="49%" alt="Catstep MD Source Mode" />
+  <img src="docs/screenshots/catstep-dark-mode.png" width="49%" alt="Catstep MD Dark Mode" />
+</p>
 
-**에디터.** WYSIWYG 라이브 편집(Typora 스타일), 탭 + 분할 패널, KaTeX + Mermaid, `_assets/`로 이미지 붙여넣기, 슬라이드쇼 모드(`⌘⌥P`), Vim 모드, Hunspell + CJK 교정, 시맨틱 검색(`⌘⇧F`), wikilinks + backlinks, Pandoc 내보내기. CJK 인코딩(GBK / Big5 / Shift-JIS) 자동 감지.
+---
 
-**엔드포인트.** 동봉된 `solomd-mcp` 바이너리가 같은 vault를 어떤 MCP 클라이언트에든 노출 — 기본 13개 도구, 그중 5개는 SoloMD 전용(`autogit_log`, `autogit_diff`, `autogit_rollback`, `sync_status`, `share_url`)으로 다른 markdown 서버에는 없습니다. v4.0은 `--workspace path1 --workspace path2` federation 추가 — 한 MCP 세션, 여러 vault. 또한 `solomd agent <prompt>` CLI로 Claude Code / Codex CLI에 MCP 사전 연결로 핸드오프.
+## 🍃 캣스텝 MD (Catstep MD)란 무엇인가요?
 
-**Agent 표면 (v4.0).** 오른쪽 사이드 Agent 패널: 스트리밍 chat-with-vault, `[[wikilink]]` 인용, 도구 호출 카드가 인라인으로 펼쳐짐, **삽입** / **복사** 버튼으로 답변을 현재 노트에 반영. 또한 `<workspace>/.solomd/agents/*.yml`의 YAML로 선언적 **Recipe** — `cron` / `on-save` / `on-commit` / `on-tag-add` / 수동 트리거. **모든 agent 쓰기는 자체 AutoGit 브랜치에 착지**, `main`에 닿기 전에 승인 또는 거부; write-cap 기본 5; 워킹 트리가 더러우면 실행 거부; 각 실행마다 `trace.jsonl` 재생 가능, `read_agent_trace` MCP 도구 포함.
+당신의 노트는 로컬 폴더에 담긴 순수한 Markdown 파일이어야 합니다.
 
-| 기능 | |
-|---|---|
-| **Agent 패널** *(v4.0)* | Outline / Backlinks / Tags / History와 같은 레벨의 스트리밍 chat-with-vault. 도구 카드가 인라인 펼쳐짐; 답변을 Insert / Copy로 현재 에디터에; 실행 기록은 `.solomd/agent-runs/`에 평범한 markdown으로 저장. |
-| **정시 Recipe** *(v4.0)* | vault 내 YAML 작업. AutoGit 브랜치 샌드박스 + 승인/거부 UI로 병합 전 검토. 실행당 write-cap (기본 5, 하드 상한 50). 11개 Recipe 쿡북 동봉. |
-| **재생 가능한 trace** *(v4.0)* | 단계마다 `trace.jsonl` (`prompt` / `model_call` / `tool_call` / `tool_result` / `git_commit`). 단계에서 재생으로 되돌리고 재실행. |
-| **Workspace federation** *(v4.0)* | `solomd-mcp --workspace path1 --workspace path2`. 한 Claude Desktop 세션, 여러 vault. 설정 → 통합에 MCP 프로필 UI. |
-| **Ollama 일등 시민** *(v4.0)* | `localhost:11434` 자동 감지. 3개 모델 프리셋 (`qwen2.5:1.5b/7b/14b`). `provider: local` Recipe 별칭으로 클라우드 비용 0의 자동 루프. |
-| **AI 다시쓰기, BYOK** | 14 Provider — OpenAI · Claude · Gemini · DeepSeek · Qwen · GLM · Kimi · Doubao · SiliconFlow · OpenRouter · Mistral · Groq · xAI · Ollama. 벤더 직접 호출. 키는 OS 키체인에. |
-| **GitHub 백업 동기화** | vault를 저장할 때마다 비공개 GitHub 저장소로 push. 선택적 E2EE (Argon2id + XChaCha20-Poly1305). GitLab / Gitea / 모든 HTTPS git URL도 동작. |
-| **노트별 AutoGit** | 각 `⌘S`가 워크스페이스 안 로컬 `.git`의 커밋. libgit2 동봉, 시스템 git 불필요. 자동 push 안 함. |
-| **MCP 서버 동봉** | `solomd-mcp`가 인스톨에 동봉. 13개 도구 (일반 8 + SoloMD 전용 5). stdio만, 네트워크 포트 없음. 기본 읽기 전용; `--allow-write` 옵트인. |
-| **REST API** *(v4.0)* | localhost만, 토큰 인증. MCP와 동일한 표면, 아직 MCP를 말하지 않는 클라이언트용 — Alfred / Raycast / n8n / 자작 스크립트. |
-| **BYOK 비용 미터** *(v4.0)* | Provider별 누적 토큰 사용량 카운터, 옵트인. 설정 → 통합. |
-| **클라우드 폴더 모드** | vault가 `~/Library/Mobile Documents/...`나 `~/Dropbox/...` 안에 있다면, SoloMD가 감지하고 크로스 디바이스 세션 복원을 추가 — 파일 동기화는 OS가 이미 합니다. |
-| **공개 읽기 전용 공유** | 명령 팔레트 → `solomd.app/share/?repo=...&path=...` 링크 복사. 공개 GitHub 저장소의 어떤 파일도 렌더링, 보기 위해 SoloMD 계정 불필요. |
+**캣스텝 MD (Catstep MD)** 는 오직 최고의 글쓰기 몰입을 위해 설계된 데스크톱 지식 에디터입니다. **Typora 급의 우아한 타이포그래피와 미니멀리즘**, **로컬 우선 AutoGit 타임머신**, 그리고 **내장된 일급 시민 AI Agent 어시스턴트와 표준 MCP 프로토콜 엔드포인트**를 완벽하게 결합했습니다.
 
-## 사용법
+**Tauri 2 + Vue 3 + CodeMirror 6** 최신 아키텍처 기반으로 설치 패키지 용량은 약 15–30 MB에 불과하며, 밀리초 단위의 즉각적인 실행과 일반 Electron 앱의 1/4 미만의 메모리 사용량을 자랑합니다. 100% 무료 오픈 소스(MIT)이며, 모든 원문, 수정 이력, API 키, 로컬 벡터 인덱스는 오직 사용자의 컴퓨터에 안전하게 보관됩니다.
 
-macOS / Linux에 SoloMD 설치 후:
+---
 
-**1. vault와 채팅.** 오른쪽 사이드 Agent 패널 열기 (숨겨져 있으면 ⌘⇧P → "View: Toggle Agent Panel"). 노트에 대한 스트리밍 멀티턴; 도구 카드가 모든 읽기/쓰기를 인라인 표시. 답변이 너무 길다면? **삽입**으로 현재 노트의 커서 위치에 (선택 영역이 있으면 대체); **복사**로 클립보드에.
+## ✨ 핵심 기능
 
-**2. Recipe 스케줄.** 설정 → Recipes → 쿡북 둘러보기. 11개 스타터: 주간 리뷰, 일일 요약, TODO 추출, 번역 패스, 인용 정리, CJK 교정 agent, 링크 부패 감지, frontmatter 정규화, 개요 → 블로그, 리팩토링 패스, 주간 태그 트리아지. 하나 설치, prompt 편집, 실행.
+### 1. ✍️ Typora 급 순수한 글쓰기 경험
+- **WYSIWYG 실시간 편집 (Live Preview)**: 타이핑과 조판의 일체화. 커서가 위치할 때 마크다운 문법이 보이고, 벗어나면 즉시 미려하게 렌더링됩니다.
+- **테마 적응형 저채도 소스코드 모드 (`Ctrl+/`)**: 제목, 문법 기호, 링크, 코드 및 활성 줄 하이라이트가 현재 활성화된 테마 색상에 부드럽게 적응합니다.
+- **물리 댐핑 부드러운 목차 스크롤 탐색**: 목차 항목 클릭 시 Typora 스타일의 부드러운 스크롤 애니메이션으로 긴 문서의 원하는 위치로 정확히 이동합니다.
+- **즉석 인터랙티브 표 편집**: `Tab` / `Shift+Tab`으로 셀을 자유롭게 이동하며, 마지막 셀에서 Enter 키를 누르면 자동으로 새 행이 추가됩니다.
+- **몰입형 읽기 뷰**: 방해 없는 순수한 문서 읽기 모드. 임의의 단락을 더블 클릭하면 즉시 해당 위치에서 편집 모드로 복귀합니다.
+- **다채로운 테마 생태계**: 라이트, 다크, 앰버, Nord, Catppuccin, Dracula, Warm 등 엄선된 프리셋 테마 및 자유로운 CSS 커스터마이징.
 
-**3. 같은 vault를 다른 LLM 클라이언트에서 조작.** 원샷:
+### 2. 🤖 내장 캣스텝 AI 어시스턴트 & 외부 MCP 엔드포인트
+- **사이드바 AI Agent 패널**: 문서 및 지식 베이스와의 실시간 스트리밍 다중 턴 대화, 인라인 도구 호출 카드 전개.
+- **스마트 윤문 및 원클릭 본문 삽입**: 선택 영역 다듬기, 요약, 확장 기능. AI 답변을 커서 위치에 바로 삽입하거나 선택 영역과 교체.
+- **14개 이상의 대형 모델 직결 (BYOK)**: OpenAI, Claude, Gemini, DeepSeek, Qwen, GLM, Kimi, Doubao 및 로컬 Ollama 직접 지원. API 키는 OS 보안 키체인에 안전 보관.
+- **내장 MCP 서버 엔드포인트**: Claude Code, Cursor, Windsurf 등의 외부 Agent가 로컬 지식창고를 직접 쿼리하고 조작 가능.
 
-```bash
-# AI 클라이언트용 MCP 설정 스니펫 출력.
-solomd mcp-config
-```
+### 3. 🛡️ 로컬 우선 & AutoGit 타임머신
+- **순수 텍스트의 자유**: 로컬 디스크의 표준 `.md` 파일. 독점 포맷이나 데이터베이스 종속성 전무.
+- **밀리초 단위 AutoGit 타임머신**: 저장할 때마다 로컬에서 자동으로 경량 커밋 생성. 단일 노트별 이력 확인, 줄 단위 Diff 비교 및 원클릭 복원.
+- **양방향 링크와 지식 그래프**: `[[wikilink]]`, 역방향 링크(Backlinks) 및 인접 지식 그래프 시각화 탐색.
 
-```json
-{
-  "mcpServers": {
-    "solomd": {
-      "command": "/Applications/SoloMD.app/Contents/Resources/solomd-mcp",
-      "args": ["--workspace", "/Users/me/Documents/SoloMD"]
-    }
-  }
-}
-```
+---
 
-Claude Desktop / Cursor 등에 붙여넣기. 다중 vault federation의 경우 `--workspace`를 반복:
+## 📊 주요 기능 비교
 
-```json
-"args": [
-  "--workspace", "/Users/me/Documents/SoloMD",
-  "--workspace", "/Users/me/Documents/work-notes"
-]
-```
+| 기능 | 캣스텝 MD (Catstep MD) | Obsidian | Typora |
+| :---: | :---: | :---: | :---: |
+| 라이선스 | **MIT (완전 자유 오픈 소스)** | 상용 라이선스 (개인 무료) | 유료 상용 소프트웨어 ($14.99) |
+| 기반 기술 | **Tauri 2 (Rust + 네이티브 WebView)** | Electron | Electron |
+| 설치 용량 | **~15–30 MB (초경량)** | ~120 MB | ~95 MB |
+| 메모리 & 실행 속도 | **밀리초 단위 즉각 실행, 극소 메모리 점유** | 시작 속도 느림, 메모리 점유 큼 | 시작 속도 보통, 메모리 보통 |
+| 실시간 WYSIWYG | ✅ **Live Preview 순수 타이포그래피** | ✅ 실시간 미리보기 | ✅ 클래식 WYSIWYG |
+| Typora 스타일 소스 모드 | ✅ **테마 적응형 저채도 색상 계층** | ❌ 텍스트 하이라이트만 지원 | ✅ 고정 마젠타 팔레트 |
+| 부드러운 목차 스크롤 | ✅ **물리 댐핑 부드러운 스크롤** | ❌ 순간 도약 | ✅ 부드러운 스크롤 |
+| 인터랙티브 표 편집 | ✅ **Tab/Enter 자동 행 추가** | 🟡 복잡한 설정 필요 | ✅ 기본 표 편집기 |
+| 내장 AI 어시스턴트 | ✅ **14+ 공급자 직결 + 원클릭 삽입** | 🟡 서드파티 플러그인 의존 | ❌ 내장 AI 없음 |
+| 버전 타임머신 | ✅ **AutoGit 자동 커밋 + Diff 복원** | 🟡 Git 플러그인 설치 필요 | ❌ 단순 파일 이력만 지원 |
+| 내장 MCP 엔드포인트 | ✅ **기본 제공, 외부 Agent 연동** | ❌ 공식 미지원 | ❌ 없음 |
+| 개인정보 및 보안 | ✅ **클라우드 비의존, OS 키체인 보관** | 🟡 공식 동기화 유료 클라우드 | ✅ 로컬 파일 |
 
-**4. 또는 claude / codex CLI에 직접 prompt 전달:**
+---
 
-```bash
-solomd agent "이번 주 일일 노트를 주간 리뷰로 다시 써서 커밋해"
-```
+## 🚀 다운로드 및 설치
 
-경로 트래버설 가드. 네트워크 포트 없음. LLM은 워크스페이스로 가리킨 것만 봅니다.
+GitHub Releases에서 최신 데스크톱 설치 파일을 받으실 수 있습니다: [**Catstep MD Releases**](https://github.com/maobukeai/catstep-md/releases)
 
-## 설치
+- **Windows (x64 / ARM64)**: 빠른 `.msi` 설치 패키지 및 포터블 무설치 버전(Portable);
+- **macOS (Apple Silicon & Intel Universal)**: 표준 `.dmg` 설치 이미지;
+- **Linux (x86_64 / aarch64)**: `.AppImage`, `.deb`, `.rpm` 패키지 제공.
 
-최신 릴리스: [**v4.0.0**](https://github.com/maobukeai/catstep-md/releases).
+---
 
-### macOS — universal dmg (Apple Silicon + Intel, 서명 + notarize)
+## 🔒 개인정보 보호 및 보안
 
-```bash
-brew install --cask maobukeai/catstep-md/solomd
-```
+1. **완전한 로컬 저장**: 모든 노트 파일은 사용자가 지정한 로컬 디렉터리에만 저장되며 외부 서버로 전송되지 않습니다.
+2. **운영체제 수준 키체인 보안**: API 키는 시스템 보안 키체인(Windows Credential Manager / macOS Keychain / Linux Secret Service)에 안전하게 암호화 보관됩니다.
+3. **직접 통신**: AI 요청은 사용자 PC에서 모델 제공사로 직접 연결되며 중간 프록시를 거치지 않습니다.
+4. **투명한 오픈 소스**: 모든 소스 코드는 투명하게 공개되어 누구나 검증할 수 있습니다.
 
-또는 dmg 직접 다운로드:
+---
 
-```
-https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_universal.dmg
-```
-
-또는 한 줄 셸 설치:
+## 🛠️ 소스코드 빌드
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
-```
-
-### Windows — x64
-
-- [`SoloMD_4.0.0_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64_en-US.msi)
-- [`SoloMD_4.0.0_x64-setup.exe`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-setup.exe) (NSIS)
-- [`SoloMD_4.0.0_x64-portable.zip`](https://github.com/maobukeai/catstep-md/releases/download/SoloMD_4.0.0_x64-portable.zip) — 인스톨러 없음
-
-```powershell
-irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex
-```
-
-```powershell
-winget install solomd
-```
-
-### Linux — x86_64 + aarch64
-
-- `.AppImage` (유니버설), `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL) — 두 아키텍처를 [릴리스 페이지](https://github.com/maobukeai/catstep-md/releases)에서.
-- Arch 사용자: AUR의 [`solomd-bin`](https://aur.archlinux.org/packages/solomd-bin).
-
-### iPad
-
-[App Store](https://apps.apple.com/app/solomd/id6762498874) — 같은 엔진, 네이티브 iPad UI.
-
-## 개인 정보 & 보안
-
-순수 클라이언트 사이드. `.md` 파일은 본인이 고른 폴더에 남습니다. API 키는 OS 키체인(macOS Keychain / Windows Credential Manager / Linux libsecret)에 살며, `localStorage`나 설정 파일에는 절대 들어가지 않습니다. AI 요청은 본인 머신에서 선택한 Provider로 직접 — SoloMD 릴레이 없음. RAG 임베딩과 AutoGit 저장소는 로컬 전용. MCP 서버는 stdio로 말하며 네트워크 포트를 열지 않습니다. 코드베이스 전체는 MIT이고 감사 가능.
-
-**Agent 안전 가드 (v4.0).** 각 Recipe 실행은 자체 AutoGit 브랜치에서 시작 — diff에서 Accept를 클릭하기 전까지 `main`은 그대로. 실행당 write-cap (기본 5, 하드 상한 50)으로 폭주 루프 방지. Recipe 러너는 워킹 트리가 더러울 때 실행 거부 (agent 커밋이 당신의 WIP를 휩쓸지 않습니다). 경로 트래버설 가드는 `..` 세그먼트와 절대 경로를, 사용자 입력 경로를 받는 모든 Tauri / MCP / REST 엔드포인트에서 선제 거부.
-
-E2EE 동기화는 Argon2id (RFC9106 기본 매개변수) → XChaCha20-Poly1305, 결정론적 nonce, 경로를 AAD로 사용. 평문은 본인 기기에 남고 원격은 암호문만 봅니다. `sync.json` 파싱 실패는 fail-closed — 평문 강등보다 push 거부 (v3.0.x 감사 수정).
-
-자세한 내용: <https://solomd.app/ko/security/>.
-
-## 소스에서 빌드
-
-선행 조건: Rust (stable), Node 18+, pnpm.
-
-```bash
+# Clone repository
 git clone https://github.com/maobukeai/catstep-md.git
-cd solomd/app
+cd catstep-md/app
+
+# Install dependencies
 pnpm install
-pnpm tauri dev      # 핫 리로드 dev
-pnpm tauri build    # 릴리스 산출물 → src-tauri/target/release/bundle/
+
+# Run dev mode
+pnpm tauri dev
+
+# Build release bundle
+pnpm tauri build
 ```
 
-Linux는 키체인 백엔드용으로 `libdbus-1-dev`도 필요.
+---
 
-MCP 서버는 `mcp-server/`의 별도 crate; 엔드투엔드 테스트용 dev MCP harness는 `dev-mcp/`에. 엔드투엔드 테스트 진입점: `scripts/v4-self-test.sh` (`--with-release --with-ollama --with-ui`로 전체 커버리지).
+## 🤝 기여 및 커뮤니티
 
-## 기여
+- [GitHub Issues](https://github.com/maobukeai/catstep-md/issues)
+- [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions)
+- [docs/roadmap.md](docs/roadmap.md)
 
-Issue와 PR 환영 — [열어주세요](https://github.com/maobukeai/catstep-md/issues). 방향성은 [`docs/roadmap.md`](docs/roadmap.md) 참조. v4.0 빌드 로그는 [solomd.app/blog/v4-0-0-how-we-built-it/](https://solomd.app/blog/v4-0-0-how-we-built-it/)에 — PR을 보내기 전에 엔지니어링 원칙을 이해하고 싶다면 거기서.
+---
 
-## 문의
+## 📄 라이선스 및 감사의 글
 
-메인테이너 1명, 입구 2개. 비동기는 [GitHub Discussions](https://github.com/maobukeai/catstep-md/discussions). 실시간 채팅:
-
-- **Telegram (국제):** [@SOLOMDAPP](https://t.me/SOLOMDAPP) — 릴리스 공지 + 채팅
-- **WeChat (中文):** 친구 추가 스캔 — "SoloMD"라고 적어주세요
-
-## 라이선스 & 크레딧
-
-[MIT](LICENSE) © 2026 maobukeai. SoloMD는 Tauri 2, Vue 3, CodeMirror 6, markdown-it, KaTeX, Mermaid, libgit2, Pandoc, Hunspell, `keyring-rs`, `rmcp` 위에 서 있습니다. [GitHub Sponsors](https://github.com/maobukeai/catstep-md) 또는 [solomd.app/#sponsor](https://github.com/maobukeai/catstep-md)에서 후원하세요.
+[MIT License](LICENSE) © 2026 maobukeai.

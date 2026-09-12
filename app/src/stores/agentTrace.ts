@@ -18,7 +18,8 @@
  * No persistence. The trace is on disk; reloading the app re-reads it.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '../lib/platform';
+import { safeInvoke } from '../lib/tauri-bridge';
 
 /** One parsed line from `trace.jsonl`. Mirrors `crate::trace::TraceLine`. */
 export interface TraceLine {
@@ -81,6 +82,7 @@ export const useAgentTraceStore = defineStore('agentTrace', {
     },
 
     async loadTrace(workspace: string, runId: string, force = false): Promise<TraceLine[]> {
+      if (!isTauri()) return [];
       const key = this.cacheKey(workspace, runId);
       const hit = this.cache[key];
       if (!force && hit && Date.now() - hit.fetched_at < STALE_MS) {
@@ -88,10 +90,10 @@ export const useAgentTraceStore = defineStore('agentTrace', {
       }
       this.loading[key] = true;
       try {
-        const lines = await invoke<TraceLine[]>('agent_trace_read', {
+        const lines = (await safeInvoke<TraceLine[]>('agent_trace_read', {
           workspace,
           runId,
-        });
+        }, [])) || [];
         this.cache[key] = { lines, fetched_at: Date.now() };
         this.error = null;
         return lines;
@@ -104,6 +106,7 @@ export const useAgentTraceStore = defineStore('agentTrace', {
     },
 
     async loadRuns(workspace: string, force = false): Promise<RunSummary[]> {
+      if (!isTauri()) return [];
       const key = `runs::${workspace}`;
       const hit = this.runs[workspace];
       if (!force && hit && hit.length > 0) {
@@ -114,7 +117,7 @@ export const useAgentTraceStore = defineStore('agentTrace', {
       }
       this.loading[key] = true;
       try {
-        const list = await invoke<RunSummary[]>('agent_trace_list', { workspace });
+        const list = (await safeInvoke<RunSummary[]>('agent_trace_list', { workspace }, [])) || [];
         this.runs[workspace] = list;
         this.error = null;
         return list;
@@ -132,11 +135,12 @@ export const useAgentTraceStore = defineStore('agentTrace', {
      * responsible for re-issuing the model call (P1's `ai_chat`).
      */
     async replayFrom(workspace: string, runId: string, seq: number): Promise<string> {
-      const newRunId = await invoke<string>('agent_trace_replay_from', {
+      if (!isTauri()) return '';
+      const newRunId = (await safeInvoke<string>('agent_trace_replay_from', {
         workspace,
         runId,
         seq,
-      });
+      }, '')) || '';
       // Force-refresh the recent runs list so the new entry shows up.
       await this.loadRuns(workspace, true);
       return newRunId;

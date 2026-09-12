@@ -15,6 +15,7 @@
 import { defineStore } from 'pinia';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { isTauri } from '../lib/platform';
 
 export interface WikilinkRef {
   target: string;
@@ -134,7 +135,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
       this.ready = false;
       this.entries = [];
       this.tags = [];
-      if (!folder) return;
+      if (!folder || !isTauri()) return;
       try {
         await invoke<number>('workspace_index_init', { folder });
         await this.refresh();
@@ -151,6 +152,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     },
 
     async refresh(): Promise<void> {
+      if (!isTauri()) return;
       try {
         const [files, tags] = await Promise.all([
           invoke<IndexEntry[]>('workspace_index_files'),
@@ -164,6 +166,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     },
 
     async resolve(name: string): Promise<string | null> {
+      if (!isTauri()) return null;
       try {
         return await invoke<string | null>('workspace_index_resolve', { name });
       } catch {
@@ -172,6 +175,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     },
 
     async backlinksFor(target: string): Promise<BacklinkRef[]> {
+      if (!isTauri()) return [];
       try {
         return await invoke<BacklinkRef[]>('workspace_index_backlinks', { target });
       } catch {
@@ -186,6 +190,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
      * wikilink target stem (e.g. the active doc's filename stem).
      */
     async referencedBy(target: string): Promise<ReferencedByRef[]> {
+      if (!isTauri()) return [];
       try {
         return await invoke<ReferencedByRef[]>('workspace_index_referenced_by', { target });
       } catch {
@@ -194,6 +199,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     },
 
     async rescan(): Promise<void> {
+      if (!isTauri()) return;
       try {
         await invoke('workspace_index_rescan');
         await this.refresh();

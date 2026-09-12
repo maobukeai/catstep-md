@@ -5927,7 +5927,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 /* Floating Quote Tooltip */
 .agent-panel__quote-tooltip {
   position: fixed;
-  z-index: 99999;
+  z-index: var(--z-drawer);
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -6029,7 +6029,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 /* --- Hierarchical Cascading Flyout Menu (Desktop Native Style matching user screenshot) --- */
 .catstep-cascade-wrap {
   position: relative;
-  z-index: 99999;
+  z-index: var(--z-drawer);
 }
 
 .catstep-cascade-menu {

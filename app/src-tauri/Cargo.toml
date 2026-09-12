@@ -1,6 +1,6 @@
 [package]
 name = "catstep-md"
-version = "1.0.0"
+version = "1.0.1"
 description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
 authors = ["maobukeai"]
 edition = "2021"

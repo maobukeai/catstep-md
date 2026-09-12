@@ -132,7 +132,7 @@ export function attachCodeCopyButtons(
 
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'code-copy-button';
+    button.className = 'code-copy-button code-tooltip';
     button.textContent = label;
     button.title = label;
     button.setAttribute('aria-label', label);
