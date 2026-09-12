@@ -1584,8 +1584,8 @@ input[type='checkbox']:focus-visible {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ai-settings__profile-card.is-active {
-  border-color: var(--accent, #6366f1);
-  box-shadow: 0 0 0 1px var(--accent, #6366f1);
+  border-color: color-mix(in srgb, var(--accent, #6366f1) 35%, var(--border));
+  box-shadow: none;
 }
 .ai-settings__profile-header {
   display: flex;
