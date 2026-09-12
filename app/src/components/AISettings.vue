@@ -1034,9 +1034,7 @@ watch(
     <div class="ai-settings__card-info">
       <div class="ai-settings__title-line">
         <span class="ai-settings__heading ai-settings__heading--sub">{{ t('ai.rewriteHeading') }}</span>
-        <span class="ai-settings__kbd-badge">
-          <kbd class="ai-settings__kbd">{{ isMac ? '⌘' : 'Ctrl' }}</kbd> + <kbd class="ai-settings__kbd">J</kbd>
-        </span>
+        <kbd class="ai-settings__kbd-badge">{{ isMac ? '⌘J' : 'Ctrl+J' }}</kbd>
       </div>
       <p class="ai-settings__desc">{{ t('ai.rewriteDesc') }}</p>
     </div>
@@ -1300,16 +1298,26 @@ input[type='checkbox']:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  line-height: 1.4;
 }
-.ai-settings__title-line .ai-settings__label {
-  font-weight: 600;
-  min-width: unset;
+.ai-settings__title-line .ai-settings__heading {
+  margin: 0;
+  line-height: 1.4;
 }
 .ai-settings__kbd-badge {
+  font-size: 10.5px;
+  font-family: var(--font-mono, monospace);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  line-height: 1.4;
+  font-weight: 500;
+  user-select: none;
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  vertical-align: middle;
 }
 .ai-settings__label {
   min-width: 110px;
