@@ -7,7 +7,7 @@
       "author": "SoloMD Official",
       "description": "经典报刊人文宋体与暖灰微纸感底色，排版舒展沉静，专为散文随笔与长篇深度写作打造。",
       "url": "/themes/newsprint.css",
-      "preview": "/themes/preview/sepia.png",
+      "preview": "/themes/preview/newsprint.svg",
       "tags": [
         "official",
         "light",
@@ -23,7 +23,7 @@
       "author": "SoloMD Official",
       "description": "风靡全球的高级柔和马卡龙暖浅色调，温润护眼、低饱和舒适，极具现代设计质感。",
       "url": "/themes/catppuccin-latte.css",
-      "preview": "/themes/preview/warm-sand.png",
+      "preview": "/themes/preview/catppuccin-latte.svg",
       "tags": [
         "official",
         "light",
@@ -39,7 +39,7 @@
       "author": "SoloMD Official",
       "description": "复刻经典熊掌记 (Bear) 与 Kindle 护眼羊皮纸质感，暖调柔纸配暖茶色墨水，久读不累。",
       "url": "/themes/sepia.css",
-      "preview": "/themes/preview/sepia.png",
+      "preview": "/themes/preview/sepia.svg",
       "tags": [
         "official",
         "light",
@@ -55,7 +55,7 @@
       "author": "SoloMD Official",
       "description": "源自 VitePress 官方文档美学，纯净高雅白底搭配清新明澈的翡翠翠绿，科技与清爽兼备。",
       "url": "/themes/vue.css",
-      "preview": "/themes/preview/nord-light.png",
+      "preview": "/themes/preview/vue.svg",
       "tags": [
         "official",
         "light",
@@ -71,7 +71,7 @@
       "author": "SoloMD Official",
       "description": "现代顶流极客暗黑风，幽邃深空底色融入柔和薰衣草与天青蓝，代码高亮与正文视觉极其舒适。",
       "url": "/themes/catppuccin-mocha.css",
-      "preview": "/themes/preview/amber-dark.png",
+      "preview": "/themes/preview/catppuccin-mocha.svg",
       "tags": [
         "official",
         "dark",
@@ -87,7 +87,7 @@
       "author": "SoloMD Official",
       "description": "深邃松林墨绿暗夜底色，配以青竹绿与暖金点缀，如深夜踏入静谧竹林般的沉浸专注。",
       "url": "/themes/forest.css",
-      "preview": "/themes/preview/deep-green.png",
+      "preview": "/themes/preview/forest.svg",
       "tags": [
         "official",
         "dark",
@@ -103,7 +103,7 @@
       "author": "SoloMD Official",
       "description": "全球开发者最钟爱的吸血鬼暗夜主题，霓虹紫/粉/青高对比语法撞色，张扬且耐看。",
       "url": "/themes/dracula.css",
-      "preview": "/themes/preview/deep-purple.png",
+      "preview": "/themes/preview/dracula.svg",
       "tags": [
         "official",
         "dark",
@@ -119,7 +119,7 @@
       "author": "SoloMD Official",
       "description": "基于经典北欧 Nord 冰川极夜冷调，安静均衡护眼，冷灰蓝底色搭配冰晶蓝与天青高亮。",
       "url": "/themes/frost-blue.css",
-      "preview": "/themes/preview/frost-blue.png",
+      "preview": "/themes/preview/frost-blue.svg",
       "tags": [
         "official",
         "dark",
@@ -135,7 +135,7 @@
       "author": "SoloMD Official",
       "description": "极致真正纯黑 (#000000) 底色，OLED 屏幕极致省电，夜间无光纯粹专注。",
       "url": "/themes/pure-black-oled.css",
-      "preview": "/themes/preview/pure-black-oled.png",
+      "preview": "/themes/preview/pure-black-oled.svg",
       "tags": [
         "dark",
         "oled",

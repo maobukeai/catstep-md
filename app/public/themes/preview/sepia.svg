@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" width="480" height="270" style="background:#f4ecd8;">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="480" height="270" fill="#f4ecd8" />
+
+  <!-- Window Header Bar -->
+  <rect width="480" height="34" fill="#faf3e0" />
+  <line x1="0" y1="34" x2="480" y2="34" stroke="#d6c8a4" stroke-width="1" />
+
+  <!-- Window Control Dots -->
+  <circle cx="20" cy="17" r="4.5" fill="#ff5f56" />
+  <circle cx="36" cy="17" r="4.5" fill="#ffbd2e" />
+  <circle cx="52" cy="17" r="4.5" fill="#27c93f" />
+
+  <!-- Tab Title in Header -->
+  <rect x="180" y="8" width="120" height="20" rx="4" fill="#f4ecd8" stroke="#d6c8a4" stroke-width="0.8" />
+  <text x="240" y="22" fill="#8b725c" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="10" text-anchor="middle" font-weight="500">sepia.md</text>
+
+  <!-- Content Container -->
+  <g transform="translate(28, 48)">
+    <!-- Category Badge -->
+    <rect x="0" y="0" width="auto" height="18" rx="3" fill="#b85c38" opacity="0.16" />
+    <text x="8" y="13" fill="#b85c38" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="9.5" font-weight="600">羊皮纸 · 熊掌记经典</text>
+
+    <!-- Main Title (H1) -->
+    <text x="0" y="40" fill="#5b4636" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="18" font-weight="700">
+      <tspan fill="#b85c38" font-weight="800"># </tspan>羊皮纸笔记 · 沉浸书写
+    </text>
+
+    <!-- Blockquote Section -->
+    <g transform="translate(0, 52)">
+      <rect x="0" y="0" width="3" height="30" fill="#b85c38" rx="1.5" />
+      <text x="12" y="14" fill="#8b725c" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="11" font-style="italic">
+        泛黄牛皮纸与暖赭红点缀，重拾纸笔阅读的安宁。
+      </text>
+      <text x="12" y="28" fill="#8b725c" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="10" opacity="0.75">
+        Bear 质感复刻 · 暖茶墨水纸张
+      </text>
+    </g>
+
+    <!-- Code Block Box -->
+    <g transform="translate(0, 96)">
+      <rect x="0" y="0" width="424" height="42" rx="5" fill="#faf3e0" stroke="#d6c8a4" stroke-width="1" />
+      <text x="12" y="16" fill="#b85c38" font-family=""Fira Code", "JetBrains Mono", Consolas, monospace" font-size="9" font-weight="600" opacity="0.8">journal.md</text>
+      <text x="12" y="31" fill="#5b4636" font-family=""Fira Code", "JetBrains Mono", Consolas, monospace" font-size="10.5"># 今日灵感：专注长文阅读，久看不累。</text>
+    </g>
+
+    <!-- Bottom Palette Bar -->
+    <g transform="translate(0, 154)">
+      <text x="0" y="18" fill="#8b725c" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="9.5" opacity="0.8">色彩基调</text>
+      
+        <circle cx="70" cy="15" r="7.5" fill="#f4ecd8" stroke="#d6c8a4" stroke-width="1.2" />
+      
+        <circle cx="92" cy="15" r="7.5" fill="#faf3e0" stroke="#d6c8a4" stroke-width="1.2" />
+      
+        <circle cx="114" cy="15" r="7.5" fill="#5b4636" stroke="#d6c8a4" stroke-width="1.2" />
+      
+        <circle cx="136" cy="15" r="7.5" fill="#b85c38" stroke="#d6c8a4" stroke-width="1.2" />
+      
+        <circle cx="158" cy="15" r="7.5" fill="#d6c8a4" stroke="#d6c8a4" stroke-width="1.2" />
+      
+        <circle cx="180" cy="15" r="7.5" fill="#a13d2d" stroke="#d6c8a4" stroke-width="1.2" />
+      
+
+      <text x="424" y="18" fill="#b85c38" font-family="-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif" font-size="10" text-anchor="end" font-weight="600">温润羊皮纸 (Bear 护眼)</text>
+    </g>
+  </g>
+</svg>
