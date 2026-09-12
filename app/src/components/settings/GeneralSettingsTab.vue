@@ -2,7 +2,6 @@
 import { ref, computed, onMounted } from 'vue';
 import { useSettingsStore } from '../../stores/settings';
 import { useThemesStore } from '../../stores/themes';
-import { useTabsStore } from '../../stores/tabs';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { themeLabels, allThemeLabels, isValidTheme } from '../../lib/themes';
@@ -16,10 +15,17 @@ import type { Theme } from '../../types';
 const { t } = useI18n();
 const settings = useSettingsStore();
 const themesStore = useThemesStore();
-const tabs = useTabsStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
+
+const bgOpacitySliderRef = ref<InstanceType<typeof SettingSlider>>();
+const bgBlurSliderRef = ref<InstanceType<typeof SettingSlider>>();
+const fontSizeSliderRef = ref<InstanceType<typeof SettingSlider>>();
+const lineHeightSliderRef = ref<InstanceType<typeof SettingSlider>>();
+const uiFontSizeSliderRef = ref<InstanceType<typeof SettingSlider>>();
+const paragraphSpacingSliderRef = ref<InstanceType<typeof SettingSlider>>();
+const globalZoomSliderRef = ref<InstanceType<typeof SettingSlider>>();
 
 const themeMarketplaceOpen = ref(false);
 function openThemeMarketplace() {
@@ -171,11 +177,6 @@ function onCustomFontInput(v: string) {
 const fontFamilySelectValue = computed(() =>
   inCustomMode.value ? '__custom__' : settings.fontFamily
 );
-
-function onToggleOutlineGlobal() {
-  settings.toggleOutline();
-  tabs.setShowOutlineAll(settings.showOutline);
-}
 
 onMounted(() => {
   void themesStore.refreshInstalled();
@@ -408,7 +409,13 @@ onMounted(() => {
         </div>
 
         <!-- Row: Wallpaper Opacity -->
-        <div v-if="settings.bgType === 'image'" class="setting-row">
+        <div
+          v-if="settings.bgType === 'image'"
+          class="setting-row"
+          tabindex="0"
+          @mouseenter="bgOpacitySliderRef?.activate()"
+          @keydown.enter.prevent="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
+        >
           <div class="setting-row__info">
             <label class="setting-row__title">{{ isZh ? '壁纸透明度' : 'Wallpaper Opacity' }}</label>
             <p class="setting-row__hint">{{ isZh ? '调整壁纸不透明度，与背景底色自然融合' : 'Adjust wallpaper opacity blending into background' }}</p>
@@ -416,6 +423,7 @@ onMounted(() => {
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
               <SettingSlider
+                ref="bgOpacitySliderRef"
                 :model-value="settings.bgOpacity"
                 :min="0"
                 :max="100"
@@ -428,7 +436,7 @@ onMounted(() => {
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.bgOpacity !== 25 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (25%)' : 'Click or press Enter on slider to reset (25%)'"
-                @click="settings.setBgOpacity(25)"
+                @click="bgOpacitySliderRef?.resetToDefault(); settings.setBgOpacity(25)"
               >
                 {{ settings.bgOpacity }}%
               </span>
@@ -437,7 +445,13 @@ onMounted(() => {
         </div>
 
         <!-- Row: Background Blur -->
-        <div v-if="settings.bgType === 'image'" class="setting-row">
+        <div
+          v-if="settings.bgType === 'image'"
+          class="setting-row"
+          tabindex="0"
+          @mouseenter="bgBlurSliderRef?.activate()"
+          @keydown.enter.prevent="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
+        >
           <div class="setting-row__info">
             <label class="setting-row__title">{{ isZh ? '背景模糊度' : 'Background Blur' }}</label>
             <p class="setting-row__hint">{{ isZh ? '高斯模糊柔化壁纸细节，降低视觉干扰' : 'Gaussian blur to soften background details' }}</p>
@@ -445,6 +459,7 @@ onMounted(() => {
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
               <SettingSlider
+                ref="bgBlurSliderRef"
                 :model-value="settings.bgBlur"
                 :min="0"
                 :max="30"
@@ -457,7 +472,7 @@ onMounted(() => {
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.bgBlur !== 0 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (0px)' : 'Click or press Enter on slider to reset (0px)'"
-                @click="settings.setBgBlur(0)"
+                @click="bgBlurSliderRef?.resetToDefault(); settings.setBgBlur(0)"
               >
                 {{ settings.bgBlur }}px
               </span>
@@ -516,20 +531,26 @@ onMounted(() => {
         <!-- Typography Metrics 2x2 Grid -->
         <div class="settings-typography-grid">
           <!-- Cell 1: Editor Font Size -->
-          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setFontSize(14)">
+          <div
+            class="settings-typo-cell"
+            tabindex="0"
+            @mouseenter="fontSizeSliderRef?.activate()"
+            @keydown.enter.prevent="fontSizeSliderRef?.resetToDefault(); settings.setFontSize(14)"
+          >
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '编辑器字号' : t('settings.fontSize') }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.fontSize !== 14 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (14px)' : 'Click or press Enter on slider to reset (14px)'"
-                @click="settings.setFontSize(14)"
+                @click="fontSizeSliderRef?.resetToDefault(); settings.setFontSize(14)"
               >
                 {{ settings.fontSize }}px
               </span>
             </div>
             <div class="settings-typo-cell__slider">
               <SettingSlider
+                ref="fontSizeSliderRef"
                 :model-value="settings.fontSize"
                 :min="10"
                 :max="28"
@@ -542,20 +563,26 @@ onMounted(() => {
           </div>
 
           <!-- Cell 2: Line Height -->
-          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setLineHeight(1.75)">
+          <div
+            class="settings-typo-cell"
+            tabindex="0"
+            @mouseenter="lineHeightSliderRef?.activate()"
+            @keydown.enter.prevent="lineHeightSliderRef?.resetToDefault(); settings.setLineHeight(1.75)"
+          >
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '正文行高' : 'Line Height' }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.lineHeight !== 1.75 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (1.75)' : 'Click or press Enter on slider to reset (1.75)'"
-                @click="settings.setLineHeight(1.75)"
+                @click="lineHeightSliderRef?.resetToDefault(); settings.setLineHeight(1.75)"
               >
                 {{ settings.lineHeight }}
               </span>
             </div>
             <div class="settings-typo-cell__slider">
               <SettingSlider
+                ref="lineHeightSliderRef"
                 :model-value="settings.lineHeight"
                 :min="1.3"
                 :max="2.4"
@@ -567,20 +594,26 @@ onMounted(() => {
           </div>
 
           <!-- Cell 3: UI Font Size -->
-          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setUiFontSize(13)">
+          <div
+            class="settings-typo-cell"
+            tabindex="0"
+            @mouseenter="uiFontSizeSliderRef?.activate()"
+            @keydown.enter.prevent="uiFontSizeSliderRef?.resetToDefault(); settings.setUiFontSize(13)"
+          >
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '界面字号' : t('settings.uiFontSize') }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.uiFontSize !== 13 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (13px)' : 'Click or press Enter on slider to reset (13px)'"
-                @click="settings.setUiFontSize(13)"
+                @click="uiFontSizeSliderRef?.resetToDefault(); settings.setUiFontSize(13)"
               >
                 {{ settings.uiFontSize }}px
               </span>
             </div>
             <div class="settings-typo-cell__slider">
               <SettingSlider
+                ref="uiFontSizeSliderRef"
                 :model-value="settings.uiFontSize"
                 :min="10"
                 :max="20"
@@ -593,20 +626,26 @@ onMounted(() => {
           </div>
 
           <!-- Cell 4: Paragraph Spacing -->
-          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setParagraphSpacing(1.0)">
+          <div
+            class="settings-typo-cell"
+            tabindex="0"
+            @mouseenter="paragraphSpacingSliderRef?.activate()"
+            @keydown.enter.prevent="paragraphSpacingSliderRef?.resetToDefault(); settings.setParagraphSpacing(1.0)"
+          >
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</span>
               <span
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.paragraphSpacing !== 1.0 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (1.0em)' : 'Click or press Enter on slider to reset (1.0em)'"
-                @click="settings.setParagraphSpacing(1.0)"
+                @click="paragraphSpacingSliderRef?.resetToDefault(); settings.setParagraphSpacing(1.0)"
               >
                 {{ settings.paragraphSpacing }}em
               </span>
             </div>
             <div class="settings-typo-cell__slider">
               <SettingSlider
+                ref="paragraphSpacingSliderRef"
                 :model-value="settings.paragraphSpacing"
                 :min="0.4"
                 :max="2.0"
@@ -620,7 +659,12 @@ onMounted(() => {
         </div>
 
         <!-- Row 3: Global Zoom + Wheel Zoom -->
-        <div class="setting-row" tabindex="0" @keydown.enter.prevent="settings.resetZoom()">
+        <div
+          class="setting-row"
+          tabindex="0"
+          @mouseenter="globalZoomSliderRef?.activate()"
+          @keydown.enter.prevent="globalZoomSliderRef?.resetToDefault(); settings.resetZoom()"
+        >
           <div class="setting-row__info">
             <div class="setting-theme-title-line">
               <label class="setting-row__title">{{ t('settings.globalZoom') }}</label>
@@ -643,6 +687,7 @@ onMounted(() => {
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
               <SettingSlider
+                ref="globalZoomSliderRef"
                 :model-value="settings.globalZoom || 1"
                 :min="0.75"
                 :max="2.5"
@@ -655,14 +700,14 @@ onMounted(() => {
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': (settings.globalZoom || 1) !== 1 }"
                 :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (100%)' : 'Click or press Enter on slider to reset (100%)'"
-                @click="settings.resetZoom()"
+                @click="globalZoomSliderRef?.resetToDefault(); settings.resetZoom()"
               >
                 {{ Math.round((settings.globalZoom || 1) * 100) }}%
               </span>
               <button
                 type="button"
                 class="link-button"
-                @click="settings.resetZoom()"
+                @click="globalZoomSliderRef?.resetToDefault(); settings.resetZoom()"
               >
                 {{ t('settings.globalZoomReset') }}
               </button>
@@ -687,330 +732,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Group 3: 编辑器习惯 -->
-    <div class="settings-group">
-      <div class="settings-group__title">{{ t('settings.groupEditorHabits') }}</div>
-      <div class="settings-group__card">
-        <!-- Row: Word wrap -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.wordWrap') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.wordWrap" @change="settings.toggleWordWrap()" />
-          </div>
-        </label>
-
-        <!-- Row: Line numbers -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.lineNumbers') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.showLineNumbers" @change="settings.toggleLineNumbers()" />
-          </div>
-        </label>
-
-        <!-- Row: Solid cursor -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.solidCursor') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.solidCursor" @change="settings.toggleSolidCursor()" />
-          </div>
-        </label>
-
-        <!-- Row: Live preview -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.livePreview') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.livePreview" @change="settings.toggleLivePreview()" />
-          </div>
-        </label>
-
-        <!-- Row: Limit editor width (Desktop only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.limitEditorWidth') || '限制编辑器宽度' }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.limitEditorWidth" @change="settings.toggleLimitEditorWidth()" />
-          </div>
-        </label>
-
-        <!-- Row: Code block line numbers -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.codeBlockLineNumbers') }}</span>
-            <p class="setting-row__hint">{{ t('settings.codeBlockLineNumbersHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.codeBlockLineNumbers"
-              @change="settings.toggleCodeBlockLineNumbers()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Folding -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.folding') }}</span>
-            <p class="setting-row__hint">{{ t('settings.foldingHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.foldingEnabled"
-              @change="settings.toggleFolding()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Code block wrap -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.codeBlockWrap') }}</span>
-            <p class="setting-row__hint">{{ t('settings.codeBlockWrapHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.codeBlockWrap"
-              @change="settings.toggleCodeBlockWrap()"
-            />
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <!-- Group 4: 大纲与侧边栏 -->
-    <div class="settings-group">
-      <div class="settings-group__title">{{ t('settings.groupOutlineSidebars') }}</div>
-      <div class="settings-group__card">
-        <!-- Row: Show outline (Desktop dock only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.showOutline') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.showOutline" @change="onToggleOutlineGlobal()" />
-          </div>
-        </label>
-
-        <!-- Row: Outline side (Desktop dock only) -->
-        <div v-if="!isNarrow" class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.outlineSide') }}</label>
-          </div>
-          <div class="setting-row__control">
-            <select
-              :value="settings.outlineSide"
-              @change="settings.setOutlineSide(($event.target as HTMLSelectElement).value as 'left' | 'right')"
-            >
-              <option value="left">{{ t('settings.outlineSideLeft') }}</option>
-              <option value="right">{{ t('settings.outlineSideRight') }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Row: Outline marker -->
-        <div class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.outlineMarker') }}</label>
-          </div>
-          <div class="setting-row__control">
-            <select
-              :value="settings.outlineMarker"
-              @change="settings.setOutlineMarker(($event.target as HTMLSelectElement).value as 'jump' | 'number' | 'none')"
-            >
-              <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
-              <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
-              <option v-if="!isNarrow" value="jump">{{ t('settings.outlineMarkerJump') }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Row: Explorer full names -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.explorerFullNames') }}</span>
-            <p class="setting-row__hint">{{ t('settings.explorerFullNamesHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.explorerFullNames"
-              @change="settings.toggleExplorerFullNames()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Show file tree (Desktop sidebar only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.showFileTree') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.showFileTree" @change="settings.toggleFileTree()" />
-          </div>
-        </label>
-
-        <!-- Row: Show backlinks (Desktop sidebar only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.showBacklinks') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.showBacklinks" @change="settings.toggleBacklinks()" />
-          </div>
-        </label>
-
-        <!-- Row: Show tags panel (Desktop sidebar only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.showTagsPanel') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.showTagsPanel" @change="settings.toggleTagsPanel()" />
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <!-- Group 5: 页面排版与预览 -->
-    <div class="settings-group">
-      <div class="settings-group__title">{{ t('settings.groupPreviewMarkdown') }}</div>
-      <div class="settings-group__card">
-        <!-- Row: Preview fit width (Desktop only) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.previewFitWidth') }}</span>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.previewFitWidth" @change="settings.togglePreviewFitWidth()" />
-          </div>
-        </label>
-
-        <!-- Row: Preview max width (Desktop only) -->
-        <div v-if="!isNarrow" class="setting-row">
-          <div class="setting-row__info">
-            <label class="setting-row__title">{{ t('settings.previewMaxWidth') }}</label>
-            <p class="setting-row__hint">{{ t('settings.previewMaxWidthHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <div class="setting-slider-ctrl">
-              <SettingSlider
-                :model-value="settings.previewMaxWidth"
-                :min="480"
-                :max="1600"
-                :step="20"
-                :default-value="760"
-                unit="px"
-                :disabled="settings.previewFitWidth"
-                @update:model-value="settings.setPreviewMaxWidth"
-              />
-              <span
-                class="setting-val-badge"
-                :class="{ 'setting-val-badge--modified': settings.previewMaxWidth !== 760 }"
-                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (760px)' : 'Click or press Enter on slider to reset (760px)'"
-                @click="settings.setPreviewMaxWidth(760)"
-              >
-                {{ settings.previewMaxWidth }}px
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row: Markdown hard breaks -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.markdownHardBreaks') }}</span>
-            <p class="setting-row__hint">{{ t('settings.markdownHardBreaksHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.markdownHardBreaks"
-              @change="settings.toggleMarkdownHardBreaks()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Smart quotes -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.smartQuotes') }}</span>
-            <p class="setting-row__hint">{{ t('settings.smartQuotesHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.smartQuotes"
-              @change="settings.toggleSmartQuotes()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Heading auto numbering -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.markdownAutoNumberHeadings') }}</span>
-            <p class="setting-row__hint">{{ t('settings.markdownAutoNumberHeadingsHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.markdownAutoNumberHeadings"
-              @change="settings.toggleMarkdownAutoNumberHeadings()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: PlantUML (Desktop only) -->
-        <div v-if="!isNarrow" class="setting-row setting-row--stack-mobile">
-          <div class="setting-row__info">
-            <label class="setting-row__title-wrap">
-              <span class="setting-row__title">{{ t('settings.plantuml') }}</span>
-              <input
-                type="checkbox"
-                :checked="settings.plantumlEnabled"
-                @change="settings.togglePlantuml()"
-              />
-            </label>
-            <p class="setting-row__hint">{{ t('settings.plantumlHint') }}</p>
-            <input
-              v-if="settings.plantumlEnabled"
-              type="text"
-              :value="settings.plantumlServer"
-              :placeholder="'https://www.plantuml.com/plantuml'"
-              spellcheck="false"
-              style="margin-top: 8px; width: 100%; max-width: 100%;"
-              @change="settings.setPlantumlServer(($event.target as HTMLInputElement).value)"
-            />
-          </div>
-        </div>
-
-        <!-- Row: Reading default on mobile -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('reading.readingByDefaultOnMobile') }}</span>
-            <p class="setting-row__hint">{{ t('reading.readingByDefaultOnMobileHint') }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.readingByDefaultOnMobile"
-              @change="settings.toggleReadingByDefaultOnMobile()"
-            />
-          </div>
-        </label>
-      </div>
-    </div>
 
     <!-- Theme Marketplace Modal -->
     <ThemeMarketplace

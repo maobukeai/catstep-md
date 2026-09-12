@@ -105,10 +105,12 @@ export function useEditorFormula(options: UseEditorFormulaOptions) {
       if (topPx < 35 || topPx > window.innerHeight - 35) {
         inPlaceFormulaState.value = { visible: false, top: 0, left: 0, latex: '', display: false, from: 0, to: 0 };
       } else {
+        const barWidth = Math.min(460, window.innerWidth - 24);
+        const maxLeft = Math.max(12, window.innerWidth - barWidth - 12);
         inPlaceFormulaState.value = {
           visible: true,
           top: topPx + 28,
-          left: Math.max(12, Math.min(window.innerWidth - 460, elRect.left + 24)),
+          left: Math.max(12, Math.min(maxLeft, elRect.left + 24)),
           latex: mathSpan.body,
           display: mathSpan.display,
           from: mathSpan.from,

@@ -25,7 +25,9 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const style = computed(() => {
-  const clampedLeft = Math.max(12, Math.min(window.innerWidth - 460, props.left));
+  const barWidth = Math.min(460, window.innerWidth - 24);
+  const maxLeft = Math.max(12, window.innerWidth - barWidth - 12);
+  const clampedLeft = Math.max(12, Math.min(maxLeft, props.left));
   const clampedTop = Math.max(8, props.top);
   return {
     top: `${clampedTop}px`,

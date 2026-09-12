@@ -3,24 +3,34 @@ import { ref, computed } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { useSettingsStore } from '../../stores/settings';
+import { useTabsStore } from '../../stores/tabs';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { useViewport } from '../../composables/useViewport';
 import { isMacOS, isMobile } from '../../lib/platform';
 import { shortcutLabel } from '../../lib/keybindings';
 import { formatTauriChord } from '../../lib/shortcut-recorder';
+import SettingSlider from './SettingSlider.vue';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
+const tabs = useTabsStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 const macChord = isMacOS();
 const isPhoneOrTablet = isMobile();
-const isZh = computed(() => settings.language === 'zh');
+const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
 function withChord(key: string, actionId: string): string {
   return t(key, { key: shortcutLabel(actionId, settings.keybindings, macChord) || '—' });
 }
+
+function onToggleOutlineGlobal() {
+  settings.toggleOutline();
+  tabs.setShowOutlineAll(settings.showOutline);
+}
+
+const previewMaxWidthSliderRef = ref<InstanceType<typeof SettingSlider>>();
 
 const spellDicts = ref<string[]>(['en_US']);
 
@@ -47,7 +57,378 @@ void refreshSpellDicts();
 
 <template>
   <div class="settings-tab-pane">
-    <!-- Group 1: 写作统计与编辑习惯 -->
+    <!-- Group 1: 编辑器习惯 -->
+    <div class="settings-group">
+      <div class="settings-group__title">{{ t('settings.groupEditorHabits') }}</div>
+      <div class="settings-group__card">
+        <!-- Row: Word wrap -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.wordWrap') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '文本自动折行显示，防止水平滚动条' : 'Wrap long lines to fit editor width' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.wordWrap" @change="settings.toggleWordWrap()" />
+          </div>
+        </label>
+
+        <!-- Row: Line numbers -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.lineNumbers') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '在编辑器左侧显示行号栏' : 'Show line numbers on the left margin' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.showLineNumbers" @change="settings.toggleLineNumbers()" />
+          </div>
+        </label>
+
+        <!-- Row: Solid cursor -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.solidCursor') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '光标常亮静止不闪烁，减少视觉干扰' : 'Non-blinking steady cursor' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.solidCursor" @change="settings.toggleSolidCursor()" />
+          </div>
+        </label>
+
+        <!-- Row: Live preview -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.livePreview') }}</span>
+            <p class="setting-row__hint">{{ isZh ? 'Typora 风格实时就地渲染，光标所在处展开语法' : 'Typora-style inline live preview' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.livePreview" @change="settings.toggleLivePreview()" />
+          </div>
+        </label>
+
+        <!-- Row: Limit editor width (Desktop only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.limitEditorWidth') || '居中限制编辑器最大宽度' }}</span>
+            <p class="setting-row__hint">{{ isZh ? '宽屏显示器下保持舒适的人体工程学阅读行长' : 'Keep comfortable reading line length on wide screens' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.limitEditorWidth" @change="settings.toggleLimitEditorWidth()" />
+          </div>
+        </label>
+
+        <!-- Row: Code block line numbers -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.codeBlockLineNumbers') }}</span>
+            <p class="setting-row__hint">{{ t('settings.codeBlockLineNumbersHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.codeBlockLineNumbers"
+              @change="settings.toggleCodeBlockLineNumbers()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Folding -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.folding') }}</span>
+            <p class="setting-row__hint">{{ t('settings.foldingHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.foldingEnabled"
+              @change="settings.toggleFolding()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Code block wrap -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.codeBlockWrap') }}</span>
+            <p class="setting-row__hint">{{ t('settings.codeBlockWrapHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.codeBlockWrap"
+              @change="settings.toggleCodeBlockWrap()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Vim 模式 (桌面端专享) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.vimMode') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '启用 CodeMirror 原生 Vim 键盘编辑模式与快捷键' : 'Enable Vim keybindings for CodeMirror editor' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.vimMode" @change="settings.toggleVimMode()" />
+          </div>
+        </label>
+
+        <!-- Row: 斜杠命令 -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.slashCommandsEnabled') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '在新行开头输入 / 快速唤出格式与组件插入菜单' : 'Type / at the start of a line to insert blocks' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.slashCommandsEnabled"
+              @change="settings.toggleSlashCommandsEnabled()"
+            />
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Group 2: 页面排版与渲染 -->
+    <div class="settings-group">
+      <div class="settings-group__title">{{ t('settings.groupPreviewMarkdown') }}</div>
+      <div class="settings-group__card">
+        <!-- Row: Markdown hard breaks -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.markdownHardBreaks') }}</span>
+            <p class="setting-row__hint">{{ t('settings.markdownHardBreaksHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.markdownHardBreaks"
+              @change="settings.toggleMarkdownHardBreaks()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Smart quotes -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.smartQuotes') }}</span>
+            <p class="setting-row__hint">{{ t('settings.smartQuotesHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.smartQuotes"
+              @change="settings.toggleSmartQuotes()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Heading auto numbering -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.markdownAutoNumberHeadings') }}</span>
+            <p class="setting-row__hint">{{ t('settings.markdownAutoNumberHeadingsHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.markdownAutoNumberHeadings"
+              @change="settings.toggleMarkdownAutoNumberHeadings()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Preview fit width (Desktop only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.previewFitWidth') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '预览区域铺满窗口，忽略最大宽度限制' : 'Fit preview area to window width' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.previewFitWidth" @change="settings.togglePreviewFitWidth()" />
+          </div>
+        </label>
+
+        <!-- Row: Preview max width (Desktop only) -->
+        <div
+          v-if="!isNarrow"
+          class="setting-row"
+          tabindex="0"
+          @mouseenter="previewMaxWidthSliderRef?.activate()"
+          @keydown.enter.prevent="previewMaxWidthSliderRef?.resetToDefault(); settings.setPreviewMaxWidth(760)"
+        >
+          <div class="setting-row__info">
+            <label class="setting-row__title">{{ t('settings.previewMaxWidth') }}</label>
+            <p class="setting-row__hint">{{ t('settings.previewMaxWidthHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <div class="setting-slider-ctrl">
+              <SettingSlider
+                ref="previewMaxWidthSliderRef"
+                :model-value="settings.previewMaxWidth"
+                :min="480"
+                :max="1600"
+                :step="20"
+                :default-value="760"
+                unit="px"
+                :disabled="settings.previewFitWidth"
+                @update:model-value="settings.setPreviewMaxWidth"
+              />
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.previewMaxWidth !== 760 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (760px)' : 'Click or press Enter on slider to reset (760px)'"
+                @click="previewMaxWidthSliderRef?.resetToDefault(); settings.setPreviewMaxWidth(760)"
+              >
+                {{ settings.previewMaxWidth }}px
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row: PlantUML (Desktop only) -->
+        <div v-if="!isNarrow" class="setting-row setting-row--stack-mobile">
+          <div class="setting-row__info">
+            <label class="setting-row__title-wrap">
+              <span class="setting-row__title">{{ t('settings.plantuml') }}</span>
+              <input
+                type="checkbox"
+                :checked="settings.plantumlEnabled"
+                @change="settings.togglePlantuml()"
+              />
+            </label>
+            <p class="setting-row__hint">{{ t('settings.plantumlHint') }}</p>
+            <input
+              v-if="settings.plantumlEnabled"
+              type="text"
+              :value="settings.plantumlServer"
+              :placeholder="'https://www.plantuml.com/plantuml'"
+              spellcheck="false"
+              class="setting-text-input setting-text-input--mono"
+              style="margin-top: 8px; width: 100%; max-width: 100%;"
+              @change="settings.setPlantumlServer(($event.target as HTMLInputElement).value)"
+            />
+          </div>
+        </div>
+
+        <!-- Row: Reading default on mobile -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('reading.readingByDefaultOnMobile') }}</span>
+            <p class="setting-row__hint">{{ t('reading.readingByDefaultOnMobileHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.readingByDefaultOnMobile"
+              @change="settings.toggleReadingByDefaultOnMobile()"
+            />
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Group 3: 大纲与侧边导航 -->
+    <div class="settings-group">
+      <div class="settings-group__title">{{ t('settings.groupOutlineSidebars') }}</div>
+      <div class="settings-group__card">
+        <!-- Row: Show outline (Desktop dock only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.showOutline') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '在编辑区侧边默认浮现目录大纲导航' : 'Show outline panel by default' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.showOutline" @change="onToggleOutlineGlobal()" />
+          </div>
+        </label>
+
+        <!-- Row: Outline side (Desktop dock only) -->
+        <div v-if="!isNarrow" class="setting-row">
+          <div class="setting-row__info">
+            <label class="setting-row__title">{{ t('settings.outlineSide') }}</label>
+            <p class="setting-row__hint">{{ isZh ? '控制大纲停靠在编辑区左侧或右侧' : 'Position outline on left or right' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <select
+              :value="settings.outlineSide"
+              @change="settings.setOutlineSide(($event.target as HTMLSelectElement).value as 'left' | 'right')"
+            >
+              <option value="left">{{ t('settings.outlineSideLeft') }}</option>
+              <option value="right">{{ t('settings.outlineSideRight') }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Outline marker -->
+        <div class="setting-row">
+          <div class="setting-row__info">
+            <label class="setting-row__title">{{ t('settings.outlineMarker') }}</label>
+            <p class="setting-row__hint">{{ isZh ? '大纲各级标题前的前缀标识风格' : 'Prefix style for heading items in outline' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <select
+              :value="settings.outlineMarker"
+              @change="settings.setOutlineMarker(($event.target as HTMLSelectElement).value as 'jump' | 'number' | 'none')"
+            >
+              <option value="none">{{ t('settings.outlineMarkerNone') }}</option>
+              <option value="number">{{ t('settings.outlineMarkerNumber') }}</option>
+              <option v-if="!isNarrow" value="jump">{{ t('settings.outlineMarkerJump') }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row: Explorer full names -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.explorerFullNames') }}</span>
+            <p class="setting-row__hint">{{ t('settings.explorerFullNamesHint') }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.explorerFullNames"
+              @change="settings.toggleExplorerFullNames()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: Show file tree (Desktop sidebar only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.showFileTree') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '侧边栏显示文件目录树导航' : 'Show file explorer in sidebar' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.showFileTree" @change="settings.toggleFileTree()" />
+          </div>
+        </label>
+
+        <!-- Row: Show backlinks (Desktop sidebar only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.showBacklinks') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '侧边栏显示当前笔记的双向反向链接' : 'Show bidirectional backlinks in sidebar' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.showBacklinks" @change="settings.toggleBacklinks()" />
+          </div>
+        </label>
+
+        <!-- Row: Show tags panel (Desktop sidebar only) -->
+        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.showTagsPanel') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '侧边栏显示工作区全部标签面板' : 'Show workspace tags explorer in sidebar' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input type="checkbox" :checked="settings.showTagsPanel" @change="settings.toggleTagsPanel()" />
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Group 4: 写作统计与专注 -->
     <div class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupWritingStats') }}</div>
       <div class="settings-group__card">
@@ -93,38 +474,6 @@ void refreshSpellDicts();
           </div>
         </label>
 
-        <!-- Row: 斜杠命令 -->
-        <label class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.slashCommandsEnabled') }}</span>
-            <p class="setting-row__hint">{{ isZh ? '在新行开头输入 / 快速唤出格式与组件插入菜单' : 'Type / at the start of a line to insert blocks' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input
-              type="checkbox"
-              :checked="settings.slashCommandsEnabled"
-              @change="settings.toggleSlashCommandsEnabled()"
-            />
-          </div>
-        </label>
-
-        <!-- Row: Vim 模式 (桌面端专享) -->
-        <label v-if="!isNarrow" class="setting-row setting-row--clickable">
-          <div class="setting-row__info">
-            <span class="setting-row__title">{{ t('settings.vimMode') }}</span>
-            <p class="setting-row__hint">{{ isZh ? '启用 CodeMirror 原生 Vim 键盘编辑模式与快捷键' : 'Enable Vim keybindings for CodeMirror editor' }}</p>
-          </div>
-          <div class="setting-row__control">
-            <input type="checkbox" :checked="settings.vimMode" @change="settings.toggleVimMode()" />
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <!-- Group 2: 番茄钟专注工作法 -->
-    <div class="settings-group">
-      <div class="settings-group__title">{{ t('pomodoro.settingsHeading') }}</div>
-      <div class="settings-group__card">
         <!-- Row: 显示状态栏番茄钟 -->
         <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">
@@ -193,7 +542,7 @@ void refreshSpellDicts();
       </div>
     </div>
 
-    <!-- Group 3: 拼写检查与词典 -->
+    <!-- Group 5: 拼写检查与词典 -->
     <div class="settings-group">
       <div class="settings-group__title">{{ isZh ? '拼写检查与词典' : 'Spellcheck & Dictionaries' }}</div>
       <div class="settings-group__card">
@@ -242,7 +591,7 @@ void refreshSpellDicts();
       </div>
     </div>
 
-    <!-- Group 4: 附件存储策略 -->
+    <!-- Group 6: 资源与附件策略 -->
     <div class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupAttachments') }}</div>
       <div class="settings-group__card">
@@ -297,13 +646,7 @@ void refreshSpellDicts();
             />
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Group 5: 图片上传与图床服务 -->
-    <div class="settings-group">
-      <div class="settings-group__title">{{ t('settings.groupImageUpload') }}</div>
-      <div class="settings-group__card">
         <!-- Row: 图床服务商 -->
         <div class="setting-row">
           <div class="setting-row__info">
@@ -524,13 +867,7 @@ void refreshSpellDicts();
             </div>
           </template>
         </template>
-      </div>
-    </div>
 
-    <!-- Group 6: 待整理箱与快速收集 -->
-    <div class="settings-group">
-      <div class="settings-group__title">{{ isZh ? '待整理箱与快速收集' : 'Inbox & Quick Capture' }}</div>
-      <div class="settings-group__card">
         <!-- Row: 待整理箱开关 -->
         <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">

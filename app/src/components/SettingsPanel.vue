@@ -280,6 +280,30 @@ const searchableCatalog: SearchableItem[] = [
     keywords: ['打字机', 'typewriter', '居中', '光标'],
   },
   {
+    id: 'wordWrap',
+    category: 'writing',
+    categoryName: '编辑与排版',
+    title: '自动换行与行号',
+    desc: '配置长行自动折行、行号栏与实心静止光标风格',
+    keywords: ['自动换行', '换行', 'word wrap', '行号', '光标'],
+  },
+  {
+    id: 'livePreview',
+    category: 'writing',
+    categoryName: '编辑与排版',
+    title: '实时渲染与 Markdown 排版',
+    desc: '所见即所得实时就地渲染、单次回车换行、智能引号与自动编号',
+    keywords: ['实时预览', '所见即所得', '回车换行', '智能引号', '自动编号', 'plantuml'],
+  },
+  {
+    id: 'outline',
+    category: 'writing',
+    categoryName: '编辑与排版',
+    title: '大纲目录与侧边导航',
+    desc: '控制大纲目录停靠位置、前缀序号标记与侧边栏辅助面板',
+    keywords: ['大纲', 'outline', '目录', '侧边栏', '反向链接', '标签'],
+  },
+  {
     id: 'lineNumbers',
     category: 'writing',
     categoryName: '编辑与排版',
@@ -569,7 +593,12 @@ onBeforeUnmount(() => {
           <!-- Instant Search Box -->
           <div class="settings-mobile-search">
             <div class="settings-mobile-search__inner">
-              <span class="settings-mobile-search__icon">🔍</span>
+              <span class="settings-mobile-search__icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </span>
               <input
                 ref="searchInputRef"
                 v-model="searchQuery"
@@ -596,7 +625,6 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-if="!searchResults.length" class="settings-mobile-search-results__empty">
-              <span class="text-2xl mb-1">🤔</span>
               <p>{{ isZh ? '未找到相关设置项' : 'No matching settings found' }}</p>
               <span class="text-xs text-[var(--text-muted)]">
                 {{ isZh ? '尝试搜索其他关键词，如“主题”、“字号”、“云同步”' : 'Try searching for other keywords' }}

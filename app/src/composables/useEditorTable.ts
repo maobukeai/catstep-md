@@ -150,10 +150,12 @@ export function useEditorTable(options: {
         inPlaceTableState.value.visible = false;
       } else {
         const toolbarTop = topPx - 42 > 45 ? topPx - 42 : topPx + 28;
+        const toolbarWidth = Math.min(440, window.innerWidth - 24);
+        const maxLeft = Math.max(12, window.innerWidth - toolbarWidth - 12);
         inPlaceTableState.value = {
           visible: true,
           top: toolbarTop,
-          left: Math.max(12, Math.min(window.innerWidth - 440, elRect.left + 24)),
+          left: Math.max(12, Math.min(maxLeft, elRect.left + 24)),
           align: tableInfo.model.aligns[tableInfo.caretCol] ?? null,
           canDeleteRow: tableInfo.rowIndex >= 0,
           canDeleteCol: tableInfo.model.header.length > 1,

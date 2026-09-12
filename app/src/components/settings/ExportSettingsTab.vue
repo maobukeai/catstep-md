@@ -10,6 +10,7 @@ const { t } = useI18n();
 const settings = useSettingsStore();
 const { isNarrow } = useViewport();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
+const pdfFontSizeSliderRef = ref<InstanceType<typeof SettingSlider>>();
 
 const fontFamilies = [
   // Monospace — for code-heavy editing
@@ -236,7 +237,12 @@ function onSelectPdfFont(v: string) {
         </div>
 
         <!-- 默认字号 -->
-        <div class="setting-row">
+        <div
+          class="setting-row"
+          tabindex="0"
+          @mouseenter="pdfFontSizeSliderRef?.activate()"
+          @keydown.enter.prevent="pdfFontSizeSliderRef?.resetToDefault(); settings.setPdfDefaults({ fontSize: 11 })"
+        >
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.pdfDefaults.fontSize') }}</label>
             <span class="setting-row__desc">
@@ -246,6 +252,7 @@ function onSelectPdfFont(v: string) {
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
               <SettingSlider
+                ref="pdfFontSizeSliderRef"
                 :model-value="settings.pdfDefaults.fontSize"
                 :min="9"
                 :max="16"
@@ -258,7 +265,7 @@ function onSelectPdfFont(v: string) {
                 class="setting-val-badge"
                 :class="{ 'setting-val-badge--modified': settings.pdfDefaults.fontSize !== 11 }"
                 :title="isZh ? '点击恢复默认 (11pt)' : 'Click to reset (11pt)'"
-                @click="settings.setPdfDefaults({ fontSize: 11 })"
+                @click="pdfFontSizeSliderRef?.resetToDefault(); settings.setPdfDefaults({ fontSize: 11 })"
               >
                 {{ settings.pdfDefaults.fontSize }}pt
               </span>

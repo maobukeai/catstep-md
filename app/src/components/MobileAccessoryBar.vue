@@ -377,6 +377,48 @@ onBeforeUnmount(() => {
         </svg>
       </button>
 
+      <!-- 插入表格 (Table) -->
+      <button
+        type="button"
+        class="accessory-btn accessory-btn--table"
+        @mousedown.prevent
+        @click="applyFormat('table')"
+        title="插入表格"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="3" y1="15" x2="21" y2="15" />
+          <line x1="9" y1="3" x2="9" y2="21" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+      </button>
+
+      <!-- 插入数学公式 (Math) -->
+      <button
+        type="button"
+        class="accessory-btn accessory-btn--math"
+        @mousedown.prevent
+        @click="applyFormat('mathBlock')"
+        title="插入数学公式 ($$)"
+      >
+        <span class="glyph-math">∑</span>
+      </button>
+
+      <!-- 高亮 (Highlight) -->
+      <button
+        type="button"
+        class="accessory-btn accessory-btn--highlight"
+        @mousedown.prevent
+        @click="applyFormat('highlight')"
+        title="高亮文本 (==)"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 11-6 6v3h3l6-6" />
+          <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
+        </svg>
+      </button>
+
       <!-- 缩进 / Tab -->
       <button
         type="button"
@@ -655,6 +697,25 @@ onBeforeUnmount(() => {
 
 .accessory-btn--code {
   color: #ea580c;
+}
+
+.accessory-btn--table {
+  color: var(--accent, #3b82f6);
+}
+
+.accessory-btn--math {
+  color: #8b5cf6;
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.glyph-math {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.accessory-btn--highlight {
+  color: #eab308;
 }
 
 /* Cursor navigation pill */

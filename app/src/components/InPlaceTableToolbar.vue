@@ -40,8 +40,10 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const style = computed(() => {
-  // Clamp within viewport
-  const clampedLeft = Math.max(12, Math.min(window.innerWidth - 440, props.left));
+  // Clamp within viewport safely even on narrow mobile screens
+  const toolbarWidth = Math.min(440, window.innerWidth - 24);
+  const maxLeft = Math.max(12, window.innerWidth - toolbarWidth - 12);
+  const clampedLeft = Math.max(12, Math.min(maxLeft, props.left));
   const clampedTop = Math.max(8, props.top);
   return {
     top: `${clampedTop}px`,
@@ -268,6 +270,18 @@ const style = computed(() => {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   animation: fadeIn 0.12s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 640px) {
+  .inplace-tbl-toolbar {
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .inplace-tbl-toolbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes fadeIn {

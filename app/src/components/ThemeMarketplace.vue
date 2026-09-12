@@ -166,10 +166,11 @@ const filteredInstalledThemes = computed(() => {
   let list = themes.installed.map((inst) => {
     const builtin = themes.manifest?.themes?.find((t) => t.id === inst.id);
     const typora = themes.typoraManifest?.themes?.find((t) => t.id === inst.id);
+    const isDarkHint = inst.id.toLowerCase().includes('dark') || inst.id.toLowerCase().includes('night');
     return {
       id: inst.id,
       name: builtin?.name || typora?.name || inst.name || inst.id,
-      author: builtin?.author || typora?.author || (inst.id.startsWith('custom-') ? 'GitHub' : 'User'),
+      author: builtin?.author || typora?.author || inst.author || (inst.id.startsWith('custom-') || inst.id.startsWith('gh-') ? 'GitHub' : 'User'),
       description:
         builtin?.description ||
         typora?.description ||
@@ -179,7 +180,7 @@ const filteredInstalledThemes = computed(() => {
       path: inst.path,
       isTypora: typora !== undefined,
       repo: typora?.repo,
-      tone: typora?.tone || (builtin?.tags?.includes('dark') ? 'dark' : 'light'),
+      tone: (typora?.tone || (builtin?.tags?.includes('dark') || isDarkHint ? 'dark' : 'light')) as 'light' | 'dark',
     };
   });
 
@@ -1287,7 +1288,7 @@ function getDisplayTags(tags?: string[]): string[] {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1200;
+  z-index: 2100;
   padding: 20px;
 }
 
@@ -1861,9 +1862,9 @@ function getDisplayTags(tags?: string[]): string[] {
 }
 
 .tm__action-btn--primary {
-  background: var(--accent);
-  color: #ffffff;
-  border-color: var(--accent);
+  background: var(--accent, #0366d6);
+  color: var(--accent-fg, #ffffff);
+  border-color: var(--accent, #0366d6);
 }
 
 .tm__action-btn--primary:hover:not(:disabled) {

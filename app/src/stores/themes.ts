@@ -63,6 +63,7 @@ export interface InstalledTheme {
   id: string;
   name?: string;
   path: string;
+  author?: string;
 }
 
 export interface GitHubRepoSummary {
@@ -357,6 +358,8 @@ export const useThemesStore = defineStore('themes', {
           id: theme.id,
           urls: candidateUrls,
           fallbackCss: fallbackCss || null,
+          themeName: theme.name || null,
+          author: theme.author || null,
         });
 
         await this.refreshInstalled();
@@ -413,6 +416,8 @@ export const useThemesStore = defineStore('themes', {
           id: discovered.id,
           urls: discovered.download_urls,
           fallbackCss: null,
+          themeName: discovered.name || null,
+          author: null,
         });
         await this.refreshInstalled();
         return result.path;

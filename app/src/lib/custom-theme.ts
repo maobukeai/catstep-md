@@ -12,6 +12,8 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { useToastsStore } from '../stores/toasts';
+import { useSettingsStore } from '../stores/settings';
+import { isValidTheme } from './themes';
 import { useI18n } from '../i18n';
 
 export const STYLE_THEME_ID = 'catstep-active-theme';
@@ -19,7 +21,118 @@ export const STYLE_USER_ID = 'catstep-user-css';
 // Legacy style id fallback for backward compatibility
 const LEGACY_STYLE_ID = 'solomd-custom-theme';
 
-const TARGET_CONTAINERS = ':is(#write, .preview-content, .cm-editor, .reading-view, .catstep-writing-canvas)';
+// Document surface containers (excluding .cm-editor so #write's max-width/margins don't deform the editor)
+const DOC_SURFACES = ':is(#write, .preview-content, .reading-view, .catstep-writing-canvas, .solomd-print-content)';
+const SCOPED_CONTAINER = `:root[data-theme] ${DOC_SURFACES}`;
+
+export function parseColorToLuminance(colorStr: string): number | null {
+  if (!colorStr) return null;
+  const s = colorStr.trim().toLowerCase();
+
+  // Hex color (#rgb, #rgba, #rrggbb, #rrggbbaa)
+  if (s.startsWith('#')) {
+    let hex = s.replace('#', '').trim();
+    if (hex.length >= 6) {
+      hex = hex.slice(0, 6);
+    } else if (hex.length === 3 || hex.length === 4) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    } else {
+      return null;
+    }
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  }
+
+  // rgb/rgba
+  const rgbMatch = s.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  }
+
+  // hsl/hsla
+  const hslMatch = s.match(/hsla?\s*\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*([\d.]+)%/);
+  if (hslMatch) {
+    const l = parseFloat(hslMatch[1]);
+    return (l / 100) * 255;
+  }
+
+  // Common keywords
+  if (['white', '#fff', '#ffffff', 'snow', 'ivory', 'ghostwhite', 'whitesmoke'].includes(s)) return 255;
+  if (['black', '#000', '#000000'].includes(s)) return 0;
+
+  return null;
+}
+
+export interface ThemeToneInfo {
+  isDark: boolean;
+  bgColor?: string;
+  textColor?: string;
+  hasBgVar: boolean;
+  hasTextVar: boolean;
+}
+
+export function detectThemeToneAndColors(rawCss: string): ThemeToneInfo {
+  if (!rawCss) return { isDark: false, hasBgVar: false, hasTextVar: false };
+
+  let bgColor: string | undefined;
+  let textColor: string | undefined;
+  let hasBgVar = false;
+  let hasTextVar = false;
+
+  const bgVarMatch = rawCss.match(/--(?:bg-color|background-color|bg|background)\s*:\s*([^;!}\n]+)/i);
+  if (bgVarMatch) {
+    bgColor = bgVarMatch[1].trim();
+    hasBgVar = true;
+  }
+
+  const textVarMatch = rawCss.match(/--(?:text-color|color|text)\s*:\s*([^;!}\n]+)/i);
+  if (textVarMatch) {
+    textColor = textVarMatch[1].trim();
+    hasTextVar = true;
+  }
+
+  if (!bgColor) {
+    const bodyBgMatch = rawCss.match(/(?:html|body|#write)\s*\{[^}]*background(?:-color)?\s*:\s*([^;!}\n]+)/i);
+    if (bodyBgMatch) {
+      bgColor = bodyBgMatch[1].trim();
+    }
+  }
+
+  if (!textColor) {
+    const bodyTextMatch = rawCss.match(/(?:html|body|#write)\s*\{[^}]*(?:^|[^-])color\s*:\s*([^;!}\n]+)/i);
+    if (bodyTextMatch) {
+      textColor = bodyTextMatch[1].trim();
+    }
+  }
+
+  let isDark = false;
+  const lum = bgColor ? parseColorToLuminance(bgColor) : null;
+  if (lum !== null) {
+    isDark = lum < 128;
+  } else {
+    const lower = rawCss.toLowerCase();
+    isDark = lower.includes('color-scheme: dark') ||
+             lower.includes('--bg-color: #1') ||
+             lower.includes('--bg-color: #2') ||
+             lower.includes('--bg-color: #0');
+  }
+
+  return { isDark, bgColor, textColor, hasBgVar, hasTextVar };
+}
+
+/**
+ * Patch known relative imports in legacy/existing local theme files to avoid 404s.
+ */
+function patchRelativeImports(css: string): string {
+  return css
+    .replace(/@import\s+['"](?:\.\/)?vue\/fonts\.css['"];?/gi, "@import 'https://cdn.jsdelivr.net/gh/blinkfox/typora-vue-theme@master/vue/fonts.css';")
+    .replace(/@import\s+url\((['"]?)(?:\.\/)?drake\/font\.css\1\);?/gi, "@import url('https://cdn.jsdelivr.net/gh/liangjingkanji/DrakeTyporaTheme@master/drake/font.css');");
+}
 
 /**
  * Scope Typora & user-provided CSS rules so they only target document surfaces
@@ -28,15 +141,25 @@ const TARGET_CONTAINERS = ':is(#write, .preview-content, .cm-editor, .reading-vi
 export function scopeTyporaCss(rawCss: string): string {
   if (!rawCss || !rawCss.trim()) return '';
 
-  // Extract comments to avoid splitting on commas inside comments and
+  const patchedCss = patchRelativeImports(rawCss);
+  const toneInfo = detectThemeToneAndColors(patchedCss);
+
+  // Extract comments safely in O(N) to avoid splitting on commas inside comments and
   // to avoid leading comments breaking selector detection
   const comments: string[] = [];
-  const noComments = rawCss.replace(/\/\*[\s\S]*?\*\//g, (m) => {
+  const noComments = patchedCss.replace(/\/\*[\s\S]*?\*\//g, (m) => {
     comments.push(m);
     return `/*__CSS_COMMENT_${comments.length - 1}__*/`;
   });
 
-  const scoped = noComments.replace(
+  // Extract all @import statements cleanly in O(N) without catastrophic regex backtracking
+  const importStatements: string[] = [];
+  const withoutImports = noComments.replace(/@import\s+[^;]+;\s*/gi, (m) => {
+    importStatements.push(m.trim());
+    return '';
+  });
+
+  const scoped = withoutImports.replace(
     /(^|})(?:([^{}@]+)\{)/g,
     (fullMatch, prevClose, rawSelector) => {
       // Extract any leading comment placeholders
@@ -73,28 +196,20 @@ export function scopeTyporaCss(rawCss: string): string {
             s.startsWith(':root:') ||
             s.startsWith('[data-theme')
           ) {
-            if (
-              s === ':root' ||
-              s === ':root[data-theme="light"]' ||
-              s === ':root[data-theme="dark"]' ||
-              s === ':root[data-theme]'
-            ) {
-              return `:root, :root[data-theme]${trailingComment}`;
-            }
-            return s + trailingComment;
+            return `:root, :root[data-theme]${trailingComment}`;
           }
 
           // Convert html / body to writing canvas containers
           if (s === 'html' || s === 'body' || s === 'html, body' || s === 'body, html') {
-            return TARGET_CONTAINERS + trailingComment;
+            return `${SCOPED_CONTAINER}${trailingComment}`;
           }
           if (s.startsWith('body ') || s.startsWith('html ')) {
-            return s.replace(/^(body|html)\s+/, `${TARGET_CONTAINERS} `) + trailingComment;
+            return s.replace(/^(body|html)\s+/, `${SCOPED_CONTAINER} `) + trailingComment;
           }
 
-          // Convert Typora signature #write to universal containers
+          // Convert Typora signature #write to universal writing canvas containers
           if (s.startsWith('#write')) {
-            return s.replace(/^#write\b/, TARGET_CONTAINERS) + trailingComment;
+            return s.replace(/^#write\b/, SCOPED_CONTAINER) + trailingComment;
           }
 
           // Already scoped to writing containers or internal panels
@@ -110,8 +225,8 @@ export function scopeTyporaCss(rawCss: string): string {
             return s + trailingComment;
           }
 
-          // Prefix generic/bare element or class selectors with the writing container
-          return `${TARGET_CONTAINERS} ${s}${trailingComment}`;
+          // Prefix generic/bare element or class selectors with writing container
+          return `${SCOPED_CONTAINER} ${s}${trailingComment}`;
         });
 
       const uniqueSelectors = Array.from(new Set(scopedSelectors.map((s: string) => s.trim()).filter(Boolean)));
@@ -119,8 +234,50 @@ export function scopeTyporaCss(rawCss: string): string {
     },
   );
 
-  // Restore comments
-  return scoped.replace(/\/\*__CSS_COMMENT_(\d+)__\*\//g, (_, idx) => comments[Number(idx)]);
+  const restored = scoped.replace(/\/\*__CSS_COMMENT_(\d+)__\*\//g, (_, idx) => comments[Number(idx)]);
+
+  // Synthesize root colors if missing from :root variables
+  let synthesizedVars = '';
+  if (!toneInfo.hasBgVar && toneInfo.bgColor) {
+    synthesizedVars += `  --bg-color: ${toneInfo.bgColor};\n`;
+  }
+  if (!toneInfo.hasTextVar && toneInfo.textColor) {
+    synthesizedVars += `  --text-color: ${toneInfo.textColor};\n`;
+  }
+
+  const rootVarsBlock = synthesizedVars.trim()
+    ? `:root, :root[data-theme] {\n${synthesizedVars}}\n`
+    : '';
+
+  const bridgeBlock = `
+/* === Catstep MD — Typora CSS Variable & Container Compatibility Bridge === */
+${rootVarsBlock}${DOC_SURFACES}, .preview-host, .cm-editor, .plain-editor {
+  --content-font-family: var(--font-sans-serif, inherit);
+  --content-font-monospace: var(--font-monospace, monospace);
+}
+.preview-host {
+  background: var(--bg-color, var(--bg)) !important;
+}
+.preview-content {
+  background-color: transparent !important;
+}
+.cm-editor {
+  background-color: var(--bg-color, var(--bg));
+  color: var(--text-color, var(--text));
+}
+.plain-editor {
+  background-color: var(--bg-color, var(--bg)) !important;
+  color: var(--text-color, var(--text)) !important;
+}
+${DOC_SURFACES} ::selection,
+.cm-editor .cm-selectionBackground,
+.cm-editor ::selection {
+  background-color: var(--select-text-bg-color, var(--selection-bg)) !important;
+}
+`;
+
+  const leadingImportsBlock = importStatements.length > 0 ? importStatements.join('\n') + '\n' : '';
+  return leadingImportsBlock + bridgeBlock + '\n' + restored;
 }
 
 const BODY_SELECTOR_RE = /(^|[,\s])body([\s:\[\]\.#>+~,]|$)/i;
@@ -161,6 +318,18 @@ export async function loadCustomTheme(path: string): Promise<boolean> {
     const scoped = scopeTyporaCss(result.content);
     applyStyleTag(STYLE_THEME_ID, scoped);
     warnIfFixedAttachment(result.content);
+
+    // Automatically synchronize the app shell tone (night vs github-light)
+    // based on the custom theme's actual background luminance
+    const toneInfo = detectThemeToneAndColors(result.content);
+    const settings = useSettingsStore();
+    if (!isValidTheme(settings.activeCustomThemeId)) {
+      const targetTheme = toneInfo.isDark ? 'night' : 'github-light';
+      if (settings.theme !== targetTheme) {
+        settings.setTheme(targetTheme);
+      }
+    }
+
     return true;
   } catch (e) {
     console.error('Failed to load custom theme:', e);
