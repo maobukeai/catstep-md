@@ -3442,7 +3442,7 @@ function onBubbleAction(action: 'bold' | 'italic' | 'underline' | 'strikethrough
   selectionBubbleState.value.visible = false;
 }
 
-function onBubbleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFix' | 'catstepDeAI') {
+function onBubbleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFix' | 'catstepDeAI' | 'custom') {
   if (!settings.aiEnabled) {
     toasts.info('请先在设置中启用 AI 助手并配置 API 密钥');
     window.dispatchEvent(
@@ -3468,7 +3468,7 @@ function onBubbleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstep
   if (text) {
     window.dispatchEvent(
       new CustomEvent('solomd:ai-rewrite-open', {
-        detail: { selection: text, from, to, actionId },
+        detail: { selection: text, from, to, actionId: actionId === 'custom' ? undefined : actionId },
       }),
     );
   }
