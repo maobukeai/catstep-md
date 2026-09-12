@@ -30,6 +30,17 @@ const toasts = useToastsStore();
 const { openPath } = useFiles();
 
 const folder = computed(() => workspace.currentFolder);
+const activeTab = ref<'recipes' | 'pending' | 'history'>('recipes');
+
+watch(
+  () => store.pendingRuns.length,
+  (len) => {
+    if (len > 0 && activeTab.value === 'recipes' && store.recipes.length === 0) {
+      activeTab.value = 'pending';
+    }
+  },
+  { immediate: true }
+);
 
 // ---------------------------------------------------------------------------
 // Lifecycle — refresh on mount + when the folder changes, subscribe to
@@ -387,8 +398,18 @@ async function installCookbookEntry(entry: CookbookEntry) {
 <template>
   <div class="recipes">
     <div class="recipes__header">
-      <h3>{{ t('recipes.heading') }}</h3>
-      <p class="recipes__intro">{{ t('recipes.intro') }}</p>
+      <div class="recipes__header-info">
+        <h3>{{ t('recipes.heading') }}</h3>
+        <p class="recipes__intro">{{ t('recipes.intro') }}</p>
+      </div>
+      <div class="recipes__header-actions">
+        <button class="recipes__btn" @click="openCookbook">
+          {{ t('cookbook.browse') }}
+        </button>
+        <button class="recipes__btn recipes__btnPrimary" @click="showWizard = true">
+          {{ t('recipes.btnNew') }}
+        </button>
+      </div>
     </div>
 
     <div v-if="!folder" class="recipes__empty">
@@ -396,136 +417,187 @@ async function installCookbookEntry(entry: CookbookEntry) {
     </div>
 
     <template v-else>
-      <!-- Pending runs -->
-      <section class="recipes__section">
-        <h4>{{ t('recipes.pendingHeading') }}</h4>
-        <p class="recipes__hint">{{ t('recipes.pendingHint') }}</p>
-        <div v-if="store.pendingRuns.length === 0" class="recipes__empty">
-          {{ t('recipes.pendingEmpty') }}
-        </div>
-        <div v-else class="recipes__list">
-          <div v-for="run in store.pendingRuns" :key="run.run_id" class="recipes__pending">
-            <div class="recipes__pendingHeader">
-              <div>
-                <strong>{{ run.recipe?.name || run.run_id }}</strong>
-                <span class="recipes__meta">
-                  · {{ run.recipe?.trigger || '—' }}
-                  · {{ fmtDate(run.started_at) }}
-                </span>
-              </div>
-              <div class="recipes__actions">
-                <button @click="toggleDiff(run)">{{ t('recipes.btnViewDiff') }}</button>
-                <button class="recipes__btnPrimary" @click="acceptRun(run)">
-                  {{ t('recipes.btnAccept') }}
-                </button>
-                <button @click="rejectRun(run)">{{ t('recipes.btnReject') }}</button>
-              </div>
-            </div>
-            <pre v-if="expandedDiff === run.run_id" class="recipes__diff">{{ diffByRun[run.run_id] || t('recipes.diffEmpty') }}</pre>
-          </div>
-        </div>
-      </section>
+      <!-- Pending review alert banner if on other tab -->
+      <div
+        v-if="store.pendingRuns.length > 0 && activeTab !== 'pending'"
+        class="recipes__alert-banner"
+        @click="activeTab = 'pending'"
+      >
+        <span class="recipes__alert-icon">⚡</span>
+        <span class="recipes__alert-text">
+          {{ store.pendingRuns.length }} 个自动化任务产物等待合并审核，已生成独立分支保护原笔记
+        </span>
+        <span class="recipes__alert-action">{{ t('recipes.btnAccept') }} / {{ t('recipes.btnReject') }} →</span>
+      </div>
 
-      <!-- Recipes list -->
-      <section class="recipes__section">
-        <div class="recipes__sectionHeader">
-          <h4>{{ t('recipes.list') }}</h4>
-          <div class="recipes__actions">
-            <button @click="openCookbook">{{ t('cookbook.browse') }}</button>
-            <button class="recipes__btnPrimary" @click="showWizard = true">
-              {{ t('recipes.btnNew') }}
-            </button>
+      <!-- Segmented Navigation Tabs -->
+      <div class="recipes__tabs-bar">
+        <div class="recipes__tabs">
+          <button
+            type="button"
+            class="recipes__tab"
+            :class="{ 'recipes__tab--active': activeTab === 'recipes' }"
+            @click="activeTab = 'recipes'"
+          >
+            {{ t('recipes.list') }}
+            <span class="recipes__tab-badge">{{ store.recipes.length }}</span>
+          </button>
+          <button
+            type="button"
+            class="recipes__tab"
+            :class="{
+              'recipes__tab--active': activeTab === 'pending',
+              'recipes__tab--has-alert': store.pendingRuns.length > 0,
+            }"
+            @click="activeTab = 'pending'"
+          >
+            {{ t('recipes.pendingHeading') }}
+            <span
+              class="recipes__tab-badge"
+              :class="{ 'recipes__tab-badge--pending': store.pendingRuns.length > 0 }"
+            >
+              {{ store.pendingRuns.length }}
+            </span>
+          </button>
+          <button
+            type="button"
+            class="recipes__tab"
+            :class="{ 'recipes__tab--active': activeTab === 'history' }"
+            @click="activeTab = 'history'"
+          >
+            {{ t('recipes.historyHeading') }}
+            <span class="recipes__tab-badge">{{ store.history.length }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Content Panel -->
+      <div class="recipes__panel">
+        <!-- 1. Recipes Tab -->
+        <div v-if="activeTab === 'recipes'" class="recipes__pane">
+          <div v-if="store.recipes.length === 0" class="recipes__empty-state">
+            <p class="recipes__empty-title">{{ t('recipes.listEmpty') }}</p>
+            <div class="recipes__empty-btns">
+              <button class="recipes__btn" @click="openCookbook">{{ t('cookbook.browse') }}</button>
+              <button class="recipes__btn recipes__btnPrimary" @click="showWizard = true">{{ t('recipes.btnNew') }}</button>
+            </div>
           </div>
-        </div>
-        <div v-if="store.recipes.length === 0" class="recipes__empty">
-          {{ t('recipes.listEmpty') }}
-        </div>
-        <table v-else class="recipes__table">
-          <thead>
-            <tr>
-              <th>{{ t('recipes.fieldName') }}</th>
-              <th>{{ t('recipes.fieldTrigger') }}</th>
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="r in store.recipes" :key="r.slug">
-              <td>
-                <div>
-                  <strong>{{ r.name }}</strong>
-                  <span v-if="r.allow_write" class="recipes__badge">{{ t('recipes.badgeAllowWrite') }}</span>
-                  <span class="recipes__badge">{{ t('recipes.badgeWriteCap', { n: r.write_cap }) }}</span>
-                </div>
-                <div class="recipes__metaSmall">
-                  <span v-if="r.last_run_status" :style="{ color: statusColor(r.last_run_status) }">
-                    {{ statusLabel(r.last_run_status) }}
+          <table v-else class="recipes__table">
+            <thead>
+              <tr>
+                <th>{{ t('recipes.fieldName') }}</th>
+                <th>{{ t('recipes.fieldTrigger') }}</th>
+                <th>{{ t('recipes.fieldProvider') }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in store.recipes" :key="r.slug">
+                <td>
+                  <div>
+                    <strong>{{ r.name }}</strong>
+                    <span v-if="r.allow_write" class="recipes__badge recipes__badge--write">{{ t('recipes.badgeAllowWrite') }}</span>
+                    <span class="recipes__badge">{{ t('recipes.badgeWriteCap', { n: r.write_cap }) }}</span>
+                  </div>
+                  <div class="recipes__metaSmall">
+                    <span v-if="r.last_run_status" :style="{ color: statusColor(r.last_run_status) }">
+                      ● {{ statusLabel(r.last_run_status) }}
+                    </span>
+                    <span v-else>—</span>
+                  </div>
+                </td>
+                <td>
+                  <div>{{ triggerLabel(r.trigger) }}</div>
+                  <div class="recipes__metaSmall">
+                    <code v-if="r.schedule">{{ r.schedule }}</code>
+                    <code v-else-if="r.match_glob">{{ r.match_glob }}</code>
+                    <code v-else-if="r.tag">#{{ r.tag }}</code>
+                  </div>
+                </td>
+                <td class="recipes__metaSmall">
+                  <span v-if="r.provider || r.model">
+                    {{ r.provider || '—' }}<span v-if="r.model"> · {{ r.model }}</span>
                   </span>
                   <span v-else>—</span>
-                </div>
-              </td>
-              <td>
-                <div>{{ triggerLabel(r.trigger) }}</div>
-                <div class="recipes__metaSmall">
-                  <code v-if="r.schedule">{{ r.schedule }}</code>
-                  <code v-else-if="r.match_glob">{{ r.match_glob }}</code>
-                  <code v-else-if="r.tag">#{{ r.tag }}</code>
-                </div>
-              </td>
-              <td class="recipes__metaSmall">
-                <span v-if="r.provider || r.model">
-                  {{ r.provider || '—' }}<span v-if="r.model"> · {{ r.model }}</span>
-                </span>
-              </td>
-              <td>
-                <div class="recipes__actions">
-                  <button :disabled="runningSlugs.has(r.slug)" @click="runNow(r)">
-                    {{ t('recipes.btnRunNow') }}
-                  </button>
-                  <button @click="openYamlEditor(r)">{{ t('recipes.btnEditYaml') }}</button>
-                  <button @click="openInTab(r)">↗</button>
-                  <button @click="deleteRecipe(r)">{{ t('recipes.btnDelete') }}</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- History -->
-      <section class="recipes__section">
-        <h4>{{ t('recipes.historyHeading') }}</h4>
-        <div v-if="store.history.length === 0" class="recipes__empty">
-          {{ t('recipes.historyEmpty') }}
+                </td>
+                <td>
+                  <div class="recipes__actions">
+                    <button class="recipes__btn recipes__btn--small" :disabled="runningSlugs.has(r.slug)" @click="runNow(r)">
+                      {{ t('recipes.btnRunNow') }}
+                    </button>
+                    <button class="recipes__btn recipes__btn--small" @click="openYamlEditor(r)">{{ t('recipes.btnEditYaml') }}</button>
+                    <button class="recipes__btn recipes__btn--small" :title="r.path" @click="openInTab(r)">↗</button>
+                    <button class="recipes__btn recipes__btn--small recipes__btn--danger" @click="deleteRecipe(r)">{{ t('recipes.btnDelete') }}</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div v-else class="recipes__list">
-          <div v-for="run in store.history" :key="run.run_id" class="recipes__historyItem">
-            <div class="recipes__historyHeader" @click="toggleHistory(run)">
-              <div>
-                <strong>{{ run.recipe?.name || run.kind }}</strong>
-                <span class="recipes__meta">· {{ fmtDate(run.started_at) }}</span>
+
+        <!-- 2. Pending Runs Tab -->
+        <div v-else-if="activeTab === 'pending'" class="recipes__pane">
+          <p class="recipes__hint">{{ t('recipes.pendingHint') }}</p>
+          <div v-if="store.pendingRuns.length === 0" class="recipes__empty-state">
+            <p class="recipes__empty-title">{{ t('recipes.pendingEmpty') }}</p>
+          </div>
+          <div v-else class="recipes__list">
+            <div v-for="run in store.pendingRuns" :key="run.run_id" class="recipes__pending">
+              <div class="recipes__pendingHeader">
+                <div>
+                  <strong>{{ run.recipe?.name || run.run_id }}</strong>
+                  <span class="recipes__meta">
+                    · {{ run.recipe?.trigger || '—' }}
+                    · {{ fmtDate(run.started_at) }}
+                  </span>
+                </div>
+                <div class="recipes__actions">
+                  <button class="recipes__btn recipes__btn--small" @click="toggleDiff(run)">{{ t('recipes.btnViewDiff') }}</button>
+                  <button class="recipes__btn recipes__btn--small recipes__btnPrimary" @click="acceptRun(run)">
+                    {{ t('recipes.btnAccept') }}
+                  </button>
+                  <button class="recipes__btn recipes__btn--small recipes__btn--danger" @click="rejectRun(run)">{{ t('recipes.btnReject') }}</button>
+                </div>
               </div>
-              <span :style="{ color: statusColor(run.status) }">
-                {{ statusLabel(run.status) }}
-              </span>
-            </div>
-            <div v-if="expandedHistory === run.run_id" class="recipes__historyBody">
-              <h5>{{ t('recipes.traceHeading') }}</h5>
-              <TraceView
-                v-if="folder"
-                :workspace="folder"
-                :run-id="run.run_id"
-                :live="run.status === 'running'"
-                @replay="onReplayFromStep(run.run_id, $event)"
-              />
-              <details class="recipes__transcriptDetails">
-                <summary>{{ t('recipes.transcriptHeading') }}</summary>
-                <pre class="recipes__pre">{{ runMdByRun[run.run_id] || '' }}</pre>
-              </details>
+              <pre v-if="expandedDiff === run.run_id" class="recipes__diff">{{ diffByRun[run.run_id] || t('recipes.diffEmpty') }}</pre>
             </div>
           </div>
         </div>
-      </section>
+
+        <!-- 3. History Tab -->
+        <div v-else-if="activeTab === 'history'" class="recipes__pane">
+          <div v-if="store.history.length === 0" class="recipes__empty-state">
+            <p class="recipes__empty-title">{{ t('recipes.historyEmpty') }}</p>
+          </div>
+          <div v-else class="recipes__list">
+            <div v-for="run in store.history" :key="run.run_id" class="recipes__historyItem">
+              <div class="recipes__historyHeader" @click="toggleHistory(run)">
+                <div>
+                  <strong>{{ run.recipe?.name || run.kind }}</strong>
+                  <span class="recipes__meta">· {{ fmtDate(run.started_at) }}</span>
+                </div>
+                <span class="recipes__status-tag" :style="{ color: statusColor(run.status) }">
+                  ● {{ statusLabel(run.status) }}
+                </span>
+              </div>
+              <div v-if="expandedHistory === run.run_id" class="recipes__historyBody">
+                <h5>{{ t('recipes.traceHeading') }}</h5>
+                <TraceView
+                  v-if="folder"
+                  :workspace="folder"
+                  :run-id="run.run_id"
+                  :live="run.status === 'running'"
+                  @replay="onReplayFromStep(run.run_id, $event)"
+                />
+                <details class="recipes__transcriptDetails">
+                  <summary>{{ t('recipes.transcriptHeading') }}</summary>
+                  <pre class="recipes__pre">{{ runMdByRun[run.run_id] || '' }}</pre>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
 
     <!-- Wizard modal -->
@@ -662,35 +734,168 @@ async function installCookbookEntry(entry: CookbookEntry) {
 .recipes {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
-.recipes__header h3 {
-  font-size: 14px;
+.recipes__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.recipes__header-info h3 {
+  font-size: 13px;
   font-weight: 600;
-  margin: 0 0 4px;
+  margin: 0 0 3px;
+  color: var(--text);
 }
 .recipes__intro {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 0;
+  line-height: 1.4;
+}
+.recipes__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.recipes__btn {
+  padding: 3px 9px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.recipes__btn:hover {
+  background: var(--bg-hover, var(--bg-elev));
+}
+.recipes__btn--small {
+  padding: 1px 7px;
+  font-size: 10px;
+  height: 20px;
+  line-height: 18px;
+  border-radius: 4px;
+}
+.recipes__btnPrimary {
+  background: var(--accent) !important;
+  color: var(--accent-text, #fff) !important;
+  border-color: var(--accent) !important;
+}
+.recipes__btn--danger {
+  color: #dc2626 !important;
+  border-color: rgba(220, 38, 38, 0.3) !important;
+}
+.recipes__btn--danger:hover {
+  background: rgba(220, 38, 38, 0.08) !important;
+}
+.recipes__tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+  padding-bottom: 4px;
+  margin-top: 2px;
+}
+.recipes__tabs {
+  display: inline-flex;
+  background: var(--bg-soft);
+  padding: 2px;
+  border-radius: 6px;
+  gap: 2px;
+}
+.recipes__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.recipes__tab:hover {
+  color: var(--text);
+}
+.recipes__tab--active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.recipes__tab--has-alert {
+  color: #d97700;
+}
+.recipes__tab-badge {
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--border-faint, rgba(128, 128, 128, 0.2));
+  color: var(--text-faint);
+  line-height: 14px;
+}
+.recipes__tab--active .recipes__tab-badge {
+  background: var(--bg-soft);
+  color: var(--text-muted);
+}
+.recipes__tab-badge--pending {
+  background: #d97700 !important;
+  color: #fff !important;
+}
+.recipes__panel {
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 10px 12px;
+  min-height: 70px;
+}
+.recipes__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 12px;
+  text-align: center;
+  gap: 8px;
+}
+.recipes__empty-title {
   font-size: 12px;
   color: var(--text-faint);
   margin: 0;
-  line-height: 1.5;
 }
-.recipes__section {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px;
-  background: var(--bg);
-}
-.recipes__sectionHeader {
+.recipes__empty-btns {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-top: 4px;
 }
-.recipes__section h4 {
-  margin: 0 0 8px;
-  font-size: 13px;
-  font-weight: 600;
+.recipes__alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(217, 119, 0, 0.1);
+  border: 1px solid rgba(217, 119, 0, 0.3);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #d97700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.recipes__alert-banner:hover {
+  background: rgba(217, 119, 0, 0.16);
+}
+.recipes__alert-action {
+  margin-left: auto;
+  font-weight: 500;
+  text-decoration: underline;
 }
 .recipes__hint {
   font-size: 11px;
@@ -706,14 +911,14 @@ async function installCookbookEntry(entry: CookbookEntry) {
 .recipes__list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 .recipes__pending,
 .recipes__historyItem {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px;
-  background: var(--bg-alt, var(--bg));
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.15));
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--bg-soft);
 }
 .recipes__pendingHeader,
 .recipes__historyHeader {
@@ -775,6 +980,20 @@ async function installCookbookEntry(entry: CookbookEntry) {
 }
 .recipes__metaSmall {
   margin-top: 2px;
+}
+.recipes__metaSmall code {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+}
+.recipes__cell-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.recipes__status-tag {
+  font-size: 11px;
+  font-weight: 500;
 }
 .recipes__metaSmall code {
   font-family: var(--font-mono, monospace);
