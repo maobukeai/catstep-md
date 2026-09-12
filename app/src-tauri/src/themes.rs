@@ -862,4 +862,11 @@ mod tests {
         assert_eq!(prettify_name("vue-dark"), "Vue Dark");
         assert_eq!(prettify_name("academic_latex"), "Academic Latex");
     }
+
+    #[tokio::test]
+    async fn test_sniff_phycat() {
+        let res = super::theme_sniff_github_repo("sumruler/typora-theme-phycat".to_string()).await;
+        println!("Result sniff phycat: {:?}", res);
+    }
 }
+

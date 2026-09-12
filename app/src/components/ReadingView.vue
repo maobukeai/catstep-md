@@ -267,4 +267,17 @@ onBeforeUnmount(() => {
   color: var(--text-faint);
   font-size: 14px;
 }
+
+@media (max-width: 640px) {
+  .reading-view__controls {
+    display: none !important;
+  }
+  .reading-view__footer-hint {
+    display: none !important;
+  }
+  .reading-view__doc :deep(.preview-content),
+  .reading-view__doc :deep(.preview-content--reading) {
+    padding: 20px 16px calc(76px + env(safe-area-inset-bottom, 20px)) !important;
+  }
+}
 </style>

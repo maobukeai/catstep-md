@@ -86,6 +86,7 @@ import { transformCase, nextCaseInCycle, caseTargetRange, type CaseMode } from '
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore, buildEditorFontStack } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
+import { useViewport } from '../composables/useViewport';
 import type { Tab } from '../types';
 import { livePreviewExtension, richHighlightOnly } from '../lib/cm-live-preview';
 import { liveEditExtension, setLiveEditCopyLabel } from '../lib/cm-live-render';
@@ -295,6 +296,8 @@ const settings = useSettingsStore();
 const workspaceIndex = useWorkspaceIndexStore();
 const toasts = useToastsStore();
 const { t } = useI18n();
+const { isNarrow } = useViewport();
+const effectiveShowLineNumbers = computed(() => !isNarrow.value && settings.showLineNumbers);
 
 /** Shared image paste/drop/insert options — file context + the configured
  *  image-host uploader (图床) + toast surface. Used by the CodeMirror paste
@@ -516,7 +519,7 @@ const plainMetricsEnabled = computed(
     (settings.showLineNumbers || settings.viewMode === 'split' || props.typewriterMode),
 );
 const plainGutterEnabled = computed(
-  () => plainMetricsEnabled.value && settings.showLineNumbers,
+  () => plainMetricsEnabled.value && effectiveShowLineNumbers.value,
 );
 const plainGutterWidth = computed(
   () => `${Math.max(String(plainLineHeights.value.length).length, 2)}ch`,
@@ -2711,7 +2714,7 @@ function buildExtensions() {
       ...searchKeymap.filter((b) => b.key !== 'Mod-Shift-l' && b.key !== 'Shift-Mod-l' && b.key !== 'Mod-d'),
       indentWithTab,
     ]),
-    lineNumCompartment.of(settings.showLineNumbers ? lineNumbers() : []),
+    lineNumCompartment.of(effectiveShowLineNumbers.value ? lineNumbers() : []),
     wrapCompartment.of(settings.wordWrap ? EditorView.lineWrapping : []),
     langCompartment.of(
       windowsImeSafeMode
@@ -2795,6 +2798,7 @@ function buildExtensions() {
         return false;
       },
       contextmenu: (ev) => {
+        if (isNarrow.value) return false;
         onEditorContextMenu(ev);
         return true;
       },
@@ -3360,7 +3364,7 @@ const selectionBubbleState = ref<{
 });
 
 function updateSelectionBubble(cmView: EditorView) {
-  if (!settings.showSelectionBubble || activeMobileMatches.length > 0 || isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
+  if (isNarrow.value || !settings.showSelectionBubble || activeMobileMatches.length > 0 || isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3401,7 +3405,7 @@ function updateSelectionBubble(cmView: EditorView) {
 }
 
 function updateSelectionBubblePlain() {
-  if (!settings.showSelectionBubble || isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
+  if (isNarrow.value || !settings.showSelectionBubble || isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3497,6 +3501,10 @@ const editorContextMenuState = ref<{
 });
 
 function onEditorContextMenu(e: MouseEvent) {
+  if (isNarrow.value) {
+    // On mobile phone viewports, allow native OS long-press selection / callout menu
+    return;
+  }
   e.preventDefault();
   selectionBubbleState.value.visible = false;
   inPlaceTableState.value.visible = false;
@@ -4348,9 +4356,11 @@ watch(
 );
 
 watch(
-  () => settings.showLineNumbers,
-  (s) => {
-    view?.dispatch({ effects: lineNumCompartment.reconfigure(s ? lineNumbers() : []) });
+  () => [settings.showLineNumbers, isNarrow.value],
+  () => {
+    view?.dispatch({
+      effects: lineNumCompartment.reconfigure(effectiveShowLineNumbers.value ? lineNumbers() : []),
+    });
   }
 );
 

@@ -11,6 +11,7 @@
  */
 import { computed } from 'vue';
 import { useTabsStore } from '../stores/tabs';
+import { useSettingsStore } from '../stores/settings';
 import { cjkWordCount } from '../lib/chinese';
 import { useI18n } from '../i18n';
 import BrandMark from './BrandMark.vue';
@@ -31,7 +32,16 @@ const emit = defineEmits<{
 }>();
 
 const tabs = useTabsStore();
+const settings = useSettingsStore();
 const { lang } = useI18n();
+
+function toggleReadingMode() {
+  if (settings.viewMode === 'reading') {
+    settings.exitReadingMode();
+  } else {
+    settings.setTripleMode('reading');
+  }
+}
 
 const isZh = computed(() => (lang?.value || '').startsWith('zh'));
 const activeTab = computed(() => tabs.activeTab);
@@ -231,6 +241,21 @@ function handleAction(callback: () => void) {
                 <div class="list-item__desc">{{ isZh ? '快速浏览各级标题并定位跳转' : 'Jump to headings' }}</div>
               </div>
               <span class="list-item__arrow">›</span>
+            </button>
+
+            <button
+              type="button"
+              class="mobile-sheet__list-item"
+              @click="handleAction(toggleReadingMode)"
+            >
+              <div class="list-item__icon-box list-item__icon-box--reading">
+                📖
+              </div>
+              <div class="list-item__info">
+                <div class="list-item__name">{{ settings.viewMode === 'reading' ? (isZh ? '退出阅读模式 (返回实时编辑)' : 'Exit Reading Mode') : (isZh ? '沉浸阅读模式' : 'Zen Reading Mode') }}</div>
+                <div class="list-item__desc">{{ settings.viewMode === 'reading' ? (isZh ? '返回可编辑输入模式' : 'Return to editor') : (isZh ? '无干扰全屏排版与纯净阅读' : 'Clean distraction-free typography') }}</div>
+              </div>
+              <span class="list-item__arrow">{{ settings.viewMode === 'reading' ? '✓' : '›' }}</span>
             </button>
           </div>
 
@@ -546,6 +571,10 @@ function handleAction(callback: () => void) {
 
 .list-item__icon-box--outline {
   background: rgba(139, 92, 246, 0.12);
+}
+
+.list-item__icon-box--reading {
+  background: rgba(16, 185, 129, 0.12);
 }
 
 .list-item__icon-box--help {

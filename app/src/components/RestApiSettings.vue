@@ -86,6 +86,16 @@ async function onRegenerateToken() {
   }
 }
 
+async function copyEndpoint() {
+  const port = state.value.port || 7878;
+  try {
+    await navigator.clipboard.writeText(`http://127.0.0.1:${port}`);
+    toasts.success(t('rest.endpoint') + ' URL 已复制');
+  } catch (e) {
+    toasts.error(String(e));
+  }
+}
+
 async function copyToken() {
   if (!state.value.token) return;
   try {
@@ -132,167 +142,577 @@ onMounted(refresh);
 </script>
 
 <template>
-  <section class="rest">
-    <h3 class="rest__heading">{{ t('rest.heading') }}</h3>
-    <p class="rest__intro">{{ t('rest.intro') }}</p>
-
-    <label class="rest__toggle">
-      <input
-        type="checkbox"
-        :checked="state.enabled"
-        @change="onToggleEnabled"
-      />
-      {{ t('rest.enable') }}
-    </label>
-    <p class="rest__hint">{{ t('rest.enableHint') }}</p>
-
-    <div v-if="state.enabled" class="rest__body">
-      <div class="rest__row">
-        <span class="rest__label">{{ t('rest.endpoint') }}</span>
-        <code class="rest__url">http://127.0.0.1:{{ state.port }}</code>
-        <span
-          class="rest__status"
-          :class="{ 'rest__status--up': state.running, 'rest__status--down': !state.running }"
-        >
-          {{ state.running ? t('rest.statusRunning') : t('rest.statusStarting') }}
-        </span>
-      </div>
-
-      <div class="rest__row">
-        <span class="rest__label">{{ t('rest.token') }}</span>
-        <code class="rest__token" :title="state.token">{{ tokenDisplay }}</code>
-        <button class="rest__btn" @click="showToken = !showToken">
-          {{ showToken ? t('rest.tokenHide') : t('rest.tokenShow') }}
-        </button>
-        <button class="rest__btn" :disabled="!state.token" @click="copyToken">
-          {{ t('rest.tokenCopy') }}
-        </button>
-        <button class="rest__btn" @click="onRegenerateToken">
-          {{ t('rest.tokenRegenerate') }}
-        </button>
-      </div>
-
-      <label class="rest__toggle rest__toggle--inline">
-        <input
-          type="checkbox"
-          :checked="state.allow_write"
-          @change="onToggleAllowWrite"
-        />
-        {{ t('rest.allowWrite') }}
-      </label>
-      <p class="rest__hint">{{ t('rest.allowWriteHint') }}</p>
-
-      <div class="rest__curl">
-        <div class="rest__curl-head">
-          <span class="rest__label">{{ t('rest.curlExample') }}</span>
-          <button class="rest__btn" @click="copyCurl">
-            {{ t('rest.curlCopy') }}
-          </button>
+  <div class="rest-group">
+    <div class="rest-card" :class="{ 'is-active': state.enabled }">
+      <!-- Header Row: Title, Description, and Modern Switch -->
+      <div class="rest-header" @click="onToggleEnabled">
+        <div class="rest-header__info">
+          <div class="rest-header__title-row">
+            <span class="rest-header__icon">⚡</span>
+            <span class="rest-header__title">{{ t('rest.heading') }}</span>
+            <span
+              v-if="state.enabled"
+              class="status-pill"
+              :class="state.running ? 'status-pill--live' : 'status-pill--idle'"
+            >
+              <span class="status-pill__dot"></span>
+              {{ state.running ? t('rest.statusRunning') : t('rest.statusStarting') }}
+            </span>
+          </div>
+          <p class="rest-header__desc">{{ t('rest.intro') }}</p>
         </div>
-        <pre class="rest__pre"><code>{{ curlSnippet }}</code></pre>
+        <div class="rest-header__control" @click.stop>
+          <label class="modern-switch" :title="state.enabled ? '点击关闭' : '点击开启'">
+            <input
+              type="checkbox"
+              :checked="state.enabled"
+              @change="onToggleEnabled"
+            />
+            <span class="modern-switch__slider"></span>
+          </label>
+        </div>
       </div>
+
+      <!-- Expanded Configuration Panel -->
+      <Transition name="fade-height">
+        <div v-if="state.enabled" class="rest-body">
+          <!-- Two Column Grid: Endpoint URL & Write Permission Card -->
+          <div class="rest-grid">
+            <div class="rest-field">
+              <label class="rest-field__label">{{ t('rest.endpoint') }}</label>
+              <div class="rest-input-box rest-input-box--readonly" @click="copyEndpoint" :title="'点击复制 API 基地址'">
+                <code class="rest-code">http://127.0.0.1:{{ state.port }}</code>
+                <button type="button" class="box-icon-btn" :title="'复制地址'">📋</button>
+              </div>
+            </div>
+
+            <!-- Write Permission Protection Card -->
+            <div class="rest-field">
+              <label class="rest-field__label">写入保护安全策略</label>
+              <div class="perm-card" @click="onToggleAllowWrite">
+                <div class="perm-card__info">
+                  <span class="perm-card__title">{{ t('rest.allowWrite') }}</span>
+                  <span class="perm-card__tip">
+                    {{ state.allow_write ? '已允许外部 API 修改笔记' : '只读保护中（禁止外部修改）' }}
+                  </span>
+                </div>
+                <div class="perm-card__switch" @click.stop>
+                  <label class="modern-switch modern-switch--sm" :title="state.allow_write ? '点击关闭写入' : '点击开启写入'">
+                    <input
+                      type="checkbox"
+                      :checked="state.allow_write"
+                      @change="onToggleAllowWrite"
+                    />
+                    <span class="modern-switch__slider"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bearer Token Row -->
+          <div class="rest-field">
+            <div class="rest-field__head-line">
+              <label class="rest-field__label">{{ t('rest.token') }} (Bearer Token)</label>
+              <span class="rest-field__subtip">外部客户端调用必须附带 Authorization: Bearer</span>
+            </div>
+            <div class="token-container">
+              <code class="token-text" :class="{ 'is-masked': !showToken }">{{ tokenDisplay }}</code>
+              <div class="token-actions">
+                <button type="button" class="btn-token" @click="showToken = !showToken">
+                  {{ showToken ? '🙈 ' + t('rest.tokenHide') : '👁️ ' + t('rest.tokenShow') }}
+                </button>
+                <button type="button" class="btn-token" :disabled="!state.token" @click="copyToken">
+                  📋 {{ t('rest.tokenCopy') }}
+                </button>
+                <button type="button" class="btn-token btn-token--regen" @click="onRegenerateToken">
+                  🔄 {{ t('rest.tokenRegenerate') }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Terminal Code Snippet Block -->
+          <div class="terminal-block">
+            <div class="terminal-block__head">
+              <div class="terminal-dots">
+                <span class="dot dot--red"></span>
+                <span class="dot dot--yellow"></span>
+                <span class="dot dot--green"></span>
+                <span class="terminal-title">REST API 调用示例 (Raycast / 终端 / 脚本)</span>
+              </div>
+              <button type="button" class="terminal-copy-btn" @click="copyCurl">
+                📋 {{ t('rest.curlCopy') }}
+              </button>
+            </div>
+            <pre class="terminal-block__code"><code>{{ curlSnippet }}</code></pre>
+          </div>
+        </div>
+      </Transition>
     </div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.rest {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
+.rest-group {
+  margin-bottom: 14px;
+}
+
+.rest-card {
+  background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-secondary, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.rest__heading {
-  margin: 0 0 2px 0;
-  font-size: 13px;
-  font-weight: 600;
+
+.rest-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
-.rest__intro,
-.rest__hint {
-  margin: 0;
-  font-size: 11px;
-  color: var(--text-muted);
+
+.rest-card.is-active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }
-.rest__toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-}
-.rest__toggle--inline {
-  margin-top: 4px;
-}
-.rest__body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-}
-.rest__row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 12px;
-}
-.rest__label {
-  color: var(--text-muted);
-  min-width: 64px;
-}
-.rest__url,
-.rest__token {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
-  background: var(--bg-tertiary, rgba(0, 0, 0, 0.04));
-  padding: 2px 6px;
-  border-radius: 4px;
-  user-select: text;
-}
-.rest__status {
-  font-size: 11px;
-  margin-left: 4px;
-}
-.rest__status--up {
-  color: var(--accent, #2da44e);
-}
-.rest__status--down {
-  color: var(--text-muted);
-}
-.rest__btn {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  cursor: pointer;
-}
-.rest__btn:hover {
-  background: var(--bg-secondary);
-}
-.rest__btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.rest__curl {
-  margin-top: 4px;
-}
-.rest__curl-head {
+
+/* Header Row */
+.rest-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  gap: 16px;
+  padding: 13px 18px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.12s ease;
 }
-.rest__pre {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
-  background: var(--bg-tertiary, rgba(0, 0, 0, 0.04));
-  padding: 8px;
-  border-radius: 4px;
+
+.rest-header:hover {
+  background: color-mix(in srgb, var(--bg-hover) 35%, transparent);
+}
+
+.rest-header__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rest-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rest-header__icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.rest-header__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.rest-header__desc {
   margin: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.rest-header__control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Status Pill */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1.5px 7px;
+  border-radius: 12px;
+  line-height: 1.2;
+}
+
+.status-pill--live {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.status-pill--idle {
+  background: rgba(107, 114, 128, 0.12);
+  color: var(--text-muted);
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.status-pill__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Modern Toggle Switch */
+.modern-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.modern-switch--sm {
+  width: 32px;
+  height: 18px;
+}
+
+.modern-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.modern-switch__slider {
+  position: absolute;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--text-faint) 45%, transparent);
+  border-radius: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-switch__slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+}
+
+.modern-switch--sm .modern-switch__slider::before {
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+}
+
+.modern-switch input:checked + .modern-switch__slider {
+  background-color: var(--accent, #ea580c);
+}
+
+.modern-switch input:checked + .modern-switch__slider::before {
+  transform: translateX(16px);
+}
+
+.modern-switch--sm input:checked + .modern-switch__slider::before {
+  transform: translateX(14px);
+}
+
+/* Expanded Body */
+.rest-body {
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding: 14px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: color-mix(in srgb, var(--bg-hover) 15%, var(--bg-elev));
+}
+
+.rest-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .rest-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rest-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rest-field__head-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rest-field__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rest-field__subtip {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.rest-input-box {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  border-radius: 6px;
+  padding: 5px 9px;
+  min-height: 32px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.rest-input-box--readonly {
+  cursor: pointer;
+}
+
+.rest-input-box--readonly:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+}
+
+.rest-code {
+  flex: 1;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.box-icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: all 0.12s;
+}
+
+.box-icon-btn:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+/* Permission Card */
+.perm-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  border-radius: 6px;
+  padding: 5px 9px;
+  min-height: 32px;
+  box-sizing: border-box;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease;
+}
+
+.perm-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+.perm-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.perm-card__title {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.perm-card__tip {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.perm-card__switch {
+  flex-shrink: 0;
+}
+
+/* Bearer Token Container */
+.token-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
+  border-radius: 6px;
+  padding: 5px 8px 5px 10px;
+  min-height: 34px;
+  flex-wrap: wrap;
+}
+
+.token-text {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--text);
+  letter-spacing: 0.05em;
+}
+
+.token-text.is-masked {
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.token-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-token {
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.2));
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+  transition: all 0.15s ease;
+}
+
+.btn-token:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-token:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-token--regen:hover {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+/* Terminal Code Snippet Block */
+.terminal-block {
+  background: #18181b;
+  color: #f4f4f5;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.terminal-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.terminal-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.dot--red {
+  background: #ef4444;
+}
+
+.dot--yellow {
+  background: #f59e0b;
+}
+
+.dot--green {
+  background: #10b981;
+}
+
+.terminal-title {
+  margin-left: 6px;
+  font-size: 10.5px;
+  color: #a1a1aa;
+  font-family: var(--font-mono, monospace);
+}
+
+.terminal-copy-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e4e4e7;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.terminal-copy-btn:hover {
+  background: var(--accent, #ea580c);
+  color: #ffffff;
+}
+
+.terminal-block__code {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.45;
   overflow-x: auto;
-  white-space: pre;
+  color: #e2e8f0;
+}
+
+.terminal-block__code code {
+  font-family: inherit;
+}
+
+/* Animations */
+.fade-height-enter-active,
+.fade-height-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-height-enter-from,
+.fade-height-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 </style>

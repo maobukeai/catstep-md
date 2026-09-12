@@ -15,7 +15,10 @@ const settings = useSettingsStore();
 const agent = useAgentPanelStore();
 
 const docTitle = computed(() => {
-  return tabs.activeTab?.fileName || '未命名文档';
+  if (tabs.activeTab) {
+    return tabs.activeTab.fileName || '未命名文档';
+  }
+  return '自由对话模式';
 });
 
 const selectionCount = computed(() => {

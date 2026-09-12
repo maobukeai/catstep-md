@@ -27,7 +27,10 @@ import { getPlainSelection } from '../lib/plain-selection';
 import BrandMark from './BrandMark.vue';
 import type { Tab } from '../types';
 
-defineProps<{ collapsed?: boolean; mobileMode?: boolean }>();
+const props = withDefaults(
+  defineProps<{ collapsed?: boolean; mobileMode?: boolean }>(),
+  { collapsed: false, mobileMode: false }
+);
 
 const emit = defineEmits<{
   (e: 'open-settings', section?: string): void;
@@ -981,8 +984,10 @@ const aiConfigured = computed(() => settings.aiEnabled);
 
 type StateKey = 'no-folder' | 'no-ai' | 'ready';
 const stateKey = computed<StateKey>(() => {
-  if (!hasFolder.value) return 'no-folder';
   if (!aiConfigured.value) return 'no-ai';
+  // On mobile, or when an active note is open, or when a conversation is already ongoing, allow chatting immediately
+  if (props.mobileMode || tabs.activeTab || agent.messages.length > 0) return 'ready';
+  if (!hasFolder.value) return 'no-folder';
   return 'ready';
 });
 

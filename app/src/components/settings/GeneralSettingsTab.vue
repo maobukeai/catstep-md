@@ -10,6 +10,7 @@ import { reloadAllCustomStyles, loadCustomTheme } from '../../lib/custom-theme';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useViewport } from '../../composables/useViewport';
 import ThemeMarketplace from '../ThemeMarketplace.vue';
+import SettingSlider from './SettingSlider.vue';
 import type { Theme } from '../../types';
 
 const { t } = useI18n();
@@ -414,15 +415,23 @@ onMounted(() => {
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                :value="settings.bgOpacity"
-                @input="settings.setBgOpacity(Number(($event.target as HTMLInputElement).value))"
+              <SettingSlider
+                :model-value="settings.bgOpacity"
+                :min="0"
+                :max="100"
+                :step="5"
+                :default-value="25"
+                unit="%"
+                @update:model-value="settings.setBgOpacity"
               />
-              <span class="setting-val-badge">{{ settings.bgOpacity }}%</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.bgOpacity !== 25 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (25%)' : 'Click or press Enter on slider to reset (25%)'"
+                @click="settings.setBgOpacity(25)"
+              >
+                {{ settings.bgOpacity }}%
+              </span>
             </div>
           </div>
         </div>
@@ -435,15 +444,23 @@ onMounted(() => {
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
-              <input
-                type="range"
-                min="0"
-                max="30"
-                step="1"
-                :value="settings.bgBlur"
-                @input="settings.setBgBlur(Number(($event.target as HTMLInputElement).value))"
+              <SettingSlider
+                :model-value="settings.bgBlur"
+                :min="0"
+                :max="30"
+                :step="1"
+                :default-value="0"
+                unit="px"
+                @update:model-value="settings.setBgBlur"
               />
-              <span class="setting-val-badge">{{ settings.bgBlur }}px</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.bgBlur !== 0 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (0px)' : 'Click or press Enter on slider to reset (0px)'"
+                @click="settings.setBgBlur(0)"
+              >
+                {{ settings.bgBlur }}px
+              </span>
             </div>
           </div>
         </div>
@@ -502,15 +519,24 @@ onMounted(() => {
           <div class="settings-typo-cell">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '编辑器字号' : t('settings.fontSize') }}</span>
-              <span class="setting-val-badge">{{ settings.fontSize }}px</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.fontSize !== 14 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (14px)' : 'Click or press Enter on slider to reset (14px)'"
+                @click="settings.setFontSize(14)"
+              >
+                {{ settings.fontSize }}px
+              </span>
             </div>
             <div class="settings-typo-cell__slider">
-              <input
-                type="range"
-                min="10"
-                max="28"
-                :value="settings.fontSize"
-                @input="settings.setFontSize(+($event.target as HTMLInputElement).value)"
+              <SettingSlider
+                :model-value="settings.fontSize"
+                :min="10"
+                :max="28"
+                :step="1"
+                :default-value="14"
+                unit="px"
+                @update:model-value="settings.setFontSize"
               />
             </div>
           </div>
@@ -519,16 +545,23 @@ onMounted(() => {
           <div class="settings-typo-cell">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '正文行高' : 'Line Height' }}</span>
-              <span class="setting-val-badge">{{ settings.lineHeight }}</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.lineHeight !== 1.75 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (1.75)' : 'Click or press Enter on slider to reset (1.75)'"
+                @click="settings.setLineHeight(1.75)"
+              >
+                {{ settings.lineHeight }}
+              </span>
             </div>
             <div class="settings-typo-cell__slider">
-              <input
-                type="range"
-                min="1.3"
-                max="2.4"
-                step="0.05"
-                :value="settings.lineHeight"
-                @input="settings.setLineHeight(+($event.target as HTMLInputElement).value)"
+              <SettingSlider
+                :model-value="settings.lineHeight"
+                :min="1.3"
+                :max="2.4"
+                :step="0.05"
+                :default-value="1.75"
+                @update:model-value="settings.setLineHeight"
               />
             </div>
           </div>
@@ -537,15 +570,24 @@ onMounted(() => {
           <div class="settings-typo-cell">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '界面字号' : t('settings.uiFontSize') }}</span>
-              <span class="setting-val-badge">{{ settings.uiFontSize }}px</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.uiFontSize !== 13 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (13px)' : 'Click or press Enter on slider to reset (13px)'"
+                @click="settings.setUiFontSize(13)"
+              >
+                {{ settings.uiFontSize }}px
+              </span>
             </div>
             <div class="settings-typo-cell__slider">
-              <input
-                type="range"
-                min="10"
-                max="20"
-                :value="settings.uiFontSize"
-                @input="settings.setUiFontSize(+($event.target as HTMLInputElement).value)"
+              <SettingSlider
+                :model-value="settings.uiFontSize"
+                :min="10"
+                :max="20"
+                :step="1"
+                :default-value="13"
+                unit="px"
+                @update:model-value="settings.setUiFontSize"
               />
             </div>
           </div>
@@ -554,16 +596,24 @@ onMounted(() => {
           <div class="settings-typo-cell">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</span>
-              <span class="setting-val-badge">{{ settings.paragraphSpacing }}em</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.paragraphSpacing !== 1.0 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (1.0em)' : 'Click or press Enter on slider to reset (1.0em)'"
+                @click="settings.setParagraphSpacing(1.0)"
+              >
+                {{ settings.paragraphSpacing }}em
+              </span>
             </div>
             <div class="settings-typo-cell__slider">
-              <input
-                type="range"
-                min="0.4"
-                max="2.0"
-                step="0.1"
-                :value="settings.paragraphSpacing"
-                @input="settings.setParagraphSpacing(+($event.target as HTMLInputElement).value)"
+              <SettingSlider
+                :model-value="settings.paragraphSpacing"
+                :min="0.4"
+                :max="2.0"
+                :step="0.1"
+                :default-value="1.0"
+                unit="em"
+                @update:model-value="settings.setParagraphSpacing"
               />
             </div>
           </div>
@@ -592,15 +642,23 @@ onMounted(() => {
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
-              <input
-                type="range"
-                min="0.75"
-                max="2.5"
-                step="0.05"
-                :value="settings.globalZoom"
-                @input="settings.setGlobalZoom(+($event.target as HTMLInputElement).value)"
+              <SettingSlider
+                :model-value="settings.globalZoom || 1"
+                :min="0.75"
+                :max="2.5"
+                :step="0.05"
+                :default-value="1"
+                unit="x"
+                @update:model-value="settings.setGlobalZoom"
               />
-              <span class="setting-val-badge">{{ Math.round((settings.globalZoom || 1) * 100) }}%</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': (settings.globalZoom || 1) !== 1 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (100%)' : 'Click or press Enter on slider to reset (100%)'"
+                @click="settings.resetZoom()"
+              >
+                {{ Math.round((settings.globalZoom || 1) * 100) }}%
+              </span>
               <button
                 type="button"
                 class="link-button"
@@ -846,16 +904,24 @@ onMounted(() => {
           </div>
           <div class="setting-row__control">
             <div class="setting-slider-ctrl">
-              <input
-                type="range"
-                min="480"
-                max="1600"
-                step="20"
-                :value="settings.previewMaxWidth"
+              <SettingSlider
+                :model-value="settings.previewMaxWidth"
+                :min="480"
+                :max="1600"
+                :step="20"
+                :default-value="760"
+                unit="px"
                 :disabled="settings.previewFitWidth"
-                @input="settings.setPreviewMaxWidth(+($event.target as HTMLInputElement).value)"
+                @update:model-value="settings.setPreviewMaxWidth"
               />
-              <span class="setting-val-badge">{{ settings.previewMaxWidth }}px</span>
+              <span
+                class="setting-val-badge"
+                :class="{ 'setting-val-badge--modified': settings.previewMaxWidth !== 760 }"
+                :title="isZh ? '点击或聚焦滑块按 Enter 恢复默认 (760px)' : 'Click or press Enter on slider to reset (760px)'"
+                @click="settings.setPreviewMaxWidth(760)"
+              >
+                {{ settings.previewMaxWidth }}px
+              </span>
             </div>
           </div>
         </div>
