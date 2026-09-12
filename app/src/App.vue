@@ -57,6 +57,7 @@ const MobileBottomDock = defineAsyncComponent(() => import('./components/MobileB
 const MobileOutlineSheet = defineAsyncComponent(() => import('./components/MobileOutlineSheet.vue'));
 const MobileAgentView = defineAsyncComponent(() => import('./components/MobileAgentView.vue'));
 const MobileAccessoryBar = defineAsyncComponent(() => import('./components/MobileAccessoryBar.vue'));
+const MobileFindBar = defineAsyncComponent(() => import('./components/MobileFindBar.vue'));
 
 import { useAutoCommit } from './composables/useAutoCommit';
 import { useGithubSync } from './composables/useGithubSync';
@@ -1391,6 +1392,7 @@ onMounted(async () => {
   window.addEventListener('solomd:open-cjk-proofread', onOpenCjkProofreadEvent as EventListener);
   window.addEventListener('solomd:open-mobile-agent', onOpenMobileAgent);
   window.addEventListener('solomd:open-mobile-outline', onOpenMobileOutline);
+  window.addEventListener('solomd:open-mobile-find', onOpenMobileFind);
   window.addEventListener('focusin', onFocusIn);
   window.addEventListener('focusout', onFocusOut);
 
@@ -1625,15 +1627,15 @@ onMounted(async () => {
         );
       }
     } catch { /* silent */ }
-
-    // Ensure desktop window is displayed and focused once the view has fully mounted
-    try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      const win = getCurrentWindow();
-      await win.show();
-      await win.setFocus();
-    } catch {}
   }
+
+  // Ensure desktop window is displayed and focused once the view has fully mounted
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const win = getCurrentWindow();
+    await win.show();
+    await win.setFocus();
+  } catch {}
 });
 
 function onAIRewriteAccept(e: Event) {
@@ -1765,6 +1767,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('solomd:open-cjk-proofread', onOpenCjkProofreadEvent as EventListener);
   window.removeEventListener('solomd:open-mobile-agent', onOpenMobileAgent);
   window.removeEventListener('solomd:open-mobile-outline', onOpenMobileOutline);
+  window.removeEventListener('solomd:open-mobile-find', onOpenMobileFind);
   window.removeEventListener('focusin', onFocusIn);
   window.removeEventListener('focusout', onFocusOut);
   window.removeEventListener('solomd:wiki-open', onWikiOpen as EventListener);
@@ -1906,6 +1909,7 @@ watch(
 
 const mobileAgentOpen = ref(false);
 const mobileOutlineOpen = ref(false);
+const mobileFindOpen = ref(false);
 const isMobileEditorFocused = ref(false);
 
 function onOpenMobileAgent() {
@@ -1914,6 +1918,15 @@ function onOpenMobileAgent() {
 
 function onOpenMobileOutline() {
   mobileOutlineOpen.value = true;
+}
+
+function onOpenMobileFind() {
+  if (narrowDrawer.value) {
+    closeNarrowDrawer();
+  }
+  mobileOutlineOpen.value = false;
+  mobileAgentOpen.value = false;
+  mobileFindOpen.value = true;
 }
 
 function onFocusIn(e: FocusEvent) {
@@ -2268,6 +2281,16 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       @open-search="toggleGlobalSearch()"
       @open-about="aboutOpen = true"
     />
+
+    <!-- Mobile Floating Find Bar (Safari / Notes style pinned below Toolbar) -->
+    <Transition name="find-slide">
+      <MobileFindBar
+        v-if="isNarrow && mobileFindOpen"
+        :initial-query="selectionText && !selectionText.includes('\n') && selectionText.length <= 60 ? selectionText : ''"
+        @close="mobileFindOpen = false"
+      />
+    </Transition>
+
     <div class="workspace">
         <!-- #168 — on a phone the side panes float over the editor instead of
              stealing its width; this catches the tap that dismisses them. -->
@@ -2542,18 +2565,18 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 
       <!-- Mobile Bottom Dock (Floating 5-action bar on mobile < 640px) -->
       <MobileBottomDock
-        v-if="isNarrow && !mobileAgentOpen && !isMobileEditorFocused && !narrowDrawer"
+        v-if="isNarrow && !mobileAgentOpen && !mobileFindOpen && !isMobileEditorFocused && !narrowDrawer"
         :is-ai-active="showAgentPane"
         @open-files="settings.toggleLeftSidebar()"
         @open-outline="mobileOutlineOpen = true"
         @open-agent="mobileAgentOpen = true"
-        @open-search="toggleGlobalSearch()"
+        @open-search="onOpenMobileFind"
         @open-settings="openSettingsAt()"
       />
 
       <!-- Mobile Markdown Accessory Bar (Docked above virtual keyboard when editing) -->
       <MobileAccessoryBar
-        v-if="isNarrow && !mobileAgentOpen && isMobileEditorFocused"
+        v-if="isNarrow && !mobileAgentOpen && !mobileFindOpen && isMobileEditorFocused"
         @dismiss="isMobileEditorFocused = false"
       />
 
@@ -3228,6 +3251,18 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   overflow: auto;
   display: flex;
   flex-direction: column;
+}
+
+/* Mobile Floating Find Bar Slide Transition */
+.find-slide-enter-active,
+.find-slide-leave-active {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
+}
+
+.find-slide-enter-from,
+.find-slide-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
 }
 
 </style>

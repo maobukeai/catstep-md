@@ -3,7 +3,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import { EditorState, Compartment, StateEffect, StateField } from '@codemirror/state';
 import { EditorView, Decoration, type DecorationSet, keymap, lineNumbers, highlightActiveLine, drawSelection, rectangularSelection, crosshairCursor } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { searchKeymap, search, openSearchPanel, getSearchQuery, setSearchQuery } from '@codemirror/search';
+import { searchKeymap, search, openSearchPanel, getSearchQuery, setSearchQuery, SearchQuery } from '@codemirror/search';
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, syntaxTree } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { cjkFriendlyEmphasis } from '../lib/cm-cjk-emphasis';
@@ -209,6 +209,40 @@ const agentJumpField = StateField.define<DecorationSet>({
       }
     }
     return underlines;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+const setMobileFindMatchesEffect = StateEffect.define<{
+  matches: Array<{ from: number; to: number }>;
+  currentFrom: number;
+  currentTo: number;
+} | null>();
+
+const mobileFindField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(decorations, tr) {
+    for (const e of tr.effects) {
+      if (e.is(setMobileFindMatchesEffect)) {
+        if (!e.value || !e.value.matches.length) {
+          return Decoration.none;
+        }
+        const { matches, currentFrom, currentTo } = e.value;
+        const decos = matches.map((m) => {
+          const isSelected = m.from === currentFrom && m.to === currentTo;
+          return Decoration.mark({
+            class: isSelected ? 'cm-searchMatch cm-searchMatch-selected' : 'cm-searchMatch',
+          }).range(m.from, m.to);
+        });
+        return Decoration.set(decos, true);
+      }
+    }
+    if (tr.docChanged) {
+      return decorations.map(tr.changes);
+    }
+    return decorations;
   },
   provide: (f) => EditorView.decorations.from(f),
 });
@@ -2585,6 +2619,7 @@ function buildExtensions() {
           incrementalFindScroll,
           spotlightField,
           agentJumpField,
+          mobileFindField,
           syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         ]),
     keymap.of([
@@ -2975,6 +3010,168 @@ function onMoveCursor(e: Event) {
   }
 }
 
+let activeMobileMatches: Array<{ from: number; to: number }> = [];
+
+function onMobileFindAction(e: Event) {
+  if (props.tab.id !== tabs.activeId) return;
+  const detail = (e as CustomEvent).detail || {};
+  const { action, query, caseSensitive } = detail;
+
+  if (usePlainWindowsEditor) {
+    if (action === 'search') {
+      plainFindQuery.value = query || '';
+      runPlainSearch();
+      const total = plainMatches.value.length;
+      const index = total > 0 ? plainMatchIndex.value + 1 : 0;
+      window.dispatchEvent(
+        new CustomEvent('solomd:mobile-find-stats', { detail: { total, index, query } }),
+      );
+    } else if (action === 'next') {
+      gotoPlainMatch(1);
+      const total = plainMatches.value.length;
+      const index = total > 0 ? plainMatchIndex.value + 1 : 0;
+      window.dispatchEvent(
+        new CustomEvent('solomd:mobile-find-stats', { detail: { total, index, query: plainFindQuery.value } }),
+      );
+    } else if (action === 'prev') {
+      gotoPlainMatch(-1);
+      const total = plainMatches.value.length;
+      const index = total > 0 ? plainMatchIndex.value + 1 : 0;
+      window.dispatchEvent(
+        new CustomEvent('solomd:mobile-find-stats', { detail: { total, index, query: plainFindQuery.value } }),
+      );
+    } else if (action === 'close') {
+      closePlainFind();
+    }
+    return;
+  }
+
+  if (!view) return;
+  selectionBubbleState.value.visible = false;
+
+  if (action === 'search') {
+    if (!query) {
+      activeMobileMatches = [];
+      view.dispatch({
+        effects: [
+          setSearchQuery.of(new SearchQuery({ search: '' })),
+          setMobileFindMatchesEffect.of(null),
+        ],
+      });
+      window.dispatchEvent(
+        new CustomEvent('solomd:mobile-find-stats', { detail: { total: 0, index: 0, query: '' } }),
+      );
+      return;
+    }
+
+    const sq = new SearchQuery({
+      search: query,
+      caseSensitive: !!caseSensitive,
+      literal: true,
+    });
+    view.dispatch({ effects: setSearchQuery.of(sq) });
+
+    let total = 0;
+    let index = 0;
+    const matches: { from: number; to: number }[] = [];
+    const cursor = sq.getCursor(view.state.doc);
+    let item = cursor.next();
+    while (!item.done && total < 1000) {
+      matches.push({ from: item.value.from, to: item.value.to });
+      total++;
+      item = cursor.next();
+    }
+    activeMobileMatches = matches;
+
+    if (total > 0) {
+      const currentPos = view.state.selection.main.from;
+      let targetIdx = matches.findIndex((m) => m.from >= currentPos);
+      if (targetIdx === -1) targetIdx = 0;
+      index = targetIdx + 1;
+      const target = matches[targetIdx];
+      view.dispatch({
+        selection: { anchor: target.from, head: target.to },
+        effects: [
+          EditorView.scrollIntoView(target.from, { y: 'center' }),
+          setMobileFindMatchesEffect.of({
+            matches,
+            currentFrom: target.from,
+            currentTo: target.to,
+          }),
+        ],
+      });
+    } else {
+      view.dispatch({
+        effects: setMobileFindMatchesEffect.of(null),
+      });
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('solomd:mobile-find-stats', { detail: { total, index, query } }),
+    );
+  } else if (action === 'next') {
+    if (activeMobileMatches.length > 0) {
+      const sel = view.state.selection.main;
+      let idx = activeMobileMatches.findIndex((m) => m.from > sel.from);
+      if (idx === -1) idx = 0;
+      const target = activeMobileMatches[idx];
+      view.dispatch({
+        selection: { anchor: target.from, head: target.to },
+        effects: [
+          EditorView.scrollIntoView(target.from, { y: 'center' }),
+          setMobileFindMatchesEffect.of({
+            matches: activeMobileMatches,
+            currentFrom: target.from,
+            currentTo: target.to,
+          }),
+        ],
+      });
+      window.dispatchEvent(
+        new CustomEvent('solomd:mobile-find-stats', {
+          detail: { total: activeMobileMatches.length, index: idx + 1, query },
+        }),
+      );
+    }
+  } else if (action === 'prev') {
+    if (activeMobileMatches.length > 0) {
+      const sel = view.state.selection.main;
+      let idx = -1;
+      for (let i = activeMobileMatches.length - 1; i >= 0; i--) {
+        if (activeMobileMatches[i].from < sel.from) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx === -1) idx = activeMobileMatches.length - 1;
+      const target = activeMobileMatches[idx];
+      view.dispatch({
+        selection: { anchor: target.from, head: target.to },
+        effects: [
+          EditorView.scrollIntoView(target.from, { y: 'center' }),
+          setMobileFindMatchesEffect.of({
+            matches: activeMobileMatches,
+            currentFrom: target.from,
+            currentTo: target.to,
+          }),
+        ],
+      });
+      window.dispatchEvent(
+        new CustomEvent('solomd:mobile-find-stats', {
+          detail: { total: activeMobileMatches.length, index: idx + 1, query },
+        }),
+      );
+    }
+  } else if (action === 'close') {
+    activeMobileMatches = [];
+    view.dispatch({
+      effects: [
+        setSearchQuery.of(new SearchQuery({ search: '' })),
+        setMobileFindMatchesEffect.of(null),
+      ],
+    });
+  }
+}
+
 onMounted(() => {
   // Registered before the plain-editor early return below — this listener has
   // to exist on ALL three editor paths, and the CodeMirror-only setup that
@@ -2989,6 +3186,7 @@ onMounted(() => {
   window.addEventListener('solomd:table-toolbar-show', onTableToolbarShow);
   window.addEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
   window.addEventListener('solomd:move-cursor', onMoveCursor);
+  window.addEventListener('solomd:mobile-find-action', onMobileFindAction as EventListener);
 
   if (usePlainWindowsEditor) {
     syncPlainEditorFromStore(props.tab.content);
@@ -3159,7 +3357,7 @@ const selectionBubbleState = ref<{
 });
 
 function updateSelectionBubble(cmView: EditorView) {
-  if (isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
+  if (activeMobileMatches.length > 0 || isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3868,6 +4066,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('solomd:table-toolbar-show', onTableToolbarShow);
   window.removeEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
   window.removeEventListener('solomd:move-cursor', onMoveCursor);
+  window.removeEventListener('solomd:mobile-find-action', onMobileFindAction as EventListener);
   cleanupRelayout?.();
   cleanupTransformCase?.();
   cleanupTransformCase = null;

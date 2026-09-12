@@ -59,15 +59,15 @@ const emit = defineEmits<{
       <span class="mobile-bottom-dock__label mobile-bottom-dock__label--ai">猫步 AI</span>
     </button>
 
-    <!-- 4. 搜索 -->
+    <!-- 4. 查找 -->
     <button
       class="mobile-bottom-dock__btn"
       type="button"
       @click="emit('open-search')"
-      :title="t('rsPane.search')"
+      :title="t('find.find') || '查找'"
     >
       <Icon name="search" :size="18" />
-      <span class="mobile-bottom-dock__label">{{ t('rsPane.search') || '搜索' }}</span>
+      <span class="mobile-bottom-dock__label">{{ t('find.find') || '查找' }}</span>
     </button>
 
     <!-- 5. 设置 -->
