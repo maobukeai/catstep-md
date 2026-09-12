@@ -1,4 +1,4 @@
-package app.solomd
+package app.catstepmd
 
 import android.content.Intent
 import android.net.Uri

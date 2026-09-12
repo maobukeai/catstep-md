@@ -175,7 +175,7 @@ mod imp {
     use jni::objects::{JObject, JString, JValue};
     use jni::JavaVM;
 
-    const CLS: &str = "app/solomd/MainActivity";
+    const CLS: &str = "app/catstepmd/MainActivity";
 
     fn with_env<T>(f: impl FnOnce(&mut jni::JNIEnv) -> Result<T, String>) -> Result<T, String> {
         let ctx = ndk_context::android_context();
