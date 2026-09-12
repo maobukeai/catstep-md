@@ -2512,6 +2512,9 @@ const effectiveEditorTheme = computed<Theme>(() => {
       }
     }
   }
+  if (settings.activeCustomThemeId && isValidTheme(settings.activeCustomThemeId)) {
+    return settings.activeCustomThemeId as Theme;
+  }
   return settings.theme;
 });
 
@@ -5105,7 +5108,7 @@ defineExpose({ gotoLine, insertImageFromPath, insertImageUrl, uploadLocalImages,
 
 const cls = computed(() => ({
   'cm-host': true,
-  'cm-host--dark': isDarkTheme(settings.theme),
+  'cm-host--dark': isDarkTheme(effectiveEditorTheme.value),
   // #109 — constrain the editing column to a centered readable width.
   'cm-host--limit-width': settings.limitEditorWidth,
   // #211 — soft-wrap fenced code in the LIVE-rendered blocks too. Only
@@ -5344,6 +5347,12 @@ const cls = computed(() => ({
 :deep(.cm-editor) {
   height: 100%;
   outline: none;
+  background-color: var(--bg);
+  color: var(--text);
+}
+:deep(.cm-gutters) {
+  background-color: var(--bg);
+  color: var(--text-muted);
 }
 :deep(.cm-editor.cm-focused) {
   outline: none;

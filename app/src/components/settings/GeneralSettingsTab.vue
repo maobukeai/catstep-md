@@ -5,7 +5,7 @@ import { useThemesStore } from '../../stores/themes';
 import { useTabsStore } from '../../stores/tabs';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
-import { themeLabels, allThemeLabels } from '../../lib/themes';
+import { themeLabels, allThemeLabels, isValidTheme } from '../../lib/themes';
 import { reloadAllCustomStyles, loadCustomTheme } from '../../lib/custom-theme';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useViewport } from '../../composables/useViewport';
@@ -73,6 +73,13 @@ function onThemeSelectChange(val: string) {
     if (found) {
       settings.setActiveCustomThemeId(found.id);
       settings.setCustomCssPath(found.path);
+      if (isValidTheme(found.id)) {
+        settings.setTheme(found.id as Theme);
+      } else {
+        const matched = themesStore.manifest?.themes?.find((m) => m.id === found.id);
+        const tone = matched?.tags?.includes('dark') || matched?.tags?.includes('black') ? 'dark' : 'light';
+        settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
+      }
     }
   } else {
     settings.setActiveCustomThemeId('');

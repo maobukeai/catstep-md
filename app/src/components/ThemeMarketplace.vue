@@ -13,6 +13,8 @@ import { useThemesStore, type ThemeManifestEntry } from '../stores/themes';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
+import { isValidTheme } from '../lib/themes';
+import type { Theme } from '../types';
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void }>();
@@ -135,6 +137,12 @@ function onActivate(theme: ThemeManifestEntry) {
   if (installed) {
     settings.setActiveCustomThemeId(theme.id);
     settings.setCustomCssPath(installed.path);
+    if (isValidTheme(theme.id)) {
+      settings.setTheme(theme.id as Theme);
+    } else {
+      const tone = getThemeTone(theme);
+      settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
+    }
     toasts.success(t('themes.installed', { name: theme.name }));
   }
 }
@@ -144,6 +152,12 @@ async function onInstallAndActivate(theme: ThemeManifestEntry) {
     const path = await themes.install(theme);
     settings.setActiveCustomThemeId(theme.id);
     settings.setCustomCssPath(path);
+    if (isValidTheme(theme.id)) {
+      settings.setTheme(theme.id as Theme);
+    } else {
+      const tone = getThemeTone(theme);
+      settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
+    }
     toasts.success(t('themes.installed', { name: theme.name }));
   } catch (e) {
     toasts.error(
@@ -159,6 +173,7 @@ async function onUninstall(theme: ThemeManifestEntry) {
     if (wasActive) {
       settings.setActiveCustomThemeId('');
       settings.setCustomCssPath('');
+      settings.setTheme('github-light');
     }
     toasts.success(t('themes.uninstalled', { name: theme.name }));
   } catch (e) {
@@ -514,6 +529,7 @@ onBeforeUnmount(() => {
         </footer>
       </div>
     </div>
+  </div>
   </Teleport>
 </template>
 

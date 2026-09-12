@@ -75,6 +75,7 @@ import { useTilesStore } from './stores/tiles';
 import { usePomodoroStore } from './stores/pomodoro';
 import { useToastsStore } from './stores/toasts';
 import { useFiles } from './composables/useFiles';
+import { useDailyNotes } from './composables/useDailyNotes';
 import { useExport } from './composables/useExport';
 import { useShortcuts } from './composables/useShortcuts';
 import { useFileWatcher } from './composables/useFileWatcher';
@@ -105,6 +106,7 @@ const settings = useSettingsStore();
 const windowsStore = useWindowsStore();
 const tiles = useTilesStore();
 const files = useFiles();
+const { openTodayNote } = useDailyNotes();
 const exporter = useExport();
 const workspace = useWorkspaceStore();
 const toasts = useToastsStore();
@@ -171,7 +173,7 @@ pomodoro.rehydrate();
 // Pinia internals. Dev-only convenience — release builds ignore the
 // extra hook.
 (window as any).usePomodoroStore = usePomodoroStore;
-const { t } = useI18n();
+const { t, lang } = useI18n();
 
 const cursorLine = ref(1);
 const cursorCol = ref(1);
@@ -497,6 +499,9 @@ function onOutlineGoto(line: number) {
   window.dispatchEvent(new CustomEvent('solomd:outline-goto', {
     detail: { line, paneId: tiles.focusedPaneId },
   }));
+  if (isNarrow.value && narrowDrawer.value) {
+    closeNarrowDrawer();
+  }
 }
 
 import { dataThemeFor, isValidTheme, isDarkTheme } from './lib/themes';
@@ -742,7 +747,11 @@ const activeNoteFrontmatterTheme = computed<Theme | null>(() => {
 });
 
 const currentActiveTheme = computed<Theme>(() => {
-  return activeNoteFrontmatterTheme.value || settings.theme;
+  if (activeNoteFrontmatterTheme.value) return activeNoteFrontmatterTheme.value;
+  if (settings.activeCustomThemeId && isValidTheme(settings.activeCustomThemeId)) {
+    return settings.activeCustomThemeId as Theme;
+  }
+  return settings.theme;
 });
 
 watchEffect(() => {
@@ -1912,11 +1921,39 @@ const mobileOutlineOpen = ref(false);
 const mobileFindOpen = ref(false);
 const isMobileEditorFocused = ref(false);
 
-function onOpenMobileFiles() {
+async function onOpenMobileDaily() {
+  if (narrowDrawer.value) {
+    closeNarrowDrawer();
+  }
   mobileOutlineOpen.value = false;
   mobileFindOpen.value = false;
   mobileAgentOpen.value = false;
-  settings.toggleLeftSidebar();
+  try {
+    if (workspace.currentFolder) {
+      await openTodayNote();
+    } else {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const existingTab = tabs.tabs.find((t) => t.fileName.startsWith(dateStr));
+      if (existingTab) {
+        tabs.activeId = existingTab.id;
+      } else {
+        tabs.newTab({ fileName: `${dateStr}.md`, content: `# ${dateStr}\n\n` });
+      }
+      toasts.success(lang.value === 'zh' ? `已开启今日灵感速记 (${dateStr})` : `Daily note opened (${dateStr})`);
+    }
+  } catch (err) {
+    console.error('Failed to open daily note:', err);
+  }
+}
+
+function onToolbarSearch() {
+  if (isNarrow.value) {
+    onOpenMobileFind();
+  } else {
+    toggleGlobalSearch();
+  }
 }
 
 function onOpenMobileAgent() {
@@ -2292,7 +2329,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       @open-palette="paletteOpen = true"
       @open-settings="(sec?: string) => openSettingsAt(sec)"
       @open-help="helpOpen = true"
-      @open-search="toggleGlobalSearch()"
+      @open-search="onToolbarSearch"
       @open-about="aboutOpen = true"
     />
 
@@ -2324,8 +2361,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             :class="{ 'is-resizing': isTyporaSidebarResizing }"
             @mousedown="onTyporaSidebarResize"
           />
-          <!-- Desktop Tabs (Files & Outline) -->
-          <div v-if="!isNarrow" class="typora-sidebar__tabs">
+          <div class="typora-sidebar__tabs">
             <button
               class="typora-sidebar__tab"
               :class="{ active: settings.leftSidebarTab === 'files' }"
@@ -2346,7 +2382,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             </button>
             <button
               class="typora-sidebar__tab-close"
-              @click="settings.toggleLeftSidebar()"
+              @click="isNarrow ? closeNarrowDrawer() : settings.toggleLeftSidebar()"
               :title="t('toolbar.closeSidebar') + ' (Ctrl+Shift+L)'"
             >
               <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -2356,27 +2392,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             </button>
           </div>
 
-          <!-- Mobile Pure File Manager Header (Decoupled from Outline) -->
-          <div v-else class="mobile-sidebar-header">
-            <div class="mobile-sidebar-header__title">
-              <Icon name="folder" :size="16" />
-              <span>{{ t('toolbar.fileTree') || '文件列表' }}</span>
-            </div>
-            <button
-              class="mobile-sidebar-header__close"
-              type="button"
-              @click="closeNarrowDrawer"
-              :title="t('toolbar.closeSidebar')"
-            >
-              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
-                <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
-              </svg>
-            </button>
-          </div>
-
           <div class="typora-sidebar__body">
-            <template v-if="isNarrow || settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
+            <template v-if="settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
               <FileTree v-if="settings.showFileTree" />
               <ViewsPanel v-if="settings.showViewsPanel" />
             </template>
@@ -2598,14 +2615,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         </aside>
       </div>
 
-      <!-- Mobile Bottom Dock (Floating 5-action bar on mobile < 640px) -->
+      <!-- Mobile Bottom Dock (Floating 3-action bar on mobile < 640px) -->
       <MobileBottomDock
         v-if="isNarrow && !mobileAgentOpen && !mobileFindOpen && !isMobileEditorFocused && !narrowDrawer"
         :is-ai-active="showAgentPane"
-        @open-files="onOpenMobileFiles"
-        @open-outline="onOpenMobileOutline"
+        @open-daily="onOpenMobileDaily"
         @open-agent="onOpenMobileAgent"
-        @open-search="onOpenMobileFind"
         @open-settings="openSettingsAt()"
       />
 
@@ -2630,7 +2645,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
         @open-settings="(sec) => openSettingsAt(sec)"
       />
 
-      <StatusBar :line="cursorLine" :col="cursorCol" :selection-text="selectionText" />
+      <StatusBar v-if="!isNarrow" :line="cursorLine" :col="cursorCol" :selection-text="selectionText" />
       <!-- Grid editor for the table under the caret. The pane that found the
            table supplies the write-back closure, so this stays pane-agnostic. -->
       <TableEditor
@@ -2951,51 +2966,18 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 .app--narrow .typora-sidebar__tab-close {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 50%;
+  margin-left: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-/* Mobile file drawer header (pure file manager, no outline tab) */
-.mobile-sidebar-header {
-  height: 48px;
-  padding: 0 12px 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--bg-elev);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.mobile-sidebar-header__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14.5px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: -0.01em;
-}
-.mobile-sidebar-header__title :deep(svg),
-.mobile-sidebar-header__title svg {
-  color: var(--accent);
-}
-.mobile-sidebar-header__close {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
   background: var(--bg-hover);
   color: var(--text-muted);
+  border: none;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
-  padding: 0;
 }
-.mobile-sidebar-header__close:active {
+.app--narrow .typora-sidebar__tab-close:active {
   background: var(--border);
   color: var(--text);
   transform: scale(0.92);

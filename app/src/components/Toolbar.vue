@@ -22,7 +22,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { forceWinChromePreview, isIOS, isMacOS, isWindowsDesktop } from '../lib/platform';
 import { EditorView } from '@codemirror/view';
 import { openPipFocusTimer } from '../lib/pip-window';
-import { themeLabels, allThemeLabels, isDarkTheme as checkIsDarkTheme } from '../lib/themes';
+import { themeLabels, allThemeLabels, isDarkTheme as checkIsDarkTheme, isValidTheme } from '../lib/themes';
 import { useThemesStore } from '../stores/themes';
 import type { Theme } from '../types';
 
@@ -453,6 +453,13 @@ function menuAction(id: string) {
     if (found) {
       settings.setActiveCustomThemeId(found.id);
       settings.setCustomCssPath(found.path);
+      if (isValidTheme(found.id)) {
+        settings.setTheme(found.id as Theme);
+      } else {
+        const matched = themesStore.manifest?.themes?.find((m) => m.id === found.id);
+        const tone = matched?.tags?.includes('dark') || matched?.tags?.includes('black') ? 'dark' : 'light';
+        settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
+      }
     }
   } else if (id === 'themes.marketplace') {
     openThemeMarketplace();

@@ -1304,6 +1304,16 @@ body.solomd-printing--dark {
   border-radius: 0 4px 4px 0;
 }
 
+/* Ensure CodeMirror editor surface seamlessly adopts current theme & custom theme background */
+:root[data-theme] .cm-editor {
+  background-color: var(--bg);
+  color: var(--text);
+}
+:root[data-theme] .cm-gutters {
+  background-color: var(--bg);
+  color: var(--text-muted);
+}
+
 /* GitHub Light authentic Typora theme */
 :root[data-theme="github-light"] .preview-content h1,
 :root[data-theme="github-light"] .preview-content h2 {
