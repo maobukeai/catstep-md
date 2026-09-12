@@ -516,7 +516,7 @@ onMounted(() => {
         <!-- Typography Metrics 2x2 Grid -->
         <div class="settings-typography-grid">
           <!-- Cell 1: Editor Font Size -->
-          <div class="settings-typo-cell">
+          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setFontSize(14)">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '编辑器字号' : t('settings.fontSize') }}</span>
               <span
@@ -542,7 +542,7 @@ onMounted(() => {
           </div>
 
           <!-- Cell 2: Line Height -->
-          <div class="settings-typo-cell">
+          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setLineHeight(1.75)">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '正文行高' : 'Line Height' }}</span>
               <span
@@ -567,7 +567,7 @@ onMounted(() => {
           </div>
 
           <!-- Cell 3: UI Font Size -->
-          <div class="settings-typo-cell">
+          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setUiFontSize(13)">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '界面字号' : t('settings.uiFontSize') }}</span>
               <span
@@ -593,7 +593,7 @@ onMounted(() => {
           </div>
 
           <!-- Cell 4: Paragraph Spacing -->
-          <div class="settings-typo-cell">
+          <div class="settings-typo-cell" tabindex="0" @keydown.enter.prevent="settings.setParagraphSpacing(1.0)">
             <div class="settings-typo-cell__header">
               <span class="settings-typo-cell__title">{{ isZh ? '段落间距' : 'Paragraph Spacing' }}</span>
               <span
@@ -620,7 +620,7 @@ onMounted(() => {
         </div>
 
         <!-- Row 3: Global Zoom + Wheel Zoom -->
-        <div class="setting-row">
+        <div class="setting-row" tabindex="0" @keydown.enter.prevent="settings.resetZoom()">
           <div class="setting-row__info">
             <div class="setting-theme-title-line">
               <label class="setting-row__title">{{ t('settings.globalZoom') }}</label>

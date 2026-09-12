@@ -148,14 +148,12 @@ onMounted(refresh);
       <div class="rest-header" @click="onToggleEnabled">
         <div class="rest-header__info">
           <div class="rest-header__title-row">
-            <span class="rest-header__icon">⚡</span>
             <span class="rest-header__title">{{ t('rest.heading') }}</span>
             <span
               v-if="state.enabled"
               class="status-pill"
               :class="state.running ? 'status-pill--live' : 'status-pill--idle'"
             >
-              <span class="status-pill__dot"></span>
               {{ state.running ? t('rest.statusRunning') : t('rest.statusStarting') }}
             </span>
           </div>
@@ -182,7 +180,7 @@ onMounted(refresh);
               <label class="rest-field__label">{{ t('rest.endpoint') }}</label>
               <div class="rest-input-box rest-input-box--readonly" @click="copyEndpoint" :title="'点击复制 API 基地址'">
                 <code class="rest-code">http://127.0.0.1:{{ state.port }}</code>
-                <button type="button" class="box-icon-btn" :title="'复制地址'">📋</button>
+                <button type="button" class="btn-text-action">复制</button>
               </div>
             </div>
 
@@ -214,19 +212,19 @@ onMounted(refresh);
           <div class="rest-field">
             <div class="rest-field__head-line">
               <label class="rest-field__label">{{ t('rest.token') }} (Bearer Token)</label>
-              <span class="rest-field__subtip">外部客户端调用必须附带 Authorization: Bearer</span>
+              <span class="rest-field__subtip">Authorization: Bearer 鉴权</span>
             </div>
             <div class="token-container">
               <code class="token-text" :class="{ 'is-masked': !showToken }">{{ tokenDisplay }}</code>
               <div class="token-actions">
                 <button type="button" class="btn-token" @click="showToken = !showToken">
-                  {{ showToken ? '🙈 ' + t('rest.tokenHide') : '👁️ ' + t('rest.tokenShow') }}
+                  {{ showToken ? t('rest.tokenHide') : t('rest.tokenShow') }}
                 </button>
                 <button type="button" class="btn-token" :disabled="!state.token" @click="copyToken">
-                  📋 {{ t('rest.tokenCopy') }}
+                  {{ t('rest.tokenCopy') }}
                 </button>
                 <button type="button" class="btn-token btn-token--regen" @click="onRegenerateToken">
-                  🔄 {{ t('rest.tokenRegenerate') }}
+                  {{ t('rest.tokenRegenerate') }}
                 </button>
               </div>
             </div>
@@ -235,14 +233,9 @@ onMounted(refresh);
           <!-- Terminal Code Snippet Block -->
           <div class="terminal-block">
             <div class="terminal-block__head">
-              <div class="terminal-dots">
-                <span class="dot dot--red"></span>
-                <span class="dot dot--yellow"></span>
-                <span class="dot dot--green"></span>
-                <span class="terminal-title">REST API 调用示例 (Raycast / 终端 / 脚本)</span>
-              </div>
+              <span class="terminal-title">REST API 调用示例 (Raycast / 终端 / 脚本)</span>
               <button type="button" class="terminal-copy-btn" @click="copyCurl">
-                📋 {{ t('rest.curlCopy') }}
+                {{ t('rest.curlCopy') }}
               </button>
             </div>
             <pre class="terminal-block__code"><code>{{ curlSnippet }}</code></pre>
@@ -255,24 +248,24 @@ onMounted(refresh);
 
 <style scoped>
 .rest-group {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .rest-card {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.15s ease;
 }
 
 .rest-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 .rest-card.is-active {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 
 /* Header Row */
@@ -280,8 +273,8 @@ onMounted(refresh);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 13px 18px;
+  gap: 12px;
+  padding: 8px 14px;
   cursor: pointer;
   user-select: none;
   transition: background-color 0.12s ease;
@@ -296,7 +289,7 @@ onMounted(refresh);
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
 }
 
 .rest-header__title-row {
@@ -306,13 +299,8 @@ onMounted(refresh);
   flex-wrap: wrap;
 }
 
-.rest-header__icon {
-  font-size: 15px;
-  line-height: 1;
-}
-
 .rest-header__title {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
   line-height: 1.3;
@@ -320,9 +308,9 @@ onMounted(refresh);
 
 .rest-header__desc {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .rest-header__control {
@@ -335,45 +323,35 @@ onMounted(refresh);
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 500;
-  padding: 1.5px 7px;
-  border-radius: 12px;
+  padding: 1px 6px;
+  border-radius: 4px;
   line-height: 1.2;
 }
 
 .status-pill--live {
   background: rgba(16, 185, 129, 0.12);
   color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .status-pill--idle {
   background: rgba(107, 114, 128, 0.12);
   color: var(--text-muted);
-  border: 1px solid rgba(107, 114, 128, 0.2);
-}
-
-.status-pill__dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
 }
 
 /* Modern Toggle Switch */
 .modern-switch {
   position: relative;
   display: inline-block;
-  width: 36px;
-  height: 20px;
+  width: 30px;
+  height: 17px;
   cursor: pointer;
 }
 
 .modern-switch--sm {
-  width: 32px;
-  height: 18px;
+  width: 28px;
+  height: 15px;
 }
 
 .modern-switch input {
@@ -387,26 +365,26 @@ onMounted(refresh);
   position: absolute;
   inset: 0;
   background-color: color-mix(in srgb, var(--text-faint) 45%, transparent);
-  border-radius: 20px;
+  border-radius: 17px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modern-switch__slider::before {
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 11px;
+  width: 11px;
   left: 3px;
   bottom: 3px;
   background-color: #ffffff;
   border-radius: 50%;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .modern-switch--sm .modern-switch__slider::before {
-  height: 12px;
-  width: 12px;
+  height: 9px;
+  width: 9px;
   left: 3px;
   bottom: 3px;
 }
@@ -416,27 +394,27 @@ onMounted(refresh);
 }
 
 .modern-switch input:checked + .modern-switch__slider::before {
-  transform: translateX(16px);
+  transform: translateX(13px);
 }
 
 .modern-switch--sm input:checked + .modern-switch__slider::before {
-  transform: translateX(14px);
+  transform: translateX(13px);
 }
 
 /* Expanded Body */
 .rest-body {
-  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  padding: 14px 18px 16px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  padding: 9px 14px 11px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   background: color-mix(in srgb, var(--bg-hover) 15%, var(--bg-elev));
 }
 
 .rest-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 8px;
 }
 
 @media (max-width: 640px) {
@@ -448,7 +426,7 @@ onMounted(refresh);
 .rest-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .rest-field__head-line {
@@ -459,26 +437,25 @@ onMounted(refresh);
 }
 
 .rest-field__label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 500;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 
 .rest-field__subtip {
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text-faint);
 }
 
 .rest-input-box {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background: var(--bg);
-  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
-  border-radius: 6px;
-  padding: 5px 9px;
-  min-height: 32px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.22));
+  border-radius: 5px;
+  padding: 3px 8px;
+  min-height: 28px;
   box-sizing: border-box;
   transition: border-color 0.15s ease;
 }
@@ -489,7 +466,7 @@ onMounted(refresh);
 
 .rest-input-box--readonly:hover {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 4%, var(--bg));
+  background: color-mix(in srgb, var(--accent) 3%, var(--bg));
 }
 
 .rest-code {
@@ -502,19 +479,23 @@ onMounted(refresh);
   text-overflow: ellipsis;
 }
 
-.box-icon-btn {
+.btn-text-action {
   background: transparent;
-  border: none;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.2));
+  border-radius: 3px;
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 11px;
+  padding: 1px 6px;
+  font-size: 10.5px;
   color: var(--text-muted);
-  border-radius: 4px;
+  line-height: 1.2;
+  margin-left: 6px;
   transition: all 0.12s;
+  flex-shrink: 0;
 }
 
-.box-icon-btn:hover {
+.btn-text-action:hover {
   color: var(--accent);
+  border-color: var(--accent);
   background: var(--bg-hover);
 }
 
@@ -525,10 +506,10 @@ onMounted(refresh);
   justify-content: space-between;
   gap: 8px;
   background: var(--bg);
-  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
-  border-radius: 6px;
-  padding: 5px 9px;
-  min-height: 32px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.22));
+  border-radius: 5px;
+  padding: 3px 8px;
+  min-height: 28px;
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
@@ -547,14 +528,14 @@ onMounted(refresh);
 }
 
 .perm-card__title {
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text);
   line-height: 1.2;
 }
 
 .perm-card__tip {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-muted);
 }
 
@@ -567,12 +548,12 @@ onMounted(refresh);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   background: var(--bg);
-  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.25));
-  border-radius: 6px;
-  padding: 5px 8px 5px 10px;
-  min-height: 34px;
+  border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.22));
+  border-radius: 5px;
+  padding: 3px 8px;
+  min-height: 28px;
   flex-wrap: wrap;
 }
 
@@ -591,25 +572,24 @@ onMounted(refresh);
 .token-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .btn-token {
   border: 1px solid var(--border-faint, rgba(128, 128, 128, 0.2));
   background: var(--bg-hover);
   color: var(--text);
-  font-size: 10.5px;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   line-height: 1.2;
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
 }
 
 .btn-token:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -628,48 +608,22 @@ onMounted(refresh);
 .terminal-block {
   background: #18181b;
   color: #f4f4f5;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .terminal-block__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  padding: 4px 8px;
   background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.terminal-dots {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-
-.dot--red {
-  background: #ef4444;
-}
-
-.dot--yellow {
-  background: #f59e0b;
-}
-
-.dot--green {
-  background: #10b981;
-}
-
 .terminal-title {
-  margin-left: 6px;
-  font-size: 10.5px;
+  font-size: 10px;
   color: #a1a1aa;
   font-family: var(--font-mono, monospace);
 }
@@ -678,11 +632,11 @@ onMounted(refresh);
   border: none;
   background: rgba(255, 255, 255, 0.08);
   color: #e4e4e7;
-  font-size: 10.5px;
-  padding: 2px 7px;
-  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
 }
 
 .terminal-copy-btn:hover {
@@ -692,10 +646,10 @@ onMounted(refresh);
 
 .terminal-block__code {
   margin: 0;
-  padding: 10px 12px;
+  padding: 7px 10px;
   font-family: var(--font-mono, monospace);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 10.5px;
+  line-height: 1.4;
   overflow-x: auto;
   color: #e2e8f0;
 }
@@ -707,12 +661,12 @@ onMounted(refresh);
 /* Animations */
 .fade-height-enter-active,
 .fade-height-leave-active {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .fade-height-enter-from,
 .fade-height-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-3px);
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from '../../i18n';
 
 const props = withDefaults(
@@ -32,7 +32,9 @@ const emit = defineEmits<{
 const { lang } = useI18n();
 const isZh = computed(() => (lang?.value || '').startsWith('zh'));
 
+const inputRef = ref<HTMLInputElement>();
 const isBouncing = ref(false);
+const isHovered = ref(false);
 
 const pct = computed(() => {
   const min = Number(props.min);
@@ -50,9 +52,13 @@ const defaultFormatted = computed(() => {
 const tooltip = computed(() => {
   if (props.title) return props.title;
   return isZh.value
-    ? `回车(Enter)或双击恢复默认 (${defaultFormatted.value})`
+    ? `按回车(Enter)或双击恢复默认 (${defaultFormatted.value})`
     : `Press Enter or double-click to reset (${defaultFormatted.value})`;
 });
+
+function ensureFocus() {
+  inputRef.value?.focus();
+}
 
 function onInput(e: Event) {
   const target = e.target as HTMLInputElement;
@@ -66,7 +72,6 @@ function onChange(e: Event) {
 
 function resetToDefault() {
   if (props.disabled) return;
-  if (props.modelValue === props.defaultValue) return;
   emit('update:modelValue', props.defaultValue);
   emit('change', props.defaultValue);
   emit('reset', props.defaultValue);
@@ -74,11 +79,36 @@ function resetToDefault() {
   isBouncing.value = true;
   setTimeout(() => {
     isBouncing.value = false;
-  }, 320);
+  }, 350);
 }
+
+function handleGlobalKey(e: KeyboardEvent) {
+  if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.keyCode === 13) {
+    const isFocused = document.activeElement === inputRef.value;
+    if (isHovered.value || isFocused) {
+      const active = document.activeElement;
+      if (active && active !== inputRef.value && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+        const type = (active as HTMLInputElement).type;
+        if (type === 'text' || type === 'password' || type === 'search' || type === 'number') return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      resetToDefault();
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKey, true);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKey, true);
+});
 
 defineExpose({
   resetToDefault,
+  focus: ensureFocus,
 });
 </script>
 
@@ -90,8 +120,14 @@ defineExpose({
       'setting-slider-wrap--disabled': disabled,
     }"
     :title="tooltip"
+    @mouseenter="isHovered = true"
+    @mouseleave="isHovered = false"
+    @pointerdown="ensureFocus"
+    @mousedown="ensureFocus"
+    @click="ensureFocus"
   >
     <input
+      ref="inputRef"
       type="range"
       :min="min"
       :max="max"
@@ -102,6 +138,9 @@ defineExpose({
       class="setting-slider-input"
       @input="onInput"
       @change="onChange"
+      @pointerdown="ensureFocus"
+      @mousedown="ensureFocus"
+      @click="ensureFocus"
       @keydown.enter.prevent="resetToDefault"
       @dblclick.prevent="resetToDefault"
     />
