@@ -7,7 +7,6 @@ import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { isIOS } from '../../lib/platform';
 import { useViewport } from '../../composables/useViewport';
-import { checkForUpdate, openReleaseUrl, isMasBuild } from '../../lib/check-update';
 import { loadCustomTheme } from '../../lib/custom-theme';
 import ThemeMarketplace from '../ThemeMarketplace.vue';
 
@@ -17,27 +16,6 @@ const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 
 const isMobilePlatform = isIOS();
-const masBuild = isMasBuild();
-
-const checkingUpdate = ref(false);
-async function manualCheckUpdate() {
-  checkingUpdate.value = true;
-  try {
-    const r = await checkForUpdate();
-    if (r.error) {
-      toasts.error(t('settings.updateCheckFailed'));
-    } else if (r.hasUpdate) {
-      toasts.success(t('settings.updateAvailable', { version: r.latest || '' }));
-      await openReleaseUrl(r.url);
-    } else {
-      toasts.info(t('settings.upToDate'));
-    }
-  } catch (e) {
-    toasts.error(String(e));
-  } finally {
-    checkingUpdate.value = false;
-  }
-}
 
 const settingDefault = ref(false);
 async function setAsDefault() {
@@ -206,19 +184,6 @@ function openThemeMarketplace() {
       </label>
       <div style="font-size: 11px; color: var(--text-faint); margin-top: 4px; line-height: 1.5;">
         {{ t('settings.openLinkedFilesExternallyHint') }}
-      </div>
-    </section>
-
-    <!-- Auto Check Update (Desktop only) -->
-    <section v-if="!isMobilePlatform && !masBuild && !isNarrow" class="settings-section">
-      <label>
-        <input type="checkbox" :checked="settings.autoCheckUpdate" @change="settings.toggleAutoCheckUpdate()" />
-        {{ t('settings.autoCheckUpdate') }}
-      </label>
-      <div class="row" style="gap: 8px; align-items: center; margin-top: 8px;">
-        <button :disabled="checkingUpdate" @click="manualCheckUpdate">
-          {{ checkingUpdate ? t('settings.checkingUpdate') : t('settings.checkUpdate') }}
-        </button>
       </div>
     </section>
 

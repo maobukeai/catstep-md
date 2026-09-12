@@ -1,9 +1,17 @@
 <script setup lang="ts">
+/**
+ * MobileOutlineSheet.vue
+ *
+ * Modern native iOS / Android style bottom sheet for document outline navigation.
+ * Features elegant typographic hierarchy, real-time reading position indicator,
+ * clean empty state, and smooth touch feedback.
+ */
 import { ref, computed } from 'vue';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { extractOutline, type OutlineItem } from '../lib/markdown';
 import { useI18n } from '../i18n';
+import Icon from './Icons.vue';
 
 defineProps<{
   open: boolean;
@@ -38,31 +46,6 @@ function onSelect(line: number) {
   emit('goto', line);
   emit('close');
 }
-
-function insertHeading(level: number) {
-  if (!activeTab.value) return;
-  const hashes = '#'.repeat(level);
-  const content = activeTab.value.content || '';
-  const prefix = content.length > 0 && !content.endsWith('\n\n')
-    ? (content.endsWith('\n') ? '\n' : '\n\n')
-    : '';
-  const placeholder = `${hashes} ${level === 1 ? '文档标题' : '小节标题'}\n\n`;
-  const nextContent = content + prefix + placeholder;
-  tabs.setContent(activeTab.value.id, nextContent);
-  const totalLines = nextContent.split('\n').length;
-  emit('goto', Math.max(1, totalLines - 2));
-  emit('close');
-}
-
-function jumpToDocEdge(pos: 'top' | 'bottom') {
-  if (pos === 'top') {
-    emit('goto', 1);
-  } else {
-    const totalLines = (activeTab.value?.content || '').split('\n').length;
-    emit('goto', Math.max(1, totalLines));
-  }
-  emit('close');
-}
 </script>
 
 <template>
@@ -76,60 +59,52 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
     <aside
       v-if="open"
       class="mobile-outline-sheet"
+      :class="{ 'is-empty': !items.length }"
       role="dialog"
       aria-label="Document Outline"
     >
-      <!-- 顶部拖拽把手与快速关闭 -->
-      <div class="mobile-outline-sheet__drag-zone" @click="emit('close')">
+      <!-- Top drag handle / tap to close -->
+      <div class="mobile-outline-sheet__drag-zone" @click="emit('close')" :title="isZh ? '点击收起' : 'Tap to dismiss'">
         <div class="mobile-outline-sheet__pill"></div>
       </div>
 
-      <!-- 顶栏标题与快捷跳跃 -->
+      <!-- Header: Icon + Title + Count badge + Close button -->
       <div class="mobile-outline-sheet__header">
-        <div class="flex items-center gap-1.5 font-bold text-xs text-[var(--text)]">
-          <span>📑</span>
-          <span>{{ t('toolbar.outline') || (isZh ? '文档大纲' : 'Outline') }}</span>
-          <span v-if="items.length" class="text-[10px] text-[var(--text-faint)] font-normal ml-1">
-            ({{ items.length }} {{ isZh ? '节' : 'sections' }})
+        <div class="mobile-outline-sheet__title-wrap">
+          <span class="mobile-outline-sheet__title-icon">
+            <Icon name="outline" :size="16" />
+          </span>
+          <span class="mobile-outline-sheet__title-text">
+            {{ t('toolbar.outline') || (isZh ? '大纲目录' : 'Outline') }}
+          </span>
+          <span v-if="items.length" class="mobile-outline-sheet__count-badge">
+            {{ items.length }} {{ isZh ? '节' : 'sections' }}
           </span>
         </div>
 
-        <div class="flex items-center gap-1.5">
-          <button
-            type="button"
-            class="mobile-outline-sheet__edge-btn"
-            @click="jumpToDocEdge('top')"
-            :title="isZh ? '跳转到文档顶部' : 'Jump to top'"
-          >
-            ⬆ {{ isZh ? '顶部' : 'Top' }}
-          </button>
-          <button
-            type="button"
-            class="mobile-outline-sheet__edge-btn"
-            @click="jumpToDocEdge('bottom')"
-            :title="isZh ? '跳转到文档底部' : 'Jump to bottom'"
-          >
-            ⬇ {{ isZh ? '底部' : 'Bottom' }}
-          </button>
-          <button
-            class="mobile-outline-sheet__close-btn"
-            type="button"
-            @click="emit('close')"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          class="mobile-outline-sheet__close-btn"
+          type="button"
+          @click="emit('close')"
+          aria-label="Close"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
 
-      <!-- 搜索过滤栏 (章节 >= 3 时展示) -->
-      <div v-if="items.length >= 3" class="mobile-outline-sheet__search-box">
-        <span class="mobile-outline-sheet__search-icon">🔍</span>
+      <!-- Search filter box: only shown when >= 6 headings in long documents -->
+      <div v-if="items.length >= 6" class="mobile-outline-sheet__search-box">
+        <span class="mobile-outline-sheet__search-icon" aria-hidden="true">
+          <Icon name="search" :size="13" />
+        </span>
         <input
           v-model="searchQuery"
           type="text"
           class="mobile-outline-sheet__search-input"
-          :placeholder="isZh ? '搜索大纲小节...' : 'Filter outline sections...'"
+          :placeholder="isZh ? '筛选章节小节...' : 'Filter outline sections...'"
         />
         <button
           v-if="searchQuery"
@@ -142,44 +117,29 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
         </button>
       </div>
 
-      <!-- 大纲内容区 -->
+      <!-- Outline content area -->
       <div class="mobile-outline-sheet__body">
-        <!-- 空状态：引导快速创建标题 -->
+        <!-- Empty state: clean, minimal, elegant -->
         <div v-if="!items.length" class="mobile-outline-sheet__empty">
-          <span class="text-3xl mb-2">📝</span>
-          <span class="font-medium text-[13px] text-[var(--text)]">
-            {{ isZh ? '当前文档暂无标题' : 'No headings in document' }}
-          </span>
-          <span class="text-[11px] text-[var(--text-faint)] mt-0.5 mb-4 text-center max-w-[240px]">
-            {{ isZh ? '在文档中输入 # 即可生成目录，或点击下方快捷插入：' : 'Type # to create headings, or tap below to insert:' }}
-          </span>
-          <div class="mobile-outline-sheet__action-group">
-            <button
-              type="button"
-              class="mobile-outline-sheet__create-btn"
-              @click="insertHeading(1)"
-            >
-              {{ isZh ? '＋ 插入一级标题 (#)' : '+ Insert Heading 1 (#)' }}
-            </button>
-            <button
-              type="button"
-              class="mobile-outline-sheet__create-btn"
-              @click="insertHeading(2)"
-            >
-              {{ isZh ? '＋ 插入二级标题 (##)' : '+ Insert Heading 2 (##)' }}
-            </button>
+          <div class="mobile-outline-sheet__empty-icon-wrap">
+            <Icon name="outline" :size="24" />
           </div>
-        </div>
-
-        <!-- 搜索无结果 -->
-        <div v-else-if="!filteredItems.length" class="mobile-outline-sheet__empty">
-          <span class="text-xl mb-1">🔍</span>
-          <span class="text-xs text-[var(--text-muted)]">
-            {{ isZh ? `未找到包含 “${searchQuery}” 的标题` : `No headings matching “${searchQuery}”` }}
+          <span class="mobile-outline-sheet__empty-title">
+            {{ isZh ? '当前文档暂无章节大纲' : 'No Headings in Document' }}
+          </span>
+          <span class="mobile-outline-sheet__empty-desc">
+            {{ isZh ? '在正文中添加 # 标题，即可在此自动生成目录导航' : 'Add markdown headings (#) to view the table of contents.' }}
           </span>
         </div>
 
-        <!-- 大纲列表 -->
+        <!-- Filter no matches -->
+        <div v-else-if="!filteredItems.length" class="mobile-outline-sheet__empty">
+          <span class="mobile-outline-sheet__empty-title">
+            {{ isZh ? `未找到包含 “${searchQuery}” 的章节` : `No headings matching “${searchQuery}”` }}
+          </span>
+        </div>
+
+        <!-- Heading list with typographic hierarchy -->
         <ul v-else class="mobile-outline-sheet__list">
           <li
             v-for="(item, idx) in filteredItems"
@@ -191,9 +151,16 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
             ]"
             @click="onSelect(item.line)"
           >
-            <span class="mobile-outline-sheet__lvl-badge">H{{ item.level }}</span>
+            <!-- Branch bullet for subheadings -->
+            <span
+              v-if="item.level >= 2"
+              class="mobile-outline-sheet__bullet"
+              :class="`mobile-outline-sheet__bullet--lvl-${item.level}`"
+              aria-hidden="true"
+            />
+
+            <!-- Heading title -->
             <span class="mobile-outline-sheet__item-title">{{ item.text }}</span>
-            <span class="mobile-outline-sheet__item-line">L{{ item.line }}</span>
           </li>
         </ul>
       </div>
@@ -209,7 +176,7 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
   z-index: 100;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease-out;
+  animation: outlineBackdropFade 0.2s ease-out;
 }
 
 .mobile-outline-sheet {
@@ -217,22 +184,30 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
   left: 0;
   right: 0;
   bottom: 0;
-  max-height: 75vh;
-  min-height: 260px;
-  background: var(--bg-elev, var(--bg));
-  border-top: 1px solid var(--border);
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.28);
+  max-height: 72vh;
+  min-height: 180px;
+  background: color-mix(in srgb, var(--bg-elev) 92%, var(--bg));
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.18);
   z-index: 101;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--android-safe-bottom, 0px));
+  animation: outlineSheetSlide 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobile-outline-sheet.is-empty {
+  min-height: auto;
 }
 
 [data-theme="dark"] .mobile-outline-sheet {
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+  background: rgba(30, 29, 27, 0.95);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.7);
 }
 
 .mobile-outline-sheet__drag-zone {
@@ -240,67 +215,106 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
   display: flex;
   justify-content: center;
   padding-top: 10px;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-outline-sheet__pill {
-  width: 36px;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
+  width: 38px;
+  height: 4.5px;
+  background: color-mix(in srgb, var(--border) 90%, var(--text));
+  opacity: 0.45;
+  border-radius: 999px;
+  transition: opacity 0.15s ease;
+}
+
+.mobile-outline-sheet__drag-zone:active .mobile-outline-sheet__pill {
+  opacity: 0.8;
 }
 
 .mobile-outline-sheet__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 14px 10px 14px;
-  border-bottom: 1px solid var(--border);
+  padding: 4px 16px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
-.mobile-outline-sheet__edge-btn {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.12s ease;
+.mobile-outline-sheet__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.mobile-outline-sheet__edge-btn:active {
-  background: var(--bg-active);
+.mobile-outline-sheet__title-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.mobile-outline-sheet__title-text {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.mobile-outline-sheet__count-badge {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
 }
 
 .mobile-outline-sheet__close-btn {
-  background: transparent;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   border: none;
+  background: var(--bg-hover);
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 13px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+}
+
+.mobile-outline-sheet__close-btn:active {
+  background: var(--border);
+  color: var(--text);
+  transform: scale(0.92);
 }
 
 .mobile-outline-sheet__search-box {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 8px 12px 2px 12px;
+  margin: 10px 14px 2px;
   padding: 0 10px;
   height: 34px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
+  transition: border-color 0.15s ease;
+}
+
+.mobile-outline-sheet__search-box:focus-within {
+  border-color: var(--accent);
 }
 
 .mobile-outline-sheet__search-icon {
-  font-size: 12px;
-  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .mobile-outline-sheet__search-input {
@@ -308,8 +322,12 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
   background: transparent;
   border: none;
   outline: none;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text);
+}
+
+.mobile-outline-sheet__search-input::placeholder {
+  color: var(--text-faint);
 }
 
 .mobile-outline-sheet__search-clear {
@@ -324,99 +342,158 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
 .mobile-outline-sheet__body {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 12px 24px 12px;
+  padding: 8px 12px 20px;
   -webkit-overflow-scrolling: touch;
 }
 
+/* Empty state */
 .mobile-outline-sheet__empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 16px;
+  padding: 24px 16px 20px;
   color: var(--text-muted);
+  text-align: center;
 }
 
-.mobile-outline-sheet__action-group {
+.mobile-outline-sheet__empty-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  max-width: 220px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
 }
 
-.mobile-outline-sheet__create-btn {
-  background: var(--bg);
-  border: 1px dashed var(--accent, #3b82f6);
-  color: var(--accent, #3b82f6);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
+.mobile-outline-sheet__empty-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
 }
 
-.mobile-outline-sheet__create-btn:active {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
-  transform: scale(0.98);
+.mobile-outline-sheet__empty-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  max-width: 250px;
+  line-height: 1.5;
 }
 
+/* Outline list */
 .mobile-outline-sheet__list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .mobile-outline-sheet__item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: 8px;
-  font-size: 13px;
-  color: var(--text);
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease, transform 0.08s ease;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .mobile-outline-sheet__item:active {
-  background: var(--bg-active);
+  background: var(--bg-hover);
+  transform: scale(0.99);
 }
 
+/* Typographic hierarchy */
+.mobile-outline-sheet__item--lvl-1 {
+  padding-left: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.mobile-outline-sheet__item--lvl-2 {
+  padding-left: 22px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.mobile-outline-sheet__item--lvl-3 {
+  padding-left: 32px;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.mobile-outline-sheet__item--lvl-4 {
+  padding-left: 42px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.mobile-outline-sheet__item--lvl-5 {
+  padding-left: 50px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.mobile-outline-sheet__item--lvl-6 {
+  padding-left: 58px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+/* Branch bullets */
+.mobile-outline-sheet__bullet {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  opacity: 0.55;
+  margin-right: 7px;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+}
+
+.mobile-outline-sheet__bullet--lvl-3 {
+  width: 3px;
+  height: 3px;
+  opacity: 0.4;
+}
+
+/* Active reading state */
 .mobile-outline-sheet__item.is-active {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elev));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent);
   font-weight: 600;
 }
 
-.mobile-outline-sheet__item--lvl-1 { padding-left: 8px; font-weight: 600; }
-.mobile-outline-sheet__item--lvl-2 { padding-left: 18px; }
-.mobile-outline-sheet__item--lvl-3 { padding-left: 28px; font-size: 12px; color: var(--text-muted); }
-.mobile-outline-sheet__item--lvl-4 { padding-left: 36px; font-size: 11.5px; color: var(--text-faint); }
-.mobile-outline-sheet__item--lvl-5 { padding-left: 44px; font-size: 11px; color: var(--text-faint); }
-.mobile-outline-sheet__item--lvl-6 { padding-left: 52px; font-size: 11px; color: var(--text-faint); }
-
-.mobile-outline-sheet__lvl-badge {
-  font-size: 9.5px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  padding: 1px 4px;
-  border-radius: 4px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  flex-shrink: 0;
+.mobile-outline-sheet__item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
 }
 
-.mobile-outline-sheet__item.is-active .mobile-outline-sheet__lvl-badge {
-  border-color: var(--accent);
+.mobile-outline-sheet__item.is-active .mobile-outline-sheet__bullet {
   background: var(--accent);
-  color: #fff;
+  opacity: 1;
 }
 
 .mobile-outline-sheet__item-title {
@@ -426,19 +503,12 @@ function jumpToDocEdge(pos: 'top' | 'bottom') {
   white-space: nowrap;
 }
 
-.mobile-outline-sheet__item-line {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--text-faint);
-  margin-left: auto;
-}
-
-@keyframes fadeIn {
+@keyframes outlineBackdropFade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-@keyframes slideUp {
+@keyframes outlineSheetSlide {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
