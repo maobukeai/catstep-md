@@ -1029,31 +1029,25 @@ watch(
       </div>
     </div>
 
-  <!-- ② 选中文本即时改写 -->
-  <div class="ai-settings__card ai-settings__card--compact">
-    <div class="ai-settings__card-header">
-      <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('ai.rewriteHeading') }}</h3>
+  <!-- ② 选中文本即时改写与悬浮工具栏 -->
+  <label class="ai-settings__card ai-settings__card--row ai-settings__card--clickable">
+    <div class="ai-settings__card-info">
+      <div class="ai-settings__title-line">
+        <span class="ai-settings__heading ai-settings__heading--sub">{{ t('ai.rewriteHeading') }}</span>
+        <span class="ai-settings__kbd-badge">
+          <kbd class="ai-settings__kbd">{{ isMac ? '⌘' : 'Ctrl' }}</kbd> + <kbd class="ai-settings__kbd">J</kbd>
+        </span>
+      </div>
       <p class="ai-settings__desc">{{ t('ai.rewriteDesc') }}</p>
     </div>
-
-    <!-- 合并为单行紧凑设置项 -->
-    <label class="ai-settings__row ai-settings__row--toggle ai-settings__row--compact">
-      <span>
-        <span class="ai-settings__title-line">
-          <span class="ai-settings__label">{{ t('ai.showSelectionBubble') }}</span>
-          <span class="ai-settings__kbd-badge">
-            <kbd class="ai-settings__kbd">{{ isMac ? '⌘' : 'Ctrl' }}</kbd> + <kbd class="ai-settings__kbd">J</kbd>
-          </span>
-        </span>
-        <span class="ai-settings__hint">{{ t('ai.showSelectionBubbleHint') }}</span>
-      </span>
+    <div class="ai-settings__card-control">
       <input
         type="checkbox"
         :checked="settingsStore.showSelectionBubble"
         @change="settingsStore.toggleShowSelectionBubble()"
       />
-    </label>
-  </div>
+    </div>
+  </label>
 
   <!-- ③ 智能体（工具调用 + 写入权限） -->
   <div class="ai-settings__card">
@@ -1152,9 +1146,32 @@ watch(
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.ai-settings__card--compact {
-  gap: 10px;
-  padding: 12px 14px;
+.ai-settings__card--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+}
+.ai-settings__card--clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.ai-settings__card--clickable:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+  background: color-mix(in srgb, var(--bg-hover) 38%, transparent);
+}
+.ai-settings__card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.ai-settings__card-control {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 .ai-settings__card-header {
   display: flex;
