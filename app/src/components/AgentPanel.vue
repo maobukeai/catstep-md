@@ -2604,15 +2604,6 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       <!-- Header Action Buttons: 新建 & 历史 (with dropdown) -->
       <template v-if="!collapsed && stateKey === 'ready'">
         <div class="agent-panel__head-actions">
-          <button
-            class="agent-panel__model-pill"
-            type="button"
-            :title="t('ai.selectProviderAndModel') || '选择服务商与模型'"
-            @click.stop="toggleModelPicker('header', $event)"
-          >
-            <span class="agent-panel__model-pill-text">{{ currentActiveProfileName }} / {{ settings.aiModel }}</span>
-            <span class="agent-panel__model-arrow" :class="{ 'is-open': showModelPicker }">▾</span>
-          </button>
 
           <button
             class="agent-panel__action-btn"
