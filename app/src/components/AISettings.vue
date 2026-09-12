@@ -24,10 +24,12 @@ import { useSettingsStore, type AIProviderProfile } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useTabsStore } from '../stores/tabs';
 import { useI18n } from '../i18n';
+import { isMacOS } from '../lib/platform';
 
 const settingsStore = useSettingsStore();
 const workspaceStore = useWorkspaceStore();
 const tabsStore = useTabsStore();
+const isMac = isMacOS();
 
 // ---------------------------------------------------------------------------
 // Ollama detect state (v4.0 Pillar 5)
@@ -1033,8 +1035,42 @@ watch(
       <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('ai.rewriteHeading') }}</h3>
       <p class="ai-settings__desc">{{ t('ai.rewriteDesc') }}</p>
     </div>
-    <div class="ai-settings__tip-card">
-      <span class="ai-settings__tip-badge">{{ t('ai.rewriteUsageTip') }}</span>
+
+    <!-- 独立功能开关：启用即时改写 -->
+    <label class="ai-settings__row ai-settings__row--toggle">
+      <span>
+        <span class="ai-settings__label">{{ t('ai.enableRewrite') }}</span>
+        <span class="ai-settings__hint">{{ t('ai.enableRewriteHint') }}</span>
+      </span>
+      <input
+        type="checkbox"
+        :checked="settingsStore.aiRewriteEnabled"
+        @change="settingsStore.toggleAiRewriteEnabled()"
+      />
+    </label>
+
+    <div v-if="settingsStore.aiRewriteEnabled" class="ai-settings__group">
+      <!-- 子选项开关：划选文本时显示悬浮工具栏 -->
+      <label class="ai-settings__row ai-settings__row--toggle">
+        <span>
+          <span class="ai-settings__label">{{ t('ai.showSelectionBubble') }}</span>
+          <span class="ai-settings__hint">{{ t('ai.showSelectionBubbleHint') }}</span>
+        </span>
+        <input
+          type="checkbox"
+          :checked="settingsStore.showSelectionBubble"
+          @change="settingsStore.toggleShowSelectionBubble()"
+        />
+      </label>
+
+      <!-- 快捷键与使用提示条（带专属 kbd 徽章） -->
+      <div class="ai-settings__tip-card">
+        <span class="ai-settings__tip-badge">
+          <span>{{ t('ai.rewriteTipPrefix') }}</span>
+          <kbd class="ai-settings__kbd">{{ isMac ? '⌘' : 'Ctrl' }}</kbd> + <kbd class="ai-settings__kbd">J</kbd>
+          <span>{{ t('ai.rewriteTipSuffix') }}</span>
+        </span>
+      </div>
     </div>
   </div>
 
@@ -1167,7 +1203,25 @@ watch(
 }
 .ai-settings__tip-badge {
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.ai-settings__kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  color: var(--text);
+  margin: 0 1px;
+  display: inline-block;
+  line-height: 1.2;
 }
 /* iOS Toggle Switch */
 input[type='checkbox'] {

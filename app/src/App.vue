@@ -2668,7 +2668,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
 
     <AIRewriteOverlay
       v-if="!IS_APP_STORE_BUILD"
-      :enabled="settings.aiEnabled"
+      :enabled="settings.aiEnabled && settings.aiRewriteEnabled"
       :provider="(settings.aiProvider as any)"
       :model="settings.aiModel"
       :base-url="settings.aiBaseUrl"

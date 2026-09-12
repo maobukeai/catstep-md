@@ -3357,7 +3357,7 @@ const selectionBubbleState = ref<{
 });
 
 function updateSelectionBubble(cmView: EditorView) {
-  if (activeMobileMatches.length > 0 || isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
+  if (!settings.showSelectionBubble || activeMobileMatches.length > 0 || isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -3398,7 +3398,7 @@ function updateSelectionBubble(cmView: EditorView) {
 }
 
 function updateSelectionBubblePlain() {
-  if (isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
+  if (!settings.showSelectionBubble || isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
     selectionBubbleState.value.visible = false;
     return;
   }
@@ -5301,6 +5301,7 @@ const cls = computed(() => ({
     :top="selectionBubbleState.top"
     :left="selectionBubbleState.left"
     :selected-text="selectionBubbleState.selectedText"
+    :ai-enabled="settings.aiEnabled && settings.aiRewriteEnabled"
     @action="onBubbleAction"
     @ai-action="onBubbleAiAction"
     @close="selectionBubbleState.visible = false"

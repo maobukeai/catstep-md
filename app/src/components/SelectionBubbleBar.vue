@@ -10,6 +10,7 @@ defineProps<{
   top: number;
   left: number;
   selectedText?: string;
+  aiEnabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -127,10 +128,10 @@ onBeforeUnmount(() => {
           <Icon name="link" :size="13" />
         </button>
 
-        <div class="bubble-sep"></div>
+        <div v-if="aiEnabled ?? true" class="bubble-sep"></div>
 
         <!-- Catstep AI Menu Capsule -->
-        <div class="bubble-ai-dropdown">
+        <div v-if="aiEnabled ?? true" class="bubble-ai-dropdown">
           <button
             class="bubble-btn bubble-btn--ai"
             :class="{ 'is-open': aiMenuOpen }"

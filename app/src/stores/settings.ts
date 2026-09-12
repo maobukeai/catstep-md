@@ -210,6 +210,8 @@ interface Settings {
   // ai-providers.ts PROVIDERS — widened to string to avoid breaking when
   // new providers land.
   aiEnabled: boolean;
+  aiRewriteEnabled: boolean;
+  showSelectionBubble: boolean;
   aiProvider: string;
   aiModel: string;
   aiBaseUrl: string;
@@ -593,6 +595,8 @@ function defaults(): Settings {
     sideSidebarWidth: 260,
     fileTreeWidth: 240,
     aiEnabled: false,
+    aiRewriteEnabled: true,
+    showSelectionBubble: true,
     aiProvider: 'openai',
     aiModel: '',
     aiBaseUrl: '',
@@ -1335,6 +1339,14 @@ export const useSettingsStore = defineStore('settings', {
     },
     toggleAiEnabled() {
       this.aiEnabled = !this.aiEnabled;
+      this.persist();
+    },
+    toggleAiRewriteEnabled() {
+      this.aiRewriteEnabled = !this.aiRewriteEnabled;
+      this.persist();
+    },
+    toggleShowSelectionBubble() {
+      this.showSelectionBubble = !this.showSelectionBubble;
       this.persist();
     },
     syncActiveProfile() {
