@@ -6,9 +6,10 @@ import { useTabsStore } from '../../stores/tabs';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { themeLabels } from '../../lib/themes';
-import { reloadAllCustomStyles } from '../../lib/custom-theme';
+import { reloadAllCustomStyles, loadCustomTheme } from '../../lib/custom-theme';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useViewport } from '../../composables/useViewport';
+import ThemeMarketplace from '../ThemeMarketplace.vue';
 import type { Theme } from '../../types';
 
 const { t } = useI18n();
@@ -18,6 +19,42 @@ const tabs = useTabsStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
+
+const themeMarketplaceOpen = ref(false);
+function openThemeMarketplace() {
+  themeMarketplaceOpen.value = true;
+}
+
+async function pickCustomCss() {
+  const path = await openFileDialog({
+    multiple: false,
+    filters: [{ name: 'CSS', extensions: ['css'] }],
+  });
+  if (path && typeof path === 'string') {
+    settings.setCustomCssPath(path);
+    toasts.success(t('settings.customCssLoaded'));
+  }
+}
+
+const isCssRefreshing = ref(false);
+const CSS_REFRESH_MIN_MS = 700;
+
+async function refreshCustomCss() {
+  if (!settings.customCssPath || isCssRefreshing.value) return;
+  const startedAt = Date.now();
+  isCssRefreshing.value = true;
+  try {
+    const applied = await loadCustomTheme(settings.customCssPath);
+    if (applied) toasts.success(t('settings.customCssReloaded'));
+    else toasts.error(t('settings.customCssReloadFailed'));
+  } finally {
+    const elapsed = Date.now() - startedAt;
+    const revs = Math.max(1, Math.ceil(elapsed / CSS_REFRESH_MIN_MS));
+    const remaining = revs * CSS_REFRESH_MIN_MS - elapsed;
+    if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
+    isCssRefreshing.value = false;
+  }
+}
 
 async function refreshCustomThemes() {
   await themesStore.refreshInstalled();
@@ -198,18 +235,44 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Row: Theme Folder & user.css (Desktop only) -->
-        <div v-if="!isNarrow" class="setting-row">
+        <!-- Row: Theme Extensions & Marketplace -->
+        <div class="setting-row">
           <div class="setting-row__info">
-            <label class="setting-row__title">{{ isZh ? '主题文件夹与扩展' : 'Themes Folder & Extensions' }}</label>
-            <p class="setting-row__hint">{{ isZh ? '支持直接放入 Typora .css 主题文件，或编辑全局 user.css' : 'Add Typora .css files to directory or edit user.css' }}</p>
+            <label class="setting-row__title">{{ isZh ? '主题扩展与社区市场' : 'Theme Extensions & Marketplace' }}</label>
+            <p class="setting-row__hint">{{ isZh ? '浏览社区主题市场一键安装，或导入 Typora .css 主题 / 编辑全局 user.css' : 'Browse theme marketplace, import Typora .css files, or edit user.css' }}</p>
+            <div v-if="settings.customCssPath" class="custom-css-path-badge" style="margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); background: var(--bg-hover); padding: 3px 8px; border-radius: 4px; max-width: 100%; word-break: break-all;">
+              <span>{{ isZh ? '当前自定义 CSS:' : 'Active CSS:' }} {{ settings.customCssPath }}</span>
+              <button
+                type="button"
+                style="border: none; background: transparent; cursor: pointer; color: var(--accent); padding: 0 2px; font-size: 12px; line-height: 1;"
+                :title="isZh ? '重新载入' : 'Reload'"
+                :disabled="isCssRefreshing"
+                @click="refreshCustomCss"
+              >
+                ↻
+              </button>
+              <button
+                type="button"
+                style="border: none; background: transparent; cursor: pointer; color: var(--text-faint); padding: 0 2px; font-size: 12px; line-height: 1;"
+                :title="isZh ? '清除' : 'Clear'"
+                @click="settings.setCustomCssPath(''); settings.setActiveCustomThemeId('')"
+              >
+                ✕
+              </button>
+            </div>
           </div>
           <div class="setting-row__control">
-            <div class="setting-actions-row">
-              <button type="button" class="btn-setting" @click="themesStore.openThemeFolder()">
+            <div class="setting-actions-row" style="flex-wrap: wrap;">
+              <button type="button" class="btn-setting" style="font-weight: 500; border-color: var(--accent); color: var(--accent);" @click="openThemeMarketplace">
+                {{ isZh ? '浏览社区主题' : 'Marketplace' }}
+              </button>
+              <button v-if="!isNarrow" type="button" class="btn-setting" @click="pickCustomCss">
+                {{ isZh ? '导入 .css' : 'Import .css' }}
+              </button>
+              <button v-if="!isNarrow" type="button" class="btn-setting" @click="themesStore.openThemeFolder()">
                 {{ isZh ? '打开主题文件夹' : 'Themes Folder' }}
               </button>
-              <button type="button" class="btn-setting" @click="themesStore.openUserCss()">
+              <button v-if="!isNarrow" type="button" class="btn-setting" @click="themesStore.openUserCss()">
                 {{ isZh ? '编辑 user.css' : 'user.css' }}
               </button>
               <button type="button" class="btn-setting" @click="refreshCustomThemes()">
@@ -871,6 +934,12 @@ onMounted(() => {
         </label>
       </div>
     </div>
+
+    <!-- Theme Marketplace Modal -->
+    <ThemeMarketplace
+      :open="themeMarketplaceOpen"
+      @close="themeMarketplaceOpen = false"
+    />
   </div>
 </template>
 

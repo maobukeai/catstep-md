@@ -28,10 +28,26 @@ const TARGET_CONTAINERS = ':is(#write, .preview-content, .cm-editor, .reading-vi
 export function scopeTyporaCss(rawCss: string): string {
   if (!rawCss || !rawCss.trim()) return '';
 
-  return rawCss.replace(
+  // Extract comments to avoid splitting on commas inside comments and
+  // to avoid leading comments breaking selector detection
+  const comments: string[] = [];
+  const noComments = rawCss.replace(/\/\*[\s\S]*?\*\//g, (m) => {
+    comments.push(m);
+    return `/*__CSS_COMMENT_${comments.length - 1}__*/`;
+  });
+
+  const scoped = noComments.replace(
     /(^|})(?:([^{}@]+)\{)/g,
     (fullMatch, prevClose, rawSelector) => {
-      const trimmedSel = rawSelector.trim();
+      // Extract any leading comment placeholders
+      let leadingComments = '';
+      let sel = rawSelector;
+      sel = sel.replace(/^\s*(?:\/\*__CSS_COMMENT_\d+__\*\/\s*)+/, (m: string) => {
+        leadingComments = m;
+        return '';
+      });
+
+      const trimmedSel = sel.trim();
       if (!trimmedSel || trimmedSel.startsWith('@')) {
         return fullMatch;
       }
@@ -39,30 +55,46 @@ export function scopeTyporaCss(rawCss: string): string {
       const scopedSelectors = trimmedSel
         .split(',')
         .map((part: string) => {
-          const s = part.trim();
+          let s = part.trim();
           if (!s) return s;
 
-          // Keep :root variables or theme data attributes intact
+          // Preserve trailing comment placeholders
+          let trailingComment = '';
+          s = s.replace(/\s*\/\*__CSS_COMMENT_\d+__\*\/\s*$/, (m) => {
+            trailingComment = m;
+            return '';
+          });
+
+          // Keep :root variables or theme data attributes intact,
+          // and ensure they can override built-in theme specificity
           if (
             s === ':root' ||
             s.startsWith(':root[') ||
             s.startsWith(':root:') ||
             s.startsWith('[data-theme')
           ) {
-            return s;
+            if (
+              s === ':root' ||
+              s === ':root[data-theme="light"]' ||
+              s === ':root[data-theme="dark"]' ||
+              s === ':root[data-theme]'
+            ) {
+              return `:root, :root[data-theme]${trailingComment}`;
+            }
+            return s + trailingComment;
           }
 
           // Convert html / body to writing canvas containers
           if (s === 'html' || s === 'body' || s === 'html, body' || s === 'body, html') {
-            return TARGET_CONTAINERS;
+            return TARGET_CONTAINERS + trailingComment;
           }
           if (s.startsWith('body ') || s.startsWith('html ')) {
-            return s.replace(/^(body|html)\s+/, `${TARGET_CONTAINERS} `);
+            return s.replace(/^(body|html)\s+/, `${TARGET_CONTAINERS} `) + trailingComment;
           }
 
           // Convert Typora signature #write to universal containers
           if (s.startsWith('#write')) {
-            return s.replace(/^#write\b/, TARGET_CONTAINERS);
+            return s.replace(/^#write\b/, TARGET_CONTAINERS) + trailingComment;
           }
 
           // Already scoped to writing containers or internal panels
@@ -75,17 +107,20 @@ export function scopeTyporaCss(rawCss: string): string {
             s.includes('.sp__') ||
             s.includes('.ds-')
           ) {
-            return s;
+            return s + trailingComment;
           }
 
           // Prefix generic/bare element or class selectors with the writing container
-          return `${TARGET_CONTAINERS} ${s}`;
-        })
-        .join(', ');
+          return `${TARGET_CONTAINERS} ${s}${trailingComment}`;
+        });
 
-      return `${prevClose || ''}\n${scopedSelectors} {`;
+      const uniqueSelectors = Array.from(new Set(scopedSelectors.map((s: string) => s.trim()).filter(Boolean)));
+      return `${prevClose || ''}\n${leadingComments}${uniqueSelectors.join(', ')} {`;
     },
   );
+
+  // Restore comments
+  return scoped.replace(/\/\*__CSS_COMMENT_(\d+)__\*\//g, (_, idx) => comments[Number(idx)]);
 }
 
 const BODY_SELECTOR_RE = /(^|[,\s])body([\s:\[\]\.#>+~,]|$)/i;

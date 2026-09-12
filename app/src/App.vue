@@ -1912,11 +1912,25 @@ const mobileOutlineOpen = ref(false);
 const mobileFindOpen = ref(false);
 const isMobileEditorFocused = ref(false);
 
+function onOpenMobileFiles() {
+  mobileOutlineOpen.value = false;
+  mobileFindOpen.value = false;
+  mobileAgentOpen.value = false;
+  settings.toggleLeftSidebar();
+}
+
 function onOpenMobileAgent() {
+  mobileOutlineOpen.value = false;
+  mobileFindOpen.value = false;
   mobileAgentOpen.value = true;
 }
 
 function onOpenMobileOutline() {
+  if (narrowDrawer.value) {
+    closeNarrowDrawer();
+  }
+  mobileFindOpen.value = false;
+  mobileAgentOpen.value = false;
   mobileOutlineOpen.value = true;
 }
 
@@ -2310,7 +2324,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
             :class="{ 'is-resizing': isTyporaSidebarResizing }"
             @mousedown="onTyporaSidebarResize"
           />
-          <div class="typora-sidebar__tabs">
+          <!-- Desktop Tabs (Files & Outline) -->
+          <div v-if="!isNarrow" class="typora-sidebar__tabs">
             <button
               class="typora-sidebar__tab"
               :class="{ active: settings.leftSidebarTab === 'files' }"
@@ -2340,8 +2355,28 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
               </svg>
             </button>
           </div>
+
+          <!-- Mobile Pure File Manager Header (Decoupled from Outline) -->
+          <div v-else class="mobile-sidebar-header">
+            <div class="mobile-sidebar-header__title">
+              <Icon name="folder" :size="16" />
+              <span>{{ t('toolbar.fileTree') || '文件列表' }}</span>
+            </div>
+            <button
+              class="mobile-sidebar-header__close"
+              type="button"
+              @click="closeNarrowDrawer"
+              :title="t('toolbar.closeSidebar')"
+            >
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="3.5" y1="3.5" x2="12.5" y2="12.5" />
+                <line x1="12.5" y1="3.5" x2="3.5" y2="12.5" />
+              </svg>
+            </button>
+          </div>
+
           <div class="typora-sidebar__body">
-            <template v-if="settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
+            <template v-if="isNarrow || settings.leftSidebarTab === 'files' || settings.leftSidebarTab === 'search'">
               <FileTree v-if="settings.showFileTree" />
               <ViewsPanel v-if="settings.showViewsPanel" />
             </template>
@@ -2567,9 +2602,9 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
       <MobileBottomDock
         v-if="isNarrow && !mobileAgentOpen && !mobileFindOpen && !isMobileEditorFocused && !narrowDrawer"
         :is-ai-active="showAgentPane"
-        @open-files="settings.toggleLeftSidebar()"
-        @open-outline="mobileOutlineOpen = true"
-        @open-agent="mobileAgentOpen = true"
+        @open-files="onOpenMobileFiles"
+        @open-outline="onOpenMobileOutline"
+        @open-agent="onOpenMobileAgent"
         @open-search="onOpenMobileFind"
         @open-settings="openSettingsAt()"
       />
@@ -2920,6 +2955,50 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* Mobile file drawer header (pure file manager, no outline tab) */
+.mobile-sidebar-header {
+  height: 48px;
+  padding: 0 12px 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.mobile-sidebar-header__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.mobile-sidebar-header__title :deep(svg),
+.mobile-sidebar-header__title svg {
+  color: var(--accent);
+}
+.mobile-sidebar-header__close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+}
+.mobile-sidebar-header__close:active {
+  background: var(--border);
+  color: var(--text);
+  transform: scale(0.92);
 }
 .workspace__scrim {
   position: absolute;

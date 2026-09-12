@@ -33,16 +33,26 @@ onMounted(() => {
 function isActive(theme: ThemeManifestEntry): boolean {
   const installed = themes.installedById[theme.id];
   if (!installed) return false;
-  return settings.customCssPath === installed.path;
+  return settings.activeCustomThemeId === theme.id || settings.customCssPath === installed.path;
 }
 
 function isInstalled(theme: ThemeManifestEntry): boolean {
   return themes.installedById[theme.id] !== undefined;
 }
 
+function onActivate(theme: ThemeManifestEntry) {
+  const installed = themes.installedById[theme.id];
+  if (installed) {
+    settings.setActiveCustomThemeId(theme.id);
+    settings.setCustomCssPath(installed.path);
+    toasts.success(t('themes.installed', { name: theme.name }));
+  }
+}
+
 async function onInstall(theme: ThemeManifestEntry) {
   try {
     const path = await themes.install(theme);
+    settings.setActiveCustomThemeId(theme.id);
     settings.setCustomCssPath(path);
     toasts.success(t('themes.installed', { name: theme.name }));
   } catch (e) {
@@ -65,8 +75,10 @@ async function onUpdate(theme: ThemeManifestEntry) {
       settings.setCustomCssPath('');
       // Vue watchers are flushed in microtasks; nextTick before re-set.
       await Promise.resolve();
+      settings.setActiveCustomThemeId(theme.id);
       settings.setCustomCssPath(previous);
     } else {
+      settings.setActiveCustomThemeId(theme.id);
       settings.setCustomCssPath(path);
     }
     toasts.success(t('themes.updated', { name: theme.name }));
@@ -81,7 +93,10 @@ async function onUninstall(theme: ThemeManifestEntry) {
   try {
     const wasActive = isActive(theme);
     await themes.uninstall(theme.id);
-    if (wasActive) settings.setCustomCssPath('');
+    if (wasActive) {
+      settings.setActiveCustomThemeId('');
+      settings.setCustomCssPath('');
+    }
     toasts.success(t('themes.uninstalled', { name: theme.name }));
   } catch (e) {
     toasts.error(
@@ -212,9 +227,7 @@ const visible = computed(() => themes.visibleThemes);
                   <button
                     v-if="!isActive(theme)"
                     class="tm__btn tm__btn--primary"
-                    @click="
-                      settings.setCustomCssPath(themes.installedById[theme.id].path)
-                    "
+                    @click="onActivate(theme)"
                   >
                     {{ t('themes.activate') }}
                   </button>

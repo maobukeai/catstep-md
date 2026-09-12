@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore } from '../../stores/settings';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { isIOS } from '../../lib/platform';
 import { useViewport } from '../../composables/useViewport';
-import { loadCustomTheme } from '../../lib/custom-theme';
-import ThemeMarketplace from '../ThemeMarketplace.vue';
 
 const { t } = useI18n();
 const settings = useSettingsStore();
@@ -28,42 +25,6 @@ async function setAsDefault() {
   } finally {
     settingDefault.value = false;
   }
-}
-
-async function pickCustomCss() {
-  const path = await openFileDialog({
-    multiple: false,
-    filters: [{ name: 'CSS', extensions: ['css'] }],
-  });
-  if (path && typeof path === 'string') {
-    settings.setCustomCssPath(path);
-    toasts.success(t('settings.customCssLoaded'));
-  }
-}
-
-const isCssRefreshing = ref(false);
-const CSS_REFRESH_MIN_MS = 700;
-
-async function refreshCustomCss() {
-  if (!settings.customCssPath || isCssRefreshing.value) return;
-  const startedAt = Date.now();
-  isCssRefreshing.value = true;
-  try {
-    const applied = await loadCustomTheme(settings.customCssPath);
-    if (applied) toasts.success(t('settings.customCssReloaded'));
-    else toasts.error(t('settings.customCssReloadFailed'));
-  } finally {
-    const elapsed = Date.now() - startedAt;
-    const revs = Math.max(1, Math.ceil(elapsed / CSS_REFRESH_MIN_MS));
-    const remaining = revs * CSS_REFRESH_MIN_MS - elapsed;
-    if (remaining > 0) await new Promise((r) => setTimeout(r, remaining));
-    isCssRefreshing.value = false;
-  }
-}
-
-const themeMarketplaceOpen = ref(false);
-function openThemeMarketplace() {
-  themeMarketplaceOpen.value = true;
 }
 </script>
 
@@ -189,26 +150,6 @@ function openThemeMarketplace() {
 
 
 
-    <!-- Custom CSS -->
-    <section class="settings-section">
-      <label>{{ t('settings.customCss') }}</label>
-      <div class="row" style="gap: 8px; align-items: center; flex-wrap: wrap;">
-        <button v-if="!isNarrow" @click="pickCustomCss">{{ t('settings.pickCss') }}</button>
-        <button @click="openThemeMarketplace">{{ t('themes.browseBtn') }}</button>
-        <button v-if="settings.customCssPath" @click="settings.setCustomCssPath('')">{{ t('settings.clear') }}</button>
-      </div>
-      <div v-if="settings.customCssPath" class="css-path-row" style="font-size: 11px; color: var(--text-faint); word-break: break-all; margin-top: 4px;">
-        <span>{{ settings.customCssPath }}</span>
-        <button type="button" class="refresh-css-btn" :title="t('settings.refreshCss')" :aria-label="t('settings.refreshCss')" :disabled="isCssRefreshing" @click="refreshCustomCss">
-          <svg :class="{ 'is-spinning': isCssRefreshing }" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
-            <path d="M21 3v5h-5" />
-          </svg>
-        </button>
-      </div>
-      <p class="setting-hint">{{ t('themes.browseHint') }}</p>
-    </section>
-
     <!-- File Association (Desktop only) -->
     <section v-if="!isNarrow" class="settings-section">
       <label>{{ t('settings.fileAssoc') }}</label>
@@ -225,12 +166,6 @@ function openThemeMarketplace() {
         {{ t('settings.setDefaultHint') }}
       </div>
     </section>
-
-    <!-- Theme Marketplace Modal -->
-    <ThemeMarketplace
-      :open="themeMarketplaceOpen"
-      @close="themeMarketplaceOpen = false"
-    />
   </div>
 </template>
 

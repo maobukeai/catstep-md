@@ -952,7 +952,7 @@ export const zh: I18n = {
     rewriteDesc: '选中文本后唤出浮动工具栏，快速执行润色、扩写、精简、翻译与去 AI 味。',
     enableRewrite: '启用选中文本即时改写',
     enableRewriteHint: '在编辑器中划选文字后可原地快速改写、润色与去 AI 味',
-    showSelectionBubble: '划选文本时显示悬浮工具栏',
+    showSelectionBubble: '划选文本时显示悬浮工具栏与即时改写',
     showSelectionBubbleHint: '划词后在光标上方弹出快捷格式条与 AI 按钮（关闭后仍可通过快捷键操作）',
     rewriteTipPrefix: '在正文中划选任意文字，按快捷键 ',
     rewriteTipSuffix: ' 可立即就地呼出改写浮窗。',

@@ -1347,6 +1347,9 @@ export const useSettingsStore = defineStore('settings', {
     },
     toggleShowSelectionBubble() {
       this.showSelectionBubble = !this.showSelectionBubble;
+      if (this.showSelectionBubble) {
+        this.aiRewriteEnabled = true;
+      }
       this.persist();
     },
     syncActiveProfile() {
