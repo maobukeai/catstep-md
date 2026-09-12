@@ -50,47 +50,53 @@ async function onReindexNow() {
 <template>
   <div class="settings-tab-pane">
     <!-- RAG Section -->
-    <section class="settings-section">
-      <h3 style="font-size: 13px; font-weight: 600; color: var(--text); margin: 18px 0 6px;">
-        {{ t('rag.settingsHeading') }}
-      </h3>
-      <label>
-        <input
-          type="checkbox"
-          :checked="settings.ragEnabled"
-          @change="onToggleRagEnabled()"
-        />
-        {{ t('rag.enable', { key: shortcutKey }) }}
-      </label>
-      <p style="font-size: 11px; color: var(--text-faint); margin: 4px 0 0; line-height: 1.5;">
-        {{ t('rag.enableHint', { key: shortcutKey }) }}
-      </p>
-      <div
-        v-if="settings.ragEnabled && workspace.currentFolder"
-        style="margin-top: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;"
-      >
-        <span style="font-size: 11px; color: var(--text-muted);">
-          <template v-if="rag.status?.ready">
-            {{ t('rag.statusReady', {
-              indexed: String(rag.status.indexed_files),
-              total: String(rag.status.total_files),
-              chunks: String(rag.status.total_chunks),
-              backend: rag.status.backend,
-            }) }}
-          </template>
-          <template v-else>
-            {{ t('rag.statusEmpty') }}
-          </template>
-        </span>
-        <button
-          :disabled="rag.indexing"
-          @click="onReindexNow"
-          style="font-size: 11px; padding: 4px 10px;"
+    <div class="settings-group rag-settings-group">
+      <div class="settings-group__card">
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <div class="rag-title-wrap">
+              <span class="setting-row__title">{{ t('rag.settingsHeading') }}</span>
+              <kbd class="rag-badge">{{ shortcutKey }}</kbd>
+            </div>
+            <p class="setting-row__hint">{{ t('rag.enableHint', { key: shortcutKey }) }}</p>
+          </div>
+          <div class="setting-row__control" @click.stop>
+            <input
+              type="checkbox"
+              :checked="settings.ragEnabled"
+              @change="onToggleRagEnabled()"
+            />
+          </div>
+        </label>
+
+        <!-- Sub-row when RAG is enabled -->
+        <div
+          v-if="settings.ragEnabled && workspace.currentFolder"
+          class="rag-status-subrow"
         >
-          {{ rag.indexing ? t('rag.indexing') : t('rag.reindexNow') }}
-        </button>
+          <span class="rag-status-text">
+            <template v-if="rag.status?.ready">
+              {{ t('rag.statusReady', {
+                indexed: String(rag.status.indexed_files),
+                total: String(rag.status.total_files),
+                chunks: String(rag.status.total_chunks),
+                backend: rag.status.backend,
+              }) }}
+            </template>
+            <template v-else>
+              {{ t('rag.statusEmpty') }}
+            </template>
+          </span>
+          <button
+            class="rag-reindex-btn"
+            :disabled="rag.indexing"
+            @click="onReindexNow"
+          >
+            {{ rag.indexing ? t('rag.indexing') : t('rag.reindexNow') }}
+          </button>
+        </div>
       </div>
-    </section>
+    </div>
 
     <!-- AISettings -->
     <div v-if="!IS_APP_STORE_BUILD" class="settings-subcomponent-wrap">
@@ -139,6 +145,69 @@ async function onReindexNow() {
 .settings-tab-pane {
   display: flex;
   flex-direction: column;
+}
+
+.rag-settings-group {
+  margin-bottom: 12px;
+}
+
+.rag-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rag-badge {
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  line-height: 1.4;
+  font-weight: 500;
+  user-select: none;
+}
+
+.rag-status-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 18px;
+  background: color-mix(in srgb, var(--bg-soft, var(--bg)) 50%, var(--bg-elev));
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  font-size: 11px;
+}
+
+.rag-status-text {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rag-reindex-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.rag-reindex-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.rag-reindex-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .settings-subcomponent-wrap {
