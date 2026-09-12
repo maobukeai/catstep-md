@@ -380,11 +380,14 @@ export const nl: I18n = {
     openLinkedFilesExternally: 'Gekoppelde bestanden openen met de standaard-app',
     openLinkedFilesExternallyHint: 'Indien aan, opent klikken op een Markdown-link naar een lokaal PDF- / Office- / ander document dit in de standaard-app van het systeem. Zet uit om het in plaats daarvan naar Markdown te converteren. Links naar .md / tekst / afbeeldingen openen altijd binnen Catstep MD.',
     autoCheckUpdate: 'Automatisch op updates controleren',
-    checkUpdate: 'Nu op updates controleren',
+    checkUpdate: 'Controleren op nieuwe versie',
+
+    btnCheckUpdate: 'Op updates controleren',
     checkingUpdate: 'Bezig met controleren…',
     updateAvailable: 'Nieuwe versie {version} beschikbaar',
     upToDate: 'Je bent up-to-date',
-    updateCheckFailed: 'Kon de updateserver niet bereiken — controleer je netwerk en probeer opnieuw',
+    updateCheckFailed: 'Kon de updateserver niet bereiken — controleer je netwerk en probeer opnieuw',
+
     imageUploaderSection: 'Afbeeldingen uploaden (afbeeldingshosting)',
     imageUploader: 'Afbeeldingen uploaden naar',
     imageUploaderNone: 'Niet uploaden — lokaal opslaan',

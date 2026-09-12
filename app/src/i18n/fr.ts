@@ -380,7 +380,9 @@ export const fr: I18n = {
     openLinkedFilesExternally: 'Ouvrir les fichiers liés avec l\'application par défaut',
     openLinkedFilesExternallyHint: 'Activé, cliquer sur un lien Markdown vers un fichier local PDF / Office / autre document l\'ouvre dans l\'application par défaut du système. Désactivez pour le convertir en Markdown. Les liens vers .md / texte / images s\'ouvrent toujours dans Catstep MD.',
     autoCheckUpdate: 'Vérifier automatiquement les mises à jour',
-    checkUpdate: 'Vérifier les mises à jour maintenant',
+    checkUpdate: 'Vérifier la nouvelle version',
+
+    btnCheckUpdate: 'Vérifier les mises à jour',
     checkingUpdate: 'Vérification…',
     updateAvailable: 'Nouvelle version {version} disponible',
     upToDate: 'Vous êtes à jour',

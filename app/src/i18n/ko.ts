@@ -380,11 +380,14 @@ export const ko: I18n = {
     openLinkedFilesExternally: '링크된 파일을 기본 앱으로 열기',
     openLinkedFilesExternallyHint: '켜면 Markdown 안의 로컬 PDF / Office / 기타 문서 링크를 클릭할 때 OS 기본 앱으로 엽니다. 끄면 대신 Markdown으로 변환해 엽니다. .md / 텍스트 / 이미지 링크는 항상 Catstep MD 안에서 열립니다.',
     autoCheckUpdate: '업데이트 자동 확인',
-    checkUpdate: '지금 업데이트 확인',
+    checkUpdate: '새 버전 확인',
+
+    btnCheckUpdate: '업데이트 확인',
     checkingUpdate: '확인 중…',
     updateAvailable: '새 버전 {version} 사용 가능',
     upToDate: '최신 버전입니다',
-    updateCheckFailed: '업데이트 서버에 연결할 수 없습니다 — 네트워크를 확인하고 다시 시도하세요',
+    updateCheckFailed: '업데이트 서버에 연결할 수 없습니다 — 네트워크를 확인하고 다시 시도하세요',
+
     imageUploaderSection: '이미지 업로드 (이미지 호스팅)',
     imageUploader: '이미지 업로드 위치',
     imageUploaderNone: '업로드 안 함 — 로컬에 저장',

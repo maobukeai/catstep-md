@@ -380,11 +380,14 @@ export const ja: I18n = {
     openLinkedFilesExternally: 'リンク先のファイルを既定のアプリで開く',
     openLinkedFilesExternallyHint: 'オンにすると、Markdown 内のローカル PDF / Office / その他の文書へのリンクをクリックすると OS の既定アプリで開きます。オフにすると Markdown に変換して開きます。.md / テキスト / 画像へのリンクは常に Catstep MD 内で開きます。',
     autoCheckUpdate: '自動でアップデートを確認',
-    checkUpdate: '今すぐ更新を確認',
+    checkUpdate: '新バージョンを確認',
+
+    btnCheckUpdate: '更新を確認',
     checkingUpdate: '確認中…',
     updateAvailable: '新バージョン {version} が利用可能',
     upToDate: '最新バージョンです',
-    updateCheckFailed: 'アップデートサーバーに接続できません — ネットワークを確認して再試行してください',
+    updateCheckFailed: 'アップデートサーバーに接続できません — ネットワークを確認して再試行してください',
+
     imageUploaderSection: '画像アップロード（画像ホスティング）',
     imageUploader: '画像のアップロード先',
     imageUploaderNone: 'アップロードしない — ローカルに保存',

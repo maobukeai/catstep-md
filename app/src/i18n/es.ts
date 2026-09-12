@@ -380,11 +380,14 @@ export const es: I18n = {
     openLinkedFilesExternally: 'Abrir archivos enlazados con la app predeterminada',
     openLinkedFilesExternallyHint: 'Cuando está activado, hacer clic en un enlace de Markdown a un archivo local PDF / Office / otro documento lo abre en la app predeterminada del sistema. Desactívalo para convertirlo a Markdown. Los enlaces a .md / texto / imágenes siempre se abren dentro de Catstep MD.',
     autoCheckUpdate: 'Buscar actualizaciones automáticamente',
-    checkUpdate: 'Buscar actualizaciones ahora',
+    checkUpdate: 'Buscar nueva versión',
+
+    btnCheckUpdate: 'Buscar actualizaciones',
     checkingUpdate: 'Comprobando…',
     updateAvailable: 'Nueva versión {version} disponible',
     upToDate: 'Estás al día',
-    updateCheckFailed: 'No se pudo contactar al servidor de actualizaciones — revisa tu red y reinténtalo',
+    updateCheckFailed: 'No se pudo contactar al servidor de actualizaciones — revisa tu red y reinténtalo',
+
     imageUploaderSection: 'Subida de imágenes (alojamiento de imágenes)',
     imageUploader: 'Subir imágenes a',
     imageUploaderNone: 'No subir — guardar localmente',

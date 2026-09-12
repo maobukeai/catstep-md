@@ -141,10 +141,8 @@ async function manualCheckUpdate() {
           </button>
         </div>
 
-        <p class="about-hero__slogan">
-          用猫步，写好每一篇 Markdown
-          <span class="about-hero__motto">Silent steps. Fluid thoughts. Just write.</span>
-        </p>
+        <p class="about-hero__slogan">用猫步，写好每一篇 Markdown</p>
+        <p class="about-hero__motto">Silent steps. Fluid thoughts. Just write.</p>
         <p class="about-hero__desc">
           轻量 · 极简 · 跨平台 Markdown 与纯文本编辑器
         </p>
@@ -198,7 +196,7 @@ async function manualCheckUpdate() {
               >
                 <path d="M21 12a9 9 0 1 1-6.219-8.56" />
               </svg>
-              <span>{{ checkingUpdate ? t('settings.checkingUpdate') : t('settings.checkUpdate') }}</span>
+              <span>{{ checkingUpdate ? t('settings.checkingUpdate') : t('settings.btnCheckUpdate') }}</span>
             </button>
           </div>
         </div>
@@ -471,19 +469,22 @@ async function manualCheckUpdate() {
 
 /* Slogan & Motto */
 .about-hero__slogan {
-  margin: 6px 0 3px 0;
-  font-size: 13px;
+  margin: 6px 0 2px 0;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text);
   line-height: 1.4;
+  letter-spacing: 0.02em;
 }
 
 .about-hero__motto {
-  margin-left: 6px;
+  margin: 0 0 5px 0;
   font-size: 11.5px;
   font-weight: 400;
   color: var(--text-muted);
   font-style: italic;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
 }
 
 .about-hero__desc {
@@ -605,7 +606,7 @@ async function manualCheckUpdate() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 5px 13px;
   border-radius: 6px;
   font-size: 12.5px;
   font-weight: 500;
@@ -674,35 +675,42 @@ async function manualCheckUpdate() {
 .about-link-card__icon {
   width: 36px;
   height: 36px;
-  border-radius: 9px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.15s ease;
+  background: color-mix(in srgb, var(--bg-hover) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  color: var(--text-muted);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .about-link-card:hover .about-link-card__icon {
-  transform: scale(1.08);
+  transform: scale(1.06);
 }
 
-.about-link-card__icon--web {
+.about-link-card:hover .about-link-card__icon--web {
   background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(2, 132, 199, 0.28);
   color: #0284c7;
 }
 
-.about-link-card__icon--github {
+.about-link-card:hover .about-link-card__icon--github {
   background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.28);
   color: #d97706;
 }
 
-.about-link-card__icon--releases {
+.about-link-card:hover .about-link-card__icon--releases {
   background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.28);
   color: #8b5cf6;
 }
 
-.about-link-card__icon--sponsor {
+.about-link-card:hover .about-link-card__icon--sponsor {
   background: rgba(244, 63, 94, 0.12);
+  border-color: rgba(244, 63, 94, 0.28);
   color: #f43f5e;
 }
 
@@ -753,8 +761,8 @@ async function manualCheckUpdate() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 0 4px;
+  gap: 10px;
+  padding: 16px 0 6px;
   border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
 }
 
@@ -768,16 +776,26 @@ async function manualCheckUpdate() {
 .about-tag {
   font-size: 11px;
   font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 40%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   color: var(--text-muted);
+  letter-spacing: 0.02em;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.about-tag:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text);
+  background: var(--bg-hover);
 }
 
 .about-copyright {
   font-size: 11px;
   color: var(--text-faint);
   text-align: center;
+  letter-spacing: 0.01em;
 }
 </style>

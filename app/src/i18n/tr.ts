@@ -380,11 +380,14 @@ export const tr: I18n = {
     openLinkedFilesExternally: 'Bağlantılı dosyaları varsayılan uygulamayla aç',
     openLinkedFilesExternallyHint: 'Açıkken, Markdown içindeki yerel bir PDF / Office / başka belgeye giden bağlantıya tıklamak onu sistemin varsayılan uygulamasında açar. Bunun yerine Markdown\'a dönüştürmek için kapatın. .md / metin / görsel bağlantıları her zaman Catstep MD içinde açılır.',
     autoCheckUpdate: 'Güncellemeleri otomatik denetle',
-    checkUpdate: 'Şimdi güncelleme denetle',
+    checkUpdate: 'Yeni sürümü denetle',
+
+    btnCheckUpdate: 'Güncellemeleri denetle',
     checkingUpdate: 'Denetleniyor…',
     updateAvailable: 'Yeni sürüm {version} mevcut',
     upToDate: 'Güncelsiniz',
-    updateCheckFailed: 'Güncelleme sunucusuna ulaşılamadı — ağınızı denetleyip yeniden deneyin',
+    updateCheckFailed: 'Güncelleme sunucusuna ulaşılamadı — ağınızı denetleyip yeniden deneyin',
+
     imageUploaderSection: 'Görsel yükleme (görsel barındırma)',
     imageUploader: 'Görselleri şuraya yükle',
     imageUploaderNone: 'Yükleme — yerel olarak kaydet',
