@@ -24,7 +24,9 @@ export type Theme =
   | 'nord'
   | 'solarized-light'
   | 'solarized-dark'
-  | 'monokai';
+  | 'monokai'
+  | 'frost-blue'
+  | 'pure-black-oled';
 
 export interface Tab {
   id: string;

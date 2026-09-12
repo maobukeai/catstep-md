@@ -159,7 +159,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import type { Theme } from '../types';
 
 export function isDarkTheme(theme: Theme | string): boolean {
-  return ['dark', 'night', 'catppuccin-mocha', 'forest', 'dracula', 'solarized-dark', 'monokai', 'nord'].includes(theme);
+  return ['dark', 'night', 'catppuccin-mocha', 'forest', 'dracula', 'solarized-dark', 'monokai', 'nord', 'frost-blue', 'pure-black-oled'].includes(theme);
 }
 
 export function cmThemeFor(theme: Theme): Extension {
@@ -174,6 +174,8 @@ export function cmThemeFor(theme: Theme): Extension {
     case 'catppuccin-mocha': return catppuccinMochaTheme;
     case 'forest': return forestTheme;
     case 'dracula': return draculaTheme;
+    case 'frost-blue': return catppuccinMochaTheme;
+    case 'pure-black-oled': return nightTheme;
     // Legacy fallbacks
     case 'nord': return catppuccinMochaTheme;
     case 'solarized-light': return sepiaTheme;
@@ -218,6 +220,8 @@ export const allThemeLabels: { value: Theme; label: string }[] = [
   { value: 'forest', label: '松柏青墨 (竹林幽夜)' },
   { value: 'dracula', label: 'Dracula (经典德古拉)' },
   { value: 'dark', label: 'One Dark (标准深灰)' },
+  { value: 'frost-blue', label: 'Nord 极光深蓝 (冰川极夜)' },
+  { value: 'pure-black-oled', label: 'Pure Black (OLED 纯黑)' },
 ];
 
 /** 默认仅暴露官方两款核心主题 */
