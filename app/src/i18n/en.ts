@@ -306,6 +306,7 @@ export const en = {
     catWriting: 'Writing',
     catSync: 'Sync',
     syncUnsupportedAndroid: 'Git-backed sync (version history, GitHub sync, proxy) isn\'t available in the Android build yet — the libgit2 engine it relies on isn\'t compiled into the Android binary. Use the desktop or iOS apps to sync this vault for now.',
+    syncUnsupportedWeb: 'Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).',
     catIntegrations: 'AI & Extensions',
     catExport: 'Export',
     catAdvanced: 'Advanced',

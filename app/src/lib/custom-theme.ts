@@ -72,44 +72,114 @@ export interface ThemeToneInfo {
   isDark: boolean;
   bgColor?: string;
   textColor?: string;
+  accentColor?: string;
+  titleColor?: string;
+  fontFamily?: string;
+  titleFont?: string;
+  codeBg?: string;
+  quoteColor?: string;
+  selectBg?: string;
   hasBgVar: boolean;
   hasTextVar: boolean;
+}
+
+function resolveCssVar(varName: string, css: string): string | null {
+  const match = css.match(new RegExp(`--${varName}\\s*:\\s*([^;!}\\n]+)`, 'i'));
+  if (!match) return null;
+  const val = match[1].trim();
+  if (val.startsWith('var(')) {
+    const inner = val.slice(4, -1).trim().replace(/^--/, '').split(',')[0].trim();
+    return resolveCssVar(inner, css) || val;
+  }
+  return val;
 }
 
 export function detectThemeToneAndColors(rawCss: string, filePath = ''): ThemeToneInfo {
   if (!rawCss) return { isDark: false, hasBgVar: false, hasTextVar: false };
 
+  const noComments = rawCss.replace(/\/\*[\s\S]*?\*\//g, '');
+
   let bgColor: string | undefined;
   let textColor: string | undefined;
+  let accentColor: string | undefined;
+  let titleColor: string | undefined;
+  let fontFamily: string | undefined;
+  let titleFont: string | undefined;
+  let codeBg: string | undefined;
+  let quoteColor: string | undefined;
+  let selectBg: string | undefined;
   let hasBgVar = false;
   let hasTextVar = false;
 
-  // Broad CSS variable matching across common Typora & custom themes
-  const bgVarMatch = rawCss.match(/--(?:bg-color|background-color|bg|background|interface-default-bg-color|main-bg|window-bg|canvas-bg|body-bg)\s*:\s*([^;!}\n]+)/i);
+  // Background
+  const bgVarMatch = noComments.match(/--(?:bg-color|background-color|bg|background|interface-default-bg-color|main-bg|window-bg|canvas-bg|body-bg)\s*:\s*([^;!}\n]+)/i);
   if (bgVarMatch) {
     bgColor = bgVarMatch[1].trim();
     hasBgVar = true;
+  } else {
+    const bodyBgMatch = noComments.match(/(?:html|body|#write)\s*\{[^}]*background(?:-color)?\s*:\s*([^;!}\n]+)/i);
+    if (bodyBgMatch) bgColor = bodyBgMatch[1].trim();
   }
 
-  const textVarMatch = rawCss.match(/--(?:text-color|color|text|writeArea-text-color|body-color|main-color)\s*:\s*([^;!}\n]+)/i);
+  // Text
+  const textVarMatch = noComments.match(/--(?:text-color|color|text|writeArea-text-color|body-color|main-color)\s*:\s*([^;!}\n]+)/i);
   if (textVarMatch) {
     textColor = textVarMatch[1].trim();
     hasTextVar = true;
+  } else {
+    const bodyTextMatch = noComments.match(/(?:html|body|#write)\s*\{[^}]*(?:^|[^-])color\s*:\s*([^;!}\n]+)/i);
+    if (bodyTextMatch) textColor = bodyTextMatch[1].trim();
   }
 
-  if (!bgColor) {
-    const bodyBgMatch = rawCss.match(/(?:html|body|#write)\s*\{[^}]*background(?:-color)?\s*:\s*([^;!}\n]+)/i);
-    if (bodyBgMatch) {
-      bgColor = bodyBgMatch[1].trim();
-    }
-  }
+  // Accent
+  const accentMatch = noComments.match(/--(?:drake-accent|primary-color|accent|accent-color|theme-color|active-file-border-color|a-color|brand-color|link-color|main-accent|drake-highlight)\s*:\s*([^;!}\n]+)/i)
+    || noComments.match(/(?:#write\s+)?a(?:\s*,\s*(?:#write\s+)?a)*\s*\{[^}]*color\s*:\s*([^;!}\n]+)/i);
+  if (accentMatch) accentColor = accentMatch[1].trim();
 
-  if (!textColor) {
-    const bodyTextMatch = rawCss.match(/(?:html|body|#write)\s*\{[^}]*(?:^|[^-])color\s*:\s*([^;!}\n]+)/i);
-    if (bodyTextMatch) {
-      textColor = bodyTextMatch[1].trim();
-    }
-  }
+  // Title color & font
+  const titleMatch = noComments.match(/--(?:title-color|heading-color|h1-color|header-color|strong-color)\s*:\s*([^;!}\n]+)/i)
+    || noComments.match(/(?:#write\s+)?h1\s*\{[^}]*color\s*:\s*([^;!}\n]+)/i);
+  if (titleMatch) titleColor = titleMatch[1].trim();
+
+  const titleFontMatch = noComments.match(/--(?:title-font|heading-font)\s*:\s*([^;!}\n]+)/i)
+    || noComments.match(/(?:#write\s+)?h1\s*\{[^}]*font-family\s*:\s*([^;!}\n]+)/i);
+  if (titleFontMatch) titleFont = titleFontMatch[1].trim();
+
+  // Body font
+  const fontMatch = noComments.match(/--(?:text-font|font-sans-serif|default-font|writeArea-text-font)\s*:\s*([^;!}\n]+)/i)
+    || noComments.match(/(?:html|body|#write)\s*\{[^}]*font-family\s*:\s*([^;!}\n]+)/i);
+  if (fontMatch) fontFamily = fontMatch[1].trim();
+
+  // Code block bg
+  const codeMatch = noComments.match(/--(?:code-block-bg-color|code-bg|item-hover-bg-color)\s*:\s*([^;!}\n]+)/i)
+    || noComments.match(/(?:\.md-fences|pre|code)\s*\{[^}]*background(?:-color)?\s*:\s*([^;!}\n]+)/i);
+  if (codeMatch) codeBg = codeMatch[1].trim();
+
+  // Blockquote color
+  const quoteMatch = noComments.match(/--(?:blockquote-border-color|blockquote-color|quote-color)\s*:\s*([^;!}\n]+)/i)
+    || noComments.match(/blockquote\s*\{[^}]*border-left(?:-color)?\s*:\s*([^;!}\n]+)/i);
+  if (quoteMatch) quoteColor = quoteMatch[1].trim();
+
+  // Selection
+  const selectMatch = noComments.match(/--(?:select-text-bg-color|writeArea-selected-text-bg-color|selection-background|selection-bg)\s*:\s*([^;!}\n]+)/i);
+  if (selectMatch) selectBg = selectMatch[1].trim();
+
+  // Recursively resolve any var(--...) references
+  const resolveIfVar = (val?: string) => {
+    if (!val || !val.startsWith('var(')) return val;
+    const inner = val.slice(4, -1).trim().replace(/^--/, '').split(',')[0].trim();
+    return resolveCssVar(inner, noComments) || val;
+  };
+
+  bgColor = resolveIfVar(bgColor);
+  textColor = resolveIfVar(textColor);
+  accentColor = resolveIfVar(accentColor);
+  titleColor = resolveIfVar(titleColor);
+  fontFamily = resolveIfVar(fontFamily);
+  titleFont = resolveIfVar(titleFont);
+  codeBg = resolveIfVar(codeBg);
+  quoteColor = resolveIfVar(quoteColor);
+  selectBg = resolveIfVar(selectBg);
 
   let isDark = false;
   const lum = bgColor ? parseColorToLuminance(bgColor) : null;
@@ -159,7 +229,20 @@ export function detectThemeToneAndColors(rawCss: string, filePath = ''): ThemeTo
     }
   }
 
-  return { isDark, bgColor, textColor, hasBgVar, hasTextVar };
+  return {
+    isDark,
+    bgColor,
+    textColor,
+    accentColor,
+    titleColor,
+    fontFamily,
+    titleFont,
+    codeBg,
+    quoteColor,
+    selectBg,
+    hasBgVar,
+    hasTextVar,
+  };
 }
 
 /**
@@ -172,8 +255,8 @@ function patchRelativeImports(css: string): string {
 }
 
 /**
- * Scope Typora & user-provided CSS rules so they only target document surfaces
- * and never escape into the application shell.
+ * Scope Typora & user-provided CSS rules so they target document surfaces,
+ * live-editor containers, and custom style tokens cleanly.
  */
 export function scopeTyporaCss(rawCss: string, filePath = ''): string {
   if (!rawCss || !rawCss.trim()) return '';
@@ -181,23 +264,25 @@ export function scopeTyporaCss(rawCss: string, filePath = ''): string {
   const patchedCss = patchRelativeImports(rawCss);
   const toneInfo = detectThemeToneAndColors(patchedCss, filePath);
 
-  // Extract comments safely in O(N) to avoid splitting on commas inside comments and
-  // to avoid leading comments breaking selector detection
+  // Extract comments safely in O(N) to avoid splitting on commas inside comments
   const comments: string[] = [];
   const noComments = patchedCss.replace(/\/\*[\s\S]*?\*\//g, (m) => {
     comments.push(m);
     return `/*__CSS_COMMENT_${comments.length - 1}__*/`;
   });
 
-  // Extract all @import statements cleanly in O(N) without catastrophic regex backtracking
+  // Extract all @import statements cleanly (handling url parens with semicolons)
   const importStatements: string[] = [];
-  const withoutImports = noComments.replace(/@import\s+[^;]+;\s*/gi, (m) => {
+  let cleanCss = noComments.replace(/@import\s+(?:url\([^)]*\)|"[^"]*"|'[^']*'|[^;{}])*;\s*/gi, (m) => {
     importStatements.push(m.trim());
     return '';
   });
 
-  const scoped = withoutImports.replace(
-    /(^|})(?:([^{}@]+)\{)/g,
+  // Strip non-standard or top-level at-rules like @include-when-export, @charset, @namespace
+  cleanCss = cleanCss.replace(/@(include-when-export|charset|namespace)\s+(?:url\([^)]*\)|"[^"]*"|'[^']*'|[^;{}])*;\s*/gi, '');
+
+  const scoped = cleanCss.replace(
+    /(^|})(?:([^{}]+)\{)/g,
     (fullMatch, prevClose, rawSelector) => {
       // Extract any leading comment placeholders
       let leadingComments = '';
@@ -225,8 +310,7 @@ export function scopeTyporaCss(rawCss: string, filePath = ''): string {
             return '';
           });
 
-          // Keep :root variables or theme data attributes intact,
-          // and ensure they can override built-in theme specificity
+          // Keep :root variables or theme data attributes intact
           if (
             s === ':root' ||
             s.startsWith(':root[') ||
@@ -281,6 +365,10 @@ export function scopeTyporaCss(rawCss: string, filePath = ''): string {
   if (!toneInfo.hasTextVar && toneInfo.textColor) {
     synthesizedVars += `  --text-color: ${toneInfo.textColor};\n`;
   }
+  if (toneInfo.accentColor) {
+    synthesizedVars += `  --primary-color: ${toneInfo.accentColor};\n`;
+    synthesizedVars += `  --drake-accent: ${toneInfo.accentColor};\n`;
+  }
 
   const rootVarsBlock = synthesizedVars.trim()
     ? `:root, :root[data-theme] {\n${synthesizedVars}}\n`
@@ -291,13 +379,71 @@ export function scopeTyporaCss(rawCss: string, filePath = ''): string {
 ${rootVarsBlock}:root, :root[data-theme] {
   --theme-resolved-bg: var(--interface-default-bg-color, var(--bg-color, var(--background-color, var(--main-bg, var(--window-bg, var(--canvas-bg, var(--bg)))))));
   --theme-resolved-text: var(--writeArea-text-color, var(--text-color, var(--body-color, var(--main-color, var(--text)))));
+  --theme-resolved-accent: var(--primary-color, var(--accent, var(--accent-color, var(--drake-accent, var(--active-file-border-color, var(--a-color, var(--theme-color, #528bff)))))));
   --theme-resolved-select: var(--writeArea-selected-text-bg-color, var(--select-text-bg-color, var(--selection-background, var(--selection-bg))));
-  --theme-resolved-font: var(--writeArea-text-font, var(--font-sans-serif, var(--default-font, inherit)));
+  --theme-resolved-font: var(--writeArea-text-font, var(--font-sans-serif, var(--text-font, var(--default-font, inherit))));
   --theme-resolved-mono: var(--font-monospace, var(--code-font, monospace));
+  --theme-resolved-title-color: var(--title-color, var(--heading-color, var(--h1-color, var(--theme-resolved-accent, var(--theme-resolved-text)))));
+  --theme-resolved-title-font: var(--title-font, var(--heading-font, var(--theme-resolved-font, inherit)));
+  --theme-resolved-code-bg: var(--code-block-bg-color, var(--code-bg, var(--item-hover-bg-color, rgba(128, 128, 128, 0.15))));
+  --theme-resolved-quote: var(--blockquote-border-color, var(--blockquote-color, var(--quote-color, var(--theme-resolved-accent))));
+
+  /* Override Catstep MD core variables so live-editor and UI harmonize */
+  --bg: var(--theme-resolved-bg) !important;
+  --bg-elev: color-mix(in srgb, var(--theme-resolved-bg) 92%, var(--theme-resolved-text) 8%) !important;
+  --bg-hover: color-mix(in srgb, var(--theme-resolved-bg) 84%, var(--theme-resolved-text) 16%) !important;
+  --bg-active: color-mix(in srgb, var(--theme-resolved-bg) 76%, var(--theme-resolved-text) 24%) !important;
+  --border: color-mix(in srgb, var(--theme-resolved-bg) 80%, var(--theme-resolved-text) 20%) !important;
+  --text: var(--theme-resolved-text) !important;
+  --accent: var(--theme-resolved-accent) !important;
+  --selection-bg: var(--theme-resolved-select) !important;
+
+  /* Live Preview Variables */
+  --md-h1: var(--theme-resolved-title-color) !important;
+  --md-h2: var(--theme-resolved-title-color) !important;
+  --md-h3: var(--theme-resolved-title-color) !important;
+  --md-h4: var(--theme-resolved-title-color) !important;
+  --md-h5: var(--theme-resolved-title-color) !important;
+  --md-h6: var(--theme-resolved-title-color) !important;
+  --md-link: var(--theme-resolved-accent) !important;
+  --md-url: var(--theme-resolved-accent) !important;
+  --md-quote: var(--theme-resolved-quote) !important;
+  --md-code-bg: var(--theme-resolved-code-bg) !important;
+  --heading-font-family: var(--theme-resolved-title-font) !important;
+  --content-font-family: var(--theme-resolved-font) !important;
 }
-${DOC_SURFACES}, .preview-host, .cm-editor, .plain-editor {
-  --content-font-family: var(--theme-resolved-font, inherit);
-  --content-font-monospace: var(--theme-resolved-mono, monospace);
+
+/* Editor container and CodeMirror styling */
+.editor-container,
+.cm-editor,
+.cm-scroller {
+  background-color: var(--theme-resolved-bg) !important;
+  color: var(--theme-resolved-text) !important;
+  font-family: var(--theme-resolved-font, inherit) !important;
+}
+.cm-gutters {
+  background-color: var(--theme-resolved-bg) !important;
+  color: color-mix(in srgb, var(--theme-resolved-text) 50%, transparent) !important;
+  border-right: 1px solid color-mix(in srgb, var(--theme-resolved-bg) 80%, var(--theme-resolved-text) 20%) !important;
+}
+.cm-content {
+  caret-color: var(--theme-resolved-accent) !important;
+}
+.cm-cursor, .cm-dropCursor {
+  border-left-color: var(--theme-resolved-accent) !important;
+}
+.cm-activeLineGutter {
+  color: var(--theme-resolved-accent) !important;
+}
+.cm-selectionBackground,
+.cm-editor ::selection,
+.cm-content :focus::selection,
+.cm-content :focus ::selection {
+  background-color: var(--theme-resolved-select) !important;
+}
+.plain-editor {
+  background-color: var(--theme-resolved-bg) !important;
+  color: var(--theme-resolved-text) !important;
 }
 .preview-host {
   background: var(--theme-resolved-bg) !important;
@@ -306,19 +452,6 @@ ${DOC_SURFACES}, .preview-host, .cm-editor, .plain-editor {
   background-color: transparent !important;
   color: var(--theme-resolved-text);
   font-family: var(--theme-resolved-font, inherit);
-}
-.cm-editor {
-  background-color: var(--theme-resolved-bg);
-  color: var(--theme-resolved-text);
-}
-.plain-editor {
-  background-color: var(--theme-resolved-bg) !important;
-  color: var(--theme-resolved-text) !important;
-}
-${DOC_SURFACES} ::selection,
-.cm-editor .cm-selectionBackground,
-.cm-editor ::selection {
-  background-color: var(--theme-resolved-select) !important;
 }
 `;
 
@@ -421,6 +554,9 @@ function applyStyleTag(id: string, css: string) {
   if (!el) {
     el = document.createElement('style');
     el.id = id;
+    document.head.appendChild(el);
+  } else {
+    // Re-append to the bottom of <head> so it maintains cascade precedence over base stylesheets
     document.head.appendChild(el);
   }
   el.textContent = css;

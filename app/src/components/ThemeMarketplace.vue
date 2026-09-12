@@ -181,7 +181,10 @@ const filteredInstalledThemes = computed(() => {
       path: inst.path,
       isTypora: typora !== undefined,
       repo: typora?.repo,
-      tone: (typora?.tone || (builtin?.tags?.includes('dark') || isDarkHint ? 'dark' : 'light')) as 'light' | 'dark',
+      tone: (inst.tone || typora?.tone || (builtin?.tags?.includes('dark') || isDarkHint ? 'dark' : 'light')) as 'light' | 'dark',
+      bg_color: inst.bg_color,
+      text_color: inst.text_color,
+      accent_color: inst.accent_color,
     };
   });
 
@@ -1106,8 +1109,59 @@ function getDisplayTags(tags?: string[]): string[] {
                     loading="lazy"
                     class="tm__preview-img"
                   />
-                  <div v-else class="tm__preview-fallback">
-                    <span class="tm__fallback-text">{{ theme.name }}</span>
+                  <div
+                    v-else
+                    class="tm__preview-fallback tm__preview-canvas"
+                    :style="{
+                      backgroundColor: theme.bg_color || (theme.tone === 'dark' ? '#1e1e20' : '#fcfcfc'),
+                      color: theme.text_color || (theme.tone === 'dark' ? '#dcdcdc' : '#24292e'),
+                    }"
+                  >
+                    <div class="tm__card-canvas">
+                      <div class="tm__canvas-bar">
+                        <span
+                          class="tm__canvas-dot"
+                          :style="{ backgroundColor: theme.accent_color || (theme.tone === 'dark' ? '#528bff' : '#0969da') }"
+                        ></span>
+                        <span
+                          class="tm__canvas-badge"
+                          :style="{
+                            color: theme.accent_color || (theme.tone === 'dark' ? '#528bff' : '#0969da'),
+                            borderColor: theme.accent_color || (theme.tone === 'dark' ? '#528bff' : '#0969da'),
+                          }"
+                        >
+                          {{ theme.tone === 'dark' ? 'DARK' : 'LIGHT' }}
+                        </span>
+                      </div>
+                      <div class="tm__canvas-body">
+                        <div
+                          class="tm__canvas-title"
+                          :style="{ color: theme.accent_color || theme.text_color || (theme.tone === 'dark' ? '#528bff' : '#0969da') }"
+                        >
+                          {{ theme.name }}
+                        </div>
+                        <div
+                          class="tm__canvas-prose"
+                          :style="{ color: theme.text_color || (theme.tone === 'dark' ? '#a0a0a0' : '#57606a') }"
+                        >
+                          Typora CSS Theme
+                        </div>
+                        <div
+                          class="tm__canvas-quote"
+                          :style="{
+                            borderLeftColor: theme.accent_color || (theme.tone === 'dark' ? '#528bff' : '#0969da'),
+                            backgroundColor: theme.tone === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                          }"
+                        >
+                          <span
+                            class="tm__canvas-quote-text"
+                            :style="{ color: theme.text_color || (theme.tone === 'dark' ? '#c0c0c0' : '#444') }"
+                          >
+                            {{ theme.id }}.css
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="tm__preview-badges">
@@ -1689,12 +1743,90 @@ function getDisplayTags(tags?: string[]): string[] {
   align-items: center;
   justify-content: center;
   background: var(--bg-hover);
+  position: relative;
+  overflow: hidden;
 }
 
 .tm__fallback-text {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+.tm__card-canvas {
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  overflow: hidden;
+  user-select: none;
+}
+
+.tm__canvas-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tm__canvas-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.tm__canvas-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  opacity: 0.9;
+}
+
+.tm__canvas-body {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tm__canvas-title {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.tm__canvas-prose {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.8;
+}
+
+.tm__canvas-quote {
+  border-left-width: 3px;
+  border-left-style: solid;
+  padding: 3px 8px;
+  border-radius: 2px;
+  margin-top: 2px;
+}
+
+.tm__canvas-quote-text {
+  font-size: 9.5px;
+  font-family: ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .tm__preview-badges {

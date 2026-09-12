@@ -18,6 +18,7 @@ import { useSettingsStore } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
+import { hasGitBackend, isTauri } from '../lib/platform';
 
 const sync = useGithubSyncStore();
 const settings = useSettingsStore();
@@ -115,6 +116,9 @@ async function commitE2eeUpgrade() {
 }
 
 onMounted(async () => {
+  if (!isTauri() || !hasGitBackend()) {
+    return;
+  }
   await sync.refreshHasToken();
   if (workspace.currentFolder) {
     await sync.refreshStatus(workspace.currentFolder);
@@ -1014,7 +1018,7 @@ const linkedRepoLabel = computed(() => {
       </details>
     </div>
 
-    <p v-if="sync.lastError" class="ghs-error">{{ sync.lastError }}</p>
+    <p v-if="sync.lastError && !sync.lastError.includes('invoke')" class="ghs-error">{{ sync.lastError }}</p>
   </div>
 </template>
 

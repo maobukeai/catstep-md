@@ -43,7 +43,7 @@ export function hasGitBackend(): boolean {
   if (typeof location !== 'undefined' && location.search.includes('forceNoGit')) {
     return false;
   }
-  return !isAndroid();
+  return isTauri() && !isAndroid();
 }
 
 /**

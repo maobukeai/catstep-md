@@ -409,6 +409,60 @@ pub struct InstalledTheme {
     pub path: String,
     pub author: Option<String>,
     pub tone: Option<String>,
+    pub bg_color: Option<String>,
+    pub text_color: Option<String>,
+    pub accent_color: Option<String>,
+}
+
+fn parse_hex_luminance(s: &str) -> Option<f32> {
+    let s = s.trim().trim_start_matches('#');
+    if s.len() >= 6 {
+        let r = u8::from_str_radix(&s[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&s[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&s[4..6], 16).ok()?;
+        Some((r as f32 * 299.0 + g as f32 * 587.0 + b as f32 * 114.0) / 1000.0)
+    } else if s.len() >= 3 {
+        let r = u8::from_str_radix(&s[0..1], 16).ok()? * 17;
+        let g = u8::from_str_radix(&s[1..2], 16).ok()? * 17;
+        let b = u8::from_str_radix(&s[2..3], 16).ok()? * 17;
+        Some((r as f32 * 299.0 + g as f32 * 587.0 + b as f32 * 114.0) / 1000.0)
+    } else {
+        None
+    }
+}
+
+fn extract_css_var_val(text: &str, names: &[&str]) -> Option<String> {
+    for name in names {
+        let pattern = format!("--{name}");
+        if let Some(pos) = text.find(&pattern) {
+            let after = &text[pos + pattern.len()..];
+            let after_trimmed = after.trim_start();
+            if let Some(colon_pos) = after_trimmed.strip_prefix(':') {
+                let val_end = colon_pos
+                    .find(|c| c == ';' || c == '}' || c == '!' || c == '\n')
+                    .unwrap_or(colon_pos.len());
+                let val = colon_pos[..val_end].trim();
+                if !val.is_empty() {
+                    return Some(val.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn resolve_css_var_recursively(text: &str, raw_val: &str) -> String {
+    let trimmed = raw_val.trim();
+    if let Some(inner) = trimmed.strip_prefix("var(--") {
+        if let Some(close_idx) = inner.find(')') {
+            let var_name_full = &inner[..close_idx];
+            let var_name = var_name_full.split(',').next().unwrap_or("").trim();
+            if let Some(resolved) = extract_css_var_val(text, &[var_name]) {
+                return resolve_css_var_recursively(text, &resolved);
+            }
+        }
+    }
+    trimmed.to_string()
 }
 
 pub fn prettify_word(w: &str) -> String {
@@ -477,7 +531,7 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
 
         if let Ok(mut file) = std::fs::File::open(&path) {
             use std::io::Read;
-            let mut buf = [0u8; 2048];
+            let mut buf = [0u8; 8192];
             if let Ok(n) = file.read(&mut buf) {
                 let text = String::from_utf8_lossy(&buf[..n]);
                 raw_snippet = text.to_string();
@@ -564,26 +618,63 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
             None
         };
 
-        let lower_stem = stem.to_lowercase();
-        let lower_display = display_name.to_lowercase();
-        let lower_raw = raw_snippet.to_lowercase();
-        let is_dark = lower_stem.contains("dark")
-            || lower_stem.contains("night")
-            || lower_stem.contains("black")
-            || lower_stem.contains("dracula")
-            || lower_stem.contains("moon")
-            || lower_display.contains("dark")
-            || lower_display.contains("night")
-            || lower_display.contains("暗")
-            || lower_display.contains("黑")
-            || lower_raw.contains("color-scheme: dark")
-            || lower_raw.contains("dark-config.css")
-            || lower_raw.contains("dark-theme.css")
-            || lower_raw.contains("dark.css")
-            || raw_snippet.contains("暗黑")
-            || raw_snippet.contains("深色");
+        let mut bg_color = extract_css_var_val(&raw_snippet, &[
+            "bg-color", "background-color", "bg", "background",
+            "interface-default-bg-color", "main-bg", "window-bg", "canvas-bg", "body-bg"
+        ]);
+        if let Some(bg) = &bg_color {
+            bg_color = Some(resolve_css_var_recursively(&raw_snippet, bg));
+        }
 
-        let tone = Some(if is_dark { "dark".to_string() } else { "light".to_string() });
+        let mut text_color = extract_css_var_val(&raw_snippet, &[
+            "text-color", "color", "text", "writeArea-text-color", "body-color", "main-color"
+        ]);
+        if let Some(txt) = &text_color {
+            text_color = Some(resolve_css_var_recursively(&raw_snippet, txt));
+        }
+
+        let mut accent_color = extract_css_var_val(&raw_snippet, &[
+            "drake-accent", "primary-color", "accent", "accent-color", "theme-color",
+            "active-file-border-color", "a-color", "brand-color", "link-color",
+            "main-accent", "drake-highlight"
+        ]);
+        if let Some(acc) = &accent_color {
+            accent_color = Some(resolve_css_var_recursively(&raw_snippet, acc));
+        }
+
+        let mut is_dark = if let Some(bg) = &bg_color {
+            if let Some(lum) = parse_hex_luminance(bg) {
+                Some(lum < 128.0)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if is_dark.is_none() {
+            let lower_stem = stem.to_lowercase();
+            let lower_display = display_name.to_lowercase();
+            let lower_raw = raw_snippet.to_lowercase();
+            let detected = lower_stem.contains("dark")
+                || lower_stem.contains("night")
+                || lower_stem.contains("black")
+                || lower_stem.contains("dracula")
+                || lower_stem.contains("moon")
+                || lower_display.contains("dark")
+                || lower_display.contains("night")
+                || lower_display.contains("暗")
+                || lower_display.contains("黑")
+                || lower_raw.contains("color-scheme: dark")
+                || lower_raw.contains("dark-config.css")
+                || lower_raw.contains("dark-theme.css")
+                || lower_raw.contains("dark.css")
+                || raw_snippet.contains("暗黑")
+                || raw_snippet.contains("深色");
+            is_dark = Some(detected);
+        }
+
+        let tone = Some(if is_dark.unwrap_or(false) { "dark".to_string() } else { "light".to_string() });
 
         out.push(InstalledTheme {
             id: stem.to_string(),
@@ -591,6 +682,9 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
             path: path.to_string_lossy().to_string(),
             author: author_opt,
             tone,
+            bg_color,
+            text_color,
+            accent_color,
         });
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -1345,6 +1439,31 @@ mod tests {
         let files = res.unwrap();
         println!("Latex discovered count: {}, files: {:?}", files.len(), files.iter().map(|f| &f.file_name).collect::<Vec<_>>());
         assert!(files.iter().any(|f| f.file_name.contains("latex")), "Expected latex.css discovered");
+    }
+
+    #[test]
+    fn test_color_and_var_parsing() {
+        use super::{extract_css_var_val, parse_hex_luminance, resolve_css_var_recursively};
+
+        assert!(parse_hex_luminance("#000000").unwrap() < 10.0);
+        assert!(parse_hex_luminance("#ffffff").unwrap() > 240.0);
+        assert!(parse_hex_luminance("#2b2b2b").unwrap() < 128.0); // Dark theme
+        assert!(parse_hex_luminance("#fcfcfc").unwrap() > 128.0); // Light theme
+
+        let css = r#"
+            :root {
+                --main-bg: #2b2b2b;
+                --bg-color: var(--main-bg);
+                --drake-accent: #3473b0;
+            }
+        "#;
+        let raw_bg = extract_css_var_val(css, &["bg-color"]).unwrap();
+        assert_eq!(raw_bg, "var(--main-bg)");
+        let resolved = resolve_css_var_recursively(css, &raw_bg);
+        assert_eq!(resolved, "#2b2b2b");
+
+        let accent = extract_css_var_val(css, &["drake-accent"]).unwrap();
+        assert_eq!(accent, "#3473b0");
     }
 }
 

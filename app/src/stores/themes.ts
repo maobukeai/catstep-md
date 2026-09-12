@@ -65,6 +65,9 @@ export interface InstalledTheme {
   path: string;
   author?: string;
   tone?: 'light' | 'dark';
+  bg_color?: string;
+  text_color?: string;
+  accent_color?: string;
 }
 
 export function resolveThemeTone(theme: { id: string; name?: string; tone?: 'light' | 'dark'; path?: string }): 'light' | 'dark' {

@@ -305,6 +305,7 @@ export const zh: I18n = {
     catWriting: '写作',
     catSync: '同步',
     syncUnsupportedAndroid: 'Android 版本暂不支持 Git 同步功能，请在桌面端或 iOS 端使用。',
+    syncUnsupportedWeb: '网页预览环境未连接本地系统引擎，Git 同步与系统钥匙串功能仅在桌面客户端（Windows / macOS / Linux）中可用。',
     catIntegrations: 'AI 与扩展',
     catExport: '导出',
     catAdvanced: '高级',

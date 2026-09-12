@@ -18,9 +18,16 @@ const props = withDefaults(
      */
     teleport?: boolean;
     zIndex?: number | string;
+    panelClass?: string;
+    bodyPadding?: string;
+    headPadding?: string;
   }>(),
   { closeOnBackdrop: true, width: '480px', teleport: true },
 );
+
+defineOptions({
+  inheritAttrs: false,
+});
 
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>();
 
@@ -106,13 +113,18 @@ onBeforeUnmount(() => {
       <div
         ref="panelRef"
         class="ds-modal__panel"
+        :class="[$attrs.class, panelClass]"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
         tabindex="-1"
         :style="{ width, height, minHeight }"
       >
-        <header v-if="title || $slots.header" class="ds-modal__head">
+        <header
+          v-if="title || $slots.header"
+          class="ds-modal__head"
+          :style="headPadding ? { padding: headPadding } : undefined"
+        >
           <slot name="header">
             <h2 class="ds-modal__title">{{ title }}</h2>
           </slot>
@@ -128,7 +140,10 @@ onBeforeUnmount(() => {
             </svg>
           </button>
         </header>
-        <div class="ds-modal__body">
+        <div
+          class="ds-modal__body"
+          :style="bodyPadding !== undefined ? { padding: bodyPadding } : undefined"
+        >
           <slot />
         </div>
         <footer v-if="$slots.footer" class="ds-modal__foot">
@@ -176,12 +191,12 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
+  padding: 10px 18px;
   border-bottom: 1px solid var(--border);
 }
 .ds-modal__title {
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
   color: var(--text);
 }
@@ -191,8 +206,8 @@ onBeforeUnmount(() => {
   color: var(--text-muted);
   cursor: pointer;
   border-radius: var(--r-sm);
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

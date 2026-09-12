@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from '../../i18n';
 import { useSettingsStore } from '../../stores/settings';
-import { hasGitBackend, isMacOS } from '../../lib/platform';
+import { hasGitBackend, isMacOS, isAndroid, isTauri } from '../../lib/platform';
 import { shortcutLabel } from '../../lib/keybindings';
 import CloudFolderBanner from '../CloudFolderBanner.vue';
 import GithubSyncSettings from '../GithubSyncSettings.vue';
@@ -24,7 +24,7 @@ function withChord(key: string, actionId: string): string {
         {{ t('settings.catSync') }}
       </h3>
       <p style="font-size: 12px; color: var(--text-faint); margin: 0; line-height: 1.6;">
-        {{ t('settings.syncUnsupportedAndroid') }}
+        {{ isAndroid() ? t('settings.syncUnsupportedAndroid') : (!isTauri() ? t('settings.syncUnsupportedWeb') : t('settings.syncUnsupportedAndroid')) }}
       </p>
     </section>
 

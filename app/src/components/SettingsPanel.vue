@@ -847,6 +847,9 @@ onBeforeUnmount(() => {
     :title="t('settings.title')"
     width="820px"
     class="settings-modal"
+    panel-class="settings-modal"
+    body-padding="0"
+    head-padding="10px 18px"
     @update:model-value="emit('close')"
   >
     <template #header>
@@ -894,12 +897,14 @@ onBeforeUnmount(() => {
 /* ==========================================================================
    Desktop Modal Styles (桌面端 820px 双栏弹窗)
    ========================================================================== */
-.settings-modal :deep(.ds-modal__body) {
+.settings-modal :deep(.ds-modal__body),
+.settings-modal.ds-modal__panel .ds-modal__body {
   padding: 0;
   display: flex;
   flex-direction: column;
 }
-.settings-modal :deep(.ds-modal__head) {
+.settings-modal :deep(.ds-modal__head),
+.settings-modal.ds-modal__panel .ds-modal__head {
   padding: 10px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
@@ -916,9 +921,10 @@ onBeforeUnmount(() => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .settings-modal :deep(.ds-modal__title),
+.settings-modal.ds-modal__panel .ds-modal__title,
 .settings-modal__title-wrap .ds-modal__title {
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -931,22 +937,22 @@ onBeforeUnmount(() => {
   height: min(600px, 80vh);
 }
 .settings__nav {
-  width: 124px;
+  width: 128px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg-elev) 80%, var(--bg));
   display: flex;
   flex-direction: column;
-  padding: 10px 6px;
-  gap: 2px;
+  padding: 10px 8px;
+  gap: 3px;
   overflow-y: auto;
 }
 .settings__nav-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 6px 10px;
-  font-size: 12.5px;
+  padding: 7px 12px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
   background: transparent;
@@ -961,6 +967,13 @@ onBeforeUnmount(() => {
 .settings__nav-item:hover {
   background: var(--bg-hover);
   color: var(--text);
+}
+.settings__nav-item:focus {
+  outline: none;
+}
+.settings__nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
 }
 .settings__nav-item--active {
   background: color-mix(in srgb, var(--accent) 12%, transparent);

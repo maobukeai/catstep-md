@@ -18,7 +18,7 @@
  */
 import { defineStore } from 'pinia';
 import { invoke as tauriInvoke } from '@tauri-apps/api/core';
-import { hasGitBackend } from '../lib/platform';
+import { hasGitBackend, isTauri } from '../lib/platform';
 
 /**
  * #230 — `github_*` and `proxy_*` are registered behind
@@ -27,12 +27,12 @@ import { hasGitBackend } from '../lib/platform';
  * early with a stable marker the UI can translate; the Sync panel is hidden on
  * Android anyway, so this is the belt to that braces.
  */
-const GIT_BACKED_COMMAND = /^(github_|proxy_)/;
+const GIT_BACKED_COMMAND = /^(github_|proxy_|gitea_|crypto_)/;
 
 export const SYNC_UNSUPPORTED = 'sync-unsupported-platform';
 
 function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (!hasGitBackend() && GIT_BACKED_COMMAND.test(cmd)) {
+  if (!isTauri() || (!hasGitBackend() && GIT_BACKED_COMMAND.test(cmd))) {
     return Promise.reject(new Error(SYNC_UNSUPPORTED));
   }
   return tauriInvoke<T>(cmd, args);
@@ -181,14 +181,17 @@ export const useGithubSyncStore = defineStore('githubSync', {
 
   actions: {
     async refreshHasToken(): Promise<void> {
-      if (!hasGitBackend()) {
+      if (!isTauri() || !hasGitBackend()) {
         this.hasToken = false;
         return;
       }
       try {
         this.hasToken = await invoke<boolean>('github_has_token');
       } catch (e) {
-        this.lastError = String(e);
+        const s = String(e);
+        if (!s.includes(SYNC_UNSUPPORTED) && !s.includes('invoke')) {
+          this.lastError = s;
+        }
         this.hasToken = false;
       }
     },
@@ -215,7 +218,7 @@ export const useGithubSyncStore = defineStore('githubSync', {
     },
 
     async refreshUser(): Promise<void> {
-      if (!hasGitBackend()) {
+      if (!isTauri() || !hasGitBackend()) {
         this.user = null;
         return;
       }
@@ -225,7 +228,10 @@ export const useGithubSyncStore = defineStore('githubSync', {
         // stale "expired" flag (e.g. after the user reconnects).
         this.tokenInvalid = false;
       } catch (e) {
-        this.lastError = String(e);
+        const s = String(e);
+        if (!s.includes(SYNC_UNSUPPORTED) && !s.includes('invoke')) {
+          this.lastError = s;
+        }
         this.user = null;
         if (isGithubAuthError(e)) this.tokenInvalid = true;
       }
@@ -319,7 +325,7 @@ export const useGithubSyncStore = defineStore('githubSync', {
     },
 
     async refreshStatus(folder: string | null): Promise<void> {
-      if (!hasGitBackend()) {
+      if (!isTauri() || !hasGitBackend()) {
         this.folder = folder;
         this.status = null;
         return;
@@ -333,7 +339,10 @@ export const useGithubSyncStore = defineStore('githubSync', {
       try {
         this.status = await invoke<SyncStatus>('github_sync_status', { folder });
       } catch (e) {
-        this.lastError = String(e);
+        const s = String(e);
+        if (!s.includes(SYNC_UNSUPPORTED) && !s.includes('invoke')) {
+          this.lastError = s;
+        }
         // Don't null the status on error — keep the last known good so the
         // UI doesn't flicker between "linked" and "not linked" on a flaky
         // network probe.
@@ -383,6 +392,7 @@ export const useGithubSyncStore = defineStore('githubSync', {
     // ─── Gitea actions ─────────────────────────────────────────
 
     async getGiteaUrl(): Promise<string> {
+      if (!isTauri() || !hasGitBackend()) return '';
       try {
         this.giteaUrl = await invoke<string>('gitea_get_url');
         return this.giteaUrl;
@@ -403,6 +413,10 @@ export const useGithubSyncStore = defineStore('githubSync', {
     },
 
     async refreshHasGiteaToken(): Promise<void> {
+      if (!isTauri() || !hasGitBackend()) {
+        this.hasGiteaToken = false;
+        return;
+      }
       try {
         this.hasGiteaToken = await invoke<boolean>('gitea_has_token');
       } catch {
@@ -427,24 +441,38 @@ export const useGithubSyncStore = defineStore('githubSync', {
     },
 
     async refreshGiteaUser(baseUrl: string): Promise<void> {
+      if (!isTauri() || !hasGitBackend()) {
+        this.giteaUser = null;
+        return;
+      }
       try {
         this.giteaUser = await invoke<GitHubUser>('gitea_user', { baseUrl });
         this.giteaTokenInvalid = false;
       } catch (e) {
-        this.lastError = String(e);
+        const s = String(e);
+        if (!s.includes(SYNC_UNSUPPORTED) && !s.includes('invoke')) {
+          this.lastError = s;
+        }
         this.giteaUser = null;
         this.giteaTokenInvalid = true;
       }
     },
 
     async listGiteaRepos(baseUrl: string): Promise<GitHubRepo[]> {
+      if (!isTauri() || !hasGitBackend()) {
+        this.giteaRepos = [];
+        return [];
+      }
       this.giteaLoading = true;
       try {
         this.giteaRepos = await invoke<GitHubRepo[]>('gitea_list_repos', { baseUrl });
         this.giteaTokenInvalid = false;
         return this.giteaRepos;
       } catch (e) {
-        this.lastError = String(e);
+        const s = String(e);
+        if (!s.includes(SYNC_UNSUPPORTED) && !s.includes('invoke')) {
+          this.lastError = s;
+        }
         this.giteaRepos = [];
         this.giteaTokenInvalid = true;
         throw e;
