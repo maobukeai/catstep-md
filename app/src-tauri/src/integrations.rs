@@ -374,13 +374,39 @@ fn resolve_mcp_path(app: &AppHandle) -> Option<PathBuf> {
         }
     }
 
-    // 3. Development fallback: check target directories
+    // 3. Development fallback: check target directories and project directories
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            // Check app/src-tauri/binaries
-            let binaries_dir = dir.join("../binaries");
+            let candidate_dirs = [
+                dir.join("../binaries"),
+                dir.join("../../binaries"),
+                dir.join("../../../binaries"),
+                dir.join("../../../mcp-server/target/release"),
+                dir.join("../../../mcp-server/target/debug"),
+            ];
+            for bdir in candidate_dirs {
+                for name in exe_names {
+                    let candidate = bdir.join(name);
+                    if candidate.is_file() {
+                        return Some(candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Working directory fallback
+    if let Ok(cwd) = std::env::current_dir() {
+        let cwd_dirs = [
+            cwd.join("binaries"),
+            cwd.join("src-tauri/binaries"),
+            cwd.join("app/src-tauri/binaries"),
+            cwd.join("mcp-server/target/release"),
+            cwd.join("mcp-server/target/debug"),
+        ];
+        for bdir in cwd_dirs {
             for name in exe_names {
-                let candidate = binaries_dir.join(name);
+                let candidate = bdir.join(name);
                 if candidate.is_file() {
                     return Some(candidate);
                 }
@@ -668,7 +694,22 @@ fn read_json_or_empty(path: &PathBuf) -> Result<JsonValue, String> {
     if raw.trim().is_empty() {
         return Ok(json!({}));
     }
-    serde_json::from_str(&raw).map_err(|e| format!("parse {}: {e}", path.display()))
+    match serde_json::from_str(&raw) {
+        Ok(v) => Ok(v),
+        Err(orig_err) => {
+            // Strip single-line comments (// ...) outside of strings to tolerate JSONC configs
+            let mut stripped = String::with_capacity(raw.len());
+            for line in raw.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("//") {
+                    continue;
+                }
+                stripped.push_str(line);
+                stripped.push('\n');
+            }
+            serde_json::from_str(&stripped).map_err(|_| format!("parse {}: {orig_err}", path.display()))
+        }
+    }
 }
 
 /// Write JSON back with two-space pretty-printing. Creates parent
@@ -805,11 +846,32 @@ pub fn inject_mcp(
 ) -> Result<String, String> {
     let config_path = ai_client_config_path(&client_id, &app)
         .ok_or_else(|| format!("no config path for {client_id} on this OS"))?;
-    let mcp_path = resolve_mcp_path(&app)
-        .ok_or_else(|| "bundled solomd-mcp not found".to_string())?
-        .to_string_lossy()
-        .to_string();
-    let args = build_solomd_args(&workspace, allow_write);
+    let mcp_path_pb = resolve_mcp_path(&app)
+        .ok_or_else(|| "bundled catstep-mcp not found".to_string())?;
+    #[cfg(target_os = "windows")]
+    let mcp_path_pb = {
+        let s = mcp_path_pb.to_string_lossy();
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            PathBuf::from(stripped)
+        } else {
+            mcp_path_pb
+        }
+    };
+    let mcp_path = mcp_path_pb.to_string_lossy().to_string();
+
+    let ws_pb = PathBuf::from(&workspace);
+    #[cfg(target_os = "windows")]
+    let ws_pb = {
+        let s = ws_pb.to_string_lossy();
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            PathBuf::from(stripped)
+        } else {
+            ws_pb
+        }
+    };
+    let clean_workspace = ws_pb.to_string_lossy().to_string();
+
+    let args = build_solomd_args(&clean_workspace, allow_write);
     let entry = build_solomd_entry(&client_id, &mcp_path, &args);
 
     let mut config = read_json_or_empty(&config_path)?;

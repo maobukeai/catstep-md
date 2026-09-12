@@ -132,7 +132,7 @@ const claudeConfigJson = computed(() => {
 
   const config = {
     mcpServers: {
-      'solomd-vault': {
+      catstep: {
         command,
         args: ['--workspace', ws],
       },
@@ -269,7 +269,12 @@ async function removeOne(c: AiClient) {
 
 async function openClientConfig(c: AiClient) {
   try {
-    await openPath(c.config_path);
+    if (c.config_exists) {
+      await openPath(c.config_path);
+    } else {
+      const parent = c.config_path.replace(/[/\\][^/\\]+$/, '');
+      await openPath(parent);
+    }
   } catch {
     try {
       await revealItemInDir(c.config_path);
@@ -288,11 +293,19 @@ const mcpToolKeys = [
   'list_notes',
   'read_note',
   'search',
+  'get_outline',
   'get_backlinks',
   'list_tags',
-  'get_outline',
+  'list_tasks',
   'write_note',
   'append_to_note',
+  'autogit_log',
+  'autogit_diff',
+  'autogit_rollback',
+  'export_note',
+  'share_url',
+  'sync_status',
+  'read_agent_trace',
 ] as const;
 </script>
 

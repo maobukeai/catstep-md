@@ -2103,7 +2103,9 @@ mod tests {
     use std::fs;
 
     fn make_workspace() -> PathBuf {
-        let id = format!("solomd-tools-{}", std::process::id());
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = format!("solomd-tools-{}-{}", std::process::id(), COUNTER.fetch_add(1, Ordering::Relaxed));
         let stamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map(|d| d.as_nanos())
