@@ -592,7 +592,7 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
           ]
         : []),
       { sep: true as const },
-      { id: 'themes.marketplace', label: '🏪 ' + t('themes.browseBtn') },
+      { id: 'themes.marketplace', label: t('themes.browseBtn') },
     ],
     tools: [
       { id: 'tools.agent', label: m('aiAgent'), shortcut: 'Ctrl+J / Ctrl+Shift+A' },
@@ -920,6 +920,18 @@ onBeforeUnmount(() => {
         <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1" /></svg>
       </button>
     </div>
+
+    <!-- Phone-only find button (Safari / Notes style top-bar search) -->
+    <button
+      v-if="isNarrow"
+      class="icon-btn toolbar__mobile-search"
+      data-phone-primary
+      type="button"
+      :title="t('find.find') || '查找'"
+      @click="emit('open-search')"
+    >
+      <Icon name="search" :size="15" />
+    </button>
 
     <!-- Phone-only more sheet button -->
     <button

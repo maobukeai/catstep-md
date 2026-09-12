@@ -190,7 +190,6 @@ async function onRefresh() {
       <header class="tm__header">
         <div class="tm__header-main">
           <div class="tm__title-row">
-            <span class="tm__header-icon">🎨</span>
             <h2 class="tm__title">{{ t('themes.title') }}</h2>
             <span class="tm__count-badge">{{ themes.manifest?.themes?.length || 0 }} {{ isZh ? '款精选' : 'themes' }}</span>
           </div>
@@ -237,7 +236,6 @@ async function onRefresh() {
             :class="{ 'is-active': activeTab === 'official' }"
             @click="activeTab = 'official'"
           >
-            <span class="tm__tab-star">★</span>
             {{ isZh ? '官方精选' : 'Official' }}
           </button>
           <button
@@ -245,21 +243,21 @@ async function onRefresh() {
             :class="{ 'is-active': activeTab === 'light' }"
             @click="activeTab = 'light'"
           >
-            ☀️ {{ isZh ? '浅色' : 'Light' }}
+            {{ isZh ? '浅色' : 'Light' }}
           </button>
           <button
             class="tm__tab"
             :class="{ 'is-active': activeTab === 'dark' }"
             @click="activeTab = 'dark'"
           >
-            🌙 {{ isZh ? '深色' : 'Dark' }}
+            {{ isZh ? '深色' : 'Dark' }}
           </button>
           <button
             class="tm__tab"
             :class="{ 'is-active': activeTab === 'installed' }"
             @click="activeTab = 'installed'"
           >
-            📦 {{ isZh ? '已安装' : 'Installed' }}
+            {{ isZh ? '已安装' : 'Installed' }}
             <span v-if="installedCount > 0" class="tm__tab-num">{{ installedCount }}</span>
           </button>
         </div>
@@ -292,7 +290,11 @@ async function onRefresh() {
       <div class="tm__body">
         <!-- Error state -->
         <div v-if="themes.error" class="tm__state-box tm__state-box--error">
-          <div class="tm__state-icon">⚠️</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--danger, #ef4444); margin-bottom: 8px;">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
           <div class="tm__state-title">{{ isZh ? '无法获取主题列表' : 'Failed to load themes' }}</div>
           <p class="tm__state-desc">{{ themes.error }}</p>
           <button class="tm__action-btn tm__action-btn--primary" @click="onRefresh">{{ isZh ? '重试' : 'Retry' }}</button>
@@ -306,7 +308,10 @@ async function onRefresh() {
 
         <!-- Empty search state -->
         <div v-else-if="filteredThemes.length === 0" class="tm__state-box">
-          <div class="tm__state-icon">🔍</div>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-faint); margin-bottom: 8px;">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
           <div class="tm__state-title">{{ isZh ? '没有找到匹配的主题' : 'No matching themes found' }}</div>
           <p class="tm__state-desc">{{ isZh ? '请尝试切换分类或调整搜索关键词' : 'Try switching categories or clearing search keywords' }}</p>
           <button
@@ -344,13 +349,13 @@ async function onRefresh() {
               <!-- Top-left: Tone / Official Badges -->
               <div class="tm__preview-badges">
                 <span v-if="isOfficialTheme(theme)" class="tm__badge tm__badge--official">
-                  ★ {{ isZh ? '官方精选' : 'Official' }}
+                  {{ isZh ? '官方精选' : 'Official' }}
                 </span>
                 <span v-else-if="getThemeTone(theme) === 'light'" class="tm__badge tm__badge--tone">
-                  ☀️ {{ isZh ? '浅色' : 'Light' }}
+                  {{ isZh ? '浅色' : 'Light' }}
                 </span>
                 <span v-else-if="getThemeTone(theme) === 'dark'" class="tm__badge tm__badge--tone">
-                  🌙 {{ isZh ? '深色' : 'Dark' }}
+                  {{ isZh ? '深色' : 'Dark' }}
                 </span>
               </div>
 
