@@ -767,6 +767,7 @@ export const en = {
     tomorrowBtn: 'Tomorrow',
   },
   daily: {
+    title: 'Daily Note',
     openToday: "Open Today's Note",
     openYesterday: "Open Yesterday's Note",
     openTomorrow: "Open Tomorrow's Note",
@@ -778,16 +779,20 @@ export const en = {
     heading: 'Integrations',
     intro:
       'Catstep MD speaks to your terminal and to MCP-aware AI clients (Claude Desktop, Codex CLI, Cursor) so you can read/write your notes from outside the app.',
-    cliTitle: 'CLI (solomd)',
+    cliTitle: 'CLI (catstep / solomd)',
     cliInstalled: 'Installed at {path}',
     cliNotInstalled: 'Not installed',
     cliVersionLabel: 'Version',
-    cliInstallBtn: 'Install / Reinstall CLI',
-    cliCopyInstallBtn: 'Copy install command',
     cliDocsBtn: 'Open docs',
+    cliInstallBtn: 'Install CLI',
+    cliReinstallBtn: 'Reinstall / Repair CLI',
+    cliUninstallBtn: 'Uninstall CLI',
+    cliCopyInstallBtn: 'Copy install command',
     cliCopiedToast: 'Install command copied — paste in your terminal.',
-    cliInstallToast:
-      'Run this in your terminal — sudo is required for /usr/local/bin:',
+    cliInstallToast: 'Run this in your terminal:',
+    cliInstallSuccessToast: 'CLI installed successfully! You can now run catstep or solomd in your terminal.',
+    cliUninstallSuccessToast: 'CLI uninstalled successfully.',
+    cliInstallFallbackToast: 'In-app install met permission limits; command copied to clipboard, please run in terminal.',
     cliSubcommandsHeading: 'What can it do?',
     cliSubcommands: {
       open: 'open <title|path> — open a note in Catstep MD',
@@ -797,7 +802,7 @@ export const en = {
       cat: 'cat <title|path> — print a note to stdout',
       help: 'help — show all commands',
     },
-    mcpTitle: 'MCP server (solomd-mcp)',
+    mcpTitle: 'MCP server (catstep-mcp / solomd-mcp)',
     mcpBundled: 'Bundled at {path}',
     mcpNotBundled:
       'Not bundled (this dev build skips the externalBin sidecar). Production builds always include it.',

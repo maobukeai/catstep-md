@@ -948,6 +948,8 @@ pub fn run_with(initial_file: Option<String>) {
             mcp_profiles::mcp_profiles_delete,
             mcp_profiles::mcp_profiles_export_config,
             integrations::cli_status,
+            integrations::cli_install,
+            integrations::cli_uninstall,
             integrations::mcp_path,
             integrations::mcp_claude_desktop_config_path,
             integrations::detect_ai_clients,

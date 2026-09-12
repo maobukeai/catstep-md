@@ -70,18 +70,56 @@ pub struct McpPath {
 }
 
 // ---------------------------------------------------------------------------
-// CLI status.
+// CLI status, install & uninstall.
 // ---------------------------------------------------------------------------
 
 /// Sync impl. Public command below dispatches to spawn_blocking — never
 /// call this directly from a Tauri command thread.
 pub fn cli_status_inner() -> Result<CliStatus, String> {
-    // `which` (Unix) / `where` (Windows). On Windows there's no PATHEXT
-    // helper either way; we just check stdout for a valid file.
+    // 1. On Windows, check local app data bin first (instant probe, no shell spawn)
     #[cfg(target_os = "windows")]
-    let probe = no_window_command("where").arg("solomd").output();
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        let catstep_cmd = PathBuf::from(local_app_data)
+            .join("catstep")
+            .join("bin")
+            .join("catstep.cmd");
+        if catstep_cmd.is_file() {
+            return Ok(CliStatus {
+                installed: true,
+                path: Some(catstep_cmd.to_string_lossy().to_string()),
+                version: Some("catstep 1.0.0".to_string()),
+            });
+        }
+    }
+
+    // 2. Probe PATH via `where` (Windows) / `which` (Unix) — checks both `catstep` and `solomd`
+    #[cfg(target_os = "windows")]
+    let probe = {
+        let p = no_window_command("where").arg("catstep").output();
+        if let Ok(ref out) = p {
+            if out.status.success() {
+                p
+            } else {
+                no_window_command("where").arg("solomd").output()
+            }
+        } else {
+            no_window_command("where").arg("solomd").output()
+        }
+    };
+
     #[cfg(not(target_os = "windows"))]
-    let probe = no_window_command("/usr/bin/env").args(["which", "solomd"]).output();
+    let probe = {
+        let p = no_window_command("/usr/bin/env").args(["which", "catstep"]).output();
+        if let Ok(ref out) = p {
+            if out.status.success() {
+                p
+            } else {
+                no_window_command("/usr/bin/env").args(["which", "solomd"]).output()
+            }
+        } else {
+            no_window_command("/usr/bin/env").args(["which", "solomd"]).output()
+        }
+    };
 
     let path = match probe {
         Ok(out) if out.status.success() => {
@@ -109,10 +147,6 @@ pub fn cli_status_inner() -> Result<CliStatus, String> {
         });
     }
 
-    // `solomd --version` — our shell CLI doesn't actually accept --version
-    // today, but it does accept `help`. Keep the field for future Rust-port
-    // upgrade and try help as a fallback so the panel can show *something*
-    // confirming the binary is reachable.
     let version = path.as_ref().and_then(|p| {
         let out = no_window_command(p).arg("--version").output().ok()?;
         if out.status.success() {
@@ -148,44 +182,209 @@ pub async fn cli_status() -> Result<CliStatus, String> {
         .map_err(|e| format!("join: {e}"))?
 }
 
+/// One-click native CLI install for the current platform.
+pub fn cli_install_inner(_app: &AppHandle) -> Result<CliStatus, String> {
+    let current_exe = std::env::current_exe().map_err(|e| format!("cannot determine app exe: {e}"))?;
+    let exe_str = current_exe.to_string_lossy();
+
+    #[cfg(target_os = "windows")]
+    {
+        let local_app_data = std::env::var_os("LOCALAPPDATA")
+            .ok_or_else(|| "LOCALAPPDATA environment variable not found".to_string())?;
+        let bin_dir = PathBuf::from(local_app_data).join("catstep").join("bin");
+        std::fs::create_dir_all(&bin_dir)
+            .map_err(|e| format!("failed to create bin dir {}: {e}", bin_dir.display()))?;
+
+        // Generate catstep.cmd (and solomd.cmd for backwards compatibility)
+        let cmd_content = format!(
+            "@echo off\r\n\
+            if \"%~1\"==\"\" (\r\n\
+                start \"\" \"{exe}\"\r\n\
+                exit /b 0\r\n\
+            )\r\n\
+            if /i \"%~1\"==\"open\" (\r\n\
+                if \"%~2\"==\"\" (\r\n\
+                    echo Usage: catstep open ^<file^>\r\n\
+                    exit /b 1\r\n\
+                )\r\n\
+                start \"\" \"{exe}\" \"%~f2\"\r\n\
+                exit /b 0\r\n\
+            )\r\n\
+            if /i \"%~1\"==\"new\" (\r\n\
+                if \"%~2\"==\"\" (\r\n\
+                    echo Usage: catstep new ^<title^>\r\n\
+                    exit /b 1\r\n\
+                )\r\n\
+                start \"\" \"{exe}\" \"%~f2\"\r\n\
+                exit /b 0\r\n\
+            )\r\n\
+            if /i \"%~1\"==\"help\" (\r\n\
+                echo catstep - CLI for Catstep MD\r\n\
+                echo Usage:\r\n\
+                echo   catstep ^<file^>           Open file in Catstep MD\r\n\
+                echo   catstep open ^<file^>      Open file in Catstep MD\r\n\
+                echo   catstep new ^<title^>      Create and open note\r\n\
+                echo   catstep --version        Show version\r\n\
+                echo   catstep help             Show this help\r\n\
+                exit /b 0\r\n\
+            )\r\n\
+            if /i \"%~1\"==\"--version\" (\r\n\
+                echo catstep 1.0.0\r\n\
+                exit /b 0\r\n\
+            )\r\n\
+            if /i \"%~1\"==\"-v\" (\r\n\
+                echo catstep 1.0.0\r\n\
+                exit /b 0\r\n\
+            )\r\n\
+            start \"\" \"{exe}\" \"%~f1\"\r\n",
+            exe = exe_str
+        );
+
+        let catstep_cmd = bin_dir.join("catstep.cmd");
+        let solomd_cmd = bin_dir.join("solomd.cmd");
+        std::fs::write(&catstep_cmd, &cmd_content)
+            .map_err(|e| format!("failed to write catstep.cmd: {e}"))?;
+        std::fs::write(&solomd_cmd, &cmd_content)
+            .map_err(|e| format!("failed to write solomd.cmd: {e}"))?;
+
+        // Add bin_dir to User PATH if not already present
+        let bin_dir_str = bin_dir.to_string_lossy();
+        let ps_script = format!(
+            "$target = '{}'; \
+            $current = [Environment]::GetEnvironmentVariable('Path', 'User'); \
+            $parts = ($current -split ';') | Where-Object {{ $_.Trim() -ne '' }}; \
+            if ($parts -notcontains $target) {{ \
+                $newPath = ($parts + $target) -join ';'; \
+                [Environment]::SetEnvironmentVariable('Path', $newPath, 'User'); \
+            }}",
+            bin_dir_str.replace('\'', "''")
+        );
+
+        let _ = no_window_command("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
+            .output();
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = app.path().home_dir() {
+            let local_bin = home.join(".local").join("bin");
+            let _ = std::fs::create_dir_all(&local_bin);
+
+            let target = &current_exe;
+            let sym_catstep = local_bin.join("catstep");
+            let sym_solomd = local_bin.join("solomd");
+
+            let _ = std::fs::remove_file(&sym_catstep);
+            let _ = std::fs::remove_file(&sym_solomd);
+
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::symlink;
+                let _ = symlink(target, &sym_catstep);
+                let _ = symlink(target, &sym_solomd);
+            }
+        }
+    }
+
+    cli_status_inner()
+}
+
+#[tauri::command]
+pub async fn cli_install(app: AppHandle) -> Result<CliStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || cli_install_inner(&app))
+        .await
+        .map_err(|e| format!("join: {e}"))?
+}
+
+/// One-click native CLI uninstall for the current platform.
+pub fn cli_uninstall_inner(_app: &AppHandle) -> Result<CliStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            let bin_dir = PathBuf::from(local_app_data).join("catstep").join("bin");
+            let _ = std::fs::remove_file(bin_dir.join("catstep.cmd"));
+            let _ = std::fs::remove_file(bin_dir.join("solomd.cmd"));
+
+            let bin_dir_str = bin_dir.to_string_lossy();
+            let ps_script = format!(
+                "$target = '{}'; \
+                $current = [Environment]::GetEnvironmentVariable('Path', 'User'); \
+                $parts = ($current -split ';') | Where-Object {{ $_.Trim() -ne '' -and $_ -ne $target }}; \
+                $newPath = $parts -join ';'; \
+                [Environment]::SetEnvironmentVariable('Path', $newPath, 'User');",
+                bin_dir_str.replace('\'', "''")
+            );
+            let _ = no_window_command("powershell")
+                .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
+                .output();
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = app.path().home_dir() {
+            let local_bin = home.join(".local").join("bin");
+            let _ = std::fs::remove_file(local_bin.join("catstep"));
+            let _ = std::fs::remove_file(local_bin.join("solomd"));
+        }
+    }
+
+    cli_status_inner()
+}
+
+#[tauri::command]
+pub async fn cli_uninstall(app: AppHandle) -> Result<CliStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || cli_uninstall_inner(&app))
+        .await
+        .map_err(|e| format!("join: {e}"))?
+}
+
 // ---------------------------------------------------------------------------
 // MCP sidecar path.
 // ---------------------------------------------------------------------------
 
-/// Resolve the bundled `solomd-mcp` path. Strategy:
-///
-/// 1. On a Tauri-bundled app, externalBin places it as a *resource* —
-///    `app.path().resource_dir()` returns
-///    - macOS: `<App>.app/Contents/Resources`
-///    - Windows: `<install dir>\resources` (or alongside .exe)
-///    - Linux (AppImage): `<mount>/usr/lib/<id>`
-///    However, Tauri's externalBin specifically copies the binary next to
-///    the main executable on macOS / Windows — *not* into Resources — so
-///    we look beside the running executable first.
-/// 2. Fallback to `resource_dir/solomd-mcp[.exe]` for AppImage / Linux
-///    bundles where externalBin lands inside resources.
+/// Resolve the bundled `catstep-mcp` or `solomd-mcp` path.
 fn resolve_mcp_path(app: &AppHandle) -> Option<PathBuf> {
-    let exe_name = if cfg!(target_os = "windows") {
-        "solomd-mcp.exe"
+    let exe_names = if cfg!(target_os = "windows") {
+        ["catstep-mcp.exe", "solomd-mcp.exe"]
     } else {
-        "solomd-mcp"
+        ["catstep-mcp", "solomd-mcp"]
     };
 
-    // Sibling of the main exe — the canonical bundled location.
+    // 1. Sibling of the main exe — the canonical bundled location.
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let candidate = dir.join(exe_name);
+            for name in exe_names {
+                let candidate = dir.join(name);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
+    // 2. Resource dir fallback (Linux deb/AppImage put externalBin here).
+    if let Ok(dir) = app.path().resource_dir() {
+        for name in exe_names {
+            let candidate = dir.join(name);
             if candidate.is_file() {
                 return Some(candidate);
             }
         }
     }
 
-    // Resource dir fallback (Linux deb/AppImage put externalBin here).
-    if let Ok(dir) = app.path().resource_dir() {
-        let candidate = dir.join(exe_name);
-        if candidate.is_file() {
-            return Some(candidate);
+    // 3. Development fallback: check target directories
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            // Check app/src-tauri/binaries
+            let binaries_dir = dir.join("../binaries");
+            for name in exe_names {
+                let candidate = binaries_dir.join(name);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
         }
     }
 

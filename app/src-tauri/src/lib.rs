@@ -268,6 +268,8 @@ pub fn run() {
             cost_meter::cost_meter_reset,
             cost_meter::cost_meter_set_enabled,
             integrations::cli_status,
+            integrations::cli_install,
+            integrations::cli_uninstall,
             integrations::mcp_path,
             integrations::mcp_claude_desktop_config_path,
             integrations::detect_ai_clients,

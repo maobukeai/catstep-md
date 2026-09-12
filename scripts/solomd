@@ -38,26 +38,42 @@ ensure_notes_dir() {
 detect_solomd_bin() {
     if [[ "$(uname)" == "Darwin" ]]; then
         local mac_paths=(
+            "/Applications/Catstep MD.app/Contents/MacOS/CatstepMD"
             "/Applications/SoloMD.app/Contents/MacOS/SoloMD"
+            "$HOME/Applications/Catstep MD.app/Contents/MacOS/CatstepMD"
             "$HOME/Applications/SoloMD.app/Contents/MacOS/SoloMD"
         )
         for p in "${mac_paths[@]}"; do
             [[ -x "$p" ]] && echo "$p" && return 0
         done
     elif [[ "$(uname)" == "Linux" ]]; then
-        for cmd in solomd SoloMD; do
+        for cmd in catstep CatstepMD solomd SoloMD; do
             if command -v "$cmd" >/dev/null 2>&1; then
                 command -v "$cmd"
                 return 0
             fi
         done
         local linux_paths=(
+            "/usr/bin/catstep"
+            "/usr/local/bin/catstep"
             "/usr/bin/solomd"
             "/usr/local/bin/solomd"
+            "/opt/CatstepMD/CatstepMD"
             "/opt/SoloMD/solomd"
         )
         for p in "${linux_paths[@]}"; do
             [[ -x "$p" ]] && echo "$p" && return 0
+        done
+    elif [[ "$(uname -s)" == *"MINGW"* || "$(uname -s)" == *"MSYS"* || "$(uname -s)" == *"CYGWIN"* ]]; then
+        local win_paths=(
+            "$LOCALAPPDATA/Programs/CatstepMD/CatstepMD.exe"
+            "/c/Program Files/CatstepMD/CatstepMD.exe"
+            "/c/Program Files (x86)/CatstepMD/CatstepMD.exe"
+            "$LOCALAPPDATA/Programs/SoloMD/SoloMD.exe"
+            "/c/Program Files/SoloMD/SoloMD.exe"
+        )
+        for p in "${win_paths[@]}"; do
+            [[ -f "$p" ]] && echo "$p" && return 0
         done
     fi
     return 1

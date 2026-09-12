@@ -73,8 +73,11 @@ fi
 # `solomd-mcp` at install time.
 # ---------------------------------------------------------------------------
 mkdir -p "$OUT_DIR"
-DEST="$OUT_DIR/solomd-mcp-$TARGET$EXE"
-cp -f "$SRC_BIN" "$DEST"
-chmod +x "$DEST"
+DEST_CATSTEP="$OUT_DIR/catstep-mcp-$TARGET$EXE"
+DEST_SOLOMD="$OUT_DIR/solomd-mcp-$TARGET$EXE"
+cp -f "$SRC_BIN" "$DEST_CATSTEP"
+cp -f "$SRC_BIN" "$DEST_SOLOMD"
+chmod +x "$DEST_CATSTEP" "$DEST_SOLOMD"
 
-echo "build-mcp-sidecar: -> $DEST"
+echo "build-mcp-sidecar: -> $DEST_CATSTEP"
+echo "build-mcp-sidecar: -> $DEST_SOLOMD"

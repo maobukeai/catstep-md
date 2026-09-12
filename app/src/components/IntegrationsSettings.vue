@@ -19,14 +19,20 @@ import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useI18n } from '../i18n';
 import McpProfilesSettings from './McpProfilesSettings.vue';
+import { isWindowsDesktop } from '../lib/platform';
 
 const { t } = useI18n();
 const toasts = useToastsStore();
 const workspace = useWorkspaceStore();
+const isWindows = computed(() => isWindowsDesktop());
 
-// One-liner the user pastes in their terminal. Mirrors scripts/install-cli.sh.
-const CLI_INSTALL_CMD =
-  'curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash';
+// One-liner the user pastes in their terminal. Mirrors scripts/install-cli.sh and install-cli.ps1.
+const CLI_INSTALL_CMD = computed(() => {
+  if (isWindows.value) {
+    return 'irm https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.ps1 | iex';
+  }
+  return 'curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash';
+});
 
 const MCP_DOCS_URL = computed(() => 'https://github.com/maobukeai/catstep-md#readme');
 const CLI_DOCS_URL = computed(() => 'https://github.com/maobukeai/catstep-md#readme');
@@ -47,6 +53,7 @@ interface McpPath {
 }
 
 const cli = ref<CliStatus>({ installed: false });
+const cliBusy = ref(false);
 const mcp = ref<McpPath>({ path: null, bundled: false });
 const claudeConfigPath = ref<string | null>(null);
 
@@ -77,14 +84,35 @@ onMounted(refreshAll);
 // ---------------------------------------------------------------------------
 
 async function copyInstallCmd() {
-  await writeText(CLI_INSTALL_CMD);
+  await writeText(CLI_INSTALL_CMD.value);
   toasts.success(t('integrations.cliCopiedToast'));
 }
 
-async function showInstall() {
-  // We don't run sudo from the GUI. Toast the command + copy it for them.
-  await writeText(CLI_INSTALL_CMD);
-  toasts.info(t('integrations.cliInstallToast') + '  ' + CLI_INSTALL_CMD);
+async function onInstallCli() {
+  cliBusy.value = true;
+  try {
+    const status = await invoke<CliStatus>('cli_install');
+    cli.value = status;
+    toasts.success(t('integrations.cliInstallSuccessToast'));
+  } catch (e) {
+    await writeText(CLI_INSTALL_CMD.value);
+    toasts.error(String(e) + ' - ' + t('integrations.cliInstallFallbackToast'));
+  } finally {
+    cliBusy.value = false;
+  }
+}
+
+async function onUninstallCli() {
+  cliBusy.value = true;
+  try {
+    const status = await invoke<CliStatus>('cli_uninstall');
+    cli.value = status;
+    toasts.success(t('integrations.cliUninstallSuccessToast'));
+  } catch (e) {
+    toasts.error(String(e));
+  } finally {
+    cliBusy.value = false;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -97,8 +125,10 @@ const claudeConfigJson = computed(() => {
   // path + the user's currently-open workspace folder. If either is
   // missing (no workspace, dev build) we fall back to a sensible
   // placeholder + comment.
-  const command = mcp.value.path ?? '/path/to/solomd-mcp';
-  const ws = workspace.currentFolder ?? '/path/to/your/notes';
+  const command =
+    mcp.value.path ?? (isWindows.value ? 'catstep-mcp.exe' : '/path/to/catstep-mcp');
+  const ws =
+    workspace.currentFolder ?? (isWindows.value ? 'C:\\path\\to\\your\\notes' : '/path/to/your/notes');
 
   const config = {
     mcpServers: {
@@ -294,8 +324,21 @@ const mcpToolKeys = [
       </div>
 
       <div class="ic-row">
-        <button class="ic-btn" @click="showInstall">
-          {{ t('integrations.cliInstallBtn') }}
+        <button
+          class="ic-btn"
+          :class="{ 'ic-btn--primary': !cli.installed }"
+          :disabled="cliBusy"
+          @click="onInstallCli"
+        >
+          {{ cli.installed ? t('integrations.cliReinstallBtn') : t('integrations.cliInstallBtn') }}
+        </button>
+        <button
+          v-if="cli.installed"
+          class="ic-btn ic-btn--danger"
+          :disabled="cliBusy"
+          @click="onUninstallCli"
+        >
+          {{ t('integrations.cliUninstallBtn') }}
         </button>
         <button class="ic-btn" @click="copyInstallCmd">
           {{ t('integrations.cliCopyInstallBtn') }}
@@ -309,7 +352,7 @@ const mcpToolKeys = [
         <summary>{{ t('integrations.cliSubcommandsHeading') }}</summary>
         <ul class="ic-list">
           <li v-for="k in cliSubKeys" :key="k">
-            <code>solomd {{ k }}</code> —
+            <code>catstep {{ k }}</code> / <code>solomd {{ k }}</code> —
             {{ t(`integrations.cliSubcommands.${k}`) }}
           </li>
         </ul>
