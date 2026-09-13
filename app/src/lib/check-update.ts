@@ -235,7 +235,7 @@ interface GitHubReleaseJson {
 /** Fetch latest release info from GitHub official Releases API */
 async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.3');
+    const current = await getVersion().catch(() => '1.0.4');
     const res = await fetch(GITHUB_API_URL, {
       cache: 'no-store',
       headers: {
@@ -279,7 +279,7 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
 /** Fetch latest release by following GitHub's web release redirect (fallback) */
 async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.3');
+    const current = await getVersion().catch(() => '1.0.4');
     const res = await fetch(LATEST_RELEASE_PAGE, {
       cache: 'no-store',
       redirect: 'follow',
@@ -307,7 +307,7 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
 
 /** Fetch repository latest package version from GitHub Raw / jsDelivr mirror (fallback) */
 async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
-  const current = await getVersion().catch(() => '1.0.3');
+  const current = await getVersion().catch(() => '1.0.4');
   for (const url of [GITHUB_RAW_URL, JSDELIVR_MIRROR_URL]) {
     try {
       const res = await fetch(url, { cache: 'no-store' });
@@ -335,7 +335,7 @@ async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '1.0.3');
+  const current = await getVersion().catch(() => '1.0.4');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }
@@ -384,7 +384,12 @@ export async function startUpdateDownload(asset: ReleaseAsset, version: string):
   } catch (e) {
     sharedUpdaterState.isDownloading = false;
     sharedUpdaterState.status = 'error';
-    sharedUpdaterState.error = String(e);
+    const errStr = String(e);
+    if (errStr.includes('updater_start_download not found') || errStr.includes('Command updater_start_download not found')) {
+      sharedUpdaterState.error = '当前安装的客户端底层版本过低，暂不支持应用内直连下载。请点击“浏览器下载”直接下载安装包覆盖安装。';
+    } else {
+      sharedUpdaterState.error = errStr;
+    }
     throw e;
   }
 }

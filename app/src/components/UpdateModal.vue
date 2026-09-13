@@ -347,6 +347,13 @@ function handleOpenBrowser() {
           <template v-else-if="sharedUpdaterState.status === 'error'">
             <button
               type="button"
+              class="update-btn update-btn--secondary"
+              @click="handleOpenBrowser"
+            >
+              {{ t('settings.openReleasePage') || '浏览器下载' }}
+            </button>
+            <button
+              type="button"
               class="update-btn update-btn--primary"
               @click="handlePrimaryAction"
             >

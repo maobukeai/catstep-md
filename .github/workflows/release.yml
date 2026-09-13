@@ -214,7 +214,7 @@ jobs:
       # macOS:        produced locally via scripts/build-mac.sh, since
       #               macOS isn't in this matrix anymore.
       # ----------------------------------------------------------------------
-      - name: Pack solomd-mcp tarball (Linux)
+      - name: Pack catstep-mcp tarball (Linux)
         if: startsWith(matrix.platform, 'ubuntu-')
         shell: bash
         env:
@@ -227,23 +227,23 @@ jobs:
             ubuntu-22.04)     ARCH="x64" ;;
             *) echo "unknown linux runner: ${{ matrix.platform }}"; exit 1 ;;
           esac
-          ASSET="solomd-mcp-linux-${ARCH}.tar.gz"
+          ASSET="catstep-mcp-linux-${ARCH}.tar.gz"
           # Tauri's externalBin produced the binary under
-          # mcp-server/target/<triple>/release/solomd-mcp via our pre-bundle
+          # mcp-server/target/<triple>/release/catstep-mcp via our pre-bundle
           # script. Find it portably without hardcoding the triple.
-          BIN="$(find mcp-server/target -type f -name solomd-mcp -path '*/release/*' | head -1)"
+          BIN="$(find mcp-server/target -type f \( -name catstep-mcp -o -name solomd-mcp \) -path '*/release/*' | head -1)"
           if [[ -z "$BIN" || ! -x "$BIN" ]]; then
-            echo "Missing solomd-mcp release binary — beforeBundleCommand didn't run"
+            echo "Missing catstep-mcp release binary — beforeBundleCommand didn't run"
             ls -la mcp-server/target || true
             exit 1
           fi
           STAGE="$(mktemp -d)"
-          cp "$BIN" "$STAGE/solomd-mcp"
-          chmod +x "$STAGE/solomd-mcp"
-          tar -C "$STAGE" -czf "$ASSET" solomd-mcp
+          cp "$BIN" "$STAGE/catstep-mcp"
+          chmod +x "$STAGE/catstep-mcp"
+          tar -C "$STAGE" -czf "$ASSET" catstep-mcp
           gh release upload "${{ github.ref_name }}" "$ASSET" --clobber
 
-      - name: Pack solomd-mcp tarball (macOS)
+      - name: Pack catstep-mcp tarball (macOS)
         if: startsWith(matrix.platform, 'macos-')
         shell: bash
         env:
@@ -255,13 +255,13 @@ jobs:
             macos-latest) ARCH="arm64" ;;
             *)            ARCH="arm64" ;;
           esac
-          ASSET="solomd-mcp-darwin-${ARCH}.tar.gz"
-          BIN="$(find mcp-server/target -type f \( -name solomd-mcp -o -name catstep-mcp \) -path '*/release/*' | head -1)"
+          ASSET="catstep-mcp-mac-${ARCH}.tar.gz"
+          BIN="$(find mcp-server/target -type f \( -name catstep-mcp -o -name solomd-mcp \) -path '*/release/*' | head -1)"
           if [[ -n "$BIN" && -x "$BIN" ]]; then
             STAGE="$(mktemp -d)"
-            cp "$BIN" "$STAGE/solomd-mcp"
-            chmod +x "$STAGE/solomd-mcp"
-            tar -C "$STAGE" -czf "$ASSET" solomd-mcp
+            cp "$BIN" "$STAGE/catstep-mcp"
+            chmod +x "$STAGE/catstep-mcp"
+            tar -C "$STAGE" -czf "$ASSET" catstep-mcp
             gh release upload "${{ github.ref_name }}" "$ASSET" --clobber
           fi
 
@@ -341,7 +341,7 @@ jobs:
             ubuntu-22.04-arm) ARCH="arm64" ;;
             ubuntu-22.04)     ARCH="x64" ;;
           esac
-          ASSET="solomd-mcp-linux-${ARCH}.tar.gz"
+          ASSET="catstep-mcp-linux-${ARCH}.tar.gz"
           export LOCAL_TARBALL="$PWD/$ASSET"
           if [[ ! -f "$LOCAL_TARBALL" ]]; then
             echo "tarball missing at $LOCAL_TARBALL"; ls -la; exit 1
@@ -349,7 +349,7 @@ jobs:
           export VERSION="${{ github.ref_name }}"
           export INSTALL_DIR="$RUNNER_TEMP/mcp-self-test/bin"
           bash scripts/install-mcp.sh
-          "$INSTALL_DIR/solomd-mcp" --version
+          "$INSTALL_DIR/catstep-mcp" --version
           echo "self-test ok"
 
   # ---------------------------------------------------------------------------

@@ -136,6 +136,14 @@ mod rag;
 #[path = "app_build.rs"]
 mod app_build;
 
+// Focus PiP timer window
+#[path = "focus_pip.rs"]
+mod focus_pip;
+
+// In-app auto-updater
+#[path = "updater.rs"]
+mod updater;
+
 // Windows frameless chrome: WM_NCHITTEST → HTMAXBUTTON for Snap Layouts.
 #[cfg(target_os = "windows")]
 #[path = "win_chrome.rs"]
@@ -792,7 +800,7 @@ pub fn run_with(initial_file: Option<String>) {
             // The quick-capture box is undecorated, fixed-size and always on
             // top by design; restoring a remembered geometry would hand it a
             // stale position on the next launch.
-            .with_denylist(&[quick_capture::CAPTURE_LABEL])
+            .with_denylist(&[quick_capture::CAPTURE_LABEL, focus_pip::PIP_LABEL])
             .build(),
     );
 
@@ -805,6 +813,7 @@ pub fn run_with(initial_file: Option<String>) {
         .manage(PendingOpen(Mutex::new(pending)))
         .manage(watcher::WatcherState::new())
         .manage(recipe_runner::RecipesState::new())
+        .manage(updater::UpdaterState::new())
         .invoke_handler(tauri::generate_handler![
             commands::read_file,
             commands::read_binary_file,
@@ -995,6 +1004,15 @@ pub fn run_with(initial_file: Option<String>) {
             cookbook::cookbook_list,
             cookbook::cookbook_get,
             cookbook::cookbook_install,
+            focus_pip::pip_timer_open,
+            focus_pip::pip_timer_close,
+            focus_pip::pip_timer_resize,
+            focus_pip::pip_focus_main,
+            focus_pip::pip_timer_is_open,
+            updater::updater_get_platform_info,
+            updater::updater_start_download,
+            updater::updater_cancel_download,
+            updater::updater_install_and_restart,
         ])
         .on_menu_event(|app_handle, event| {
             // Forward every menu click to the frontend as a single event
