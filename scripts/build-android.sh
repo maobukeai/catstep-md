@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build signed Android release artifacts for SoloMD.
+# Build signed Android release artifacts for Catstep MD.
 #
 # Outputs (under app/src-tauri/gen/android/app/build/outputs/):
 #   - apk/{arm64-v8a,armeabi-v7a,x86_64,universal}/release/app-*-release.apk
@@ -80,7 +80,7 @@ export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$TOOLCHAIN/x86_64-linux-android
 
 cd app
 
-echo "==> SoloMD Android build ($([ "$DEBUG" -eq 1 ] && echo debug || echo release))"
+echo "==> Catstep MD Android build ($([ "$DEBUG" -eq 1 ] && echo debug || echo release))"
 echo "    NDK:        $ANDROID_NDK_HOME"
 echo "    Keystore:   ${ANDROID_KEYSTORE_PATH:-<debug, no signing>}"
 

@@ -219,7 +219,7 @@ fn write_default_gitignore(folder: &Path, exclude_assets: bool) -> std::io::Resu
         return Ok(());
     }
     let mut body = String::from(
-        "# SoloMD AutoGit defaults\n\
+        "# Catstep MD AutoGit defaults\n\
          .DS_Store\n\
          Thumbs.db\n\
          desktop.ini\n\

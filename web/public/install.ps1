@@ -1,10 +1,10 @@
-# SoloMD installer for Windows — https://solomd.app
+# Catstep MD installer for Windows — https://github.com/maobukeai/catstep-md
 #
 # Usage (PowerShell):
-#   irm https://solomd.app/install.ps1 | iex
+#   irm https://github.com/maobukeai/catstep-md/install.ps1 | iex
 #
 # Downloads the latest .msi installer and runs it interactively.
-# For silent install: set $env:SOLOMD_SILENT=1 before running.
+# For silent install: set $env:CATSTEP_SILENT=1 before running.
 
 $ErrorActionPreference = 'Stop'
 $repo = "maobukeai/catstep-md"
@@ -14,7 +14,7 @@ function Write-Step($msg) {
     Write-Host $msg
 }
 
-Write-Step "Fetching latest SoloMD release from GitHub..."
+Write-Step "Fetching latest Catstep MD release from GitHub..."
 try {
     $latest = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest" -ErrorAction Stop
 } catch {
@@ -40,12 +40,12 @@ try {
 Write-Host "Architecture: $arch"
 
 # MSI is the only supported installed Windows channel.
-$asset = $latest.assets | Where-Object { $_.name -like "SoloMD_*_${arch}_en-US.msi" } | Select-Object -First 1
+$asset = $latest.assets | Where-Object { $_.name -like "Catstep MD_*_${arch}_en-US.msi" } | Select-Object -First 1
 if (-not $asset -and $arch -eq 'arm64') {
     # An Arm machine can run the x64 build under emulation, so a release
     # without an arm64 MSI is a reason to fall back, not to fail.
     Write-Host "No arm64 installer in this release; falling back to x64 (runs emulated)." -ForegroundColor Yellow
-    $asset = $latest.assets | Where-Object { $_.name -like "SoloMD_*_x64_en-US.msi" } | Select-Object -First 1
+    $asset = $latest.assets | Where-Object { $_.name -like "Catstep MD_*_x64_en-US.msi" } | Select-Object -First 1
 }
 if (-not $asset) {
     Write-Host "Error: no Windows MSI installer found in latest release" -ForegroundColor Red
@@ -64,7 +64,7 @@ try {
 }
 
 Write-Step "Launching installer..."
-if ($env:SOLOMD_SILENT -eq '1') {
+if ($env:CATSTEP_SILENT -eq '1' -or $env:SOLOMD_SILENT -eq '1') {
     Start-Process -FilePath 'msiexec.exe' -ArgumentList '/i', "`"$out`"", '/qn' -Wait
 } else {
     Start-Process -FilePath $out -Wait
@@ -73,6 +73,6 @@ if ($env:SOLOMD_SILENT -eq '1') {
 Remove-Item $out -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "[OK] SoloMD installed. Launch from the Start Menu." -ForegroundColor Green
-Write-Host "Docs: https://solomd.app"
+Write-Host "[OK] Catstep MD installed. Launch from the Start Menu." -ForegroundColor Green
+Write-Host "Docs: https://github.com/maobukeai/catstep-md"
 Write-Host ""

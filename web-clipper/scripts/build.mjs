@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build pipeline for the SoloMD web clipper.
+ * Build pipeline for the Catstep MD web clipper.
  *
  * Produces two parallel `dist/<target>/` directories — one for Chrome
  * (Manifest V3) and one for Firefox (Manifest V2) — plus zipped artefacts
@@ -76,6 +76,9 @@ async function buildOne(target /* 'chrome' | 'firefox' */) {
   copyFileSync(join(SRC, 'popup.html'), join(outDir, 'popup.html'));
   copyFileSync(join(SRC, 'options.html'), join(outDir, 'options.html'));
   copyFileSync(join(SRC, 'popup.css'), join(outDir, 'popup.css'));
+  if (existsSync(join(SRC, 'options.css'))) {
+    copyFileSync(join(SRC, 'options.css'), join(outDir, 'options.css'));
+  }
   copyDir(join(SRC, 'icons'), join(outDir, 'icons'));
 
   // 3. Manifest variant.
@@ -132,8 +135,8 @@ async function main() {
     console.error('icons missing — run `node scripts/make-icons.mjs` first');
     process.exit(1);
   }
-  mkdirSync(DIST, { recursive: true });
-  const which = process.env.TARGET ?? 'all';
+  const argTarget = process.argv.find((a) => a.startsWith('--target='))?.split('=')[1] ?? (process.argv[2] && !process.argv[2].startsWith('-') ? process.argv[2] : null);
+  const which = process.env.TARGET ?? argTarget ?? 'all';
   if (which === 'chrome' || which === 'all') await buildOne('chrome');
   if (which === 'firefox' || which === 'all') await buildOne('firefox');
   if (which === 'all') await buildSourceZip();

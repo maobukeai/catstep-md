@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $packageArgs = @{
   packageName    = $env:ChocolateyPackageName
-  softwareName   = 'SoloMD*'
+  softwareName   = 'Catstep MD*'
   fileType       = 'exe'
   silentArgs     = '/S'
   validExitCodes = @(0)

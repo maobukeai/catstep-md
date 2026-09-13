@@ -56,7 +56,8 @@ const SHADOW_DIR: &str = ".solomd-encrypted";
 /// second device that pulls the encrypted repo can derive the same key
 /// from the user's passphrase. Salt is non-secret per Argon2id RFC9106.
 const SHADOW_SALT_FILE: &str = ".solomd-vault.json";
-const FILE_MAGIC: &[u8; 4] = b"SLMD";
+const FILE_MAGIC: &[u8; 4] = b"CTMD";
+const LEGACY_FILE_MAGIC: &[u8; 4] = b"SLMD";
 const FILE_VERSION: u8 = 1;
 
 /// Per-vault encryption metadata. Lives in the workspace, *gitignored*
@@ -67,7 +68,7 @@ pub struct EncryptionConfig {
     /// Hex-encoded 16-byte salt — the stable input alongside the user's
     /// passphrase to derive the same key on every device.
     pub salt: String,
-    /// Argon2id parameters — captured so a future SoloMD with bumped
+    /// Argon2id parameters — captured so a future Catstep MD with bumped
     /// defaults can still decrypt old vaults.
     pub kdf: KdfParams,
     /// File extensions that should be encrypted. Defaults: `md txt`.
@@ -154,7 +155,7 @@ fn hex_encode(b: &[u8]) -> String {
 }
 
 fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("hex string has odd length".into());
     }
     (0..s.len())
@@ -299,8 +300,9 @@ pub fn decrypt_bytes(key: &[u8; 32], aad_path: &str, blob: &[u8]) -> Result<Vec<
     if blob.len() < 4 + 1 + 24 + 16 {
         return Err("ciphertext too short".into());
     }
-    if &blob[..4] != FILE_MAGIC {
-        return Err("bad magic — not a SoloMD ciphertext".into());
+    let magic = &blob[..4];
+    if magic != FILE_MAGIC && magic != LEGACY_FILE_MAGIC {
+        return Err("bad magic — not a Catstep MD ciphertext".into());
     }
     if blob[4] != FILE_VERSION {
         return Err(format!("unsupported ciphertext version {}", blob[4]));
@@ -401,7 +403,7 @@ pub fn crypto_set_passphrase(folder: String, passphrase: String) -> Result<(), S
     let _ = fs::write(key_marker_path(&path), b"1");
 
     if fresh {
-        let probe = encrypt_bytes(&key, "encryption.probe", b"SoloMD probe v1")?;
+        let probe = encrypt_bytes(&key, "encryption.probe", b"Catstep MD probe v1")?;
         fs::write(path.join(".solomd/encryption.probe.enc"), probe)
             .map_err(|e| e.to_string())?;
     }
@@ -703,5 +705,16 @@ mod tests {
         let bad = crypto_set_passphrase(folder, "guess".into());
         assert!(bad.is_err());
         let _ = crypto_clear_passphrase(ws.to_string_lossy().to_string());
+    }
+
+    #[test]
+    fn legacy_slmd_ciphertext_decrypts_fine() {
+        let key = fixed_key();
+        let mut blob = encrypt_bytes(&key, "test.md", b"legacy secret").unwrap();
+        assert_eq!(&blob[..4], b"CTMD");
+        // Overwrite header with legacy SLMD magic
+        blob[..4].copy_from_slice(b"SLMD");
+        let plain = decrypt_bytes(&key, "test.md", &blob).unwrap();
+        assert_eq!(plain, b"legacy secret");
     }
 }

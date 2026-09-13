@@ -1,6 +1,6 @@
 ---
-title: SoloMD Realtime Markdown Support Test
-description: 用于验证 SoloMD 实时模式、预览模式和导出链路的 Markdown 兼容性
+title: Catstep MD Realtime Markdown Support Test
+description: 用于验证 Catstep MD 实时模式、预览模式和导出链路的 Markdown 兼容性
 imageRoot: ./assets
 tags:
   - solomd
@@ -8,7 +8,7 @@ tags:
   - markdown
 ---
 
-# SoloMD 实时模式 Markdown 支持测试文档
+# Catstep MD 实时模式 Markdown 支持测试文档
 
 这份文档的重点是测试编辑器里的实时模式，不只是最终 Preview。测试时请同时观察三件事：
 
@@ -20,7 +20,7 @@ Windows 当前的 IME 安全版本优先保证中文输入稳定。如果 Window
 
 ## 0. 测试步骤
 
-1. 在 SoloMD 中打开 `docs/markdown-support-test.md`。
+1. 在 Catstep MD 中打开 `docs/markdown-support-test.md`。
 2. 分别切换 Edit、Live Preview、Live Edit、Split、Preview。
 3. 对每个测试块执行两次操作：先把光标点进源码，再把光标移到下一行或空白处。
 4. 使用微软拼音和搜狗拼音分别在“IME 压力测试”区域输入中文。
@@ -56,7 +56,7 @@ Windows 当前的 IME 安全版本优先保证中文输入稳定。如果 Window
 
 搜狗拼音连续标点：
 
-中英文混输：SoloMD 实时模式 test 123 中文输入 Markdown
+中英文混输：Catstep MD 实时模式 test 123 中文输入 Markdown
 
 标点样本：，。！？；：“”‘’《》、（）【】——……
 
@@ -307,7 +307,7 @@ Raw HTML：
 测试环境：
 
 - 操作系统：
-- SoloMD 版本：
+- Catstep MD 版本：
 - 输入法：
 - 是否启用 Live Edit：
 - 是否启用 Split/Preview：

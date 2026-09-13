@@ -7,8 +7,8 @@
 ## 1. Homebrew Cask (macOS) - 最推荐
 
 ```bash
-# 进入 solomd 目录
-cd D:/code/solomd/solomd
+# 进入项目根目录
+cd <project-root>
 
 # Fork 并 clone homebrew-cask
 gh repo fork homebrew/homebrew-cask --clone
@@ -20,15 +20,15 @@ cp ../distribution/manifests/homebrew/solomd.rb Casks/s/solomd.rb
 # 创建分支并提交
 git checkout -b add-solomd
 git add Casks/s/solomd.rb
-git commit -m "Add SoloMD v0.1.8"
+git commit -m "Add Catstep MD v0.1.8"
 
 # 创建 PR
-gh pr create --title "Add SoloMD v0.1.8" --body "Add SoloMD - A lightweight Markdown editor with live preview.
+gh pr create --title "Add Catstep MD v0.1.8" --body "Add Catstep MD - A lightweight Markdown editor with live preview.
 
-**Homepage:** https://solomd.app
+**Homepage:** https://github.com/maobukeai/catstep-md
 **GitHub:** https://github.com/maobukeai/catstep-md
 
-SoloMD is a lightweight (~15MB) cross-platform Markdown editor built with Tauri 2.
+Catstep MD is a lightweight (~15MB) cross-platform Markdown editor built with Tauri 2.
 
 - Live preview (WYSIWYG-style)
 - KaTeX math, Mermaid diagrams
@@ -41,8 +41,8 @@ SoloMD is a lightweight (~15MB) cross-platform Markdown editor built with Tauri 
 ## 2. Winget (Windows) - 最推荐
 
 ```bash
-# 进入 solomd 目录
-cd D:/code/solomd/solomd
+# 进入项目根目录
+cd <project-root>
 
 # Fork 并 clone winget-pkgs
 gh repo fork microsoft/winget-pkgs --clone
@@ -65,10 +65,10 @@ gh pr create --title "New package: maobukeai.CatstepMD version 0.1.8" --body "##
 - Version: 0.1.8
 
 ## Description
-SoloMD is a lightweight Markdown editor with live preview. Built with Tauri 2.
+Catstep MD is a lightweight Markdown editor with live preview. Built with Tauri 2.
 
 ## Links
-- Homepage: https://solomd.app
+- Homepage: https://github.com/maobukeai/catstep-md
 - GitHub: https://github.com/maobukeai/catstep-md"
 ```
 
@@ -77,8 +77,8 @@ SoloMD is a lightweight Markdown editor with live preview. Built with Tauri 2.
 ## 3. Scoop (Windows)
 
 ```bash
-# 进入 solomd 目录
-cd D:/code/solomd/solomd
+# 进入项目根目录
+cd <project-root>
 
 # Fork 并 clone Scoop Extras
 gh repo fork ScoopInstaller/Extras --clone
@@ -93,7 +93,7 @@ git add bucket/solomd.json
 git commit -m "solomd: Add version 0.1.8"
 
 # 创建 PR
-gh pr create --title "solomd: Add version 0.1.8" --body "**Homepage:** https://solomd.app
+gh pr create --title "solomd: Add version 0.1.8" --body "**Homepage:** https://github.com/maobukeai/catstep-md
 
 A lightweight Markdown editor with live preview."
 ```
@@ -108,7 +108,7 @@ A lightweight Markdown editor with live preview."
 # Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 
 # 进入 chocolatey 目录
-cd D:/code/solomd/solomd/distribution/manifests/chocolatey
+cd distribution/manifests/chocolatey
 
 # 打包
 choco pack

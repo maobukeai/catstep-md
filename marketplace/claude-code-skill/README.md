@@ -1,4 +1,4 @@
-# Claude Code Skill — SoloMD
+# Claude Code Skill — Catstep MD
 
 ## Status
 
@@ -14,13 +14,13 @@ from our root README.
 | Path | Purpose |
 |---|---|
 | [`solomd/SKILL.md`](solomd/SKILL.md) | The skill itself. Frontmatter + instructions Claude Code reads when the skill is loaded. |
-| [`solomd/install.sh`](solomd/install.sh) | One-liner that downloads `solomd-mcp` and registers it as a user-scope MCP server (`~/.claude.json`). |
+| [`solomd/install.sh`](solomd/install.sh) | One-liner that downloads `catstep-mcp` and registers it as a user-scope MCP server (`~/.claude.json`). |
 | [`solomd/recipes/`](solomd/recipes/) | The same 11 YAML recipes as the Skill Pack — included here so the skill is self-contained. |
 
 ## Installing the skill in Claude Code
 
 ```bash
-# Option A — Clone from the SoloMD repo (recommended; tracks updates):
+# Option A — Clone from the Catstep MD repo (recommended; tracks updates):
 git clone https://github.com/maobukeai/catstep-md.git /tmp/solomd-skill
 cp -r /tmp/solomd-skill/marketplace/claude-code-skill/solomd ~/.claude/skills/solomd
 bash ~/.claude/skills/solomd/install.sh
@@ -45,7 +45,7 @@ the path will look like:
 
 ## Maintaining
 
-When SoloMD's MCP gains/loses a tool, update:
+When Catstep MD's MCP gains/loses a tool, update:
 
 - `solomd/SKILL.md` — the "Tools available" section.
 - `solomd/recipes/` — copy from `app/src-tauri/cookbook/`.

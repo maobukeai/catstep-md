@@ -1,10 +1,10 @@
 //! Windows installation migration module.
 //!
 //! Catstep MD (猫步 MD) is an independent application.
-//! It must NEVER touch, inspect, migrate, or uninstall SoloMD installations.
+//! It must NEVER touch, inspect, migrate, or uninstall previous installations.
 
 pub fn migrate_legacy_nsis_install() {
-    // Explicit No-Op: Catstep MD never touches or uninstalls SoloMD.
+    // Explicit No-Op: Catstep MD never touches or uninstalls previous installations.
 }
 
 pub fn remove_stale_taskbar_pins() {

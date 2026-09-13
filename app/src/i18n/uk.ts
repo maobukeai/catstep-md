@@ -303,7 +303,7 @@ export const uk: I18n = {
     "catWriting": "Письмо",
     "catSync": "Синхронізація",
     "syncUnsupportedAndroid": "Синхронізація на основі Git (історія версій, синхронізація з GitHub, проксі) поки недоступна у збірці для Android — рушій libgit2, від якого вона залежить, не скомпільовано в Android-бінарник. Наразі синхронізуйте це сховище через десктопний або iOS застосунок.",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "Інтеграції",
     "catExport": "Експорт",
@@ -849,7 +849,7 @@ export const uk: I18n = {
   "integrations": {
     "heading": "Інтеграції",
     "intro": "Catstep MD спілкується з вашим терміналом і MCP-сумісними клієнтами ШІ (Claude Desktop, Codex CLI, Cursor), тож ви можете читати/писати нотатки ззовні застосунку.",
-    "cliTitle": "CLI (solomd)",
+    "cliTitle": "CLI (catstep)",
     "cliInstalled": "Встановлено в {path}",
     "cliNotInstalled": "Не встановлено",
     "cliVersionLabel": "Версія",
@@ -860,7 +860,7 @@ export const uk: I18n = {
     "cliCopyInstallBtn": "Копіювати команду встановлення",
     "cliCopiedToast": "Команду встановлення скопійовано — вставте у термінал.",
     "cliInstallToast": "Виконайте це у терміналі — для /usr/local/bin потрібен sudo:",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "Що він уміє?",
@@ -872,7 +872,7 @@ export const uk: I18n = {
       "cat": "cat <title|path> — вивести нотатку в stdout",
       "help": "help — показати всі команди"
     },
-    "mcpTitle": "Сервер MCP (solomd-mcp)",
+    "mcpTitle": "Сервер MCP (catstep-mcp)",
     "mcpBundled": "Включено в {path}",
     "mcpNotBundled": "Не включено (ця dev-збірка пропускає externalBin sidecar). Виробничі збірки завжди його містять.",
     "mcpDesc": "Виставляє відкритий робочий простір як сервер Model Context Protocol, щоб Claude Desktop / Codex / Cursor могли перелічувати, читати, шукати та писати у ваші нотатки.",
@@ -917,7 +917,7 @@ export const uk: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "Профілі MCP",
-    "profilesIntro": "Об'єднайте кілька робочих просторів під одним екземпляром solomd-mcp і скопіюйте готовий блок конфігурації Claude Desktop. Кожен профіль перелічує робочі простори (псевдонім + шлях), які виставлятиме сервер MCP; перший запис є типовим — виклики інструментів без явного аргументу `workspace` спрямовуються до нього.",
+    "profilesIntro": "Об'єднайте кілька робочих просторів під одним екземпляром catstep-mcp і скопіюйте готовий блок конфігурації Claude Desktop. Кожен профіль перелічує робочі простори (псевдонім + шлях), які виставлятиме сервер MCP; перший запис є типовим — виклики інструментів без явного аргументу `workspace` спрямовуються до нього.",
     "profilesEmpty": "Профілів ще немає.",
     "profilesCreate": "Новий профіль",
     "profilesDuplicate": "Дублювати",
@@ -945,7 +945,7 @@ export const uk: I18n = {
     "profilesValidationFailed": "Не вдалося зберегти: {msg}",
     "profilesNamePlaceholder": "work-and-home",
     "profilesNewProfileDefault": "Новий профіль",
-    "profilesNoMcpBinary": "solomd-mcp не включено в цю dev-збірку — фрагмент використовує заповнювач шляху."
+    "profilesNoMcpBinary": "catstep-mcp не включено в цю dev-збірку — фрагмент використовує заповнювач шляху."
   },
   "recipes": {
     "heading": "Рецепти агентів",

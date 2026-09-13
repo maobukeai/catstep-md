@@ -42,7 +42,7 @@
             </intent-filter>
 
             <!-- File association: open .md / .markdown / .mdown / .mkd / .txt
-                 from a file manager ("Open with SoloMD"). The deep-link
+                 from a file manager ("Open with Catstep MD"). The deep-link
                  plugin picks these up the same way iOS uses
                  CFBundleDocumentTypes / LSSupportsOpeningDocumentsInPlace. -->
             <intent-filter>
@@ -70,7 +70,7 @@
             </intent-filter>
 
             <!-- Share target: other apps can share text or .md files to
-                 SoloMD (Share sheet → "SoloMD"). Mirrors the iOS Share
+                 Catstep MD (Share sheet → "Catstep MD"). Mirrors the iOS Share
                  Extension hookup; the frontend listens for the deep-link
                  event and spawns a new tab with the shared payload. -->
             <intent-filter>

@@ -8,7 +8,7 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD v2.2 — MCP 服务、AutoGit 版本历史、14 家 AI 提供商"
+  title="猫步 MD v2.2 — MCP 服务、AutoGit 版本历史、14 家 AI 提供商"
   description="每次保存自动留快照,可在右侧面板一键回滚。任意 MCP 客户端(Claude Desktop / Cursor / ...)都能查询你的笔记。AI 改写覆盖 14 家厂商 BYOK,key 存系统钥匙串、绝不落盘。"
   lang={lang}
 >
@@ -30,7 +30,7 @@ const lang = 'zh' as const;
 
       <h2>🔌 MCP 服务</h2>
       <p>
-        默认随包附带的 Model Context Protocol 服务(<code>solomd-mcp</code>)——
+        默认随包附带的 Model Context Protocol 服务(<code>catstep-mcp</code>)——
         把它指向你的笔记文件夹,Claude Desktop / Cursor / Codex CLI 等任何 MCP
         客户端开箱就有 8 个工具:
       </p>
@@ -46,7 +46,7 @@ const lang = 'zh' as const;
       <pre><code>{`{
   "mcpServers": {
     "solomd": {
-      "command": "/path/to/solomd-mcp",
+      "command": "/path/to/catstep-mcp",
       "args": ["--workspace", "/path/to/notes"]
     }
   }
@@ -84,7 +84,7 @@ const lang = 'zh' as const;
         Key 存在系统钥匙串里(
         <a href="/zh/security/">macOS Keychain / Windows 凭据管理器 / Linux libsecret</a>)
         —— 绝不写入 <code>localStorage</code>,绝不在任何我们写的配置文件里。
-        BYOK 设计上就是这样:SoloMD 不托管任何模型,每个请求都从你的机器直接发去你
+        BYOK 设计上就是这样:猫步 MD 不托管任何模型,每个请求都从你的机器直接发去你
         选的厂商。
       </p>
 
@@ -117,7 +117,7 @@ const lang = 'zh' as const;
           阻塞,保存的瞬间就能继续输入。
         </li>
         <li>
-          <strong>solomd-dev-mcp</strong> —— 一个**仅供内部**的 MCP 服务,把 SoloMD
+          <strong>solomd-dev-mcp</strong> —— 一个**仅供内部**的 MCP 服务,把 猫步 MD
           的领域逻辑暴露出来用于端到端自测。源码随仓库走,从不打包进用户版本。
           我们自己用它在打 tag 之前验证每个特性是不是真能跑通。
         </li>

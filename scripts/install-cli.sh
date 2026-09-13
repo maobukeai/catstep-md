@@ -8,7 +8,7 @@
 
 set -e
 
-URL="https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/solomd"
+URL="https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/catstep"
 DIRS=("/usr/local/bin" "$HOME/.local/bin")
 
 for dir in "${DIRS[@]}"; do

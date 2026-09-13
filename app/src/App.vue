@@ -568,13 +568,13 @@ watch(
   },
 );
 
-// Window title — keep "<filename> — SoloMD" so the OS taskbar /
-// dock / Cmd-Tab can distinguish multiple SoloMD windows. Falls back
-// to "SoloMD" when no document is active. Issue #53.
+// Window title — keep "<filename> — 猫步 MD" so the OS taskbar /
+// dock / Cmd-Tab can distinguish multiple Catstep MD windows. Falls back
+// to "猫步 MD" when no document is active. Issue #53.
 //
 // Win11-ARM regression (v4.5 report, but pre-existing since v4.4.x — the
 // cold-start-with-file path is byte-identical): the document loaded but
-// the title stayed "SoloMD". On Windows the JS `setTitle()` issued during
+// the title stayed "猫步 MD". On Windows the JS `setTitle()` issued during
 // the cold-start mount burst didn't land (the window isn't ready to accept
 // it yet, and the rejected promise was swallowed), whereas macOS WKWebView
 // applied it fine. Two-pronged, platform-agnostic fix:
@@ -588,7 +588,7 @@ const applyWindowTitle = async (name?: string) => {
   const title = name ? `${name} — 猫步 MD` : '猫步 MD';
   document.title = title;
   // macOS uses `titleBarStyle: "Overlay"` + `hiddenTitle: true` — the
-  // document name is shown in the in-app toolbar (SoloMD mark + filename).
+  // document name is shown in the in-app toolbar (Catstep MD mark + filename).
   // Calling setTitle() here would un-hide the native macOS title bar text,
   // which overlaps and obscures the in-app toolbar's document name.
   // Skip the native call on macOS; document.title above is enough for
@@ -2093,7 +2093,7 @@ function onHandleCloseDrawer(): void {
 const visibleRsPanes = computed(() => {
   // v4.3.0 issue #57b — order driven by settings.rsPaneOrder so users can
   // drag-reorder. Unknown ids (newly-shipped future panes) get appended at
-  // the end so a SoloMD update doesn't blow away an existing user layout.
+  // the end so a Catstep MD update doesn't blow away an existing user layout.
   const all: Record<'search' | 'outline' | 'backlinks' | 'relationships' | 'tags' | 'tasks' | 'neighborhood' | 'types' | 'history' | 'inspector' | 'agent', boolean> = {
     search: showSearchPane.value && !(settings.showFileTree && settings.leftSidebarTab === 'search'),
     outline: showOutlinePane.value && !(settings.showFileTree && settings.leftSidebarTab === 'outline'),

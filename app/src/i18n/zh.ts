@@ -305,7 +305,7 @@ export const zh: I18n = {
     catWriting: '写作',
     catSync: '同步',
     syncUnsupportedAndroid: '由于 Android NDK 跨平台编译与沙盒存储权限限制，移动端安装包未内置 libgit2 底层引擎，暂不支持内置 Git 时光机与 GitHub 远程推送。',
-    syncUnsupportedAndroidTip: '您可以使用 Syncthing、坚果云、FolderSync 等多端同步工具将电脑端的笔记库实时同步到手机本地目录，在 SoloMD 中直接「打开文件夹」即可实现无缝离线读写与自动多端同步。',
+    syncUnsupportedAndroidTip: '您可以使用 Syncthing、坚果云、FolderSync 等多端同步工具将电脑端的笔记库实时同步到手机本地目录，在 猫步 MD 中直接「打开文件夹」即可实现无缝离线读写与自动多端同步。',
     syncUnsupportedWeb: '网页预览环境未连接本地系统引擎，Git 同步与系统钥匙串功能仅在桌面客户端（Windows / macOS / Linux）中可用。',
     catIntegrations: 'AI 与扩展',
     catExport: '导出',
@@ -854,7 +854,7 @@ export const zh: I18n = {
     heading: '集成',
     intro:
       '支持通过命令行 CLI 与 MCP 协议连接外部 AI 客户端（Claude、Cursor 等），在应用外直接读写笔记。',
-    cliTitle: '命令行（catstep / solomd）',
+    cliTitle: '命令行（catstep）',
     cliInstalled: '已安装于 {path}',
     cliNotInstalled: '未安装',
     cliVersionLabel: '版本',
@@ -865,7 +865,7 @@ export const zh: I18n = {
     cliCopyInstallBtn: '复制安装命令',
     cliCopiedToast: '安装命令已复制 —— 请粘贴到终端执行。',
     cliInstallToast: '请在终端执行以下命令：',
-    cliInstallSuccessToast: 'CLI 安装成功！可在终端直接输入 catstep 或 solomd 体验。',
+    cliInstallSuccessToast: 'CLI 安装成功！可在终端直接输入 catstep 体验。',
     cliUninstallSuccessToast: 'CLI 已成功卸载。',
     cliInstallFallbackToast: '应用内安装遇到权限问题，已复制安装脚本至剪贴板，请在终端粘贴执行。',
     cliSubcommandsHeading: '可用子命令',
@@ -877,7 +877,7 @@ export const zh: I18n = {
       cat: 'cat <标题|路径> —— 把笔记内容输出到 stdout',
       help: 'help —— 查看全部命令',
     },
-    mcpTitle: 'MCP 服务器（catstep-mcp / solomd-mcp）',
+    mcpTitle: 'MCP 服务器（catstep-mcp）',
     mcpBundled: '已随 App 一同打包：{path}',
     mcpNotBundled:
       '未打包（开发构建跳过 externalBin 旁路二进制）。正式发布版本始终包含。',
@@ -962,7 +962,7 @@ export const zh: I18n = {
     profilesNamePlaceholder: 'work-and-home',
     profilesNewProfileDefault: '新建配置档',
     profilesNoMcpBinary:
-      '此 dev 构建未打包 solomd-mcp——配置片段中用占位路径代替。',
+      '此 dev 构建未打包 catstep-mcp——配置片段中用占位路径代替。',
   },
   // v4.0 Pillar 2 — Agent Recipes（中文译为「Agent 任务」）
   recipes: {

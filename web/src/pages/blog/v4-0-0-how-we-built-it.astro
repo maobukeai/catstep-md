@@ -9,7 +9,7 @@ const lang = 'en' as const;
 
 <Layout
   title="How we built v4.0 — engineering notes from a 12-week quiet phase"
-  description="The development process behind SoloMD v4.0: why we held main on patches-only for 12 weeks, why the 5 pillars share one safety contract instead of being five separate minor releases, what 262 unit tests missed that dogfooding caught, and how the agent-paired-with-tests workflow compresses the inner loop without compromising the outer one."
+  description="The development process behind Catstep MD v4.0: why we held main on patches-only for 12 weeks, why the 5 pillars share one safety contract instead of being five separate minor releases, what 262 unit tests missed that dogfooding caught, and how the agent-paired-with-tests workflow compresses the inner loop without compromising the outer one."
   lang={lang}
 >
   <Header lang={lang} />
@@ -205,7 +205,7 @@ const lang = 'en' as const;
 
       <h2>The agent-paired-with-tests inner loop</h2>
       <p>
-        SoloMD v3.6 became part of how we built v4.0. The dogfood
+        Catstep MD v3.6 became part of how we built v4.0. The dogfood
         cycle inside the project's own vault used <em>itself</em>:
         a v4-beta panel chatting with a vault that contained the
         v4 design docs, with the recipe runner running an actual
@@ -332,7 +332,7 @@ const lang = 'en' as const;
 
       <h2>What's transferable</h2>
       <p>
-        This isn't a methodology post. SoloMD's specific cadence
+        This isn't a methodology post. Catstep MD's specific cadence
         (12-week quiet phase before a major) isn't right for every
         project. But three things were genuinely load-bearing
         and probably transferable:

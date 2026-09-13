@@ -441,7 +441,7 @@ watch(
 /**
  * Intercept all link clicks inside the preview pane and open them in the
  * system browser instead of navigating the Tauri webview (which would
- * replace the SoloMD UI with the target page).
+ * replace the Catstep MD UI with the target page).
  */
 function handleLinkClick(e: MouseEvent) {
   const anchor = (e.target as HTMLElement).closest('a');

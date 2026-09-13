@@ -10,7 +10,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
 ---
 
 <Layout
-  title="SoloMD v4.0 güncellemesi — Agent'ların yaşadığı editör"
+  title="Catstep MD v4.0 güncellemesi — Agent'ların yaşadığı editör"
   description="v4.0, agent-native author büyük sürümüdür. Beş sütun: entegre Agent paneli (akışlı vault ile sohbet), zamanlanmış recipe'ler (cron / on-save / on-commit, AutoGit branch sandbox'ı + accept/reject), tekrarlanabilir Trace görünümü, çoklu vault MCP federasyonu, birinci sınıf Ollama. Artı: REST API, BYOK maliyet sayacı, 11 Recipe şablonu, ilk çalıştırma sihirbazı, çok dilli yerelleştirme."
   lang={lang}
 >
@@ -35,8 +35,8 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
       </p>
 
       <div class="cta-row">
-        <a class="btn btn--primary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}>⬇ v{VERSION} indir (Mac)</a>
-        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}>İndir (Windows)</a>
+        <a class="btn btn--primary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_universal.dmg`}>⬇ v{VERSION} indir (Mac)</a>
+        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_x64_en-US.msi`}>İndir (Windows)</a>
         <a class="btn btn--secondary btn--lg" href={`https://github.com/maobukeai/catstep-md/releases/tag/v${VERSION}`}>Tüm platformlar →</a>
       </div>
 
@@ -105,7 +105,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <div class="pillar">
             <h3>4 · Çoklu vault MCP federasyonu</h3>
             <p>
-              <code>solomd-mcp --workspace path1 --workspace path2 --workspace path3</code>
+              <code>catstep-mcp --workspace path1 --workspace path2 --workspace path3</code>
               —— bir MCP oturumu, birden fazla vault. Araç imzaları opsiyonel
               <code>workspace</code> parametresi kazandı, varsayılan = ilk
               geçirilen (single-vault MCP istemcileriyle tamamen back-compat).
@@ -226,7 +226,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           </li>
           <li>
             <strong>macOS başlatma UX'i.</strong> Başlangıçta aktivasyon
-            zamanlaması düzeltildi —— SoloMD soğuk başlangıç gerçekten ön plana
+            zamanlaması düzeltildi —— Catstep MD soğuk başlangıç gerçekten ön plana
             gelir, artık Finder'ın arkasında saklanmaz. Pencere konumu geri
             yükleme her zaman geçerli ekranın workspace'ine iner; ikincil ekran
             bağlantısı kesildikten sonra kötü cache'den geri yükleme, ekran
@@ -291,7 +291,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
             <em>Entegrasyonlar</em> altında. Mevcut ayar konumları değişmedi.
           </li>
           <li>
-            <strong>MCP sunucusu (<code>solomd-mcp</code>) yeni bir
+            <strong>MCP sunucusu (<code>catstep-mcp</code>) yeni bir
             <code>--workspace</code> parametresi kazandı</strong> (tekrarlanabilir).
             Mevcut single-workspace MCP istemcileri çalışmaya devam eder;
             federasyon davranışı opt-in'dir.
@@ -307,7 +307,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <a href="https://github.com/maobukeai/catstep-md/blob/main/docs/roadmap.md">yol haritasında</a>:
           sandbox'lı script API, CLI v2 (rewrite / commit / anlamsal arama /
           terminalden Recipe tetikleme) ve sürekli ertelenen soru
-          <em>"SoloMD ticari bir ürüne dönüşmeli mi?"</em>
+          <em>"Catstep MD ticari bir ürüne dönüşmeli mi?"</em>
           (ücretli sync — eski v3.0 dönemi sorusu, hâlâ yanıtsız, karar
           verilene kadar bu alanda hiçbir mühendislik yapılmayacak).
         </p>

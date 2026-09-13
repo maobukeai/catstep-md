@@ -1,4 +1,4 @@
-# `solomd-mcp` in Claude Code
+# `catstep-mcp` in Claude Code
 
 [Claude Code](https://docs.anthropic.com/claude/docs/claude-code) reads
 MCP server config from `~/.claude.json` (user scope — written by
@@ -7,15 +7,15 @@ MCP server config from `~/.claude.json` (user scope — written by
 ## Install the server
 
 ```bash
-# macOS — bundled in SoloMD.app, or install standalone:
-cargo install solomd-mcp
+# macOS — bundled in Catstep MD.app, or install standalone:
+cargo install catstep-mcp
 
 # Linux x64
-curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-x64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-x64.tar.gz \
   | tar -xz -C /usr/local/bin
 
 # Linux arm64
-curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-arm64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-arm64.tar.gz \
   | tar -xz -C /usr/local/bin
 
 # Windows (x64 / arm64) — extract from the zip and put on PATH.
@@ -27,7 +27,7 @@ Register it with the CLI rather than hand-editing `~/.claude.json` (that file
 also holds unrelated Claude Code state):
 
 ```bash
-claude mcp add --scope user solomd -- solomd-mcp --workspace /Users/you/notes
+claude mcp add --scope user solomd -- catstep-mcp --workspace /Users/you/notes
 ```
 
 Which is equivalent to this entry under `mcpServers`:
@@ -36,7 +36,7 @@ Which is equivalent to this entry under `mcpServers`:
 {
   "mcpServers": {
     "solomd": {
-      "command": "solomd-mcp",
+      "command": "catstep-mcp",
       "args": ["--workspace", "/Users/you/notes"]
     }
   }
@@ -49,7 +49,7 @@ Which is equivalent to this entry under `mcpServers`:
 {
   "mcpServers": {
     "solomd": {
-      "command": "solomd-mcp",
+      "command": "catstep-mcp",
       "args": [
         "--workspace", "notes=./notes",
         "--workspace", "design=./design-docs"
@@ -81,16 +81,16 @@ Add `--allow-write` to the `args` array to enable `write_note`,
 ## Pairs especially well with
 
 - **Codex CLI** — same MCP wire protocol; just point at the same binary.
-- **The SoloMD app** — open the editor on the same vault Claude Code is
+- **The Catstep MD app** — open the editor on the same vault Claude Code is
   driving. Watch agent writes land as pending branches; accept / reject
   from the GUI; tool-call cards show inline in the Agent panel.
 
-## About SoloMD
+## About Catstep MD
 
-[**SoloMD**](https://solomd.app) is a free, MIT Markdown + plaintext editor.
+[**Catstep MD**](https://github.com/maobukeai/catstep-md) is a free, MIT Markdown + plaintext editor.
 Same `.md` files; the editor adds a Wiki-link + backlink graph, semantic
 search, per-note AutoGit history, a streamed Agent panel that cites notes
-with `[[wikilinks]]`, and the same `solomd-mcp` server you just installed —
+with `[[wikilinks]]`, and the same `catstep-mcp` server you just installed —
 pre-wired.
 
-[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)
+[📥 Download Catstep MD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)

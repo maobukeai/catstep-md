@@ -1,55 +1,135 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>猫步 MD 网页剪藏</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
+    <!-- Top Header -->
     <header class="header">
-      <img src="icons/icon-48.png" alt="" class="header__icon" />
-      <h1 id="popup-title" class="header__title" data-i18n="clipper.popup.title">猫步 MD 网页剪藏</h1>
+      <div class="header__brand">
+        <img src="icons/icon-48.png" alt="猫步 MD" class="header__icon" />
+        <span class="header__title" id="popup-title" data-i18n="clipper.popup.title">猫步 MD 网页剪藏</span>
+      </div>
+      <button class="header__status" id="pair-status" type="button" title="点击打开设置">
+        <span class="status-dot"></span>
+        <span class="status-text" id="pair-status-text" data-i18n="clipper.popup.checking">检测中…</span>
+      </button>
     </header>
 
+    <!-- Main Action Cards -->
     <main class="actions">
-      <button class="action" data-mode="page">
-        <span class="action__label" data-i18n="clipper.popup.clipPage">Clip whole page</span>
-        <span class="action__hint" data-i18n="clipper.popup.clipPageHint"
-          >Reader-extracted main content → Markdown</span
-        >
+      <!-- 1. Clip Whole Page -->
+      <button class="action-card" data-mode="page" type="button">
+        <div class="action-card__icon action-card__icon--page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M8 7h8"/>
+            <path d="M8 11h8"/>
+            <path d="M8 15h5"/>
+          </svg>
+        </div>
+        <div class="action-card__content">
+          <div class="action-card__header">
+            <span class="action-card__title" data-i18n="clipper.popup.clipPage">剪藏整页</span>
+          </div>
+          <span class="action-card__hint" data-i18n="clipper.popup.clipPageHint">使用阅读模式提取正文 → Markdown</span>
+        </div>
+        <svg class="action-card__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </button>
 
-      <button class="action" data-mode="selection">
-        <span class="action__label">
-          <span data-i18n="clipper.popup.clipSelection">Clip selection</span>
-          <kbd class="action__kbd" data-i18n="clipper.popup.shortcut.selection">⌘⇧S</kbd>
-        </span>
-        <span class="action__hint" data-i18n="clipper.popup.clipSelectionHint"
-          >Just the highlighted text</span
-        >
+      <!-- 2. Clip Selection -->
+      <button class="action-card" data-mode="selection" type="button">
+        <div class="action-card__icon action-card__icon--selection">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 7 4 4 20 4 20 7"/>
+            <line x1="9" x2="15" y1="20" y2="20"/>
+            <line x1="12" x2="12" y1="4" y2="20"/>
+          </svg>
+        </div>
+        <div class="action-card__content">
+          <div class="action-card__header">
+            <span class="action-card__title" data-i18n="clipper.popup.clipSelection">剪藏选中内容</span>
+            <kbd class="action-card__kbd" id="kbd-selection">Ctrl+Shift+S</kbd>
+          </div>
+          <span class="action-card__hint" data-i18n="clipper.popup.clipSelectionHint">只剪藏当前选中的文字</span>
+        </div>
+        <svg class="action-card__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </button>
 
-      <button class="action" data-mode="link">
-        <span class="action__label">
-          <span data-i18n="clipper.popup.saveLink">Save link</span>
-          <kbd class="action__kbd" data-i18n="clipper.popup.shortcut.link">⌘⇧L</kbd>
-        </span>
-        <span class="action__hint" data-i18n="clipper.popup.saveLinkHint"
-          >Title + URL only — for read-later</span
-        >
+      <!-- 3. Save Link -->
+      <button class="action-card" data-mode="link" type="button">
+        <div class="action-card__icon action-card__icon--link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        </div>
+        <div class="action-card__content">
+          <div class="action-card__header">
+            <span class="action-card__title" data-i18n="clipper.popup.saveLink">仅保存链接</span>
+            <kbd class="action-card__kbd" id="kbd-link">Ctrl+Shift+L</kbd>
+          </div>
+          <span class="action-card__hint" data-i18n="clipper.popup.saveLinkHint">只记录标题和链接 — 适合稍后阅读</span>
+        </div>
+        <svg class="action-card__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </button>
     </main>
 
+    <!-- Footer -->
     <footer class="footer">
-      <span class="footer__pair" id="pair-status" data-i18n="clipper.popup.checking"
-        >Checking…</span
-      >
-      <button class="footer__settings" id="open-options" data-i18n="clipper.popup.openOptions">
-        Settings
+      <div class="footer__tip">
+        <svg class="footer__tip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+        </svg>
+        <span class="footer__tip-text" data-i18n="clipper.popup.targetInbox">保存至本地知识库收件箱</span>
+      </div>
+      <button class="footer__settings" id="open-options" type="button">
+        <svg class="footer__settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span data-i18n="clipper.popup.openOptions">设置</span>
       </button>
     </footer>
 
-    <script type="module" src="popup.js"></script>
+    <script>
+      // Standalone preview fallback shim
+      if (typeof window !== 'undefined') {
+        window.chrome = window.chrome || {};
+        window.chrome.runtime = window.chrome.runtime || {};
+        if (!window.chrome.runtime.id) window.chrome.runtime.id = 'catstep-preview';
+        if (!window.chrome.storage || !window.chrome.storage.local) {
+          const _mockStore = {
+            'solomd-clipper-settings': { accentColor: 'blue', locale: 'zh', endpoint: 'http://127.0.0.1:7777', token: '', subfolder: '', notifyOnSuccess: true }
+          };
+          const mockArea = {
+            get: (keys, cb) => {
+              const res = {};
+              (Array.isArray(keys) ? keys : typeof keys === 'string' ? [keys] : Object.keys(keys || {})).forEach(k => {
+                res[k] = k in _mockStore ? _mockStore[k] : (keys && typeof keys === 'object' && !Array.isArray(keys) ? keys[k] : undefined);
+              });
+              if (cb) cb(res);
+              return Promise.resolve(res);
+            },
+            set: (items, cb) => {
+              Object.assign(_mockStore, items);
+              if (cb) cb();
+              return Promise.resolve();
+            }
+          };
+          window.chrome.storage = { local: mockArea, sync: mockArea };
+        }
+      }
+    </script>
+    <script src="popup.js" defer></script>
   </body>
 </html>

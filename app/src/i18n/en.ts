@@ -306,7 +306,7 @@ export const en = {
     catWriting: 'Writing',
     catSync: 'Sync',
     syncUnsupportedAndroid: 'Git-backed sync (version history, GitHub sync, proxy) isn\'t available in the Android build yet — the libgit2 engine it relies on isn\'t compiled into the Android NDK binary. Use the desktop or iOS apps to sync this vault via Git for now.',
-    syncUnsupportedAndroidTip: 'You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap "Open Folder" in SoloMD for seamless real-time offline editing and sync.',
+    syncUnsupportedAndroidTip: 'You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap "Open Folder" in Catstep MD for seamless real-time offline editing and sync.',
     syncUnsupportedWeb: 'Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).',
     catIntegrations: 'AI & Extensions',
     catExport: 'Export',
@@ -855,7 +855,7 @@ export const en = {
     heading: 'Integrations',
     intro:
       'Catstep MD speaks to your terminal and to MCP-aware AI clients (Claude Desktop, Codex CLI, Cursor) so you can read/write your notes from outside the app.',
-    cliTitle: 'CLI (catstep / solomd)',
+    cliTitle: 'CLI (catstep)',
     cliInstalled: 'Installed at {path}',
     cliNotInstalled: 'Not installed',
     cliVersionLabel: 'Version',
@@ -866,7 +866,7 @@ export const en = {
     cliCopyInstallBtn: 'Copy install command',
     cliCopiedToast: 'Install command copied — paste in your terminal.',
     cliInstallToast: 'Run this in your terminal:',
-    cliInstallSuccessToast: 'CLI installed successfully! You can now run catstep or solomd in your terminal.',
+    cliInstallSuccessToast: 'CLI installed successfully! You can now run catstep in your terminal.',
     cliUninstallSuccessToast: 'CLI uninstalled successfully.',
     cliInstallFallbackToast: 'In-app install met permission limits; command copied to clipboard, please run in terminal.',
     cliSubcommandsHeading: 'What can it do?',
@@ -878,7 +878,7 @@ export const en = {
       cat: 'cat <title|path> — print a note to stdout',
       help: 'help — show all commands',
     },
-    mcpTitle: 'MCP server (catstep-mcp / solomd-mcp)',
+    mcpTitle: 'MCP server (catstep-mcp)',
     mcpBundled: 'Bundled at {path}',
     mcpNotBundled:
       'Not bundled (this dev build skips the externalBin sidecar). Production builds always include it.',
@@ -935,7 +935,7 @@ export const en = {
     // ---- v4.0 P4 federation: MCP profiles -----------------------------
     profilesHeading: 'MCP profiles',
     profilesIntro:
-      'Bundle multiple workspaces under a single solomd-mcp instance, then copy a ready-to-paste Claude Desktop config block. Each profile lists the workspaces (alias + path) the MCP server will expose; the first entry is the default — tool calls without an explicit `workspace` argument fall through to it.',
+      'Bundle multiple workspaces under a single catstep-mcp instance, then copy a ready-to-paste Claude Desktop config block. Each profile lists the workspaces (alias + path) the MCP server will expose; the first entry is the default — tool calls without an explicit `workspace` argument fall through to it.',
     profilesEmpty: 'No profiles yet.',
     profilesCreate: 'New profile',
     profilesDuplicate: 'Duplicate',
@@ -965,7 +965,7 @@ export const en = {
     profilesNamePlaceholder: 'work-and-home',
     profilesNewProfileDefault: 'New profile',
     profilesNoMcpBinary:
-      'solomd-mcp not bundled in this dev build — the snippet uses a placeholder path.',
+      'catstep-mcp not bundled in this dev build — the snippet uses a placeholder path.',
   },
   // v4.0 Pillar 2 — Agent Recipes (Settings → Integrations panel).
   // TODO(zh): translate these once the en strings stabilise.

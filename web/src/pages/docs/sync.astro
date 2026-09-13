@@ -17,14 +17,14 @@ const FAQ = [
   },
   {
     q: 'What does end-to-end encryption actually encrypt?',
-    a: 'With E2EE enabled, SoloMD pushes an encrypted shadow copy of your workspace: file contents are encrypted with a key derived from your passphrase before anything leaves your machine. GitHub only ever stores ciphertext. Losing the passphrase means the remote copy cannot be decrypted — keep it safe.',
+    a: 'With E2EE enabled, Catstep MD pushes an encrypted shadow copy of your workspace: file contents are encrypted with a key derived from your passphrase before anything leaves your machine. GitHub only ever stores ciphertext. Losing the passphrase means the remote copy cannot be decrypted — keep it safe.',
   },
 ];
 ---
 
 <Layout
-  title="Sync, History & Backup in SoloMD — GitHub sync, E2EE, Git snapshots"
-  description="Set up GitHub sync in SoloMD with a fine-grained personal access token, enable optional end-to-end encryption, use automatic Git history snapshots with rollback, and troubleshoot 401 / push errors."
+  title="Sync, History & Backup in Catstep MD — GitHub sync, E2EE, Git snapshots"
+  description="Set up GitHub sync in Catstep MD with a fine-grained personal access token, enable optional end-to-end encryption, use automatic Git history snapshots with rollback, and troubleshoot 401 / push errors."
   lang={lang}
 >
   <Header lang={lang} />
@@ -52,14 +52,14 @@ const FAQ = [
             <li><em>Classic</em>: check the <strong><code>repo</code></strong> scope.</li>
           </ul>
         </li>
-        <li>In SoloMD: Settings → Sync → paste the token. SoloMD verifies it and shows your GitHub user.</li>
-        <li><strong>Link a repository</strong> — pick an existing one, or let SoloMD create a private vault repo for you.</li>
+        <li>In Catstep MD: Settings → Sync → paste the token. Catstep MD verifies it and shows your GitHub user.</li>
+        <li><strong>Link a repository</strong> — pick an existing one, or let Catstep MD create a private vault repo for you.</li>
         <li>Push / pull from the toolbar pill or the command palette; optional auto-push / auto-pull run in the background.</li>
       </ol>
 
       <h2>End-to-end encryption (optional)</h2>
       <p>
-        Enable E2EE with a passphrase and SoloMD pushes an <em>encrypted shadow copy</em>
+        Enable E2EE with a passphrase and Catstep MD pushes an <em>encrypted shadow copy</em>
         instead of plaintext — GitHub stores ciphertext only. The passphrase never
         leaves your machine; without it the remote cannot be decrypted (there is no
         recovery). Share links are disabled for encrypted workspaces by design.
@@ -77,7 +77,7 @@ const FAQ = [
         <tbody>
           <tr>
             <th>401 / Bad credentials</th>
-            <td>GitHub rejected the token itself. Checklist: ① token expired — fine-grained PATs default to 30–90 days, check <code>github.com → Settings → Developer settings</code>; ② you pasted an account <em>password</em> or OAuth code instead of a PAT; ③ the token was regenerated or revoked (old value stops working immediately, and GitHub auto-revokes tokens found in public code); ④ a corporate/VPN proxy strips the <code>Authorization</code> header. Create a fresh token and paste it again — SoloMD trims stray spaces automatically.</td>
+            <td>GitHub rejected the token itself. Checklist: ① token expired — fine-grained PATs default to 30–90 days, check <code>github.com → Settings → Developer settings</code>; ② you pasted an account <em>password</em> or OAuth code instead of a PAT; ③ the token was regenerated or revoked (old value stops working immediately, and GitHub auto-revokes tokens found in public code); ④ a corporate/VPN proxy strips the <code>Authorization</code> header. Create a fresh token and paste it again — Catstep MD trims stray spaces automatically.</td>
           </tr>
           <tr>
             <th>403 / 404 on a private repo</th>
@@ -97,7 +97,7 @@ const FAQ = [
       <h2>Syncing without GitHub</h2>
       <p>
         Because notes are plain files, any folder-sync tool works: iCloud Drive,
-        Dropbox, Syncthing, OneDrive — point SoloMD at the synced folder on each
+        Dropbox, Syncthing, OneDrive — point Catstep MD at the synced folder on each
         device. On Android, open the same folder via the system file picker; on iOS,
         use a Files-app location.
       </p>

@@ -503,11 +503,10 @@ pub async fn dispatch_on_save(
     };
     for recipe in recipes {
         match recipe.trigger {
-            TriggerKind::OnSave => {
-                if path_matches(&recipe, &rel) {
+            TriggerKind::OnSave
+                if path_matches(&recipe, &rel) => {
                     fire(&app, &workspace, &recipe, save_ctx(&workspace, &rel)).await;
                 }
-            }
             TriggerKind::OnTagAdd => {
                 if let Some(target) = &recipe.tag {
                     if added_tags.iter().any(|t| t == target) {
@@ -724,7 +723,7 @@ pub async fn run_recipe(
     // we release it on every exit path — including panic unwind — so a
     // panicking task can never permanently lock the recipe out.
     let _cooldown_guard = CooldownGuard {
-        state: &*state,
+        state: &state,
         slug: recipe.slug.clone(),
     };
 
@@ -1100,7 +1099,7 @@ async fn run_recipe_chat_loop(
     // itself materialises the tool schema array via `agent_tools`.
     let tools_list = recipe.tools.join(", ");
     let system_text = format!(
-        "You are a SoloMD agent running a recipe ({}).\n\
+        "You are a Catstep MD agent running a recipe ({}).\n\
          Allowed tools: {tools_list}.\n\
          Write-cap: {} (writes beyond this will be refused).\n\
          Use the tools to gather information and (when allow-write is set) save results.\n",
@@ -1294,7 +1293,7 @@ fn restore_head(workspace: &Path, branch: &str) -> Result<(), String> {
         Ok(()) => {
             repo.set_head(&target_ref)
                 .map_err(|e| format!("set_head restore: {e}"))?;
-            return Ok(());
+            Ok(())
         }
         Err(e) => {
             // safe() refuses when there are dirty paths that would
@@ -1376,12 +1375,12 @@ fn commit_branch_changes(
         .get_string("user.name")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "SoloMD Agent".to_string());
+        .unwrap_or_else(|| "Catstep MD Agent".to_string());
     let email = cfg
         .get_string("user.email")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "agent@solomd.local".to_string());
+        .unwrap_or_else(|| "agent@catstep.local".to_string());
     let sig = git2::Signature::now(&name, &email).map_err(|e| format!("sig: {e}"))?;
 
     let summary = if writes_consumed > 0 {
@@ -1476,12 +1475,12 @@ fn commit_on_branch(
         .get_string("user.name")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "SoloMD Agent".to_string());
+        .unwrap_or_else(|| "Catstep MD Agent".to_string());
     let email = cfg
         .get_string("user.email")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "agent@solomd.local".to_string());
+        .unwrap_or_else(|| "agent@catstep.local".to_string());
     let sig = git2::Signature::now(&name, &email).map_err(|e| format!("sig: {e}"))?;
 
     let oid = repo

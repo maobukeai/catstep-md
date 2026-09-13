@@ -10,7 +10,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
 ---
 
 <Layout
-  title="Mise à jour SoloMD v4.0 — L'éditeur où vivent les agents"
+  title="Mise à jour Catstep MD v4.0 — L'éditeur où vivent les agents"
   description="v4.0 est la release majeure agent-native author. Cinq piliers : panneau Agent intégré (chat-with-vault streamé), recipes planifiés (cron / on-save / on-commit, sandbox de branche AutoGit + accept/reject), vue Trace rejouable, fédération MCP multi-vault, Ollama première classe. Plus : API REST, compteur de coûts BYOK, 11 modèles de Recipe, wizard de premier lancement, localisation multilingue."
   lang={lang}
 >
@@ -35,8 +35,8 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
       </p>
 
       <div class="cta-row">
-        <a class="btn btn--primary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}>⬇ Télécharger v{VERSION} (Mac)</a>
-        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}>Télécharger (Windows)</a>
+        <a class="btn btn--primary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_universal.dmg`}>⬇ Télécharger v{VERSION} (Mac)</a>
+        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_x64_en-US.msi`}>Télécharger (Windows)</a>
         <a class="btn btn--secondary btn--lg" href={`https://github.com/maobukeai/catstep-md/releases/tag/v${VERSION}`}>Toutes les plateformes →</a>
       </div>
 
@@ -102,7 +102,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <div class="pillar">
             <h3>4 · Fédération MCP multi-vault</h3>
             <p>
-              <code>solomd-mcp --workspace path1 --workspace path2 --workspace path3</code>
+              <code>catstep-mcp --workspace path1 --workspace path2 --workspace path3</code>
               —— une session MCP, plusieurs vaults. Les signatures d'outil ont gagné
               un paramètre <code>workspace</code> optionnel, par défaut = premier passé
               (entièrement back-compat avec clients MCP single-vault). Branches
@@ -216,7 +216,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           </li>
           <li>
             <strong>UX de démarrage macOS.</strong> Timing d'activation au démarrage corrigé
-            —— SoloMD démarrage à froid arrive vraiment au premier plan, ne se cache
+            —— Catstep MD démarrage à froid arrive vraiment au premier plan, ne se cache
             plus derrière Finder. Restauration de position de fenêtre atterrit toujours
             dans le workspace de l'écran actuel ; restauration depuis mauvais cache
             après déconnexion d'écran secondaire se recentre automatiquement,
@@ -276,7 +276,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
             sous <em>Intégrations</em>. Positions des paramètres existants inchangées.
           </li>
           <li>
-            <strong>Le serveur MCP (<code>solomd-mcp</code>) a gagné le nouveau paramètre
+            <strong>Le serveur MCP (<code>catstep-mcp</code>) a gagné le nouveau paramètre
             <code>--workspace</code></strong> (répétable).
             Les clients MCP single-workspace existants continuent de fonctionner ;
             le comportement de fédération est opt-in.
@@ -292,7 +292,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <a href="https://github.com/maobukeai/catstep-md/blob/main/docs/roadmap.md">roadmap</a> :
           API de script sandboxée, CLI v2 (rewrite / commit / recherche sémantique /
           trigger Recipe dans le terminal), et la question toujours retardée
-          <em>« SoloMD devrait-il devenir un produit commercial ? »</em>
+          <em>« Catstep MD devrait-il devenir un produit commercial ? »</em>
           (sync payante — vieille question de l'ère v3.0, toujours sans réponse,
           jusqu'à ce que ce soit décidé, aucune ingénierie ne sera faite dans cette zone).
         </p>

@@ -9,7 +9,7 @@ No Electron. No bundled Chromium. No cloud accounts.
 
 Just a fast, lightweight editor that works offline.
 
-SoloMD: https://solomd.app
+Catstep MD: https://github.com/maobukeai/catstep-md
 
 • Live preview
 • KaTeX math
@@ -40,7 +40,7 @@ Why? Because existing options are either:
 - $15 (Typora)
 - Abandoned (MarkText)
 
-SoloMD is 15 MB, free, and open source.
+Catstep MD is 15 MB, free, and open source.
 
 Here's what makes it different 🧵
 ```
@@ -103,7 +103,7 @@ Fully offline. Always.
 ```
 MIT licensed. Fully open source.
 
-Download: https://solomd.app
+Download: https://github.com/maobukeai/catstep-md
 GitHub: https://github.com/maobukeai/catstep-md
 
 Available for macOS, Windows, and Linux.
@@ -121,18 +121,18 @@ If you try it, let me know what you think! 🙏
 ```
 Tired of [cite_start] and weird quotes when pasting from ChatGPT?
 
-SoloMD has a "Clean AI Artifacts" button that strips all that junk instantly.
+Catstep MD has a "Clean AI Artifacts" button that strips all that junk instantly.
 
 Free, 15 MB, works offline.
 
-https://solomd.app
+https://github.com/maobukeai/catstep-md
 ```
 
 ### For developers
 ```
 If you're curious about building desktop apps with Tauri 2:
 
-SoloMD is a real-world example.
+Catstep MD is a real-world example.
 
 - Vue 3 + TypeScript frontend
 - Rust backend
@@ -147,14 +147,14 @@ https://github.com/maobukeai/catstep-md
 ```
 Looking for a Markdown editor that doesn't phone home?
 
-SoloMD:
+Catstep MD:
 ✓ Zero telemetry
 ✓ No accounts
 ✓ No cloud
 ✓ Fully offline
 ✓ MIT open source
 
-https://solomd.app
+https://github.com/maobukeai/catstep-md
 ```
 
 ### MarkText migration
@@ -163,13 +163,13 @@ MarkText hasn't been updated in 2+ years.
 
 If you're looking for an alternative:
 
-SoloMD is actively maintained, 15 MB, and has similar features:
+Catstep MD is actively maintained, 15 MB, and has similar features:
 - Live preview
 - KaTeX math
 - Mermaid diagrams
 - Multi-platform
 
-https://solomd.app
+https://github.com/maobukeai/catstep-md
 ```
 
 ---
@@ -180,7 +180,7 @@ https://solomd.app
 ```
 Obsidian is great for knowledge management with linking and graphs.
 
-SoloMD is simpler – just a fast editor for single files. Different tools for different needs!
+Catstep MD is simpler – just a fast editor for single files. Different tools for different needs!
 ```
 
 ### When someone reports a bug
@@ -208,7 +208,7 @@ That helps me track and prioritize requests.
 1. **Best times:** Tue-Thu, 9am-12pm EST or 6pm-9pm EST
 2. **Attach images** – Tweets with images get 2x engagement
 3. **Reply to comments** – Engagement in first hour matters most
-4. **Don't overpost** – Max 2-3 tweets per day about SoloMD
+4. **Don't overpost** – Max 2-3 tweets per day about Catstep MD
 5. **Engage genuinely** – Comment on others' posts too
 
 ## Attached Images

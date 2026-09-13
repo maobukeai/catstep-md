@@ -1,10 +1,10 @@
-# solomd-dev-mcp
+# catstep-dev-mcp
 
-**Internal-only MCP server for end-to-end self-testing of SoloMD.** Not shipped to users; sits next to (not inside) the user-facing `solomd-mcp` so the test harness can never accidentally surface in a release build.
+**Internal-only MCP server for end-to-end self-testing of Catstep MD.** Not shipped to users; sits next to (not inside) the user-facing `solomd-mcp` so the test harness can never accidentally surface in a release build.
 
 ## Why
 
-The end-user `solomd-mcp` exposes a vault to LLM clients. This separate server exposes SoloMD's own internal state (settings, tabs, AutoGit, file system) so Claude can drive the app from the outside and verify that a feature actually works — the rule from `~/.claude/CLAUDE.md` is "every client project ships with CLI + MCP for self-test."
+The end-user `solomd-mcp` exposes a vault to LLM clients. This separate server exposes Catstep MD's own internal state (settings, tabs, AutoGit, file system) so Claude can drive the app from the outside and verify that a feature actually works — the rule from `~/.claude/CLAUDE.md` is "every client project ships with CLI + MCP for self-test."
 
 We use this dev MCP for things AppleScript can't reliably do (clicking nested WKWebView elements like the History panel's Restore button) and for state setup that would otherwise require a human (toggling settings before a fresh launch).
 
@@ -24,7 +24,7 @@ We use this dev MCP for things AppleScript can't reliably do (clicking nested WK
 | `solomd_rag_status` | v2.3: report semantic-index status for a workspace folder. |
 | `solomd_rag_reindex` | v2.3: full reindex into `<folder>/.solomd/embeddings.sqlite`. |
 | `solomd_rag_search` | v2.3: semantic search over an indexed workspace; ranks by cosine similarity. |
-| `solomd_dev_eval` | **v2.3**: run arbitrary JS inside SoloMD's WebView, return its result (live UI bridge). |
+| `solomd_dev_eval` | **v2.3**: run arbitrary JS inside Catstep MD's WebView, return its result (live UI bridge). |
 | `solomd_dev_click` | **v2.3**: click the first DOM element matching a CSS selector. |
 | `solomd_dev_text` | **v2.3**: read `textContent` of one (or all) elements matching a selector. |
 | `solomd_dev_dispatch` | **v2.3**: dispatch a DOM event (keyboard / mouse / custom) on a selector. |
@@ -32,9 +32,9 @@ We use this dev MCP for things AppleScript can't reliably do (clicking nested WK
 | `solomd_dev_wait_for` | **v2.3**: poll until a selector matches or timeout. |
 | `solomd_read_file` / `solomd_write_file` | Plain disk read/write for verification. |
 | `solomd_screenshot` | `screencapture -x` to a temp PNG; returns the path. |
-| `solomd_app_status` | List running SoloMD processes (so you know if you're testing dev or prod). |
+| `solomd_app_status` | List running Catstep MD processes (so you know if you're testing dev or prod). |
 
-LocalStorage writes (`solomd_set_setting` / `solomd_set_workspace` / `solomd_set_tabs`) require **SoloMD be closed** — WKWebView holds the SQLite open exclusively while running.
+LocalStorage writes (`solomd_set_setting` / `solomd_set_workspace` / `solomd_set_tabs`) require **Catstep MD be closed** — WKWebView holds the SQLite open exclusively while running.
 
 ## Build + run
 
@@ -42,7 +42,7 @@ LocalStorage writes (`solomd_set_setting` / `solomd_set_workspace` / `solomd_set
 cd dev-mcp
 cargo build                # debug
 cargo build --release      # 1.5 MB single binary
-./target/debug/solomd-dev-mcp -v
+./target/debug/catstep-dev-mcp -v
 ```
 
 Speaks JSON-RPC over stdio. Logs to stderr.
@@ -51,7 +51,7 @@ Speaks JSON-RPC over stdio. Logs to stderr.
 
 ```bash
 claude mcp add --scope user solomd-dev -- \
-  /Volumes/Dev/code/notebook/dev-mcp/target/debug/solomd-dev-mcp
+  /Volumes/Dev/code/notebook/dev-mcp/target/debug/catstep-dev-mcp
 ```
 
 After restarting Claude Code, the tools show up as `mcp__solomd-dev__solomd_*`.
@@ -72,7 +72,7 @@ the actual Vue components — clicking buttons, reading rendered text, firing
 keyboard events, asserting on DOM after navigation. This closes the last
 gap the dev MCP used to call out as "out of scope".
 
-**How it works:** the SoloMD debug build (only — `#[cfg(debug_assertions)]`-gated)
+**How it works:** the Catstep MD debug build (only — `#[cfg(debug_assertions)]`-gated)
 spawns a tiny localhost JSON-RPC server (`app/src-tauri/src/dev_bridge.rs`) on
 a random port and writes the port + a per-launch bearer token to:
 
@@ -87,7 +87,7 @@ result back to the bridge. Round-trip is typically <10 ms on warm cache.
 
 **Release builds don't include any of this** — the entire `dev_bridge`
 module is `#[cfg(debug_assertions)]`. Verify with
-`nm app/src-tauri/target/release/SoloMD | grep dev_bridge` — you should
+`nm app/src-tauri/target/release/Catstep MD | grep dev_bridge` — you should
 see zero matches.
 
 **Worked example (drive the active tab name):**
@@ -113,25 +113,25 @@ see zero matches.
 { "matched": true, "default_prevented": false }
 ```
 
-If SoloMD isn't running you get a friendly error pointing you at
+If Catstep MD isn't running you get a friendly error pointing you at
 `pnpm tauri dev`. Each call is independently authenticated via the bearer
 token, so a stray process can't talk to the bridge by accident.
 
 **Foreground gotcha (macOS):** WKWebView aggressively throttles JS execution
 when the window is occluded or even just below another window — `eval` calls
-queue up but don't actually fire until SoloMD becomes the foreground app
+queue up but don't actually fire until Catstep MD becomes the foreground app
 **and** its window is raised. There's no Tauri 2 / wry API to bypass this —
 it's AppKit gating the run loop. If `solomd_dev_eval` times out, bring the
 window forward and retry. The reliable invocation is two-step (plain
-`activate` is sometimes not enough if SoloMD's window is occluded by a
+`activate` is sometimes not enough if Catstep MD's window is occluded by a
 maximized terminal):
 
 ```bash
 osascript <<'EOF'
-tell application "SoloMD" to activate
+tell application "Catstep MD" to activate
 delay 0.3
 tell application "System Events"
-  tell process "SoloMD"
+  tell process "Catstep MD"
     set frontmost to true
     perform action "AXRaise" of window 1
   end tell
@@ -139,11 +139,11 @@ end tell
 EOF
 ```
 
-(In CI you can either run with the SoloMD window visible from the start, or
+(In CI you can either run with the Catstep MD window visible from the start, or
 schedule the AXRaise step before each `solomd_dev_*` call.)
 
 ## What this DOESN'T cover
 
 - Production app store builds — same code paths but in a sandboxed location we can't poke. The dev-bridge is debug-only and the released DMG/MAS bundle has zero bridge code.
 
-For the in-flight pieces dev MCP covers (settings persist, AutoGit init/commit/rollback, file roundtrip, RAG index/search, **live UI driving**), it's the source of truth — `cargo build && ./target/debug/solomd-dev-mcp` and you can run the same JSON-RPC sequences in CI.
+For the in-flight pieces dev MCP covers (settings persist, AutoGit init/commit/rollback, file roundtrip, RAG index/search, **live UI driving**), it's the source of truth — `cargo build && ./target/debug/catstep-dev-mcp` and you can run the same JSON-RPC sequences in CI.

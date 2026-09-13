@@ -708,8 +708,8 @@ fn scan_tags_in_line(line: &str, out: &mut Vec<String>) {
     while i < chars.len() {
         let c = chars[i];
         let preceded_ok = i == 0 || chars[i - 1].is_whitespace();
-        if c == '#' && preceded_ok {
-            if i + 1 < chars.len() && chars[i + 1].is_alphanumeric() {
+        if c == '#' && preceded_ok
+            && i + 1 < chars.len() && chars[i + 1].is_alphanumeric() {
                 let mut j = i + 1;
                 while j < chars.len() && is_tag_continue(chars[j]) {
                     j += 1;
@@ -721,7 +721,6 @@ fn scan_tags_in_line(line: &str, out: &mut Vec<String>) {
                 i = j;
                 continue;
             }
-        }
         i += 1;
     }
 }
@@ -1312,7 +1311,7 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     let lines_count = content.lines().count();
     Ok(json!({
         "ok": true,
-        "bytes_written": content.as_bytes().len(),
+        "bytes_written": content.len(),
         "lines_count": lines_count,
         "new_content": content,
         "path": normalize_path_str(&abs),
@@ -1346,7 +1345,7 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
         .map_err(|e| format!("append: {e}"))?;
     Ok(json!({
         "ok": true,
-        "bytes_written": content.as_bytes().len(),
+        "bytes_written": content.len(),
         "start_line": start_line,
         "added_count": added_count,
         "new_content": content,

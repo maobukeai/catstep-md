@@ -1079,13 +1079,13 @@ pub fn run_with(initial_file: Option<String>) {
             //    off-screen. Always recenter when the saved layout is
             //    invalid for the current monitor; preserve when valid.
             //
-            // 2. macOS-only: re-issue show + set_focus so SoloMD becomes
+            // 2. macOS-only: re-issue show + set_focus so Catstep MD becomes
             //    frontmost. `set_focus` from `setup` fires before NSApp
             //    has finished `applicationDidFinishLaunching` and gets
-            //    silently dropped, leaving SoloMD launched behind the
+            //    silently dropped, leaving Catstep MD launched behind the
             //    parent app (Finder / terminal) — the macOS menu bar
             //    keeps showing the previous app's menus until the user
-            //    drags SoloMD's window.
+            //    drags Catstep MD's window.
             RunEvent::Ready => {
                 // Fallback path: when there's no saved window state for the
                 // plugin to restore (fresh install, deleted state file), no

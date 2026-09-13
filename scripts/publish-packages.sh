@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish SoloMD to all package managers in one command.
+# Publish Catstep MD to all package managers in one command.
 #
 # Usage:
 #   ./scripts/publish-packages.sh 0.1.9                 # all platforms
@@ -88,10 +88,10 @@ fetch_sha256() {
     echo "$sha"
 }
 
-DMG="SoloMD_${VERSION}_universal.dmg"
-MSI="SoloMD_${VERSION}_x64_en-US.msi"
-PORTABLE="SoloMD_${VERSION}_x64-portable.zip"
-APPIMAGE="SoloMD_${VERSION}_amd64.AppImage"
+DMG="CatstepMD_${VERSION}_universal.dmg"
+MSI="CatstepMD_${VERSION}_x64_en-US.msi"
+PORTABLE="CatstepMD_${VERSION}_x64-portable.zip"
+APPIMAGE="CatstepMD_${VERSION}_amd64.AppImage"
 
 # ==================================================================
 # Homebrew Cask
@@ -122,11 +122,11 @@ cask "solomd" do
   version "${VERSION}"
   sha256 "${sha}"
 
-  url "https://github.com/${REPO}/releases/download/v#{version}/SoloMD_#{version}_universal.dmg",
+  url "https://github.com/${REPO}/releases/download/v#{version}/CatstepMD_#{version}_universal.dmg",
       verified: "github.com/${REPO}/"
-  name "SoloMD"
+  name "Catstep MD"
   desc "Lightweight Markdown and plain text editor"
-  homepage "https://solomd.app/"
+  homepage "https://github.com/maobukeai/catstep-md/"
 
   livecheck do
     url :url
@@ -135,7 +135,7 @@ cask "solomd" do
 
   depends_on macos: ">= :big_sur"
 
-  app "SoloMD.app"
+  app "CatstepMD.app"
 
   zap trash: [
     "~/Library/Application Support/app.solomd",
@@ -156,7 +156,7 @@ RUBY
     url=$(gh pr create --repo Homebrew/homebrew-cask \
         --head "${YOUR_GH}:update-solomd-${VERSION}" \
         --title "Update solomd to ${VERSION}" \
-        --body "Update SoloMD to v${VERSION}. See release notes: https://github.com/${REPO}/releases/tag/v${VERSION}" 2>&1 | tail -1 || true)
+        --body "Update Catstep MD to v${VERSION}. See release notes: https://github.com/${REPO}/releases/tag/v${VERSION}" 2>&1 | tail -1 || true)
     ok "Homebrew PR: $url"
 }
 
@@ -234,16 +234,16 @@ PackageLocale: en-US
 Publisher: maobukeai
 PublisherUrl: https://github.com/${YOUR_GH}
 PublisherSupportUrl: https://github.com/${REPO}/issues
-PackageName: SoloMD
-PackageUrl: https://solomd.app
+PackageName: Catstep MD
+PackageUrl: https://github.com/maobukeai/catstep-md
 License: MIT
 LicenseUrl: https://github.com/${REPO}/blob/main/LICENSE
-Copyright: Copyright (c) 2026 xiangdong li
+Copyright: Copyright (c) 2026 maobukeai
 ShortDescription: A lightweight Markdown and plain text editor
 Description: |-
-  SoloMD is a free, open-source, cross-platform Markdown + plain text editor
+  Catstep MD is a free, open-source, cross-platform Markdown + plain text editor
   built with Tauri 2 + Vue 3 + CodeMirror 6. Under 15 MB installed.
-Moniker: solomd
+Moniker: catstepmd
 Tags:
 - editor
 - markdown
@@ -253,7 +253,7 @@ Tags:
 ReleaseNotesUrl: https://github.com/${REPO}/releases/tag/v${VERSION}
 Documentations:
 - DocumentLabel: Website
-  DocumentUrl: https://solomd.app
+  DocumentUrl: https://github.com/maobukeai/catstep-md
 ManifestType: defaultLocale
 ManifestVersion: 1.9.0
 YAML
@@ -299,29 +299,29 @@ publish_scoop() {
 {
     "version": "${VERSION}",
     "description": "A lightweight Markdown and plain text editor built with Tauri 2",
-    "homepage": "https://solomd.app",
+    "homepage": "https://github.com/maobukeai/catstep-md",
     "license": "MIT",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/${REPO}/releases/download/v${VERSION}/SoloMD_${VERSION}_x64-portable.zip",
+            "url": "https://github.com/${REPO}/releases/download/v${VERSION}/CatstepMD_${VERSION}_x64-portable.zip",
             "hash": "${sha}"
         }
     },
-    "bin": "SoloMD.exe",
+    "bin": "CatstepMD.exe",
     "shortcuts": [
         [
-            "SoloMD.exe",
-            "SoloMD"
+            "CatstepMD.exe",
+            "Catstep MD"
         ]
     ],
     "checkver": "github",
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/${REPO}/releases/download/v\$version/SoloMD_\$version_x64-portable.zip",
+                "url": "https://github.com/${REPO}/releases/download/v\$version/CatstepMD_\$version_x64-portable.zip",
                 "hash": {
                     "url": "https://github.com/${REPO}/releases/tag/v\$version",
-                    "regex": "SoloMD_\$version_x64-portable\\\\.zip.*?\$sha256"
+                    "regex": "CatstepMD_\$version_x64-portable\\\\.zip.*?\$sha256"
                 }
             }
         }
@@ -338,7 +338,7 @@ JSON
     url=$(gh pr create --repo ScoopInstaller/Extras \
         --head "${YOUR_GH}:update-solomd-${VERSION}" \
         --title "solomd: Update to ${VERSION}" \
-        --body "Update SoloMD to v${VERSION}. Release notes: https://github.com/${REPO}/releases/tag/v${VERSION}" 2>&1 | tail -1 || true)
+        --body "Update Catstep MD to v${VERSION}. Release notes: https://github.com/${REPO}/releases/tag/v${VERSION}" 2>&1 | tail -1 || true)
     ok "Scoop PR: $url"
 }
 
@@ -379,23 +379,23 @@ publish_choco() {
   <metadata>
     <id>solomd</id>
     <version>${VERSION}</version>
-    <title>SoloMD</title>
+    <title>Catstep MD</title>
     <authors>maobukeai</authors>
     <owners>maobukeai</owners>
-    <projectUrl>https://solomd.app</projectUrl>
+    <projectUrl>https://github.com/maobukeai/catstep-md</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/${REPO}/main/brand/solomd_icon_fullbleed.png</iconUrl>
     <licenseUrl>https://github.com/${REPO}/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <tags>markdown editor text-editor tauri vim lightweight</tags>
     <summary>A lightweight Markdown and plain text editor built with Tauri 2</summary>
-    <description>SoloMD is a free, open-source Markdown + plain text editor. Under 15 MB installed.
+    <description>Catstep MD is a free, open-source Markdown + plain text editor. Under 15 MB installed.
 
 Built with Tauri 2 + Vue 3 + CodeMirror 6 + Rust.
 
 Project source: https://github.com/${REPO}
-Documentation: https://solomd.app</description>
+Documentation: https://github.com/maobukeai/catstep-md</description>
     <releaseNotes>https://github.com/${REPO}/releases/tag/v${VERSION}</releaseNotes>
-    <copyright>Copyright (c) 2026 xiangdong li</copyright>
+    <copyright>Copyright (c) 2026 maobukeai</copyright>
   </metadata>
   <files>
     <file src="tools\\**" target="tools" />
@@ -408,7 +408,7 @@ NUSPEC
 \$packageArgs = @{
     packageName    = 'solomd'
     fileType       = 'msi'
-    url64bit       = 'https://github.com/${REPO}/releases/download/v${VERSION}/SoloMD_${VERSION}_x64_en-US.msi'
+    url64bit       = 'https://github.com/${REPO}/releases/download/v${VERSION}/CatstepMD_${VERSION}_x64_en-US.msi'
     checksum64     = '${sha}'
     checksumType64 = 'sha256'
     silentArgs     = '/qn /norestart'
@@ -421,7 +421,7 @@ PS1
 $ErrorActionPreference = 'Stop'
 $packageArgs = @{
     packageName    = 'solomd'
-    softwareName   = 'SoloMD*'
+    softwareName   = 'Catstep MD*'
     fileType       = 'msi'
     silentArgs     = '/qn /norestart'
     validExitCodes = @(0, 3010, 1605, 1614, 1641)

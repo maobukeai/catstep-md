@@ -1,5 +1,5 @@
 /**
- * cm-live-render.ts — WYSIWYG "live edit" CM6 extension for SoloMD v2.3
+ * cm-live-render.ts — WYSIWYG "live edit" CM6 extension for Catstep MD v2.3
  *
  * Goes further than `cm-live-preview.ts`. The preview-style extension hides
  * a few marker characters and lets the HighlightStyle do the rest. This

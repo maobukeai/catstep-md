@@ -3,15 +3,15 @@
   <metadata>
     <id>solomd</id>
     <version>1.2.1</version>
-    <title>SoloMD</title>
-    <authors>xiangdong li</authors>
+    <title>Catstep MD</title>
+    <authors>maobukeai</authors>
     <owners>maobukeai</owners>
     <licenseUrl>https://github.com/maobukeai/catstep-md/blob/main/LICENSE</licenseUrl>
-    <projectUrl>https://solomd.app</projectUrl>
-    <iconUrl>https://solomd.app/favicon.svg</iconUrl>
+    <projectUrl>https://github.com/maobukeai/catstep-md</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/maobukeai/catstep-md/main/brand/catstep_icon_fullbleed.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>
-SoloMD is a lightweight, cross-platform Markdown + plain text editor built with Tauri 2.
+Catstep MD is a lightweight, cross-platform Markdown + plain text editor built with Tauri 2.
 
 ## Features
 - Live preview (WYSIWYG-style editing)
@@ -23,12 +23,12 @@ SoloMD is a lightweight, cross-platform Markdown + plain text editor built with 
 - Clean AI artifacts (remove citations from ChatGPT/Claude)
 - Only 15MB installer
 
-## Why SoloMD?
+## Why Catstep MD?
 One file. One window. Just write.
     </description>
     <summary>A lightweight Markdown editor with live preview</summary>
     <releaseNotes>https://github.com/maobukeai/catstep-md/releases/tag/v1.2.1</releaseNotes>
-    <copyright>Copyright 2024 xiangdong li</copyright>
+    <copyright>Copyright 2026 maobukeai</copyright>
     <tags>markdown editor text-editor tauri wysiwyg writing notes</tags>
     <projectSourceUrl>https://github.com/maobukeai/catstep-md</projectSourceUrl>
     <packageSourceUrl>https://github.com/maobukeai/catstep-md/tree/main/distribution/manifests/chocolatey</packageSourceUrl>

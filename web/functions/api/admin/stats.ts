@@ -37,7 +37,7 @@ function unauthorized(): Response {
     status: 401,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'WWW-Authenticate': 'Bearer realm="solomd-admin"',
+      'WWW-Authenticate': 'Bearer realm="catstep-admin"',
     },
   });
 }

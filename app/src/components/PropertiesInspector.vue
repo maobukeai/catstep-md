@@ -11,7 +11,7 @@
  *
  * Sections, in order: pinned properties → the rest of the frontmatter → a small
  * fixed set of suggested slots (Status / Date / URL) the note hasn't set yet →
- * the "+ Add property" affordance. (SoloMD has no Type system, so Tolaria's
+ * the "+ Add property" affordance. (Catstep MD has no Type system, so Tolaria's
  * type-derived rows + Type/Workspace selectors are intentionally dropped.)
  */
 import { ref, computed } from 'vue';

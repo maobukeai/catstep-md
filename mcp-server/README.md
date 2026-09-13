@@ -1,14 +1,14 @@
-# solomd-mcp — Model Context Protocol server for SoloMD vaults
+# catstep-mcp — Model Context Protocol server for Catstep MD vaults
 
-`solomd-mcp` lets Claude Code, Codex CLI, Cursor, Continue, and any other
-MCP client read (and optionally edit) a SoloMD Markdown notes folder. Your
+`catstep-mcp` lets Claude Code, Codex CLI, Cursor, Continue, and any other
+MCP client read (and optionally edit) a Catstep MD Markdown notes folder. Your
 vault becomes a first-class tool the assistant can call.
 
-It is a **standalone Rust binary**, not a Tauri sidecar. SoloMD launches
+It is a **standalone Rust binary**, not a Tauri sidecar. Catstep MD launches
 fine without it; you only run it when an MCP client connects.
 
 ```
-solomd-mcp --workspace /Users/me/Documents/Notes
+catstep-mcp --workspace /Users/me/Documents/Notes
 # stdin / stdout: JSON-RPC 2.0 (stdio transport)
 # stderr:        human logs (use --verbose for debug)
 ```
@@ -182,7 +182,7 @@ for finer-grained control.
 * Every input path is canonicalised and verified to live inside the
   workspace before any read/write. Both `..` segments and absolute paths
   outside the workspace are rejected.
-* The watcher / index from the SoloMD desktop app is **not** used here —
+* The watcher / index from the Catstep MD desktop app is **not** used here —
   this is a stateless per-invocation server that walks the filesystem
   lazily.
 * `list_notes` reads only an 8 KB prefix of each file (enough for title +
@@ -198,11 +198,11 @@ for finer-grained control.
   printf '%s\n' '{"jsonrpc":"2.0","method":"notifications/initialized"}'
   printf '%s\n' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
   sleep 1
-} | solomd-mcp --workspace ~/Documents/Notes
+} | catstep-mcp --workspace ~/Documents/Notes
 ```
 
 You should see eight tools listed.
 
 ## License
 
-MIT — same as SoloMD.
+MIT — same as Catstep MD.

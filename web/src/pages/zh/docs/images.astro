@@ -9,7 +9,7 @@ const lang = 'zh' as const;
 
 <Layout
   title="图片与附件 — 粘贴的截图存在哪里,怎么改"
-  description="SoloMD 如何保存粘贴/拖入的图片:默认的 _assets 目录、改名为 images、每篇笔记独立目录,以及兼容 Typora 的自定义路径模板(如 ./images/${filename}/)。"
+  description="猫步 MD 如何保存粘贴/拖入的图片:默认的 _assets 目录、改名为 images、每篇笔记独立目录,以及兼容 Typora 的自定义路径模板(如 ./images/${filename}/)。"
   lang={lang}
 >
   <Header lang={lang} />
@@ -24,7 +24,7 @@ const lang = 'zh' as const;
 
       <h2>粘贴时发生了什么</h2>
       <p>
-        截图到剪贴板,把光标放进笔记,按 <kbd>Ctrl/⌘ V</kbd> —— SoloMD
+        截图到剪贴板,把光标放进笔记,按 <kbd>Ctrl/⌘ V</kbd> —— 猫步 MD
         会把图片文件写到笔记旁边的磁盘上,并自动插入 Markdown
         链接。把图片文件拖进编辑器效果相同。默认情况下,图片存进笔记同目录的
         <code>_assets/</code> 文件夹:
@@ -56,12 +56,12 @@ const lang = 'zh' as const;
           <tr>
             <th>共享(默认)</th>
             <td>每个目录一个文件夹 —— <code>_assets/</code>,或你在上面改的名字。</td>
-            <td>简单仓库;与 SoloMD v4.3.5 之前的布局一致。</td>
+            <td>简单仓库;与 猫步 MD v4.3.5 之前的布局一致。</td>
           </tr>
           <tr>
             <th>每篇独立</th>
             <td>每篇笔记旁的 <code>&lt;笔记名&gt;.assets/</code> —— <code>foo.md</code> 对应 <code>foo.assets/</code>。</td>
-            <td>让每篇笔记自包含。把 <code>foo.md</code> 改名成 <code>bar.md</code> 时,SoloMD 会同步把 <code>foo.assets/</code> 改名,并改写笔记内的引用路径。</td>
+            <td>让每篇笔记自包含。把 <code>foo.md</code> 改名成 <code>bar.md</code> 时,猫步 MD 会同步把 <code>foo.assets/</code> 改名,并改写笔记内的引用路径。</td>
           </tr>
           <tr>
             <th>自定义(兼容 Typora)</th>
@@ -103,7 +103,7 @@ const lang = 'zh' as const;
           <strong>尚未保存到文件的笔记</strong>(未保存的标签页)粘贴的图片先存到临时目录,保存笔记后链接会被改写。
         </li>
         <li>
-          <strong>想用图床?</strong>SoloMD 也可以把粘贴的图片上传到 PicGo、SM.MS、S3 或
+          <strong>想用图床?</strong>猫步 MD 也可以把粘贴的图片上传到 PicGo、SM.MS、S3 或
           GitHub,插入外链 —— 见<a href="/zh/docs/editor/">编辑器指南</a>和设置 → 图片上传。
         </li>
       </ul>

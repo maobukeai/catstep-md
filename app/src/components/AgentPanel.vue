@@ -882,7 +882,7 @@ const ACTIVE_NOTE_CHAR_LIMIT = 8192;
  * snippets + active note path) before the user's message.
  */
 const SYSTEM_PROMPT =
-  'You are a helpful, professional assistant inside SoloMD, a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses.\n\n' +
+  'You are a helpful, professional assistant inside Catstep MD (猫步 MD), a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses.\n\n' +
   '【思考与推演规范】\n' +
   '在思考或调用工具前，可在 <think> 与 </think> 标签中输出 1~2 句精炼的意图与推演规划（如理解需求、梳理步骤），便于用户实时了解进展。思考推演请保持简明。\n\n' +
   '【文件与目录整理规范】\n' +

@@ -8,7 +8,7 @@ const lang = 'en' as const;
 ---
 
 <Layout
-  title="SoloMD v3.6 — Live-edit image/table widgets and 5 polish fixes"
+  title="Catstep MD v3.6 — Live-edit image/table widgets and 5 polish fixes"
   description="The long-standing live-edit gap is closed: standalone image lines and GFM tables now render in place inside the editor, with the source coming back the moment the cursor enters. Plus AI button routing, image export crop-to-content, optional watermark, folder picker memory, and a Mac toolbar overflow fix."
   lang={lang}
 >
@@ -96,7 +96,7 @@ const lang = 'en' as const;
           the rendered DOM exactly.
         </li>
         <li>
-          <strong>"Created with SoloMD" watermark — now a setting.</strong>
+          <strong>"Created with Catstep MD" watermark — now a setting.</strong>
           Previously hardcoded as a footer on every PNG export.
           Reasonable default for a free MIT app, but it should be
           opt-out, not forced. New setting <code>imageExportBranding</code>
@@ -109,7 +109,7 @@ const lang = 'en' as const;
           <code>useFiles.openFolder()</code> now passes
           <code>defaultPath: workspace.currentFolder</code> to the
           Tauri folder dialog. Without it, the OS picker reopened at
-          the system default each time, ignoring the workspace SoloMD
+          the system default each time, ignoring the workspace Catstep MD
           already had loaded.
         </li>
         <li>

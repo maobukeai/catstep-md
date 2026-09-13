@@ -5,8 +5,8 @@ your vault, copy it (renaming away the `.example` suffix) into
 `<your vault>/.solomd/agents/`.
 
 These ship under the app's source tree purely so they're versioned
-with the schema. SoloMD's recipe loader scans
-`<workspace>/.solomd/agents/` only — files in this directory don't
+with the schema. Catstep MD's recipe loader scans
+`<workspace>/.solomd/agents/` (or `<workspace>/.catstep/agents/`) only — files in this directory don't
 auto-fire.
 
 | File | Trigger | What it does |

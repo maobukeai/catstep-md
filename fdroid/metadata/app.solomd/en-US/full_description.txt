@@ -1,4 +1,4 @@
-SoloMD is a lightweight, distraction-free editor for Markdown and plain text. One file. One window. Just write.
+Catstep MD is a lightweight, distraction-free editor for Markdown and plain text. One file. One window. Just write.
 
 Features
 ========
@@ -15,4 +15,4 @@ Features
 Privacy
 =======
 
-SoloMD does no analytics by default — the optional anonymous "did the app start up" pings can be turned off in Settings. Files live on your device, in a folder you pick. The optional GitHub sync feature pushes to a repo you own; SoloMD itself has no cloud.
+Catstep MD does no analytics by default — the optional anonymous "did the app start up" pings can be turned off in Settings. Files live on your device, in a folder you pick. The optional GitHub sync feature pushes to a repo you own; Catstep MD itself has no cloud.

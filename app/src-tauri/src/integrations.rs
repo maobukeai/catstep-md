@@ -87,7 +87,7 @@ pub fn cli_status_inner() -> Result<CliStatus, String> {
             return Ok(CliStatus {
                 installed: true,
                 path: Some(catstep_cmd.to_string_lossy().to_string()),
-                version: Some("catstep 1.0.2".to_string()),
+                version: Some("catstep 1.0.3".to_string()),
             });
         }
     }
@@ -230,11 +230,11 @@ pub fn cli_install_inner(app: &AppHandle) -> Result<CliStatus, String> {
                 exit /b 0\r\n\
             )\r\n\
             if /i \"%~1\"==\"--version\" (\r\n\
-                echo catstep 1.0.2\r\n\
+                echo catstep 1.0.3\r\n\
                 exit /b 0\r\n\
             )\r\n\
             if /i \"%~1\"==\"-v\" (\r\n\
-                echo catstep 1.0.2\r\n\
+                echo catstep 1.0.3\r\n\
                 exit /b 0\r\n\
             )\r\n\
             start \"\" \"{exe}\" \"%~f1\"\r\n",
@@ -761,7 +761,7 @@ fn build_solomd_entry(client_id: &str, mcp_path: &str, args: &[String]) -> JsonV
             ]
         }),
         "continue" => json!({
-            "name": "solomd",
+            "name": "catstep",
             "command": mcp_path,
             "args": args
         }),
@@ -801,6 +801,7 @@ fn splice_solomd_entry(
                 .or_insert_with(|| json!({}))
                 .as_object_mut()
                 .ok_or("mcpServers is not a JSON object")?;
+            servers.insert("catstep".to_string(), entry.clone());
             servers.insert("solomd".to_string(), entry);
         }
         "continue" => {
@@ -812,10 +813,10 @@ fn splice_solomd_entry(
                 .or_insert_with(|| json!([]))
                 .as_array_mut()
                 .ok_or("mcp is not a JSON array")?;
-            // Replace existing solomd entry if present; otherwise append.
+            // Replace existing catstep or solomd entry if present; otherwise append.
             if let Some(existing) = list
                 .iter_mut()
-                .find(|e| e.get("name").and_then(|n| n.as_str()) == Some("solomd"))
+                .find(|e| e.get("name").and_then(|n| n.as_str()) == Some("catstep") || e.get("name").and_then(|n| n.as_str()) == Some("solomd"))
             {
                 *existing = entry;
             } else {
@@ -831,6 +832,7 @@ fn splice_solomd_entry(
                 .or_insert_with(|| json!({}))
                 .as_object_mut()
                 .ok_or("context_servers is not a JSON object")?;
+            servers.insert("catstep".to_string(), entry.clone());
             servers.insert("solomd".to_string(), entry);
         }
         _ => return Err(format!("unknown client_id: {client_id}")),

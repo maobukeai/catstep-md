@@ -1,8 +1,8 @@
 [package]
-name = "solomd-mcp"
+name = "catstep-mcp"
 version = "0.4.1"
 edition = "2021"
-description = "Model Context Protocol server for SoloMD vaults — exposes a Markdown notes folder to Claude Code, Codex CLI, Cursor, Cline, Continue, Zed, and any other MCP client"
+description = "Model Context Protocol server for Catstep MD vaults — exposes a Markdown notes folder to Claude Code, Codex CLI, Cursor, Cline, Continue, Zed, and any other MCP client"
 license = "MIT"
 repository = "https://github.com/maobukeai/catstep-md"
 homepage = "https://github.com/maobukeai/catstep-md"
@@ -10,10 +10,10 @@ documentation = "https://github.com/maobukeai/catstep-md/blob/main/docs/agents.m
 readme = "README.md"
 keywords = ["mcp", "markdown", "agent", "note-taking", "knowledge-base"]
 categories = ["command-line-utilities", "text-processing"]
-authors = ["CatstepMD contributors"]
+authors = ["maobukeai"]
 
 [[bin]]
-name = "solomd-mcp"
+name = "catstep-mcp"
 path = "src/main.rs"
 
 [dependencies]

@@ -32,6 +32,12 @@ pub struct UpdaterState {
     active_download: Arc<Mutex<bool>>,
 }
 
+impl Default for UpdaterState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UpdaterState {
     pub fn new() -> Self {
         Self {

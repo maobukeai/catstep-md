@@ -303,7 +303,7 @@ export const tr: I18n = {
     "catWriting": "Yazma",
     "catSync": "Eşitleme",
     "syncUnsupportedAndroid": "Git tabanlı eşitleme (sürüm geçmişi, GitHub eşitleme, proxy) Android sürümünde henüz kullanılamıyor — dayandığı libgit2 motoru Android ikilisine derlenmiş değil. Şimdilik bu kasayı eşitlemek için masaüstü veya iOS uygulamasını kullanın.",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "Entegrasyonlar",
     "catExport": "Dışa Aktarma",
@@ -849,7 +849,7 @@ export const tr: I18n = {
   "integrations": {
     "heading": "Entegrasyonlar",
     "intro": "Catstep MD, terminalinizle ve MCP destekli YZ istemcileriyle (Claude Desktop, Codex CLI, Cursor) konuşur; böylece notlarınızı uygulama dışından okuyabilir/yazabilirsiniz.",
-    "cliTitle": "CLI (solomd)",
+    "cliTitle": "CLI (catstep)",
     "cliInstalled": "Kurulu: {path}",
     "cliNotInstalled": "Kurulu değil",
     "cliVersionLabel": "Sürüm",
@@ -860,7 +860,7 @@ export const tr: I18n = {
     "cliCopyInstallBtn": "Kurulum komutunu kopyala",
     "cliCopiedToast": "Kurulum komutu kopyalandı — terminalinize yapıştırın.",
     "cliInstallToast": "Bunu terminalinizde çalıştırın — /usr/local/bin için sudo gerekir:",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "Neler yapabilir?",
@@ -872,7 +872,7 @@ export const tr: I18n = {
       "cat": "cat <başlık|yol> — bir notu stdout'a yazdır",
       "help": "help — tüm komutları göster"
     },
-    "mcpTitle": "MCP sunucusu (solomd-mcp)",
+    "mcpTitle": "MCP sunucusu (catstep-mcp)",
     "mcpBundled": "Pakete dahil: {path}",
     "mcpNotBundled": "Pakete dahil değil (bu geliştirme yapısı externalBin yardımcısını atlar). Üretim yapıları her zaman dahil eder.",
     "mcpDesc": "Açık çalışma alanını bir Model Context Protocol sunucusu olarak yayınlar; böylece Claude Desktop / Codex / Cursor notlarınızı listeleyebilir, okuyabilir, arayabilir ve yazabilir.",
@@ -917,7 +917,7 @@ export const tr: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "MCP profilleri",
-    "profilesIntro": "Birden çok çalışma alanını tek bir solomd-mcp örneğinde toplayın, sonra hazır bir Claude Desktop yapılandırma bloğunu kopyalayın. Her profil, MCP sunucusunun yayınlayacağı çalışma alanlarını listeler (takma ad + yol); ilk girdi varsayılandır — açık `workspace` argümanı içermeyen araç çağrıları ona düşer.",
+    "profilesIntro": "Birden çok çalışma alanını tek bir catstep-mcp örneğinde toplayın, sonra hazır bir Claude Desktop yapılandırma bloğunu kopyalayın. Her profil, MCP sunucusunun yayınlayacağı çalışma alanlarını listeler (takma ad + yol); ilk girdi varsayılandır — açık `workspace` argümanı içermeyen araç çağrıları ona düşer.",
     "profilesEmpty": "Henüz profil yok.",
     "profilesCreate": "Yeni profil",
     "profilesDuplicate": "Çoğalt",
@@ -945,7 +945,7 @@ export const tr: I18n = {
     "profilesValidationFailed": "Kaydedilemiyor: {msg}",
     "profilesNamePlaceholder": "is-ve-ev",
     "profilesNewProfileDefault": "Yeni profil",
-    "profilesNoMcpBinary": "Bu geliştirme yapısında solomd-mcp pakete dahil değil — parçacık yer tutucu bir yol kullanır."
+    "profilesNoMcpBinary": "Bu geliştirme yapısında catstep-mcp pakete dahil değil — parçacık yer tutucu bir yol kullanır."
   },
   "recipes": {
     "heading": "Aracı tarifleri",

@@ -373,7 +373,7 @@ export const usePomodoroStore = defineStore('pomodoro', {
           ? Math.max(0, totalWordCount() - (this.startWordCount ?? 0))
           : 0;
         fireNotification(
-          'SoloMD — focus session complete',
+          'Catstep MD — focus session complete',
           `${durationMin} min · ${wordsDelta} words written`,
         );
       }

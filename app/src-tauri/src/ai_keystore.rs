@@ -20,7 +20,7 @@
 //!      symmetric key is a per-install 32-byte secret kept next to the store
 //!      in `solomd-ai-keys.key` — on Android the app-private config dir is
 //!      already sandboxed per-app by the OS, so the file is only readable by
-//!      SoloMD itself.
+//!      Catstep MD itself.
 //!
 //! The fallback decision is made per-call and **cached**: the first time a
 //! keyring operation reports "no backend", we flip a process-wide flag and
@@ -215,7 +215,7 @@ fn hex_encode(b: &[u8]) -> String {
 }
 
 fn hex_decode(s: &str) -> Result<Vec<u8>, String> {
-    if s.len() % 2 != 0 {
+    if !s.len().is_multiple_of(2) {
         return Err("hex string has odd length".into());
     }
     (0..s.len())

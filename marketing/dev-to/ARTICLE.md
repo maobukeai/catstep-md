@@ -1,7 +1,7 @@
 ---
 title: "I Built a 15 MB Markdown Editor with Tauri 2 and Rust"
 published: true
-description: "Why I built SoloMD, a lightweight alternative to Electron-based editors, and what I learned along the way."
+description: "Why I built Catstep MD, a lightweight alternative to Electron-based editors, and what I learned along the way."
 tags: rust, tauri, opensource, markdown
 cover_image: og-image.png
 ---
@@ -12,7 +12,7 @@ I've been using Markdown editors for years. Typora, MarkText, Obsidian, VS Code 
 
 **Why does a text editor need 250 MB of disk space?**
 
-So I built my own. It's called [SoloMD](https://solomd.app), and the installer is about 15 MB.
+So I built my own. It's called [Catstep MD](https://github.com/maobukeai/catstep-md), and the installer is about 15 MB.
 
 ## The Problem with Electron
 
@@ -39,7 +39,7 @@ The result? A ~15 MB app that starts instantly.
 
 ## What I Built
 
-SoloMD is a Markdown editor focused on simplicity:
+Catstep MD is a Markdown editor focused on simplicity:
 
 ### Live Preview
 Markdown markers (`#`, `**`, etc.) hide when your cursor leaves the line. No split pane, no preview mode – just write and see.
@@ -105,13 +105,13 @@ Nothing insurmountable, but expect to write some conditional code.
 
 ### Code Signing
 
-Getting rid of "Windows protected your PC" warnings requires an EV code signing certificate (~$400/year). For now, SoloMD relies on SmartScreen reputation building through downloads.
+Getting rid of "Windows protected your PC" warnings requires an EV code signing certificate (~$400/year). For now, Catstep MD relies on SmartScreen reputation building through downloads.
 
 On macOS, notarization is free but requires an Apple Developer account ($99/year).
 
 ## What's Next
 
-SoloMD is MIT licensed and fully open source. I'm actively maintaining it and have a roadmap:
+Catstep MD is MIT licensed and fully open source. I'm actively maintaining it and have a roadmap:
 
 - [ ] Vim keybindings
 - [ ] Plugin system
@@ -120,7 +120,7 @@ SoloMD is MIT licensed and fully open source. I'm actively maintaining it and ha
 
 ## Try It
 
-- **Website**: [solomd.app](https://solomd.app)
+- **Website**: [github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 - **GitHub**: [github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 - **Downloads**: macOS (universal), Windows (x64), Linux (AppImage/deb/rpm)
 

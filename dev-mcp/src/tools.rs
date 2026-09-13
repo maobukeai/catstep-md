@@ -1,11 +1,11 @@
-//! Tool definitions for solomd-dev-mcp.
+//! Tool definitions for catstep-dev-mcp.
 //!
 //! Tools roughly mirror the user-facing GUI flow:
 //!
 //!   * `solomd_get_settings` / `solomd_set_setting` — read/write
 //!     localStorage settings (autoGitEnabled, aiEnabled, etc.).
 //!   * `solomd_get_workspace` / `solomd_set_workspace` — read/write the
-//!     currentFolder. Must be called while SoloMD is closed (WebKit
+//!     currentFolder. Must be called while Catstep MD is closed (WebKit
 //!     holds the SQLite open).
 //!   * `solomd_get_tabs` / `solomd_set_tabs` — read/write the open-tabs
 //!     state.
@@ -16,7 +16,7 @@
 //!     verifying disk state.
 //!   * `solomd_screenshot` — full-screen `screencapture -x` to a temp
 //!     file. Path returned for the caller to read.
-//!   * `solomd_app_status` — list running SoloMD processes (dev vs
+//!   * `solomd_app_status` — list running Catstep MD processes (dev vs
 //!     installed) so the caller knows which build it's testing against.
 //!
 //! All git operations are implemented inline in this crate (small,
@@ -74,11 +74,11 @@ fn ls_path(bundle: &str) -> Result<PathBuf> {
     let home = std::env::var("HOME").context("HOME not set")?;
     let (folder, hash) = match bundle {
         "dev" => (
-            "solomd",
+            "catstep",
             "y_a-QbuPa1QmlFcuFGdl2gs24bBFFTCBTT8ilCLEsu0",
         ),
         "prod" => (
-            "app.solomd",
+            "app.catstepmd",
             "bvB3gbOLx5VDrjmfAOI5KBKeMsCcGefh6CxQA9MFkBM",
         ),
         other => return Err(anyhow!("unknown bundle: {other} (use dev or prod)")),
@@ -147,7 +147,7 @@ fn build_signature(repo: &Repository) -> Result<Signature<'static>> {
         .get_string("user.name")
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "SoloMD".to_string());
+        .unwrap_or_else(|| "Catstep MD".to_string());
     let email = cfg
         .get_string("user.email")
         .ok()
@@ -641,13 +641,13 @@ pub struct RagSearchArgs {
 }
 
 // ---------------------------------------------------------------------------
-// Dev-bridge (v2.3) — talks to the localhost JSON-RPC server inside SoloMD's
+// Dev-bridge (v2.3) — talks to the localhost JSON-RPC server inside Catstep MD's
 // debug build. See app/src-tauri/src/dev_bridge.rs for the protocol.
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct DevEvalArgs {
-    /// JavaScript source to run in SoloMD's main WebView. The script runs
+    /// JavaScript source to run in Catstep MD's main WebView. The script runs
     /// inside an `async` IIFE — you can use `await`. Whatever the IIFE
     /// returns (or its last expression) is JSON-serialised and sent back.
     pub script: String,
@@ -689,7 +689,7 @@ pub struct DevWaitForArgs {
     pub timeout_ms: Option<u64>,
 }
 
-/// Look up the SoloMD app config dir (where dev_bridge writes port/token).
+/// Look up the Catstep MD app config dir (where dev_bridge writes port/token).
 /// Mirrors what `app.path().app_config_dir()` returns under tauri 2 — it
 /// uses the bundle identifier from `tauri.conf.json` (`app.solomd`), the
 /// same path for both `pnpm tauri dev` and the installed dmg. Only debug
@@ -706,7 +706,7 @@ fn dev_bridge_config_dir() -> Result<PathBuf> {
         let appdata = std::env::var("APPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from(home.clone()).join("AppData/Roaming"));
-        appdata.join("app.solomd")
+        appdata.join("app.catstepmd")
     };
     Ok(dir)
 }
@@ -717,7 +717,7 @@ fn read_dev_bridge_endpoint() -> Result<(u16, String)> {
     let token_path = dir.join("dev-bridge.token");
     if !port_path.exists() || !token_path.exists() {
         return Err(anyhow!(
-            "SoloMD dev build not running — start with `pnpm tauri dev` from app/. \
+            "Catstep MD dev build not running — start with `pnpm tauri dev` from app/. \
              (looked for {} and {})",
             port_path.display(),
             token_path.display()
@@ -821,7 +821,7 @@ fn js_string(s: &str) -> String {
 
 #[tool_router]
 impl DevServer {
-    #[tool(description = "Read SoloMD's persisted settings (settings.v1) from WebKit LocalStorage. Args: { bundle?: 'dev'|'prod' = 'dev' }.")]
+    #[tool(description = "Read Catstep MD's persisted settings (settings.v1) from WebKit LocalStorage. Args: { bundle?: 'dev'|'prod' = 'dev' }.")]
     pub async fn solomd_get_settings(
         &self,
         Parameters(args): Parameters<BundleArgs>,
@@ -831,7 +831,7 @@ impl DevServer {
         Ok(json_result(v))
     }
 
-    #[tool(description = "Set a single key in SoloMD's settings.v1. SoloMD must be CLOSED (WebKit holds the SQLite). Args: { bundle?, key, value }.")]
+    #[tool(description = "Set a single key in Catstep MD's settings.v1. Catstep MD must be CLOSED (WebKit holds the SQLite). Args: { bundle?, key, value }.")]
     pub async fn solomd_set_setting(
         &self,
         Parameters(args): Parameters<SetSettingArgs>,
@@ -847,7 +847,7 @@ impl DevServer {
         Ok(text_result(format!("set {} = {}", args.key, args.value)))
     }
 
-    #[tool(description = "Read SoloMD's workspace state (currentFolder, recentFiles).")]
+    #[tool(description = "Read Catstep MD's workspace state (currentFolder, recentFiles).")]
     pub async fn solomd_get_workspace(
         &self,
         Parameters(args): Parameters<BundleArgs>,
@@ -857,7 +857,7 @@ impl DevServer {
         Ok(json_result(v))
     }
 
-    #[tool(description = "Set SoloMD's currentFolder. SoloMD must be CLOSED. Args: { bundle?, folder }.")]
+    #[tool(description = "Set Catstep MD's currentFolder. Catstep MD must be CLOSED. Args: { bundle?, folder }.")]
     pub async fn solomd_set_workspace(
         &self,
         Parameters(args): Parameters<SetWorkspaceArgs>,
@@ -873,7 +873,7 @@ impl DevServer {
         Ok(text_result(format!("workspace.currentFolder = {}", args.folder)))
     }
 
-    #[tool(description = "Read SoloMD's tabs state (open tabs + activeTabId).")]
+    #[tool(description = "Read Catstep MD's tabs state (open tabs + activeTabId).")]
     pub async fn solomd_get_tabs(
         &self,
         Parameters(args): Parameters<BundleArgs>,
@@ -883,7 +883,7 @@ impl DevServer {
         Ok(json_result(v))
     }
 
-    #[tool(description = "Replace SoloMD's tabs state with a single open tab pointing at the given file. SoloMD must be CLOSED. Args: { bundle?, file_path }.")]
+    #[tool(description = "Replace Catstep MD's tabs state with a single open tab pointing at the given file. Catstep MD must be CLOSED. Args: { bundle?, file_path }.")]
     pub async fn solomd_set_tabs(
         &self,
         Parameters(args): Parameters<SetTabsArgs>,
@@ -959,7 +959,7 @@ impl DevServer {
         }
         stage(&repo, None).map_err(|e| err(e.to_string()))?;
         let sig = build_signature(&repo).map_err(|e| err(e.to_string()))?;
-        let sha = commit_staged(&repo, &sig, "init: SoloMD workspace")
+        let sha = commit_staged(&repo, &sig, "init: Catstep MD workspace")
             .map_err(|e| err(e.to_string()))?
             .unwrap_or_default();
         Ok(text_result(format!("init ok (sha: {})", sha)))
@@ -1091,7 +1091,7 @@ impl DevServer {
         &self,
         Parameters(_args): Parameters<EmptyArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let path = format!("/tmp/solomd-dev-mcp-{}.png", chrono_secs());
+        let path = format!("/tmp/catstep-dev-mcp-{}.png", chrono_secs());
         let status = AsyncCommand::new("screencapture")
             .args(["-x", "-o", &path])
             .stdout(Stdio::null())
@@ -1365,14 +1365,14 @@ impl DevServer {
         }
     }
 
-    #[tool(description = "List running SoloMD processes (dev = `target/debug/SoloMD`, prod = `/Applications/SoloMD.app`).")]
+    #[tool(description = "List running Catstep MD processes (dev = `target/debug/CatstepMD`, prod = `/Applications/Catstep MD.app`).")]
     pub async fn solomd_app_status(
         &self,
         Parameters(_args): Parameters<EmptyArgs>,
     ) -> Result<CallToolResult, McpError> {
         let out = AsyncCommand::new("/bin/sh")
             .arg("-c")
-            .arg("ps -ax -o pid,etime,command | grep -E 'target/debug/SoloMD|/Applications/SoloMD.app/Contents/MacOS/SoloMD' | grep -v grep")
+            .arg("ps -ax -o pid,etime,command | grep -E 'target/debug/CatstepMD|/Applications/CatstepMD.app/Contents/MacOS/CatstepMD' | grep -v grep")
             .output().await.map_err(|e| err(format!("ps: {e}")))?;
         let s = String::from_utf8_lossy(&out.stdout).to_string();
         let lines: Vec<HashMap<&str, String>> = s.lines().map(|line| {
@@ -1393,11 +1393,11 @@ impl DevServer {
 
     // -----------------------------------------------------------------
     // v2.3 Dev Bridge — drive the live Vue UI (clicks, DOM reads, etc.).
-    // Talks to the localhost JSON-RPC server inside SoloMD's debug build
+    // Talks to the localhost JSON-RPC server inside Catstep MD's debug build
     // (see app/src-tauri/src/dev_bridge.rs).
     // -----------------------------------------------------------------
 
-    #[tool(description = "v2.3 dev-bridge: evaluate arbitrary JavaScript inside SoloMD's main WebView and return the result. Script runs inside an `async` IIFE — `await` is allowed. Use a `return` statement (or just leave a trailing expression evaluated via async return) to send a value back. Args: { script, timeout_ms? }. Requires `pnpm tauri dev` running.")]
+    #[tool(description = "v2.3 dev-bridge: evaluate arbitrary JavaScript inside Catstep MD's main WebView and return the result. Script runs inside an `async` IIFE — `await` is allowed. Use a `return` statement (or just leave a trailing expression evaluated via async return) to send a value back. Args: { script, timeout_ms? }. Requires `pnpm tauri dev` running.")]
     pub async fn solomd_dev_eval(
         &self,
         Parameters(args): Parameters<DevEvalArgs>,
@@ -1483,7 +1483,7 @@ impl DevServer {
         }
     }
 
-    #[tool(description = "v2.3 dev-bridge: report `location.href` of the SoloMD WebView. Use this to confirm the app is on the right route after navigation.")]
+    #[tool(description = "v2.3 dev-bridge: report `location.href` of the Catstep MD WebView. Use this to confirm the app is on the right route after navigation.")]
     pub async fn solomd_dev_url(
         &self,
         Parameters(_args): Parameters<EmptyArgs>,
@@ -1527,12 +1527,12 @@ impl DevServer {
 #[tool_handler]
 impl ServerHandler for DevServer {
     fn get_info(&self) -> ServerInfo {
-        let implementation = Implementation::new("solomd-dev-mcp", env!("CARGO_PKG_VERSION"))
-            .with_title("SoloMD dev test harness");
+        let implementation = Implementation::new("catstep-dev-mcp", env!("CARGO_PKG_VERSION"))
+            .with_title("Catstep MD dev test harness");
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(implementation)
             .with_instructions(
-                "Internal MCP server for end-to-end self-testing of SoloMD. \
+                "Internal MCP server for end-to-end self-testing of Catstep MD. \
                  Tools: solomd_get_settings/solomd_set_setting, \
                  solomd_get_workspace/solomd_set_workspace, \
                  solomd_get_tabs/solomd_set_tabs, \
@@ -1543,7 +1543,7 @@ impl ServerHandler for DevServer {
                  solomd_integrations_status (v2.4 CLI/MCP wiring check), \
                  solomd_screenshot, solomd_app_status, \
                  solomd_dev_eval/click/text/dispatch/url/wait_for (v2.3 live UI bridge — needs `pnpm tauri dev`). \
-                 Settings/workspace/tabs writes require SoloMD be closed.",
+                 Settings/workspace/tabs writes require Catstep MD be closed.",
             )
     }
 }

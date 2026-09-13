@@ -1,6 +1,6 @@
 /**
- * Popup script — wires the three big buttons to the background worker
- * and shows a paired/unpaired indicator at the bottom.
+ * Popup script — wires the action cards to the background worker,
+ * renders platform-specific shortcuts, and shows a live pairing indicator.
  */
 import browser from 'webextension-polyfill';
 
@@ -20,29 +20,54 @@ async function applyI18n(): Promise<void> {
   if (titleEl) titleEl.textContent = t('clipper.popup.title');
 }
 
+function applyPlatformShortcuts(): void {
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /Mac|iP(hone|od|ad)/i.test(navigator.platform || navigator.userAgent);
+
+  const selectionKbd = document.getElementById('kbd-selection');
+  if (selectionKbd) {
+    selectionKbd.textContent = isMac ? '⌘⇧S' : 'Ctrl+Shift+S';
+  }
+
+  const linkKbd = document.getElementById('kbd-link');
+  if (linkKbd) {
+    linkKbd.textContent = isMac ? '⌘⇧L' : 'Ctrl+Shift+L';
+  }
+}
+
 async function refreshPairStatus(): Promise<void> {
-  const status = document.getElementById('pair-status');
-  if (!status) return;
-  status.classList.remove('footer__pair--ok', 'footer__pair--err');
-  status.textContent = t('clipper.popup.checking');
+  const badge = document.getElementById('pair-status');
+  const statusText = document.getElementById('pair-status-text');
+  if (!badge || !statusText) return;
+
+  badge.classList.remove('header__status--ok', 'header__status--err');
+  statusText.textContent = t('clipper.popup.checking');
+
   const settings = await loadSettings();
   if (!settings.endpoint || !settings.token) {
-    status.classList.add('footer__pair--err');
-    status.textContent = t('clipper.popup.unpaired');
+    badge.classList.add('header__status--err');
+    statusText.textContent = t('clipper.popup.unpaired');
     return;
   }
-  const res = await getHealth(settings);
-  if (res.ok) {
-    status.classList.add('footer__pair--ok');
-    status.textContent = `${t('clipper.popup.paired')} · v${res.data.version}`;
-  } else {
-    status.classList.add('footer__pair--err');
-    status.textContent = t('clipper.popup.unpaired');
+
+  try {
+    const res = await getHealth(settings);
+    if (res.ok) {
+      badge.classList.add('header__status--ok');
+      statusText.textContent = `${t('clipper.popup.paired')} · v${res.data.version}`;
+    } else {
+      badge.classList.add('header__status--err');
+      statusText.textContent = t('clipper.popup.unpaired');
+    }
+  } catch {
+    badge.classList.add('header__status--err');
+    statusText.textContent = t('clipper.popup.unpaired');
   }
 }
 
 function bindActions(): void {
-  for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>('.action'))) {
+  for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>('.action-card'))) {
     btn.addEventListener('click', async () => {
       const mode = btn.dataset.mode as 'page' | 'selection' | 'link' | undefined;
       if (!mode) return;
@@ -52,16 +77,20 @@ function bindActions(): void {
       } catch (e) {
         console.warn('[catstep-clipper popup] sendMessage failed', e);
       } finally {
-        // Close immediately — the background worker shows the toast/notification
-        // for both success and failure. Keeping the popup open longer feels
-        // laggy and would require extra wiring to surface the result here.
         window.close();
       }
     });
   }
 
+  // Clicking settings button or the status badge navigates to options
   const settingsBtn = document.getElementById('open-options');
   settingsBtn?.addEventListener('click', () => {
+    void browser.runtime.openOptionsPage();
+    window.close();
+  });
+
+  const statusBadge = document.getElementById('pair-status');
+  statusBadge?.addEventListener('click', () => {
     void browser.runtime.openOptionsPage();
     window.close();
   });
@@ -69,6 +98,10 @@ function bindActions(): void {
 
 (async () => {
   await applyI18n();
+  const settings = await loadSettings();
+  document.documentElement.dataset.accent = settings.accentColor || 'blue';
+  applyPlatformShortcuts();
   bindActions();
   await refreshPairStatus();
 })();
+

@@ -61,7 +61,7 @@ export function useFiles() {
       // native chrome PLUS the in-app caption buttons Toolbar.vue renders.
       new WebviewWindow(label, {
         url,
-        title: 'SoloMD',
+        title: 'Catstep MD',
         width: 1000,
         height: 700,
         decorations: !isWindowsDesktop(),
@@ -107,7 +107,7 @@ export function useFiles() {
   // preview pane uses), not the document converter.
   const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
 
-  // Text / code files SoloMD opens natively as an editor tab. A Markdown link
+  // Text / code files Catstep MD opens natively as an editor tab. A Markdown link
   // to one of these always opens in-app, regardless of the
   // `openLinkedFilesExternally` setting (that setting only diverts non-text
   // documents like PDF / Office / audio to the OS default app). `md` is here
@@ -160,7 +160,7 @@ export function useFiles() {
    *  `content://` URIs, which neither std::fs nor our whole path-based stack
    *  can read (the raw URI reached fs::read and failed with os error 2).
    *  Import the bytes through the fs plugin's ContentResolver bridge into the
-   *  SoloMD Documents folder — mirroring what iOS does with Files-app opens —
+   *  Catstep MD Documents folder — mirroring what iOS does with Files-app opens —
    *  and hand back a real filesystem path for the rest of openPath. */
   async function importContentUri(uri: string): Promise<string> {
     const { readFile, exists } = await import('@tauri-apps/plugin-fs');
@@ -537,7 +537,7 @@ export function useFiles() {
     // Open the OS folder picker rooted at the previously chosen workspace
     // so the user lands in a familiar tree, not at $HOME or wherever the
     // OS defaults. Without `defaultPath` Tauri's picker re-opens at the
-    // OS-level last-used directory, which is unrelated to SoloMD state
+    // OS-level last-used directory, which is unrelated to Catstep MD state
     // and surprised users with a "why isn't my last folder remembered"
     // bug. We persist `currentFolder` already; this just feeds it back.
     //
@@ -546,14 +546,14 @@ export function useFiles() {
     // directory-tree picker on Android, so the button looked dead. Mirror
     // iOS behaviour and pin the workspace to the app's Documents dir.
     // The user can drop .md files into that folder via the Files app
-    // ("On My Device > SoloMD"); SoloMD reads them back on next open.
+    // ("On My Device > Catstep MD"); Catstep MD reads them back on next open.
     // #139 — neither Android nor iOS surfaces a usable OS folder picker
     // through Tauri's dialog plugin (`openDialog({directory:true})` resolves to
     // null), so the "Open Folder" button looked dead on both. Mirror the
     // Android behaviour on iOS: pin the workspace to the app's own Documents
-    // dir ("On My iPhone/iPad › SoloMD" via UIFileSharingEnabled). Users drop
+    // dir ("On My iPhone/iPad › Catstep MD" via UIFileSharingEnabled). Users drop
     // .md files there through the Files app and they show up in the tree.
-    // #148 / #151 — Android: with all-files access the user can point SoloMD
+    // #148 / #151 — Android: with all-files access the user can point Catstep MD
     // at a REAL vault folder anywhere on shared storage (…/Documents, a
     // Syncthing/Dropbox dir) and edit in place, instead of being stuck with
     // the unreachable /Android/data sandbox. Check the permission; if missing,
@@ -570,10 +570,10 @@ export function useFiles() {
         // Launch and mark that a pick is in flight; App.vue resolves the result
         // on resume (the picker backgrounds our WebView, so we can't await it
         // inline — the JS poll loop is lost across the transition).
-        localStorage.setItem('solomd:saf-picking', '1');
+        localStorage.setItem('catstep:saf-picking', '1');
         await safLaunchPicker();
       } catch (e) {
-        localStorage.removeItem('solomd:saf-picking');
+        localStorage.removeItem('catstep:saf-picking');
         toasts.error(String(e));
       }
       return;
@@ -584,7 +584,7 @@ export function useFiles() {
         workspace.setFolder(dir);
         if (!settings.showFileTree) settings.toggleFileTree();
         toasts.info(
-          `Workspace pinned to the SoloMD folder. Drop .md files there via the Files app and they'll show up here.`,
+          `Workspace pinned to the Catstep MD folder. Drop .md files there via the Files app and they'll show up here.`,
         );
       } catch (e) {
         toasts.error(String(e));
@@ -604,7 +604,7 @@ export function useFiles() {
   // iOS save policy: ignore the in-place path (could be a security-scoped
   // URL from a "Open With" deep-link — unwritable from plain Rust fs) and
   // route everything through the app's own Documents directory. With
-  // UIFileSharingEnabled set, that folder appears as "On My iPhone › SoloMD"
+  // UIFileSharingEnabled set, that folder appears as "On My iPhone › Catstep MD"
   // in the Files app, so users can iCloud-sync or move from there.
   async function iosResolvePath(tab: Tab): Promise<string> {
     const fname =
@@ -691,7 +691,7 @@ export function useFiles() {
       if (!opts.silent) {
         if (isIOS()) {
           const fname = path.split(/[\\/]/).pop() ?? path;
-          toasts.success(`Saved to On My iPhone › SoloMD › ${fname}`);
+          toasts.success(`Saved to On My iPhone › Catstep MD › ${fname}`);
         } else {
           toasts.success(`Saved ${tab.fileName}`);
         }
@@ -749,7 +749,7 @@ export function useFiles() {
         new CustomEvent('solomd:saved', { detail: { filePath: path } }),
       );
       const fileName = path.split(/[\\/]/).pop() ?? path;
-      toasts.success(isIOS() ? `Saved to On My iPhone › SoloMD › ${fileName}` : `Saved as ${fileName}`);
+      toasts.success(isIOS() ? `Saved to On My iPhone › Catstep MD › ${fileName}` : `Saved as ${fileName}`);
       return true;
     } catch (e) {
       console.error('save-as failed', e);

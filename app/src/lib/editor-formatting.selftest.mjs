@@ -181,7 +181,7 @@ test('applyPlainHeading: converts multiline selection on textarea', () => {
   assert.equal(textarea.value, '# Line 1\n# Line 2');
 });
 
-test('keybindings: Typora shortcuts and SoloMD Agent shortcuts parity', async () => {
+test('keybindings: Typora shortcuts and Catstep MD Agent shortcuts parity', async () => {
   const { resolveBindings, eventToCombo } = await import('./keybindings.ts');
   const bindings = resolveBindings({});
 

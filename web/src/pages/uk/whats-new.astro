@@ -10,7 +10,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
 ---
 
 <Layout
-  title="Оновлення SoloMD v4.0 — редактор, де живуть агенти"
+  title="Оновлення Catstep MD v4.0 — редактор, де живуть агенти"
   description="v4.0 — це мажорний реліз agent-native author. П'ять стовпів: інтегрована панель Agent (стримінговий chat-with-vault), заплановані recipes (cron / on-save / on-commit, sandbox гілок AutoGit + accept/reject), відтворюваний перегляд Trace, MCP-федерація кількох vault, першокласна Ollama. Плюс: REST API, лічильник вартості BYOK, 11 шаблонів Recipe, майстер першого запуску, багатомовна локалізація."
   lang={lang}
 >
@@ -35,8 +35,8 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
       </p>
 
       <div class="cta-row">
-        <a class="btn btn--primary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}>⬇ Завантажити v{VERSION} (Mac)</a>
-        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}>Завантажити (Windows)</a>
+        <a class="btn btn--primary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_universal.dmg`}>⬇ Завантажити v{VERSION} (Mac)</a>
+        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_x64_en-US.msi`}>Завантажити (Windows)</a>
         <a class="btn btn--secondary btn--lg" href={`https://github.com/maobukeai/catstep-md/releases/tag/v${VERSION}`}>Усі платформи →</a>
       </div>
 
@@ -102,7 +102,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <div class="pillar">
             <h3>4 · MCP-федерація кількох vault</h3>
             <p>
-              <code>solomd-mcp --workspace path1 --workspace path2 --workspace path3</code>
+              <code>catstep-mcp --workspace path1 --workspace path2 --workspace path3</code>
               —— одна MCP-сесія, кілька vault. Сигнатури інструментів отримали
               необов\'язковий параметр <code>workspace</code>, типове значення = перший
               переданий (повністю зворотно сумісно з MCP-клієнтами для одного vault).
@@ -216,7 +216,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           </li>
           <li>
             <strong>UX запуску macOS.</strong> Виправлено таймінг активації при запуску
-            —— холодний запуск SoloMD дійсно виходить на передній план, більше не ховається
+            —— холодний запуск Catstep MD дійсно виходить на передній план, більше не ховається
             за Finder. Відновлення позиції вікна завжди приземляється в робочій області
             поточного екрана; відновлення з поганого кешу
             після відключення додаткового екрана автоматично перецентрується,
@@ -276,7 +276,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
             під <em>Інтеграції</em>. Розташування наявних налаштувань не змінилося.
           </li>
           <li>
-            <strong>MCP-сервер (<code>solomd-mcp</code>) отримав новий параметр
+            <strong>MCP-сервер (<code>catstep-mcp</code>) отримав новий параметр
             <code>--workspace</code></strong> (повторюваний).
             Наявні MCP-клієнти на один workspace продовжують працювати;
             поведінка федерації — opt-in.
@@ -292,7 +292,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <a href="https://github.com/maobukeai/catstep-md/blob/main/docs/roadmap.md">roadmap</a>:
           sandboxed scripting API, CLI v2 (rewrite / commit / семантичний пошук /
           тригер Recipe з терміналу) і вічно відкладене питання
-          <em>«Чи має SoloMD стати комерційним продуктом?»</em>
+          <em>«Чи має Catstep MD стати комерційним продуктом?»</em>
           (платний sync — старе питання з ери v3.0, досі без відповіді,
           поки рішення не ухвалене, інженерної роботи в цій сфері не буде).
         </p>

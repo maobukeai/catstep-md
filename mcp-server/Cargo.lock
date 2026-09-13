@@ -186,6 +186,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
+name = "catstep-mcp"
+version = "0.4.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "git2",
+ "once_cell",
+ "regex-lite",
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1293,29 +1316,6 @@ checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
  "windows-sys",
-]
-
-[[package]]
-name = "solomd-mcp"
-version = "0.4.1"
-dependencies = [
- "anyhow",
- "axum",
- "clap",
- "git2",
- "once_cell",
- "regex-lite",
- "rmcp",
- "schemars",
- "serde",
- "serde_json",
- "serde_yaml",
- "tokio",
- "tower",
- "tracing",
- "tracing-subscriber",
- "walkdir",
- "zip",
 ]
 
 [[package]]

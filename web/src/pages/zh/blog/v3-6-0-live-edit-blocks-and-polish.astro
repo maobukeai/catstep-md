@@ -8,7 +8,7 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD v3.6 —— 实时编辑模式下的图片 / 表格内联渲染，加 5 处打磨"
+  title="猫步 MD v3.6 —— 实时编辑模式下的图片 / 表格内联渲染，加 5 处打磨"
   description="实时编辑模式补齐了一直留着的缺口：整行图片和 GFM 表格现在能在编辑器里直接渲染，光标进入时源代码立刻回来。另外 5 处快速打磨：AI 按钮跳转、PNG 导出尺寸、水印做选项、文件夹记忆、Mac 工具栏溢出修复。"
   lang={lang}
 >
@@ -83,7 +83,7 @@ const lang = 'zh' as const;
           传给 html2canvas，画布尺寸严格匹配 DOM。
         </li>
         <li>
-          <strong>"Created with SoloMD" 水印做成选项。</strong>之前是硬编
+          <strong>"Created with 猫步 MD" 水印做成选项。</strong>之前是硬编
           码在每张导出 PNG 上的。免费 MIT 应用做点温和宣传不过分，但
           应该让用户可以关，而不是强制。新设置
           <code>imageExportBranding</code>（默认开），在
@@ -94,7 +94,7 @@ const lang = 'zh' as const;
           <strong>文件夹选择器记住上次工作区。</strong><code>useFiles.openFolder()</code>
           现在把 <code>defaultPath: workspace.currentFolder</code> 传给
           Tauri 文件夹对话框。之前没传，每次开 picker 都从系统默认位置
-          开始，无视 SoloMD 已经加载的工作区。
+          开始，无视 猫步 MD 已经加载的工作区。
         </li>
         <li>
           <strong>Mac 窄窗口工具栏溢出。</strong>当窗口窄到工具栏自然宽度

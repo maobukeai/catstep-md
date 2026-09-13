@@ -1,4 +1,4 @@
-# Smithery.ai listing for solomd-mcp.
+# Smithery.ai listing for catstep-mcp.
 #
 # Schema reference: https://smithery.ai/docs/build/yaml-reference
 #
@@ -6,18 +6,18 @@
 # PR is accepted. Mirrored at marketplace/smithery/smithery.yaml so other
 # clones can reproduce it without copying from upstream's CDN.
 
-name: solomd-mcp
-displayName: SoloMD
+name: catstep-mcp
+displayName: Catstep MD
 description: >
   MCP server for one or more Markdown notes folders. 13 tools: list_notes,
   read_note, search, get_backlinks, list_tags, get_outline, autogit_log,
   autogit_diff, sync_status, share_url, plus write tools behind --allow-write.
-  Pairs with the SoloMD desktop editor (solomd.app) but works against any
+  Pairs with the Catstep MD desktop editor (github.com/maobukeai/catstep-md) but works against any
   plain folder of .md files.
-homepage: https://solomd.app
+homepage: https://github.com/maobukeai/catstep-md
 repository: https://github.com/maobukeai/catstep-md
 license: MIT
-icon: https://solomd.app/favicon.svg
+icon: https://github.com/maobukeai/catstep-md/favicon.svg
 
 # Smithery categorisation — these surface in the UI's filter sidebar.
 categories:
@@ -34,21 +34,21 @@ categories:
 runtime: binary
 binary:
   downloads:
-    linux-x64: https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-x64.tar.gz
-    linux-arm64: https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-arm64.tar.gz
-    win-x64: https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-win-x64.zip
-    win-arm64: https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-win-arm64.zip
-  # On macOS the binary ships inside the SoloMD app bundle (not as a
+    linux-x64: https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-x64.tar.gz
+    linux-arm64: https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-arm64.tar.gz
+    win-x64: https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-win-x64.zip
+    win-arm64: https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-win-arm64.zip
+  # On macOS the binary ships inside the Catstep MD app bundle (not as a
   # standalone tarball) — Smithery users on Mac should install via
-  # `cargo install solomd-mcp` (we publish on crates.io) or download
-  # the desktop app and point at `/Applications/SoloMD.app/Contents/MacOS/solomd-mcp`.
+  # `cargo install catstep-mcp` (we publish on crates.io) or download
+  # the desktop app and point at `/Applications/Catstep MD.app/Contents/MacOS/catstep-mcp`.
   macos-fallback: |
-    cargo install solomd-mcp
+    cargo install catstep-mcp
     # — or —
-    # Install SoloMD.app from solomd.app and use the bundled binary:
-    # /Applications/SoloMD.app/Contents/MacOS/solomd-mcp
+    # Install Catstep MD.app from github.com/maobukeai/catstep-md and use the bundled binary:
+    # /Applications/Catstep MD.app/Contents/MacOS/catstep-mcp
 
-  entrypoint: solomd-mcp
+  entrypoint: catstep-mcp
   args:
     # User-configured workspace(s). At least one required.
     # Pass alias=path to multi-mount; repeat the flag for multiple vaults.
@@ -67,7 +67,7 @@ config:
       type: string
       title: Notes folder
       description: >
-        Absolute path to your Markdown notes folder. SoloMD's MCP serves
+        Absolute path to your Markdown notes folder. Catstep MD's MCP serves
         this directory and its subfolders.
       examples:
         - /Users/you/notes
@@ -139,7 +139,7 @@ tools:
 # Examples that surface in the listing.
 examples:
   - title: Find every TODO across the vault
-    prompt: Use the SoloMD MCP search tool to find every "- [ ]" line in my workspace and group by folder.
+    prompt: Use the Catstep MD MCP search tool to find every "- [ ]" line in my workspace and group by folder.
   - title: Weekly summary from daily notes
     prompt: Read my daily/ notes from the past 7 days and write weekly/2026-W22.md with themes, decisions, and open threads.
   - title: Audit orphan notes

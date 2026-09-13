@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
             </svg>
           </button>
 
-          <!-- Focus Main SoloMD Window -->
+          <!-- Focus Main Catstep MD Window -->
           <button
             class="pip-widget__btn"
             type="button"

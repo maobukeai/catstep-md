@@ -8,7 +8,7 @@ const lang = 'en' as const;
 ---
 
 <Layout
-  title="SoloMD v2.2 — MCP server, AutoGit version history, 14 AI providers"
+  title="Catstep MD v2.2 — MCP server, AutoGit version history, 14 AI providers"
   description="Every save is now a snapshot you can roll back from a sidebar panel. Every note is queryable from Claude Desktop / Cursor / any MCP client. AI rewrite spans 14 BYOK providers — keys live in the OS keychain, never on disk."
   lang={lang}
 >
@@ -31,7 +31,7 @@ const lang = 'en' as const;
 
       <h2>🔌 MCP server</h2>
       <p>
-        Ship-by-default Model Context Protocol server (<code>solomd-mcp</code>)
+        Ship-by-default Model Context Protocol server (<code>catstep-mcp</code>)
         — point Claude Desktop, Cursor, Codex CLI, or anything that speaks
         MCP at your notes folder, and it gets eight read tools out of the box:
       </p>
@@ -48,7 +48,7 @@ const lang = 'en' as const;
       <pre><code>{`{
   "mcpServers": {
     "solomd": {
-      "command": "/path/to/solomd-mcp",
+      "command": "/path/to/catstep-mcp",
       "args": ["--workspace", "/path/to/notes"]
     }
   }
@@ -87,7 +87,7 @@ const lang = 'en' as const;
         Keys live in the OS keychain
         (<a href="/security/">Keychain on macOS, Credential Manager on Windows, libsecret on Linux</a>) —
         never in <code>localStorage</code>, never in any config file we write.
-        BYOK by design: SoloMD doesn't host any models, every request goes
+        BYOK by design: Catstep MD doesn't host any models, every request goes
         directly from your machine to the provider you chose.
       </p>
 
@@ -125,7 +125,7 @@ const lang = 'en' as const;
         </li>
         <li>
           <strong>solomd-dev-mcp</strong> — internal-only MCP server that
-          exposes SoloMD's domain logic for end-to-end self-testing. Ships
+          exposes Catstep MD's domain logic for end-to-end self-testing. Ships
           with the source, never with the user binary. We use it ourselves
           to verify every shipped feature actually works before tagging.
         </li>

@@ -2,7 +2,7 @@
 # Build solomd-skills-vX.Y.Z.zip — the downloadable Skill Pack.
 #
 # Bundles `app/src-tauri/cookbook/*.yml` (the 11 reference Agent Recipes)
-# into a single zip that any solomd-mcp client can drop straight into
+# into a single zip that any catstep-mcp client can drop straight into
 # `<workspace>/.solomd/agents/` to get the cookbook live.
 #
 # Run from repo root:  ./scripts/build-skill-pack.sh
@@ -22,10 +22,10 @@ mkdir -p "$PACK_DIR/.solomd/agents"
 cp "$SRC"/*.yml "$PACK_DIR/.solomd/agents/"
 
 cat > "$PACK_DIR/README.md" <<EOF
-# SoloMD Skill Pack — v${VERSION}
+# Catstep MD Skill Pack — v${VERSION}
 
-11 reference Agent Recipes for [SoloMD](https://solomd.app) and any
-\`solomd-mcp\`-compatible client. Each recipe is a single YAML file under
+11 reference Agent Recipes for [Catstep MD](https://github.com/maobukeai/catstep-md) and any
+\`catstep-mcp\`-compatible client. Each recipe is a single YAML file under
 \`.solomd/agents/\` — no build step, no plugin manifest.
 
 ## Install
@@ -37,9 +37,9 @@ unzip solomd-skills-v${VERSION}.zip
 mv solomd-skills-v${VERSION}/.solomd YOUR_VAULT/
 \`\`\`
 
-If you're running [SoloMD](https://solomd.app), the app's recipe loader
+If you're running [Catstep MD](https://github.com/maobukeai/catstep-md), the app's recipe loader
 will pick them up on next launch (watch \`Settings → Recipes\`). If you're
-running \`solomd-mcp\` standalone with another client (Claude Code,
+running \`catstep-mcp\` standalone with another client (Claude Code,
 Cursor, …), the recipes describe themselves — read them and adapt the
 \`provider\` / \`model\` / \`prompt\` fields to your client's conventions.
 
@@ -62,13 +62,13 @@ Cursor, …), the recipes describe themselves — read them and adapt the
 ## Safety model
 
 - Every run executes on its own AutoGit branch (\`agent/<recipe>/<run-id>\`).
-- Writes don't reach \`main\` until you click **Accept** in SoloMD's
+- Writes don't reach \`main\` until you click **Accept** in Catstep MD's
   Pending UI (or merge the branch manually with another client).
 - \`allow-write: false\` by default. \`write-cap\` hard ceiling of 50.
 
-## SoloMD
+## Catstep MD
 
-These recipes are the canonical examples from SoloMD's v4.0 Agent
+These recipes are the canonical examples from Catstep MD's v4.0 Agent
 Recipes spec. The full schema lives at
 [docs/agents.md](https://github.com/maobukeai/catstep-md/blob/main/docs/agents.md).
 
@@ -78,7 +78,7 @@ Replay), get the desktop app:
 - **macOS**: [Download .dmg](https://github.com/maobukeai/catstep-md/releases/latest)
 - **Windows**: [Download .msi](https://github.com/maobukeai/catstep-md/releases/latest)
 - **Linux**: [Download .deb / .rpm / .AppImage](https://github.com/maobukeai/catstep-md/releases/latest)
-- **Mobile**: Android APK / iOS App Store — see [solomd.app](https://solomd.app)
+- **Mobile**: Android APK / iOS App Store — see [github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 
 MIT licensed. Issues & PRs welcome at
 [github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md).

@@ -1,7 +1,7 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 
 /**
- * #280 — open a second SoloMD window.
+ * #280 — open a second Catstep MD window.
  *
  * There are two ways in: the native menu (File → New Window) and the command
  * palette. They used to be separate implementations — the palette built a
@@ -24,12 +24,12 @@ export function openNewWindow(): Promise<void> {
       }
       return;
     }
-    const label = `solomd-${Date.now()}`;
+    const label = `catstep-${Date.now()}`;
     let win: WebviewWindow;
     try {
       win = new WebviewWindow(label, {
         url: '/',
-        title: 'SoloMD',
+        title: 'Catstep MD',
         width: 1000,
         height: 700,
       });

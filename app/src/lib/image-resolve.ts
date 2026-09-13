@@ -1,5 +1,5 @@
 /**
- * Shared image URL resolution for SoloMD.
+ * Shared image URL resolution for Catstep MD.
  * Used by Preview.vue, pdf-export.ts, image-export.ts, and docx-export.ts
  * to convert local image paths into URLs the webview can load or bytes for embedding.
  */

@@ -6,19 +6,19 @@
 
 ### Entry to Add
 ```markdown
-- [SoloMD](https://solomd.app) - A lightweight (15 MB) cross-platform Markdown editor with live preview, KaTeX, and Mermaid support. Built with Tauri 2. [![Open Source](https://img.shields.io/badge/Open%20Source-MIT-green.svg)](https://github.com/maobukeai/catstep-md)
+- [Catstep MD](https://github.com/maobukeai/catstep-md) - A lightweight (15 MB) cross-platform Markdown editor with live preview, KaTeX, and Mermaid support. Built with Tauri 2. [![Open Source](https://img.shields.io/badge/Open%20Source-MIT-green.svg)](https://github.com/maobukeai/catstep-md)
 ```
 
 ### PR Title
 ```
-Add SoloMD - Lightweight Markdown editor built with Tauri 2
+Add Catstep MD - Lightweight Markdown editor built with Tauri 2
 ```
 
 ### PR Description
 ```markdown
-## What is SoloMD?
+## What is Catstep MD?
 
-SoloMD is a lightweight, cross-platform Markdown editor (~15 MB installed) built with Tauri 2 and Rust.
+Catstep MD is a lightweight, cross-platform Markdown editor (~15 MB installed) built with Tauri 2 and Rust.
 
 **Key features:**
 - Live preview (markers hide when cursor leaves line)
@@ -29,7 +29,7 @@ SoloMD is a lightweight, cross-platform Markdown editor (~15 MB installed) built
 - Zero telemetry, fully offline
 
 **Links:**
-- Website: https://solomd.app
+- Website: https://github.com/maobukeai/catstep-md
 - GitHub: https://github.com/maobukeai/catstep-md
 - License: MIT
 
@@ -44,17 +44,17 @@ SoloMD is a lightweight, cross-platform Markdown editor (~15 MB installed) built
 
 ### Entry to Add (under Applications > Productivity or Editors)
 ```markdown
-- [SoloMD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor with live preview, KaTeX math, and Mermaid diagrams.
+- [Catstep MD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor with live preview, KaTeX math, and Mermaid diagrams.
 ```
 
 ### PR Title
 ```
-Add SoloMD - Markdown editor built with Tauri 2
+Add Catstep MD - Markdown editor built with Tauri 2
 ```
 
 ### PR Description
 ```markdown
-Adding SoloMD, a Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
+Adding Catstep MD, a Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
 
 **Features:**
 - ~15 MB installed
@@ -64,7 +64,7 @@ Adding SoloMD, a Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
 - Export to HTML/PDF/DOCX
 
 **Links:**
-- Website: https://solomd.app
+- Website: https://github.com/maobukeai/catstep-md
 - GitHub: https://github.com/maobukeai/catstep-md
 - License: MIT
 
@@ -79,17 +79,17 @@ This is a real-world Tauri 2 application that might be useful for developers lea
 
 ### Entry to Add (under Applications > Text editors)
 ```markdown
-* [SoloMD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor built with Tauri 2. [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/maobukeai/catstep-md)
+* [Catstep MD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor built with Tauri 2. [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/maobukeai/catstep-md)
 ```
 
 ### PR Title
 ```
-Add SoloMD to Text editors
+Add Catstep MD to Text editors
 ```
 
 ### PR Description
 ```markdown
-Adding SoloMD, a cross-platform Markdown editor.
+Adding Catstep MD, a cross-platform Markdown editor.
 
 **Rust components:**
 - Tauri 2 for the application framework
@@ -114,17 +114,17 @@ License: MIT
 
 ### Entry to Add (under Projects Using Vue.js > Desktop)
 ```markdown
-- [SoloMD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
+- [Catstep MD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
 ```
 
 ### PR Title
 ```
-Add SoloMD - Tauri 2 desktop app built with Vue 3
+Add Catstep MD - Tauri 2 desktop app built with Vue 3
 ```
 
 ### PR Description
 ```markdown
-Adding SoloMD, a cross-platform Markdown editor.
+Adding Catstep MD, a cross-platform Markdown editor.
 
 **Tech stack:**
 - Vue 3 with `<script setup>` and Composition API
@@ -150,12 +150,12 @@ License: MIT
 
 ### Entry to Add
 ```markdown
-- [SoloMD](https://github.com/maobukeai/catstep-md) - Lightweight Markdown editor (Tauri 2 + Vue 3) `MIT`
+- [Catstep MD](https://github.com/maobukeai/catstep-md) - Lightweight Markdown editor (Tauri 2 + Vue 3) `MIT`
 ```
 
 ### PR Title
 ```
-Add SoloMD - Open source Markdown editor
+Add Catstep MD - Open source Markdown editor
 ```
 
 ---

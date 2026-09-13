@@ -2,9 +2,9 @@
 
 ## 项目信息
 
-**Project Name**: solomd
+**Project Name**: catstep-md
 
-**Display Name**: SoloMD
+**Display Name**: Catstep MD
 
 **Short Description** (250 chars):
 ```
@@ -13,7 +13,7 @@ A lightweight, cross-platform Markdown editor with live preview. Built with Taur
 
 **Full Description**:
 ```
-SoloMD is a lightweight Markdown + plain text editor designed for focused writing.
+Catstep MD is a lightweight Markdown + plain text editor designed for focused writing.
 
 FEATURES:
 • Live Preview: WYSIWYG-style editing where Markdown syntax hides when you leave the line
@@ -51,16 +51,16 @@ LICENSE: MIT (Free & Open Source)
 
 ```
 /Windows/
-  - SoloMD_0.1.8_x64-setup.exe
-  - SoloMD_0.1.8_x64_en-US.msi
+  - Catstep MD_0.1.8_x64-setup.exe
+  - Catstep MD_0.1.8_x64_en-US.msi
 
 /macOS/
-  - SoloMD_0.1.8_universal.dmg
+  - Catstep MD_0.1.8_universal.dmg
 
 /Linux/
-  - SoloMD_0.1.8_amd64.deb
-  - SoloMD_0.1.8_amd64.AppImage
-  - SoloMD-0.1.8-1.x86_64.rpm
+  - Catstep MD_0.1.8_amd64.deb
+  - Catstep MD_0.1.8_amd64.AppImage
+  - Catstep MD-0.1.8-1.x86_64.rpm
 ```
 
 ## 提交步骤

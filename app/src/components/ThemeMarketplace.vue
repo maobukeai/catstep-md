@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * SoloMD Theme Marketplace — 3-Tier Theme Ecosystem:
+ * Catstep MD Theme Marketplace — 3-Tier Theme Ecosystem:
  *
  * 1. 🎨 本地精选 (Built-in) — 100% offline, official hand-crafted vector cards, zero external network dependency.
  * 2. 🌐 Typora 在线市场 (Typora Gallery) — Real-time GitHub community themes with star counts, direct repo links,
@@ -1247,7 +1247,7 @@ function getDisplayTags(tags?: string[]): string[] {
 
           <div class="tm__url-modal-body">
             <p class="tm__url-modal-desc">
-              {{ isZh ? '输入任意公开的 GitHub Typora 主题仓库链接或 raw.githubusercontent.com 原始 CSS 链接，SoloMD 将自动解析并拉取安装。' : 'Enter any public GitHub Typora repository or raw CSS URL. SoloMD will fetch and sandbox it.' }}
+              {{ isZh ? '输入任意公开的 GitHub Typora 主题仓库链接或 raw.githubusercontent.com 原始 CSS 链接，猫步 MD 将自动解析并拉取安装。' : 'Enter any public GitHub Typora repository or raw CSS URL. Catstep MD will fetch and sandbox it.' }}
             </p>
             <input
               v-model="customUrlInput"

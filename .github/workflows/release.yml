@@ -134,7 +134,7 @@ jobs:
       #
       # v4.11.20's x64 MSI shipped tripping `Trojan:Script/Sabsik.EN.A!ml` — a
       # machine-learning false positive that hits only the MSI (the identical
-      # SoloMD.exe scans clean on its own, as does the arm64 MSI). Windows
+      # CatstepMD.exe scans clean on its own, as does the arm64 MSI). Windows
       # deleted the download mid-flight and the first we heard of it was a
       # user asking why Chrome said "virus detected". Scan what we just built,
       # here, so the next one fails in CI instead of in front of users.
@@ -169,7 +169,7 @@ jobs:
           try {
             $targets = @()
             $targets += Get-ChildItem "app/src-tauri/target/release/bundle/msi" -Filter *.msi -ErrorAction SilentlyContinue
-            $targets += Get-ChildItem "app/src-tauri/target/release/CatstepMD.exe", "app/src-tauri/target/release/SoloMD.exe" -ErrorAction SilentlyContinue
+            $targets += Get-ChildItem "app/src-tauri/target/release/CatstepMD.exe" -ErrorAction SilentlyContinue
             $targets += Get-ChildItem "mcp-server/target" -Recurse -Filter "*mcp.exe" -ErrorAction SilentlyContinue |
                         Where-Object { $_.FullName -match "\\release\\" } | Select-Object -First 1
             if (-Not $targets) {
@@ -284,7 +284,7 @@ jobs:
           $arch = if ("${{ matrix.platform }}" -eq "windows-11-arm") { "arm64" } else { "x64" }
           $version = (Get-Content app/package.json -Raw | ConvertFrom-Json).version
           $exe = if (Test-Path "app/src-tauri/target/release/CatstepMD.exe") { "app/src-tauri/target/release/CatstepMD.exe" }
-                 elseif (Test-Path "app/src-tauri/target/release/SoloMD.exe") { "app/src-tauri/target/release/SoloMD.exe" }
+                 
                  else { (Get-ChildItem "app/src-tauri/target/release/*.exe" -Exclude "*.d.exe", "build_script_build.exe" | Select-Object -First 1).FullName }
           if (-Not $exe -or -Not (Test-Path $exe)) {
             Write-Error "Missing desktop executable in app/src-tauri/target/release/ — Tauri build did not run as expected"

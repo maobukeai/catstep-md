@@ -28,7 +28,7 @@ const home = lang === 'en' ? '/' : `/${lang}/`;
 // see in this template. They are global instead, every selector confined to
 // `.whats-new`.
 // `{VERSION}` is a placeholder in the prose — in the CTA labels and in the
-// page title/description, which say things like "What's new in SoloMD 4.12.0".
+// page title/description, which say things like "What's new in Catstep MD 4.12.0".
 // Substituted here rather than left to a template literal, because the prose
 // now lives in a data file where `${...}` would just be text.
 const fill = (t: string) => t.replaceAll('{VERSION}', VERSION);
@@ -53,8 +53,8 @@ const metaDescription = fill(data.meta.description);
       <p class="lead" set:html={data.hero.lead} />
 
       <div class="cta-row">
-        <a class="btn btn--primary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}>{cta[0]}</a>
-        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}>{cta[1]}</a>
+        <a class="btn btn--primary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_universal.dmg`}>{cta[0]}</a>
+        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_x64_en-US.msi`}>{cta[1]}</a>
         <a class="btn btn--secondary btn--lg" href={`https://github.com/maobukeai/catstep-md/releases/tag/v${VERSION}`}>{cta[2]}</a>
       </div>
 

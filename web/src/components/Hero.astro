@@ -13,20 +13,20 @@ const whatsNewHref = `${langPrefix}/whats-new/`;
 const agentsHref = lang === 'zh' ? '/zh/agents/' : '/agents/';
 const brandStoryHref = lang === 'zh' ? '/zh/blog/v4-11-3-new-logo/' : '/blog/v4-11-3-new-logo/';
 const BRAND_UPDATE = {
-  en: { eyebrow: 'A NEW FACE FOR SOLOMD', title: 'The # became a portal.', cta: 'Read the design story' },
-  zh: { eyebrow: 'SOLOMD 全新品牌形象', title: '这个 #，现在是一扇入口。', cta: '看看新 Logo 背后的想法' },
-  ja: { eyebrow: 'SOLOMD の新しい顔', title: '「#」がポータルになりました。', cta: 'デザインストーリーを読む' },
-  ko: { eyebrow: 'SOLOMD의 새로운 얼굴', title: '#이 하나의 포털이 되었습니다.', cta: '디자인 이야기 보기' },
-  de: { eyebrow: 'DAS NEUE GESICHT VON SOLOMD', title: 'Aus dem # wurde ein Portal.', cta: 'Die Designgeschichte lesen' },
-  fr: { eyebrow: 'LE NOUVEAU VISAGE DE SOLOMD', title: 'Le # est devenu un portail.', cta: 'Lire l’histoire du design' },
-  es: { eyebrow: 'LA NUEVA CARA DE SOLOMD', title: 'El # se convirtió en un portal.', cta: 'Leer la historia del diseño' },
-  pt: { eyebrow: 'A NOVA CARA DO SOLOMD', title: 'O # virou um portal.', cta: 'Ler a história do design' },
-  it: { eyebrow: 'IL NUOVO VOLTO DI SOLOMD', title: 'Il # è diventato un portale.', cta: 'Leggi la storia del design' },
-  pl: { eyebrow: 'NOWA TWARZ SOLOMD', title: 'Znak # stał się portalem.', cta: 'Poznaj historię projektu' },
-  nl: { eyebrow: 'HET NIEUWE GEZICHT VAN SOLOMD', title: 'De # werd een portaal.', cta: 'Lees het ontwerpverhaal' },
-  tr: { eyebrow: "SOLOMD'NİN YENİ YÜZÜ", title: '# artık bir portal.', cta: 'Tasarım hikâyesini oku' },
-  sv: { eyebrow: 'SOLOMDS NYA ANSIKTE', title: '# blev en portal.', cta: 'Läs designberättelsen' },
-  uk: { eyebrow: 'НОВЕ ОБЛИЧЧЯ SOLOMD', title: '# став порталом.', cta: 'Прочитати історію дизайну' },
+  en: { eyebrow: 'A FRESH LOOK FOR CATSTEP MD', title: 'One file. One window. Just write.', cta: 'Read the brand story' },
+  zh: { eyebrow: '猫步 MD 全新品牌形象', title: '用猫步，写好每一篇 Markdown。', cta: '了解全新品牌理念' },
+  ja: { eyebrow: 'CATSTEP MD の新しい顔', title: '猫のように軽やかに、文章を綴る。', cta: 'ブランドストーリーを読む' },
+  ko: { eyebrow: 'CATSTEP MD의 새로운 얼굴', title: '한 편의 글, 한 걸음의 가벼움.', cta: '브랜드 이야기 보기' },
+  de: { eyebrow: 'DAS NEUE GESICHT VON CATSTEP MD', title: 'Eine Datei. Ein Fenster. Einfach schreiben.', cta: 'Die Markengeschichte lesen' },
+  fr: { eyebrow: 'LE NOUVEAU VISAGE DE CATSTEP MD', title: 'Un fichier. Une fenêtre. Écrivez en toute liberté.', cta: 'Découvrir la marque' },
+  es: { eyebrow: 'LA NUEVA CARA DE CATSTEP MD', title: 'Un archivo. Una ventana. Simplemente escribe.', cta: 'Conocer la historia de la marca' },
+  pt: { eyebrow: 'A NOVA CARA DO CATSTEP MD', title: 'Um arquivo. Uma janela. Apenas escreva.', cta: 'Ler a história da marca' },
+  it: { eyebrow: 'IL NUOVO VOLTO DI CATSTEP MD', title: 'Un file. Una finestra. Semplicemente scrivi.', cta: 'Scopri la storia del brand' },
+  pl: { eyebrow: 'NOWA TWARZ CATSTEP MD', title: 'Jeden plik. Jedno okno. Po prostu pisz.', cta: 'Poznaj historię marki' },
+  nl: { eyebrow: 'HET NIEUWE GEZICHT VAN CATSTEP MD', title: 'Eén bestand. Eén venster. Gewoon schrijven.', cta: 'Lees het merkverhaal' },
+  tr: { eyebrow: "CATSTEP MD'NİN YENİ YÜZÜ", title: 'Tek dosya. Tek pencere. Sadece yazın.', cta: 'Marka hikâyesini oku' },
+  sv: { eyebrow: 'CATSTEP MDS NYA ANSIKTE', title: 'En fil. Ett fönster. Bara skriv.', cta: 'Läs varumärkesberättelsen' },
+  uk: { eyebrow: 'НОВЕ ОБЛИЧЧЯ CATSTEP MD', title: 'Один файл. Одне вікно. Просто пишіть.', cta: 'Дізнатися про новий бренд' },
 }[lang];
 const ONE_LINE_LABEL = {
   en: 'Or one-line install',
@@ -46,7 +46,7 @@ const ONE_LINE_LABEL = {
 }[lang];
 
 // Default (SSR / no-JS / unknown OS) → mac dmg link
-const defaultDownload = `${baseUrl}/SoloMD_${VERSION}_universal.dmg`;
+const defaultDownload = `${baseUrl}/Catstep MD_${VERSION}_universal.dmg`;
 
 // ---- Fetch stats at BUILD time (Cloudflare Pages runs this fresh) ----
 // This guarantees the numbers render even if the client-side API call
@@ -60,7 +60,7 @@ let initialStars = 0;
 let initialDownloads = 0;
 const GH_TOKEN = (typeof process !== 'undefined' && process.env && process.env.GITHUB_TOKEN) || '';
 const GH_HEADERS: Record<string, string> = {
-  'User-Agent': 'SoloMD-build-stats',
+  'User-Agent': 'Catstep MD-build-stats',
   Accept: 'application/vnd.github+json',
 };
 if (GH_TOKEN) GH_HEADERS.Authorization = `Bearer ${GH_TOKEN}`;
@@ -131,10 +131,10 @@ const initialDownloadsText = initialDownloads > 0 ? fmtDownloads(initialDownload
         data-mac-text={tr.hero.ctaForMac}
         data-win-text={tr.hero.ctaForWindows}
         data-linux-text={tr.hero.ctaForLinux}
-        data-mac-href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}
-        data-win-href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}
-        data-win-arm-href={`${baseUrl}/SoloMD_${VERSION}_arm64_en-US.msi`}
-        data-linux-href={`${baseUrl}/SoloMD_${VERSION}_amd64.AppImage`}
+        data-mac-href={`${baseUrl}/Catstep MD_${VERSION}_universal.dmg`}
+        data-win-href={`${baseUrl}/Catstep MD_${VERSION}_x64_en-US.msi`}
+        data-win-arm-href={`${baseUrl}/Catstep MD_${VERSION}_arm64_en-US.msi`}
+        data-linux-href={`${baseUrl}/Catstep MD_${VERSION}_amd64.AppImage`}
       >
         ⬇ {tr.hero.ctaPrimary}
       </a>
@@ -180,13 +180,13 @@ const initialDownloadsText = initialDownloads > 0 ? fmtDownloads(initialDownload
            engine without WebP. Verified pixel-identical to the PNG, so this is
            purely a transfer-size win on the LCP image. -->
       <picture>
-        <source srcset="/demo/solomd-hero.webp" type="image/webp" />
+        <source srcset="/demo/catstep-hero.webp" type="image/webp" />
         <img
           class="hero__demo-media"
-          src="/demo/solomd-hero.png"
+          src="/demo/catstep-hero.png"
           alt={tr.hero.demoAlt}
-          width="1920"
-          height="873"
+          width="1200"
+          height="800"
           loading="eager"
           fetchpriority="high"
         />

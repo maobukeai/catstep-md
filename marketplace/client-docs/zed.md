@@ -1,4 +1,4 @@
-# `solomd-mcp` in Zed
+# `catstep-mcp` in Zed
 
 [Zed](https://zed.dev)'s built-in agent reads MCP servers from
 `~/.config/zed/settings.json` under `context_servers`.
@@ -7,14 +7,14 @@
 
 ```bash
 # macOS
-cargo install solomd-mcp
+cargo install catstep-mcp
 
 # Linux x64
-curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-x64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-x64.tar.gz \
   | tar -xz -C /usr/local/bin
 
 # Linux arm64
-curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-arm64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-arm64.tar.gz \
   | tar -xz -C /usr/local/bin
 ```
 
@@ -28,7 +28,7 @@ it there.)
   "context_servers": {
     "solomd": {
       "command": {
-        "path": "solomd-mcp",
+        "path": "catstep-mcp",
         "args": ["--workspace", "/Users/you/notes"]
       },
       "settings": {}
@@ -56,9 +56,9 @@ In Zed's chat panel:
 ]
 ```
 
-## About SoloMD
+## About Catstep MD
 
-[**SoloMD**](https://solomd.app) is the Markdown editor that ships this MCP
+[**Catstep MD**](https://github.com/maobukeai/catstep-md) is the Markdown editor that ships this MCP
 server pre-wired. Get the desktop app for the Agent panel UI:
 
-[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)
+[📥 Download Catstep MD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)

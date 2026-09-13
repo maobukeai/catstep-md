@@ -1,4 +1,4 @@
-# `solomd-mcp` in Cline (VS Code)
+# `catstep-mcp` in Cline (VS Code)
 
 [Cline](https://github.com/cline/cline) reads MCP server config from its
 `cline_mcp_settings.json` file. Access via:
@@ -13,14 +13,14 @@ Or just open Cline's MCP Servers tab and click "Edit settings".
 
 ```bash
 # macOS
-cargo install solomd-mcp
+cargo install catstep-mcp
 
 # Linux x64
-curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-x64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-x64.tar.gz \
   | tar -xz -C /usr/local/bin
 
 # Linux arm64
-curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-arm64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/catstep-mcp-linux-arm64.tar.gz \
   | tar -xz -C /usr/local/bin
 
 # Windows — unzip and put on PATH.
@@ -32,7 +32,7 @@ curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-
 {
   "mcpServers": {
     "solomd": {
-      "command": "solomd-mcp",
+      "command": "catstep-mcp",
       "args": ["--workspace", "/Users/you/notes"],
       "disabled": false,
       "autoApprove": ["list_notes", "read_note", "search", "get_outline", "get_backlinks", "list_tags"]
@@ -58,9 +58,9 @@ Add `--allow-write` to args. Add `"write_note"` and `"append_to_note"` to
 `autoApprove` only if you really want Cline writing without per-call
 confirmation (recommend leaving them manual).
 
-## About SoloMD
+## About Catstep MD
 
-[**SoloMD**](https://solomd.app) is the Markdown editor that ships this MCP
+[**Catstep MD**](https://github.com/maobukeai/catstep-md) is the Markdown editor that ships this MCP
 server pre-wired. Get the desktop app for the Agent panel UI:
 
-[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)
+[📥 Download Catstep MD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)

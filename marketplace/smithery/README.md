@@ -1,17 +1,17 @@
-# Smithery submission — `solomd-mcp`
+# Smithery submission — `catstep-mcp`
 
 ## Status
 
 ⏸️ **Deferred** (as of 2026-05-31). Smithery's current
 [web publish form](https://smithery.ai/new) requires an HTTP-accessible
-MCP endpoint (`https://your-server.com/mcp`). `solomd-mcp` is **stdio
+MCP endpoint (`https://your-server.com/mcp`). `catstep-mcp` is **stdio
 JSON-RPC** only — the same transport every reference MCP server uses, and
 the one Claude Desktop / Claude Code / Cursor / Cline / Continue / Zed
 all drive natively over a child process.
 
 Two paths to re-enable this market:
 
-1. **Build an HTTP/SSE transport wrapper** for `solomd-mcp` — a small
+1. **Build an HTTP/SSE transport wrapper** for `catstep-mcp` — a small
    sidecar that bridges HTTP requests to the stdio handler. Tracked for
    v4.5.
 2. **Wait for Smithery to re-open stdio submissions** — `smithery-ai/registry`
@@ -35,24 +35,24 @@ distribution exactly the same way Smithery wants it.
 ## Submitting
 
 1. Fork [smithery-ai/registry](https://github.com/smithery-ai/registry).
-2. Add `servers/solomd-mcp/smithery.yaml` — copy from this directory.
-3. Add `servers/solomd-mcp/listing.md` — copy from this directory.
+2. Add `servers/catstep-mcp/smithery.yaml` — copy from this directory.
+3. Add `servers/catstep-mcp/listing.md` — copy from this directory.
 4. Open a PR with:
 
-   **Title**: `Add solomd-mcp — MCP server for SoloMD Markdown vaults`
+   **Title**: `Add catstep-mcp — MCP server for Catstep MD Markdown vaults`
 
    **Body** (paste verbatim):
 
    ```markdown
    ## What
 
-   solomd-mcp is the MCP server bundled with [SoloMD](https://solomd.app),
+   catstep-mcp is the MCP server bundled with [Catstep MD](https://github.com/maobukeai/catstep-md),
    a free MIT-licensed Markdown editor with a built-in agent surface.
 
    13 tools over stdio (JSON-RPC):
    - 8 generic Markdown-vault tools (list_notes, read_note, search,
      get_backlinks, list_tags, get_outline, write_note, append_to_note)
-   - 5 SoloMD-only tools that leverage SoloMD's per-note AutoGit history
+   - 5 Catstep MD-only tools that leverage Catstep MD's per-note AutoGit history
      (autogit_log, autogit_diff, autogit_rollback, sync_status, share_url)
    - 1 trace replayer (read_agent_trace)
 
@@ -62,15 +62,15 @@ distribution exactly the same way Smithery wants it.
 
    - Prebuilt binaries on every GitHub release for linux-x64, linux-arm64,
      win-x64, win-arm64 (~4 MB each).
-   - macOS users install via `cargo install solomd-mcp` or use the bundled
-     binary inside the SoloMD.app distribution.
+   - macOS users install via `cargo install catstep-mcp` or use the bundled
+     binary inside the Catstep MD.app distribution.
    - Dockerfile included for unsupported platforms / containerised deploys.
 
    ## Why it belongs on Smithery
 
-   - Works against any folder of `.md` files — no SoloMD account or
+   - Works against any folder of `.md` files — no Catstep MD account or
      server required.
-   - The 5 SoloMD-only tools (AutoGit + share URLs) are not available in
+   - The 5 Catstep MD-only tools (AutoGit + share URLs) are not available in
      any other MCP server we know of.
    - Bundled with a desktop GUI (Agent panel, accept/reject pending writes,
      trace replay) that drives the same server — gives Smithery users a
@@ -79,8 +79,8 @@ distribution exactly the same way Smithery wants it.
    ## Verification
 
    - `npm run lint` on smithery.yaml: passes locally.
-   - Docker build from repo root: `docker build -t solomd-mcp -f marketplace/smithery/Dockerfile .` — completes in ~2 min.
-   - `solomd-mcp --workspace /tmp/test-vault` followed by an MCP `initialize`
+   - Docker build from repo root: `docker build -t catstep-mcp -f marketplace/smithery/Dockerfile .` — completes in ~2 min.
+   - `catstep-mcp --workspace /tmp/test-vault` followed by an MCP `initialize`
      handshake responds with the full tool list (verified against Claude
      Desktop, Claude Code, and Cline).
 
@@ -90,14 +90,14 @@ distribution exactly the same way Smithery wants it.
    ```
 
 5. Once merged, Smithery's indexer picks it up within ~1 hour. The listing
-   URL will be `https://smithery.ai/server/solomd-mcp`.
+   URL will be `https://smithery.ai/server/catstep-mcp`.
 
 ## After the listing is live
 
 - Update [`../README.md`](../README.md)'s status table.
 - Add the Smithery install badge to the root README:
   ```markdown
-  [![Install on Smithery](https://smithery.ai/badge/solomd-mcp)](https://smithery.ai/server/solomd-mcp)
+  [![Install on Smithery](https://smithery.ai/badge/catstep-mcp)](https://smithery.ai/server/catstep-mcp)
   ```
 - Tweet / post to https://x.com/anthropic + r/ClaudeAI / r/LocalLLaMA with
   the listing URL.

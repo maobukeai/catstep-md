@@ -402,7 +402,7 @@ async fn handle_conn(mut stream: TcpStream, _app: AppHandle) -> Result<(), Strin
                 write_err(
                     &mut stream,
                     503,
-                    "no workspace folder open in SoloMD; open a folder first",
+                    "no workspace folder open in Catstep MD; open a folder first",
                 )
                 .await;
                 return Ok(());

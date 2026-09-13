@@ -1,220 +1,242 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>猫步 MD 网页剪藏 · 设置</title>
-    <link rel="stylesheet" href="popup.css" />
-    <style>
-      body {
-        width: 100%;
-        max-width: 540px;
-        margin: 32px auto;
-        padding: 0 24px 64px;
-        background: #fff;
-      }
-      h1 {
-        font-size: 20px;
-        margin: 0 0 8px;
-      }
-      h2 {
-        font-size: 13px;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #888;
-        margin: 24px 0 8px;
-        font-weight: 600;
-      }
-      p.intro {
-        font-size: 13px;
-        line-height: 1.6;
-        color: #555;
-        margin: 0 0 16px;
-      }
-      form {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      label.field {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-size: 13px;
-        font-weight: 600;
-      }
-      .field__hint {
-        font-size: 11px;
-        font-weight: normal;
-        color: #888;
-      }
-      input[type='text'],
-      input[type='password'],
-      select {
-        font: inherit;
-        font-size: 13px;
-        padding: 8px 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        background: #fff;
-        color: #222;
-        font-family: ui-monospace, Menlo, monospace;
-      }
-      input[type='text']:focus,
-      input[type='password']:focus,
-      select:focus {
-        outline: none;
-        border-color: #ff9f40;
-        box-shadow: 0 0 0 2px rgba(255, 159, 64, 0.2);
-      }
-      .field__row {
-        display: flex;
-        gap: 8px;
-      }
-      .field__row input {
-        flex: 1;
-      }
-      .checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 13px;
-        font-weight: 500;
-        color: #444;
-      }
-      .actions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin-top: 8px;
-      }
-      .btn {
-        font: inherit;
-        font-size: 13px;
-        padding: 8px 16px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        cursor: pointer;
-        background: #fafafa;
-        color: #222;
-      }
-      .btn--primary {
-        background: #ff9f40;
-        border-color: #ff9f40;
-        color: white;
-        font-weight: 600;
-      }
-      .btn--primary:hover {
-        background: #ff8c1a;
-      }
-      .btn:disabled {
-        opacity: 0.6;
-        cursor: progress;
-      }
-      .status {
-        font-size: 12px;
-        color: #666;
-        min-height: 18px;
-        margin-left: auto;
-      }
-      .status--ok {
-        color: #2e7d32;
-      }
-      .status--err {
-        color: #c0392b;
-      }
-      @media (prefers-color-scheme: dark) {
-        body {
-          background: #1f2024;
-          color: #e6e6e6;
-        }
-        h2 {
-          color: #999;
-        }
-        p.intro {
-          color: #bbb;
-        }
-        input[type='text'],
-        input[type='password'],
-        select {
-          background: #2a2b30;
-          border-color: #3a3b40;
-          color: #e6e6e6;
-        }
-        .checkbox-row {
-          color: #ddd;
-        }
-        .btn {
-          background: #2a2b30;
-          border-color: #3a3b40;
-          color: #ddd;
-        }
-        .btn--primary {
-          background: #ff9f40;
-          border-color: #ff9f40;
-          color: #1f2024;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="options.css" />
   </head>
   <body>
-    <h1 data-i18n="clipper.options.heading">与 猫步 MD 配对</h1>
-    <p class="intro" data-i18n="clipper.options.intro">
-      在 猫步 MD 里打开「设置 → 集成 → HTTP 捕获端点」，启用它，然后把令牌粘贴到这里。
-    </p>
+    <div class="options-container">
+      <!-- Top Brand Header -->
+      <header class="hero-header">
+        <div class="hero-header__brand">
+          <img src="icons/icon-128.png" alt="猫步 MD" class="hero-header__logo" />
+          <div class="hero-header__meta">
+            <div class="hero-header__title-row">
+              <h1 class="hero-header__title" data-i18n="clipper.options.title">猫步 MD 网页剪藏 · 设置</h1>
+              <span class="hero-header__badge">v2.4.0</span>
+            </div>
+            <p class="hero-header__desc" data-i18n="clipper.options.subtitle">
+              将网页内容极速保存至本地猫步 MD 知识库。100% 隐私安全，纯本地回环运行。
+            </p>
+          </div>
+        </div>
+      </header>
 
-    <form id="settings-form" autocomplete="off">
-      <label class="field">
-        <span data-i18n="clipper.options.endpoint">Endpoint URL</span>
-        <input id="endpoint" type="text" placeholder="http://127.0.0.1:7777" />
-        <span class="field__hint" data-i18n="clipper.options.endpointHint"
-          >Default: http://127.0.0.1:7777 (loopback only — never leaves your machine).</span
-        >
-      </label>
+      <!-- Live Connection Banner / Guide -->
+      <aside class="guide-banner" id="guide-banner">
+        <div class="guide-banner__header">
+          <svg class="guide-banner__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span class="guide-banner__title" data-i18n="clipper.options.quickGuide">配对指引</span>
+        </div>
+        <div class="guide-banner__steps">
+          <span class="guide-step" data-i18n="clipper.options.step1">1. 打开「猫步 MD」桌面客户端。</span>
+          <span class="guide-step" data-i18n="clipper.options.step2">2. 进入「设置 → 集成」，开启「HTTP 捕获端点」。</span>
+          <span class="guide-step" data-i18n="clipper.options.step3">3. 复制显示的专属令牌，并粘贴到下方输入框中。</span>
+        </div>
+      </aside>
 
-      <label class="field">
-        <span data-i18n="clipper.options.token">Bearer token</span>
-        <input id="token" type="password" placeholder="paste your token" />
-        <span class="field__hint" data-i18n="clipper.options.tokenHint"
-          >从 猫步 MD「设置 → 集成」复制粘贴过来。</span
-        >
-      </label>
+      <!-- Main Form -->
+      <form id="settings-form" autocomplete="off">
+        <!-- Section 1: Desktop Pairing -->
+        <section class="config-card">
+          <div class="config-card__header">
+            <svg class="config-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="3" rx="2"/>
+              <line x1="8" x2="16" y1="21" y2="21"/>
+              <line x1="12" x2="12" y1="17" y2="21"/>
+            </svg>
+            <h2 class="config-card__title" data-i18n="clipper.options.sectionEndpoint">桌面端连接</h2>
+          </div>
 
-      <label class="field">
-        <span data-i18n="clipper.options.subfolder">Sub-folder (optional)</span>
-        <input id="subfolder" type="text" placeholder="" />
-        <span class="field__hint" data-i18n="clipper.options.subfolderHint"
-          >Relative to the workspace inbox. Leave blank to drop into the inbox root.</span
-        >
-      </label>
+          <div class="form-group">
+            <label class="form-label" for="endpoint">
+              <span class="form-label__text" data-i18n="clipper.options.endpoint">端点地址</span>
+              <button class="form-link-btn" id="btn-reset-endpoint" type="button" data-i18n="clipper.options.resetDefault">恢复默认</button>
+            </label>
+            <div class="input-wrapper">
+              <input id="endpoint" type="text" placeholder="http://127.0.0.1:7777" spellcheck="false" />
+            </div>
+            <p class="form-hint" data-i18n="clipper.options.endpointHint">
+              默认：http://127.0.0.1:7777（仅本机回环 — 数据绝不离开你的电脑）。
+            </p>
+          </div>
 
-      <label class="checkbox-row">
-        <input id="notify" type="checkbox" />
-        <span data-i18n="clipper.options.notifyOnSuccess"
-          >Show a desktop notification when a capture lands.</span
-        >
-      </label>
+          <div class="form-group">
+            <label class="form-label" for="token">
+              <span class="form-label__text" data-i18n="clipper.options.token">专属令牌 (Bearer Token)</span>
+            </label>
+            <div class="input-wrapper input-wrapper--actions">
+              <input id="token" type="password" placeholder="从猫步 MD「设置 → 集成」粘贴令牌" spellcheck="false" />
+              <div class="input-actions">
+                <button class="input-action-btn" id="btn-toggle-token" type="button" title="切换明文显示">
+                  <svg id="eye-icon-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg id="eye-icon-hide" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m9.88 9.88 4.24 4.24m-4.24 0 4.24-4.24M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                  </svg>
+                </button>
+                <button class="input-action-btn" id="btn-paste-token" type="button" title="从剪贴板粘贴">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <p class="form-hint" data-i18n="clipper.options.tokenHint">
+              从 猫步 MD 桌面端「设置 → 集成」中复制粘贴。
+            </p>
+          </div>
+        </section>
 
-      <label class="field">
-        <span data-i18n="clipper.options.locale">Language</span>
-        <select id="locale">
-          <option value="auto" data-i18n="clipper.options.localeAuto">Auto (browser default)</option>
-          <option value="en" data-i18n="clipper.options.localeEn">English</option>
-          <option value="zh" data-i18n="clipper.options.localeZh">中文 (Chinese)</option>
-        </select>
-      </label>
+        <!-- Section 2: Storage & Behavior -->
+        <section class="config-card">
+          <div class="config-card__header">
+            <svg class="config-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+            </svg>
+            <h2 class="config-card__title" data-i18n="clipper.options.sectionCapture">存储与偏好</h2>
+          </div>
 
-      <div class="actions">
-        <button class="btn" id="test-btn" type="button" data-i18n="clipper.options.test">
-          Test connection
-        </button>
-        <button class="btn btn--primary" id="save-btn" type="submit" data-i18n="clipper.options.save">
-          Save
-        </button>
-        <span class="status" id="status"></span>
-      </div>
-    </form>
+          <div class="form-group">
+            <label class="form-label" for="subfolder">
+              <span class="form-label__text" data-i18n="clipper.options.subfolder">目标子文件夹（可选）</span>
+            </label>
+            <div class="input-wrapper">
+              <input id="subfolder" type="text" placeholder="例如：web-clips（留空为收件箱根目录）" spellcheck="false" />
+            </div>
+            <p class="form-hint" data-i18n="clipper.options.subfolderHint">
+              相对于工作区收件箱目录。留空则直接保存在收件箱根目录。
+            </p>
+          </div>
 
-    <script type="module" src="options.js"></script>
+          <!-- Notification Toggle -->
+          <div class="toggle-row">
+            <div class="toggle-row__info">
+              <span class="toggle-row__title" data-i18n="clipper.options.notifyOnSuccess">启用桌面通知</span>
+              <span class="toggle-row__desc" data-i18n="clipper.options.notifyHint">剪藏成功保存到知识库时弹出系统桌面通知。</span>
+            </div>
+            <label class="switch" for="notify">
+              <input id="notify" type="checkbox" aria-label="启用桌面通知" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Theme Accent Color Selector -->
+          <div class="form-group">
+            <label class="form-label">
+              <span class="form-label__text" data-i18n="clipper.options.themeColor">主题强调色</span>
+            </label>
+            <div class="theme-swatches" id="theme-swatches">
+              <button class="swatch-btn active" data-color="blue" type="button">
+                <span class="swatch-dot swatch-dot--blue"></span>
+                <span data-i18n="clipper.options.themeBlue">经典蓝</span>
+              </button>
+              <button class="swatch-btn" data-color="amber" type="button">
+                <span class="swatch-dot swatch-dot--amber"></span>
+                <span data-i18n="clipper.options.themeAmber">琥珀橙</span>
+              </button>
+              <button class="swatch-btn" data-color="emerald" type="button">
+                <span class="swatch-dot swatch-dot--emerald"></span>
+                <span data-i18n="clipper.options.themeEmerald">翠绿</span>
+              </button>
+              <button class="swatch-btn" data-color="purple" type="button">
+                <span class="swatch-dot swatch-dot--purple"></span>
+                <span data-i18n="clipper.options.themePurple">罗兰紫</span>
+              </button>
+            </div>
+            <input type="hidden" id="accent-color" value="blue" />
+          </div>
+
+          <!-- Language Selector -->
+          <div class="form-group">
+            <label class="form-label" for="locale">
+              <span class="form-label__text" data-i18n="clipper.options.locale">界面语言</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="locale">
+                <option value="auto" data-i18n="clipper.options.localeAuto">自动（跟随浏览器）</option>
+                <option value="zh" data-i18n="clipper.options.localeZh">简体中文</option>
+                <option value="en" data-i18n="clipper.options.localeEn">English</option>
+              </select>
+              <svg class="select-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </div>
+        </section>
+
+        <!-- Actions Bar -->
+        <div class="actions-bar">
+          <button class="btn btn--secondary" id="test-btn" type="button">
+            <svg class="btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v4"/>
+              <path d="m16.2 7.8 2.9-2.9"/>
+              <path d="M18 12h4"/>
+              <path d="m16.2 16.2 2.9 2.9"/>
+              <path d="M12 18v4"/>
+              <path d="m4.9 19.1 2.9-2.9"/>
+              <path d="M2 12h4"/>
+              <path d="m4.9 4.9 2.9 2.9"/>
+            </svg>
+            <span data-i18n="clipper.options.test">测试连接</span>
+          </button>
+          <button class="btn btn--primary" id="save-btn" type="submit">
+            <svg class="btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span data-i18n="clipper.options.save">保存配置</span>
+          </button>
+        </div>
+
+        <!-- Dynamic Status Message Toast -->
+        <div class="status-banner hidden" id="status-banner">
+          <svg class="status-banner__icon" id="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 14 14"/>
+          </svg>
+          <span class="status-banner__text" id="status-text"></span>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      // Standalone preview fallback shim
+      if (typeof window !== 'undefined') {
+        window.chrome = window.chrome || {};
+        window.chrome.runtime = window.chrome.runtime || {};
+        if (!window.chrome.runtime.id) window.chrome.runtime.id = 'catstep-preview';
+        if (!window.chrome.storage || !window.chrome.storage.local) {
+          const _mockStore = {
+            'solomd-clipper-settings': { accentColor: 'blue', locale: 'zh', endpoint: 'http://127.0.0.1:7777', token: '', subfolder: '', notifyOnSuccess: true }
+          };
+          const mockArea = {
+            get: (keys, cb) => {
+              const res = {};
+              (Array.isArray(keys) ? keys : typeof keys === 'string' ? [keys] : Object.keys(keys || {})).forEach(k => {
+                res[k] = k in _mockStore ? _mockStore[k] : (keys && typeof keys === 'object' && !Array.isArray(keys) ? keys[k] : undefined);
+              });
+              if (cb) cb(res);
+              return Promise.resolve(res);
+            },
+            set: (items, cb) => {
+              Object.assign(_mockStore, items);
+              if (cb) cb();
+              return Promise.resolve();
+            }
+          };
+          window.chrome.storage = { local: mockArea, sync: mockArea };
+        }
+      }
+    </script>
+    <script src="options.js" defer></script>
   </body>
 </html>

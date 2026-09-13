@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=SoloMD
+Name=Catstep MD
 GenericName=Markdown Editor
 Comment=Lightweight Markdown and plain text editor
 Exec=solomd %U
@@ -9,4 +9,4 @@ Type=Application
 Categories=TextEditor;Utility;Development;
 MimeType=text/markdown;text/x-markdown;text/plain;
 Keywords=markdown;editor;text;md;
-StartupWMClass=SoloMD
+StartupWMClass=CatstepMD

@@ -14,7 +14,7 @@ import { defineStore } from 'pinia';
  *
  * This store is the persistent registry. It lives in localStorage under
  * `solomd.windows.v1` and is shared by every window instance (localStorage
- * is per-origin, and all SoloMD windows share the same origin). The main
+ * is per-origin, and all Catstep MD windows share the same origin). The main
  * window reads it on startup to re-spawn auxiliary windows; auxiliary
  * windows register themselves on open and unregister on close.
  *

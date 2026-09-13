@@ -9,7 +9,7 @@ const lang = 'en' as const;
 
 <Layout
   title="Images & Attachments — where pasted screenshots go, and how to change it"
-  description="How SoloMD saves pasted and dropped images: the default _assets folder, renaming it to images, per-note folders, and Typora-compatible custom path templates like ./images/${filename}/."
+  description="How Catstep MD saves pasted and dropped images: the default _assets folder, renaming it to images, per-note folders, and Typora-compatible custom path templates like ./images/${filename}/."
   lang={lang}
 >
   <Header lang={lang} />
@@ -25,7 +25,7 @@ const lang = 'en' as const;
       <h2>What happens when you paste</h2>
       <p>
         Copy a screenshot to the clipboard, put the caret in a note, press
-        <kbd>Ctrl/⌘ V</kbd> — SoloMD writes the image file to disk next to your note and
+        <kbd>Ctrl/⌘ V</kbd> — Catstep MD writes the image file to disk next to your note and
         inserts the Markdown link for you. Dragging an image file into the editor does the
         same. By default the file goes into an <code>_assets/</code> folder in the same
         directory as the note:
@@ -61,12 +61,12 @@ const lang = 'en' as const;
           <tr>
             <th>Shared (default)</th>
             <td>One folder per directory — <code>_assets/</code>, or whatever name you set above.</td>
-            <td>Simple vaults; matches SoloMD's pre-v4.3.5 layout.</td>
+            <td>Simple vaults; matches Catstep MD's pre-v4.3.5 layout.</td>
           </tr>
           <tr>
             <th>Per-file</th>
             <td><code>&lt;note&gt;.assets/</code> next to each note — <code>foo.md</code> gets <code>foo.assets/</code>.</td>
-            <td>Keeping each note self-contained. Rename <code>foo.md</code> → <code>bar.md</code> and SoloMD renames <code>foo.assets/</code> too, rewriting the links inside the note.</td>
+            <td>Keeping each note self-contained. Rename <code>foo.md</code> → <code>bar.md</code> and Catstep MD renames <code>foo.assets/</code> too, rewriting the links inside the note.</td>
           </tr>
           <tr>
             <th>Custom (Typora-style)</th>
@@ -113,7 +113,7 @@ const lang = 'en' as const;
           temp folder; the link is rewritten once you save the note.
         </li>
         <li>
-          <strong>Prefer an image host?</strong> SoloMD can also upload pasted images to
+          <strong>Prefer an image host?</strong> Catstep MD can also upload pasted images to
           PicGo, SM.MS, S3 or GitHub and insert the URL instead — see
           <a href="/docs/editor/">the editor guide</a> and Settings → Image upload.
         </li>

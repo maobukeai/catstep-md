@@ -1,8 +1,8 @@
-# Agents in SoloMD
+# Agents in Catstep MD
 
 > **Status:** v4.0 (May 2026). Companion to `docs/roadmap.md` § "v4.0 — Agent-native author".
 
-SoloMD treats agents as **first-class editor surfaces**, not external CLI handoffs. This doc is the
+Catstep MD treats agents as **first-class editor surfaces**, not external CLI handoffs. This doc is the
 *write-your-own-agent* guide: the YAML schema, what tools exist, the safety model, and the patterns
 that work. If you just want to install a starter, open **Settings → Recipes → Browse cookbook**.
 
@@ -224,7 +224,7 @@ By design:
   want "Recipe A then Recipe B," chain them via the trace: Recipe B reads `read_agent_trace` of
   Recipe A's run.
 - **No external HTTP calls from the prompt.** The model only has the tools listed above. If you
-  need to fetch from an external API, write a custom MCP tool (see the `solomd-mcp` source).
+  need to fetch from an external API, write a custom MCP tool (see the `catstep-mcp` source).
 - **No long-running background work.** Recipes are bounded by the model's context window and
   the tool-loop cap (default 8 round-trips). Long jobs should be split into multiple scheduled
   runs.

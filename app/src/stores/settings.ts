@@ -139,7 +139,7 @@ interface Settings {
   // don't clobber one shared tab blob. Unsaved + untitled tabs always follow
   // the user across workspaces so no in-progress work is lost.
   perWorkspaceTabs: boolean;
-  // When a file watched by SoloMD is modified by another program (other
+  // When a file watched by Catstep MD is modified by another program (other
   // editor, git checkout, sync client), reload the buffer automatically
   // if the tab has no unsaved changes. Default on. Dirty tabs always
   // show the reload/overwrite/cancel dialog regardless of this setting —
@@ -357,7 +357,7 @@ interface Settings {
   // is a pane id (search / outline / backlinks / tags / history / agent).
   // Default matches the pre-v4.3.0 hardcoded order. Panes not in the list
   // (newly added in a future release) get appended to the end so the user's
-  // saved layout isn't blown away by a SoloMD update. Issue #57b.
+  // saved layout isn't blown away by a Catstep MD update. Issue #57b.
   rsPaneOrder: string[];
   // v4.3.0: preview-pane font size (px). Decoupled from editor `fontSize`
   // so users can tune editor density and preview readability separately
@@ -443,7 +443,7 @@ interface Settings {
   } | null;
   // Typora-style 3-in-1 Left Sidebar tab: 'files' | 'outline' | 'search'
   leftSidebarTab: 'files' | 'outline' | 'search';
-  // SoloMD Power Tools Right Drawer tab
+  // Catstep MD Power Tools Right Drawer tab
   rightDrawerTab: 'agent' | 'history' | 'backlinks' | 'properties' | 'tools';
   rightDrawerOpen: boolean;
   typoraShortcutsMigrated: boolean;

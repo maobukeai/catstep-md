@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-# solomd - CLI for SoloMD Markdown Editor
+# solomd - CLI for Catstep MD Markdown Editor
 # https://github.com/maobukeai/catstep-md
 #
 # Usage:
-#   solomd open <title|path>     Open a markdown file in SoloMD
+#   solomd open <title|path>     Open a markdown file in Catstep MD
 #   solomd new <title> [text]    Create a new markdown file and open it
 #   solomd list [folder]         List markdown files in a folder
 #   solomd search <query>        Search markdown files in CWD for a query
@@ -12,7 +12,7 @@
 #   solomd help                  Show this help
 #
 # Notes:
-#   - Default notes directory: $SOLOMD_NOTES (or ~/Documents/SoloMD if unset)
+#   - Default notes directory: $SOLOMD_NOTES (or ~/Documents/Catstep MD if unset)
 #   - "title" arguments resolve to <notes-dir>/<title>.md if no extension is
 #     given. Pass an explicit path to bypass this.
 
@@ -26,7 +26,7 @@ DIM='\033[2m'
 NC='\033[0m'
 
 # ---- Notes dir resolution ------------------------------------------------
-NOTES_DIR="${SOLOMD_NOTES:-$HOME/Documents/SoloMD}"
+NOTES_DIR="${SOLOMD_NOTES:-$HOME/Documents/Catstep MD}"
 
 ensure_notes_dir() {
     if [[ ! -d "$NOTES_DIR" ]]; then
@@ -39,15 +39,15 @@ detect_solomd_bin() {
     if [[ "$(uname)" == "Darwin" ]]; then
         local mac_paths=(
             "/Applications/Catstep MD.app/Contents/MacOS/CatstepMD"
-            "/Applications/SoloMD.app/Contents/MacOS/SoloMD"
+            "/Applications/CatstepMD.app/Contents/MacOS/Catstep MD"
             "$HOME/Applications/Catstep MD.app/Contents/MacOS/CatstepMD"
-            "$HOME/Applications/SoloMD.app/Contents/MacOS/SoloMD"
+            "$HOME/Applications/CatstepMD.app/Contents/MacOS/Catstep MD"
         )
         for p in "${mac_paths[@]}"; do
             [[ -x "$p" ]] && echo "$p" && return 0
         done
     elif [[ "$(uname)" == "Linux" ]]; then
-        for cmd in catstep CatstepMD solomd SoloMD; do
+        for cmd in catstep CatstepMD solomd Catstep MD; do
             if command -v "$cmd" >/dev/null 2>&1; then
                 command -v "$cmd"
                 return 0
@@ -59,7 +59,7 @@ detect_solomd_bin() {
             "/usr/bin/solomd"
             "/usr/local/bin/solomd"
             "/opt/CatstepMD/CatstepMD"
-            "/opt/SoloMD/solomd"
+            "/opt/Catstep MD/solomd"
         )
         for p in "${linux_paths[@]}"; do
             [[ -x "$p" ]] && echo "$p" && return 0
@@ -69,8 +69,8 @@ detect_solomd_bin() {
             "$LOCALAPPDATA/Programs/CatstepMD/CatstepMD.exe"
             "/c/Program Files/CatstepMD/CatstepMD.exe"
             "/c/Program Files (x86)/CatstepMD/CatstepMD.exe"
-            "$LOCALAPPDATA/Programs/SoloMD/SoloMD.exe"
-            "/c/Program Files/SoloMD/SoloMD.exe"
+            "$LOCALAPPDATA/Programs/Catstep MD/CatstepMD.exe"
+            "/c/Program Files/Catstep MD/CatstepMD.exe"
         )
         for p in "${win_paths[@]}"; do
             [[ -f "$p" ]] && echo "$p" && return 0
@@ -104,12 +104,12 @@ resolve_path() {
 
 # ---- Commands ------------------------------------------------------------
 cmd_help() {
-    printf "${GREEN}solomd${NC} — CLI for SoloMD Markdown Editor\n"
+    printf "${GREEN}solomd${NC} — CLI for Catstep MD Markdown Editor\n"
     printf "         %s\n\n" "https://github.com/maobukeai/catstep-md"
     printf "${BLUE}USAGE${NC}\n"
     printf "  solomd <command> [args]\n\n"
     printf "${BLUE}COMMANDS${NC}\n"
-    printf "  ${GREEN}%-22s${NC} %s\n" "open <title|path>" "Open file in SoloMD"
+    printf "  ${GREEN}%-22s${NC} %s\n" "open <title|path>" "Open file in Catstep MD"
     printf "  ${GREEN}%-22s${NC} %s\n" "new <title> [text]" "Create new note + open"
     printf "  ${GREEN}%-22s${NC} %s\n" "list [folder]" "List markdown files"
     printf "  ${GREEN}%-22s${NC} %s\n" "search <query>" "Search markdown for text"
@@ -139,9 +139,9 @@ cmd_open() {
         disown 2>/dev/null || true
         printf "Opening ${GREEN}%s${NC}\n" "$path"
     elif [[ "$(uname)" == "Darwin" ]]; then
-        open -a SoloMD "$path"
+        open -a Catstep MD "$path"
     else
-        printf "${YELLOW}SoloMD not found.${NC} Install from https://solomd.app\n" >&2
+        printf "${YELLOW}Catstep MD not found.${NC} Install from https://github.com/maobukeai/catstep-md\n" >&2
         exit 1
     fi
 }
@@ -244,31 +244,31 @@ cmd_export() {
 }
 
 # ---- v3.1 agent endpoint -------------------------------------------------
-# Detect the bundled solomd-mcp binary alongside the desktop app, falling
+# Detect the bundled catstep-mcp binary alongside the desktop app, falling
 # back to anything on PATH. We don't ship a separate sidecar yet — the
 # desktop app embeds it via tauri externalBin, so the lookup mirrors
 # detect_solomd_bin().
 detect_mcp_bin() {
     if [[ "$(uname)" == "Darwin" ]]; then
         local mac_paths=(
-            "/Applications/SoloMD.app/Contents/Resources/solomd-mcp"
-            "$HOME/Applications/SoloMD.app/Contents/Resources/solomd-mcp"
+            "/Applications/CatstepMD.app/Contents/Resources/catstep-mcp"
+            "$HOME/Applications/CatstepMD.app/Contents/Resources/catstep-mcp"
         )
         for p in "${mac_paths[@]}"; do
             [[ -x "$p" ]] && echo "$p" && return 0
         done
     elif [[ "$(uname)" == "Linux" ]]; then
         local linux_paths=(
-            "/usr/lib/solomd/solomd-mcp"
-            "/usr/local/lib/solomd/solomd-mcp"
-            "/opt/SoloMD/solomd-mcp"
+            "/usr/lib/solomd/catstep-mcp"
+            "/usr/local/lib/solomd/catstep-mcp"
+            "/opt/Catstep MD/catstep-mcp"
         )
         for p in "${linux_paths[@]}"; do
             [[ -x "$p" ]] && echo "$p" && return 0
         done
     fi
-    if command -v solomd-mcp >/dev/null 2>&1; then
-        command -v solomd-mcp
+    if command -v catstep-mcp >/dev/null 2>&1; then
+        command -v catstep-mcp
         return 0
     fi
     return 1
@@ -277,11 +277,11 @@ detect_mcp_bin() {
 cmd_mcp_config() {
     local mcp_bin
     if ! mcp_bin="$(detect_mcp_bin)"; then
-        printf "${YELLOW}solomd-mcp not found.${NC} Install SoloMD or run install-mcp.sh.\n" >&2
+        printf "${YELLOW}catstep-mcp not found.${NC} Install Catstep MD or run install-mcp.sh.\n" >&2
         printf "${DIM}https://github.com/maobukeai/catstep-md/blob/main/scripts/install-mcp.sh${NC}\n" >&2
         exit 1
     fi
-    local workspace="${SOLOMD_NOTES:-$HOME/Documents/SoloMD}"
+    local workspace="${SOLOMD_NOTES:-$HOME/Documents/Catstep MD}"
     cat <<EOF
 {
   "mcpServers": {
@@ -294,9 +294,9 @@ cmd_mcp_config() {
 EOF
 }
 
-# ---- v4.4.5 — auto-inject solomd-mcp into 6 AI clients' configs ---------
+# ---- v4.4.5 — auto-inject catstep-mcp into 6 AI clients' configs ---------
 # Mirror of Rust `integrations.rs` so CLI users (no GUI running) can do the
-# same flow as Settings → Integrations → "Hook SoloMD into your AI clients".
+# same flow as Settings → Integrations → "Hook Catstep MD into your AI clients".
 # Requires `jq` for safe JSON merging — refuse to write if it's missing.
 
 ai_client_path() {
@@ -502,10 +502,10 @@ cmd_mcp_install() {
     require_jq
     local mcp_bin
     if ! mcp_bin="$(detect_mcp_bin)"; then
-        printf "${YELLOW}solomd-mcp not found.${NC} Install SoloMD first.\n" >&2
+        printf "${YELLOW}catstep-mcp not found.${NC} Install Catstep MD first.\n" >&2
         exit 1
     fi
-    local workspace="${SOLOMD_NOTES:-$HOME/Documents/SoloMD}"
+    local workspace="${SOLOMD_NOTES:-$HOME/Documents/Catstep MD}"
     local allow_write="false"
     local targets=()
     # Parse flags + positional client list.
@@ -532,7 +532,7 @@ cmd_mcp_install() {
         printf "${YELLOW}No AI client detected on this machine.${NC} Pass a client name or --all to override.\n"
         exit 1
     fi
-    printf "${BLUE}Installing SoloMD MCP server for ${#targets[@]} client(s)${NC}\n"
+    printf "${BLUE}Installing Catstep MD MCP server for ${#targets[@]} client(s)${NC}\n"
     printf "  ${DIM}binary:    %s${NC}\n" "$mcp_bin"
     printf "  ${DIM}workspace: %s${NC}\n" "$workspace"
     printf "  ${DIM}--allow-write: %s${NC}\n\n" "$allow_write"
@@ -567,7 +567,7 @@ cmd_mcp_uninstall() {
         printf "${DIM}Nothing to uninstall — no client has a solomd entry.${NC}\n"
         exit 0
     fi
-    printf "${BLUE}Removing SoloMD MCP entry from ${#targets[@]} client(s)${NC}\n"
+    printf "${BLUE}Removing Catstep MD MCP entry from ${#targets[@]} client(s)${NC}\n"
     for c in "${targets[@]}"; do
         remove_one_client "$c"
     done
@@ -581,7 +581,7 @@ cmd_mcp() {
         uninstall|rm)     cmd_mcp_uninstall "$@" ;;
         config)           cmd_mcp_config "$@" ;;   # back-compat with old `solomd mcp-config`
         -h|--help|help)
-            printf "${BLUE}solomd mcp${NC} — manage SoloMD's MCP server entry across your AI clients\n\n"
+            printf "${BLUE}solomd mcp${NC} — manage Catstep MD's MCP server entry across your AI clients\n\n"
             printf "${BLUE}USAGE${NC}\n  solomd mcp <subcommand> [args]\n\n"
             printf "${BLUE}SUBCOMMANDS${NC}\n"
             printf "  ${GREEN}%-20s${NC} %s\n" "list" "Show which AI clients are present + status"
@@ -595,10 +595,10 @@ cmd_mcp() {
 }
 
 # `solomd agent <prompt>` — hand the prompt off to whichever LLM CLI is on
-# PATH (claude / codex / aider), with solomd-mcp pre-wired. We deliberately
+# PATH (claude / codex / aider), with catstep-mcp pre-wired. We deliberately
 # do not implement an LLM loop ourselves: the user already has Claude Code,
 # Codex CLI, or aider installed and configured with their BYOK keys. Our
-# job is to put a SoloMD MCP server in front of that CLI so it can read +
+# job is to put a Catstep MD MCP server in front of that CLI so it can read +
 # edit the vault, then pass through.
 cmd_agent() {
     local prompt="$*"
@@ -610,12 +610,12 @@ cmd_agent() {
 
     local mcp_bin
     if ! mcp_bin="$(detect_mcp_bin)"; then
-        printf "${YELLOW}solomd-mcp not found.${NC}\n" >&2
-        printf "  SoloMD bundles solomd-mcp inside the app (Mac/Linux). Make sure SoloMD is installed,\n" >&2
+        printf "${YELLOW}catstep-mcp not found.${NC}\n" >&2
+        printf "  Catstep MD bundles catstep-mcp inside the app (Mac/Linux). Make sure Catstep MD is installed,\n" >&2
         printf "  or run scripts/install-mcp.sh from this repo to drop it on PATH.\n" >&2
         exit 1
     fi
-    local workspace="${SOLOMD_NOTES:-$HOME/Documents/SoloMD}"
+    local workspace="${SOLOMD_NOTES:-$HOME/Documents/Catstep MD}"
 
     # Generate a one-shot MCP config in TMPDIR so the LLM CLI can pick it
     # up without us touching the user's persistent config.
@@ -640,7 +640,7 @@ EOF
     if command -v claude >/dev/null 2>&1; then
         printf "${BLUE}→ claude${NC} (Claude Code CLI)\n\n"
         # `claude "query"` starts an interactive session seeded with the
-        # query. `--mcp-config` registers the SoloMD MCP for that session.
+        # query. `--mcp-config` registers the Catstep MD MCP for that session.
         # We don't pass `-p` (non-interactive one-shot) by default — agent
         # work usually needs follow-up turns.
         exec claude --mcp-config "$cfg" -- "$prompt"
@@ -658,7 +658,7 @@ EOF
         printf "  The aider CLI doesn't speak MCP. Either:\n"
         printf "  1. Install Claude Code: https://docs.claude.com/en/docs/claude-code\n"
         printf "  2. Or run: aider %s\n" "$workspace"
-        printf "     (it will read+edit notes directly without the SoloMD MCP wrapper)\n"
+        printf "     (it will read+edit notes directly without the Catstep MD MCP wrapper)\n"
         exit 0
     else
         printf "${YELLOW}No supported LLM CLI found on PATH.${NC}\n\n" >&2

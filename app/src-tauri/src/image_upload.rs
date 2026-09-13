@@ -1,4 +1,4 @@
-//! Image-bed (图床) upload backend for the SoloMD editor.
+//! Image-bed (图床) upload backend for the Catstep MD editor.
 //!
 //! Exposes a single async Tauri command, [`upload_image`], that takes a
 //! tagged [`UploaderConfig`] (chosen + filled out in Settings → Image Bed on
@@ -523,7 +523,7 @@ async fn upload_github(
     let filename = basename(path);
 
     let body = serde_json::json!({
-        "message": format!("Upload {filename} via SoloMD"),
+        "message": format!("Upload {filename} via Catstep MD"),
         "content": content_b64,
         "branch": branch,
     });

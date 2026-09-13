@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Installer for the SoloMD Claude Code skill.
+# Installer for the Catstep MD Claude Code skill.
 #
-# Detects OS + arch, downloads or builds the solomd-mcp binary, and registers
+# Detects OS + arch, downloads or builds the catstep-mcp binary, and registers
 # a user-scope `solomd` MCP server pointing at a workspace path the user is
 # prompted for (or one passed via $SOLOMD_WORKSPACE).
 #
@@ -52,42 +52,42 @@ case "$target" in
   macos)
     # Apple Silicon + Intel: easiest path is cargo. No standalone tarball
     # is published for macOS because the binary already lives inside
-    # SoloMD.app.
+    # Catstep MD.app.
     if ! command -v cargo >/dev/null 2>&1; then
       cat <<EOF
-solomd-mcp on macOS is distributed via cargo. Install Rust:
+catstep-mcp on macOS is distributed via cargo. Install Rust:
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-Or download the SoloMD.app from https://solomd.app and link the bundled
+Or download the Catstep MD.app from https://github.com/maobukeai/catstep-md and link the bundled
 binary instead:
-  ln -s /Applications/SoloMD.app/Contents/MacOS/solomd-mcp "$BIN_DIR/solomd-mcp"
+  ln -s /Applications/Catstep MD.app/Contents/MacOS/catstep-mcp "$BIN_DIR/catstep-mcp"
 EOF
       exit 1
     fi
-    cargo install solomd-mcp --root "$HOME/.claude"  # installs to $HOME/.claude/bin
+    cargo install catstep-mcp --root "$HOME/.claude"  # installs to $HOME/.claude/bin
     ;;
   linux-x64|linux-arm64)
-    url="$LATEST/solomd-mcp-$target.tar.gz"
+    url="$LATEST/catstep-mcp-$target.tar.gz"
     echo "Downloading $url"
     curl -L "$url" | tar -xz -C "$BIN_DIR"
-    chmod +x "$BIN_DIR/solomd-mcp"
+    chmod +x "$BIN_DIR/catstep-mcp"
     ;;
   win-x64|win-arm64)
-    url="$LATEST/solomd-mcp-$target.zip"
+    url="$LATEST/catstep-mcp-$target.zip"
     echo "Downloading $url"
     tmp=$(mktemp -d)
-    curl -L "$url" -o "$tmp/solomd-mcp.zip"
-    unzip -o "$tmp/solomd-mcp.zip" -d "$BIN_DIR"
+    curl -L "$url" -o "$tmp/catstep-mcp.zip"
+    unzip -o "$tmp/catstep-mcp.zip" -d "$BIN_DIR"
     rm -rf "$tmp"
     ;;
 esac
 
-if ! [ -x "$BIN_DIR/solomd-mcp" ] && ! command -v solomd-mcp >/dev/null 2>&1; then
-  echo "Install completed but solomd-mcp not found on PATH or in $BIN_DIR. Aborting." >&2
+if ! [ -x "$BIN_DIR/catstep-mcp" ] && ! command -v catstep-mcp >/dev/null 2>&1; then
+  echo "Install completed but catstep-mcp not found on PATH or in $BIN_DIR. Aborting." >&2
   exit 2
 fi
 
-echo "Installed: $($BIN_DIR/solomd-mcp --version 2>/dev/null || command -v solomd-mcp)"
+echo "Installed: $($BIN_DIR/catstep-mcp --version 2>/dev/null || command -v catstep-mcp)"
 
 # ---- Resolve workspace ----
 if [ -z "${SOLOMD_WORKSPACE:-}" ]; then
@@ -109,7 +109,7 @@ if command -v claude >/dev/null 2>&1; then
     echo "Existing 'solomd' MCP server kept — run 'claude mcp remove solomd -s user' to redo it."
     registered=1
   elif claude mcp add --scope user solomd -- \
-        "$BIN_DIR/solomd-mcp" --workspace "$SOLOMD_WORKSPACE"; then
+        "$BIN_DIR/catstep-mcp" --workspace "$SOLOMD_WORKSPACE"; then
     registered=1
   else
     echo "'claude mcp add' failed — falling back to patching $MCP_JSON." >&2
@@ -126,7 +126,7 @@ if [ "$registered" -eq 0 ]; then
   fi
 
   # Use Python because every macOS / Linux box has it; avoids a jq dep.
-  python3 - "$MCP_JSON" "$BIN_DIR/solomd-mcp" "$SOLOMD_WORKSPACE" <<'PY'
+  python3 - "$MCP_JSON" "$BIN_DIR/catstep-mcp" "$SOLOMD_WORKSPACE" <<'PY'
 import json, sys, pathlib
 path, bin_, ws = sys.argv[1], sys.argv[2], sys.argv[3]
 p = pathlib.Path(path)
@@ -153,8 +153,8 @@ should see "solomd" with 13 tools.
 To enable writes (write_note / append_to_note / autogit_rollback), re-register
 with --allow-write:
   claude mcp remove solomd -s user
-  claude mcp add --scope user solomd -- $BIN_DIR/solomd-mcp --workspace $SOLOMD_WORKSPACE --allow-write
+  claude mcp add --scope user solomd -- $BIN_DIR/catstep-mcp --workspace $SOLOMD_WORKSPACE --allow-write
 
-Pair with the SoloMD desktop app for the Agent panel UI:
+Pair with the Catstep MD desktop app for the Agent panel UI:
   https://github.com/maobukeai/catstep-md/releases/latest
 EOF

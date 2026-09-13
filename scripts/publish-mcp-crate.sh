@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish the solomd-mcp crate to crates.io.
+# Publish the catstep-mcp crate to crates.io.
 #
 # Requires CARGO_REGISTRY_TOKEN in the environment (from
 # https://crates.io/me — "API Tokens" tab) or a prior `cargo login`.
@@ -72,13 +72,13 @@ cat <<EOF
 
 Published: https://crates.io/crates/$CRATE/$VERSION
 
-Now \`cargo install solomd-mcp\` works for users on any platform.
+Now \`cargo install catstep-mcp\` works for users on any platform.
 
 Suggested follow-ups:
   1. Tag the crate version in git:
-       git tag -a solomd-mcp-v$VERSION -m "Publish solomd-mcp $VERSION"
-       git push origin solomd-mcp-v$VERSION
+       git tag -a catstep-mcp-v$VERSION -m "Publish catstep-mcp $VERSION"
+       git push origin catstep-mcp-v$VERSION
   2. Update root README badges to reference the crates.io link.
   3. Wait ~5 min for crates.io to propagate, then verify in a clean Rust env:
-       cargo install solomd-mcp --version $VERSION
+       cargo install catstep-mcp --version $VERSION
 EOF

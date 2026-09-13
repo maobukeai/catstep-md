@@ -16,4 +16,4 @@ POLIMENTO E CORREÇÕES
 • Corrigido: a digitação com métodos de entrada CJK não é mais interrompida no meio da composição
 • Muitas correções menores e melhorias de desempenho
 
-Gostando do SoloMD? Avalie na App Store e compartilhe com outros escritores!
+Gostando do Catstep MD? Avalie na App Store e compartilhe com outros escritores!

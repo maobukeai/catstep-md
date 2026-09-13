@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read or update a SoloMD localStorage setting from the CLI.
+# Read or update a Catstep MD localStorage setting from the CLI.
 # Usage:
 #   solomd-settings.sh [--bundle dev|prod] get
 #   solomd-settings.sh [--bundle dev|prod] set <key> <jsonValue>
@@ -13,7 +13,7 @@
 # Default = dev (the one used while iterating).
 #
 # Each LocalStorage value is UTF-16 LE inside an SQLite blob.
-# REQUIRES SoloMD be closed (WKWebView holds the file open).
+# REQUIRES Catstep MD be closed (WKWebView holds the file open).
 
 set -euo pipefail
 

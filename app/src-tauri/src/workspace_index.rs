@@ -199,7 +199,7 @@ fn workspace_index_init_inner(app: AppHandle, folder: String) -> Result<usize, S
 pub fn workspace_index_files() -> Result<Vec<IndexEntry>, String> {
     let s = STATE.read().map_err(|e| e.to_string())?;
     let mut v: Vec<IndexEntry> = s.entries.values().cloned().collect();
-    v.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    v.sort_by_key(|a| a.name.to_lowercase());
     Ok(v)
 }
 

@@ -17,14 +17,14 @@ const FAQ = [
   },
   {
     q: '端到端加密到底加密了什么?',
-    a: '开启 E2EE(端到端加密)后,SoloMD 推送的是工作区的加密影子副本:文件内容在离开你的机器之前,就已用由口令派生的密钥加密。GitHub 上只存密文。口令一旦丢失,远端副本将无法解密 —— 请务必妥善保管。',
+    a: '开启 E2EE(端到端加密)后,猫步 MD 推送的是工作区的加密影子副本:文件内容在离开你的机器之前,就已用由口令派生的密钥加密。GitHub 上只存密文。口令一旦丢失,远端副本将无法解密 —— 请务必妥善保管。',
   },
 ];
 ---
 
 <Layout
-  title="SoloMD 同步、历史与备份 — GitHub 同步、E2EE、Git 快照"
-  description="在 SoloMD 中用 fine-grained Personal Access Token 配置 GitHub 同步,开启可选的端到端加密,使用自动 Git 历史快照与回滚,并排查 401 / 推送错误。"
+  title="猫步 MD 同步、历史与备份 — GitHub 同步、E2EE、Git 快照"
+  description="在 猫步 MD 中用 fine-grained Personal Access Token 配置 GitHub 同步,开启可选的端到端加密,使用自动 Git 历史快照与回滚,并排查 401 / 推送错误。"
   lang={lang}
 >
   <Header lang={lang} />
@@ -52,14 +52,14 @@ const FAQ = [
             <li><em>Classic</em>：勾选 <strong><code>repo</code></strong> 权限范围。</li>
           </ul>
         </li>
-        <li>回到 SoloMD：设置 → 同步 → 粘贴 token。SoloMD 会验证并显示你的 GitHub 用户名。</li>
-        <li><strong>关联仓库</strong> —— 选一个已有仓库，或让 SoloMD 为你新建一个私有笔记仓库。</li>
+        <li>回到 猫步 MD：设置 → 同步 → 粘贴 token。猫步 MD 会验证并显示你的 GitHub 用户名。</li>
+        <li><strong>关联仓库</strong> —— 选一个已有仓库，或让 猫步 MD 为你新建一个私有笔记仓库。</li>
         <li>通过工具栏胶囊按钮或命令面板推送 / 拉取；可选的自动推送 / 自动拉取在后台运行。</li>
       </ol>
 
       <h2>端到端加密（可选）</h2>
       <p>
-        用一个口令开启 E2EE（端到端加密）后，SoloMD 推送的是<em>加密影子副本</em>而非明文
+        用一个口令开启 E2EE（端到端加密）后，猫步 MD 推送的是<em>加密影子副本</em>而非明文
         —— GitHub 上只存密文。口令永远不离开你的机器；没有口令，远端副本无法解密
         （没有找回机制）。出于设计考虑，加密工作区的分享链接会被禁用。
       </p>
@@ -76,7 +76,7 @@ const FAQ = [
         <tbody>
           <tr>
             <th>401 / Bad credentials</th>
-            <td>GitHub 拒绝了 token 本身。排查清单：① token 过期 —— fine-grained PAT 默认 30–90 天，去 <code>github.com → Settings → Developer settings</code> 查看；② 你粘贴的是账号<em>密码</em>或 OAuth 授权码而不是 PAT；③ token 被重新生成或撤销（旧值立即失效，GitHub 也会自动撤销在公开代码中发现的 token）；④ 公司 / VPN 代理剥掉了 <code>Authorization</code> 请求头。重新创建一个 token 再粘贴即可 —— SoloMD 会自动去掉多余空格。</td>
+            <td>GitHub 拒绝了 token 本身。排查清单：① token 过期 —— fine-grained PAT 默认 30–90 天，去 <code>github.com → Settings → Developer settings</code> 查看；② 你粘贴的是账号<em>密码</em>或 OAuth 授权码而不是 PAT；③ token 被重新生成或撤销（旧值立即失效，GitHub 也会自动撤销在公开代码中发现的 token）；④ 公司 / VPN 代理剥掉了 <code>Authorization</code> 请求头。重新创建一个 token 再粘贴即可 —— 猫步 MD 会自动去掉多余空格。</td>
           </tr>
           <tr>
             <th>私有仓库 403 / 404</th>
@@ -96,7 +96,7 @@ const FAQ = [
       <h2>不用 GitHub 也能同步</h2>
       <p>
         因为笔记就是普通文件，任何文件夹同步工具都行：iCloud 云盘、
-        Dropbox、Syncthing、OneDrive —— 在每台设备上把 SoloMD 指向同步的文件夹即可。
+        Dropbox、Syncthing、OneDrive —— 在每台设备上把 猫步 MD 指向同步的文件夹即可。
         Android 上通过系统文件选择器打开同一个文件夹；iOS 上使用「文件」App 中的位置。
       </p>
       <p>

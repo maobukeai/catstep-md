@@ -8,7 +8,7 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD v4.0 — 让 Agent 住进来的编辑器"
+  title="猫步 MD v4.0 — 让 Agent 住进来的编辑器"
   description="v4.0 是 agent-native author 大版本。五大支柱:内置 Agent 面板（流式 chat-with-vault）、定时 Recipe（cron / on-save / on-commit, AutoGit 分支沙箱 + accept/reject）、可重放 Trace View、多 vault MCP Federation、Ollama 一等公民。同时:REST API、BYOK 成本计、11 个 Recipe 模板、首次启动向导。安全护栏不可妥协 —— 每次 agent 运行都要先评审才能合入 main。"
   lang={lang}
 >
@@ -21,7 +21,7 @@ const lang = 'zh' as const;
       <time>2026-05-03</time>
       <h1>v4.0 — 让 Agent 住进来的编辑器</h1>
       <p class="lead">
-        SoloMD 一直是同一份产品的两半:把纯 <code>.md</code>
+        猫步 MD 一直是同一份产品的两半:把纯 <code>.md</code>
         写到磁盘上的编辑器,加上指向同一个 vault 的 MCP server。
         v4.0 加了第三半 —— <strong>编辑器内一等公民的 Agent
         面板</strong>,有完整的安全护栏 (AutoGit 分支沙箱、
@@ -123,7 +123,7 @@ const lang = 'zh' as const;
 
       <h3>4. 多 Vault MCP Federation</h3>
       <p>
-        <code>solomd-mcp --workspace path1 --workspace path2 --workspace path3</code>
+        <code>catstep-mcp --workspace path1 --workspace path2 --workspace path3</code>
         —— 一个 MCP 会话,多个 vault。工具签名加了可选
         <code>workspace</code> 参数,默认 = 第一个传入的
         (单 vault 客户端继续工作不受影响)。AutoGit 分支按
@@ -190,7 +190,7 @@ const lang = 'zh' as const;
           <strong>macOS 启动 UX。</strong>启动激活时机错位
           —— 在 <code>setup</code> 里调
           <code>set_focus()</code> 时 NSApp 的 run loop
-          还没跑完启动流程,激活请求被吞了,SoloMD 启动后藏在
+          还没跑完启动流程,激活请求被吞了,猫步 MD 启动后藏在
           前一个 frontmost app 后面。改成在
           <code>RunEvent::Ready</code> + 等 window-state plugin
           的第一次 restore 信号才激活,问题解决。
@@ -296,7 +296,7 @@ const lang = 'zh' as const;
         上:沙盒化的脚本 API (capability-scoped,Trilium 那种
         "我想写脚本定制工作流")、CLI v2 (终端里 rewrite /
         commit / 语义搜索 / 触发 recipe)、以及一直拖着的
-        <em>"SoloMD 要不要做成商业产品?"</em> 问题
+        <em>"猫步 MD 要不要做成商业产品?"</em> 问题
         —— v3.0 时代的老问题,还没答,这块的工程不会动。
       </p>
       <p>

@@ -1,4 +1,4 @@
-/* SoloMD 4.6 design token layer — single source of truth for the design system.
+/* Catstep MD 4.6 design token layer — single source of truth for the design system.
  *
  * Imported FIRST from main.css so that main.css and the 8 named themes still
  * cascade AFTER this file and win where they must. This file:

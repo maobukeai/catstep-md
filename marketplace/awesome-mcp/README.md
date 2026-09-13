@@ -3,9 +3,9 @@
 `modelcontextprotocol/servers` removed its community section — the de facto
 community indices are now three "awesome-mcp-servers" lists that collectively
 have ~14k forks. Each has its own format conventions and category
-taxonomies; this directory has SoloMD-styled entries for each.
+taxonomies; this directory has Catstep MD-styled entries for each.
 
-| List | Forks | Best section for SoloMD | Entry file |
+| List | Forks | Best section for Catstep MD | Entry file |
 |---|---|---|---|
 | **[punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers)** | ~10.9k | `🧠 Knowledge & Memory` (or `📝 Note Taking`) | [`entry-punkpeye.md`](entry-punkpeye.md) |
 | **[appcypher/awesome-mcp-servers](https://github.com/appcypher/awesome-mcp-servers)** | ~1.6k | `📝 Note Taking` | [`entry-appcypher.md`](entry-appcypher.md) |
@@ -26,9 +26,9 @@ cd awesome-mcp-servers
 
 git checkout -b add-solomd
 git add README.md
-git commit -m "Add SoloMD MCP server"
+git commit -m "Add Catstep MD MCP server"
 git push -u origin add-solomd
-gh pr create --title "Add SoloMD MCP server (Markdown vault with 13 tools)" \
+gh pr create --title "Add Catstep MD MCP server (Markdown vault with 13 tools)" \
              --body-file ../marketplace/awesome-mcp/pr-body.md
 ```
 

@@ -303,7 +303,7 @@ export const ja: I18n = {
     "catWriting": "執筆",
     "catSync": "同期",
     "syncUnsupportedAndroid": "Git ベースの同期（バージョン履歴、GitHub 同期、プロキシ）は Android 版ではまだ利用できません。依存している libgit2 エンジンが Android バイナリに組み込まれていないためです。当面はデスクトップ版または iOS 版で同期してください。",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "統合",
     "catExport": "エクスポート",
@@ -849,7 +849,7 @@ export const ja: I18n = {
   "integrations": {
     "heading": "統合",
     "intro": "Catstep MD はターミナルや MCP 対応の AI クライアント (Claude Desktop、Codex CLI、Cursor) と話せます。アプリの外からノートを読み書きできます。",
-    "cliTitle": "CLI (catstep / solomd)",
+    "cliTitle": "CLI (catstep)",
     "cliInstalled": "{path} にインストール済み",
     "cliNotInstalled": "未インストール",
     "cliVersionLabel": "バージョン",
@@ -860,7 +860,7 @@ export const ja: I18n = {
     "cliCopyInstallBtn": "インストールコマンドをコピー",
     "cliCopiedToast": "インストールコマンドをコピーしました —— ターミナルに貼り付けて実行してください。",
     "cliInstallToast": "ターミナルで次のコマンドを実行してください（/usr/local/bin への書き込みには sudo が必要です）：",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "利用可能なサブコマンド",
@@ -872,7 +872,7 @@ export const ja: I18n = {
       "cat": "cat <タイトル|パス> —— ノートの内容を stdout に出力",
       "help": "help —— すべてのコマンドを表示"
     },
-    "mcpTitle": "MCP サーバー (catstep-mcp / solomd-mcp)",
+    "mcpTitle": "MCP サーバー (catstep-mcp)",
     "mcpBundled": "{path} に同梱",
     "mcpNotBundled": "同梱されていません (この dev ビルドは externalBin サイドカーをスキップ)。本番ビルドには常に含まれます。",
     "mcpDesc": "Model Context Protocol サーバーとして開いているワークスペースを公開し、Claude Desktop / Codex / Cursor がノートを一覧、読み込み、検索、書き込みできるようにします。",
@@ -917,7 +917,7 @@ export const ja: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "MCP プロファイル",
-    "profilesIntro": "複数のワークスペースを 1 つの solomd-mcp インスタンスにバンドルし、貼り付け可能な Claude Desktop 設定ブロックをコピーできます。各プロファイルは MCP サーバーが公開するワークスペース (alias + path) を列挙します。最初のエントリがデフォルト — `workspace` 引数なしのツール呼び出しはここにフォールスルーします。",
+    "profilesIntro": "複数のワークスペースを 1 つの catstep-mcp インスタンスにバンドルし、貼り付け可能な Claude Desktop 設定ブロックをコピーできます。各プロファイルは MCP サーバーが公開するワークスペース (alias + path) を列挙します。最初のエントリがデフォルト — `workspace` 引数なしのツール呼び出しはここにフォールスルーします。",
     "profilesEmpty": "プロファイルがまだありません。",
     "profilesCreate": "新規プロファイル",
     "profilesDuplicate": "複製",
@@ -945,7 +945,7 @@ export const ja: I18n = {
     "profilesValidationFailed": "保存できません: {msg}",
     "profilesNamePlaceholder": "work-and-home",
     "profilesNewProfileDefault": "新規プロファイル",
-    "profilesNoMcpBinary": "この dev ビルドには solomd-mcp が同梱されていません — スニペットはプレースホルダパスを使います。"
+    "profilesNoMcpBinary": "この dev ビルドには catstep-mcp が同梱されていません — スニペットはプレースホルダパスを使います。"
   },
   "recipes": {
     "heading": "Agent Recipes",

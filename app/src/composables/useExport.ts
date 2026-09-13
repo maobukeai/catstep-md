@@ -367,7 +367,7 @@ export function useExport() {
   // outside our sandbox are unreachable without NSURL's
   // startAccessingSecurityScopedResource). Instead, on iOS we write to the
   // app's own Documents directory — UIFileSharingEnabled + LSSupports
-  // OpeningDocumentsInPlace surface that folder under "On My iPhone › SoloMD"
+  // OpeningDocumentsInPlace surface that folder under "On My iPhone › Catstep MD"
   // in the Files app, so users can move/iCloud-sync from there.
   async function pickWritePath(
     filename: string,
@@ -385,7 +385,7 @@ export function useExport() {
   }
 
   function iosSavedToast(filename: string): string {
-    return `Saved to On My iPhone › SoloMD › ${filename}`;
+    return `Saved to On My iPhone › Catstep MD › ${filename}`;
   }
 
   // Modern Clipboard API works on all desktops and on iOS 16+ WKWebView,

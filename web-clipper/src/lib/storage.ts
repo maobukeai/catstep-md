@@ -8,9 +8,9 @@
 import browser from 'webextension-polyfill';
 
 export interface ClipperSettings {
-  /** Base URL of the SoloMD capture endpoint, e.g. http://127.0.0.1:7777 */
+  /** Base URL of the Catstep MD capture endpoint, e.g. http://127.0.0.1:7777 */
   endpoint: string;
-  /** Bearer token copied from SoloMD Settings → Integrations. */
+  /** Bearer token copied from Catstep MD Settings → Integrations. */
   token: string;
   /**
    * Optional sub-folder (relative to the workspace inbox folder) under which
@@ -21,6 +21,8 @@ export interface ClipperSettings {
   notifyOnSuccess: boolean;
   /** UI language: 'en' | 'zh' | 'auto' (auto-pick from browser). */
   locale: 'en' | 'zh' | 'auto';
+  /** Theme accent color aligned with Catstep MD desktop app. */
+  accentColor: 'blue' | 'amber' | 'emerald' | 'purple';
 }
 
 export const DEFAULT_SETTINGS: ClipperSettings = {
@@ -29,6 +31,7 @@ export const DEFAULT_SETTINGS: ClipperSettings = {
   subfolder: '',
   notifyOnSuccess: true,
   locale: 'auto',
+  accentColor: 'blue',
 };
 
 const KEY = 'solomd-clipper-settings';

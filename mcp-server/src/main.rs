@@ -1,14 +1,14 @@
-//! solomd-mcp — Model Context Protocol server for SoloMD vaults.
+//! catstep-mcp — Model Context Protocol server for Catstep MD vaults.
 //!
 //! Spoken to over stdio (JSON-RPC); logs go to stderr. Designed for use with
 //! Claude Code, Codex CLI, and any other MCP client.
 //!
 //! Single-workspace (back-compat):
-//!     solomd-mcp --workspace /path/to/notes
+//!     catstep-mcp --workspace /path/to/notes
 //!
 //! Multi-workspace (v4.0 federation):
-//!     solomd-mcp --workspace /path/A --workspace /path/B
-//!     solomd-mcp --workspace work=/path/A --workspace home=/path/B
+//!     catstep-mcp --workspace /path/A --workspace /path/B
+//!     catstep-mcp --workspace work=/path/A --workspace home=/path/B
 //!
 //! Each `--workspace` is either a bare path (alias defaults to the path's
 //! last component) or `<alias>=<path>`. The first workspace is the *default*
@@ -34,8 +34,8 @@ mod workspace;
 #[command(
     name = "catstep-mcp",
     version,
-    about = "MCP server for Catstep MD / SoloMD Markdown vaults",
-    long_about = "Model Context Protocol server that exposes one *or more* Catstep MD / SoloMD Markdown notes \
+    about = "MCP server for Catstep MD Markdown vaults",
+    long_about = "Model Context Protocol server that exposes one *or more* Catstep MD Markdown notes \
                   folders as a set of tools (list_notes, read_note, search, get_backlinks, \
                   list_tags, get_outline, autogit_log/diff/rollback, sync_status, share_url, \
                   write_note, append_to_note, export_note, read_agent_trace) over JSON-RPC stdio.\n\n\
@@ -202,7 +202,7 @@ async fn main() -> Result<()> {
         default = %workspaces[0].0,
         allow_write = cli.allow_write,
         version = env!("CARGO_PKG_VERSION"),
-        "solomd-mcp starting"
+        "catstep-mcp starting"
     );
 
     let server = tools::SoloMdServer::new(workspaces, cli.allow_write);
@@ -226,7 +226,7 @@ async fn run_stdio(server: tools::SoloMdServer) -> Result<()> {
         .waiting()
         .await
         .context("MCP service exited with error")?;
-    tracing::info!(?quit_reason, "solomd-mcp shutting down");
+    tracing::info!(?quit_reason, "catstep-mcp shutting down");
     Ok(())
 }
 
@@ -285,7 +285,7 @@ async fn run_http(server: tools::SoloMdServer, bind: &str, auth_token: Option<St
     tracing::info!(
         bind = %bind,
         auth = if auth_token.is_some() { "bearer" } else { "none" },
-        "solomd-mcp HTTP transport listening — POST /mcp speaks Streamable HTTP"
+        "catstep-mcp HTTP transport listening — POST /mcp speaks Streamable HTTP"
     );
 
     let listener = tokio::net::TcpListener::bind(bind)

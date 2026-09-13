@@ -7,17 +7,17 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD Agent —— 写自己的 Recipe (v4)"
-  description="SoloMD v4 的 Agent 能力面:内置 Agent 面板、定时 Recipe、可重放 Trace、跨 vault Federation、Ollama 一等公民。五大支柱详细介绍,加上把自动写入变得「可审」的安全模型。"
+  title="猫步 MD Agent —— 写自己的 Recipe (v4)"
+  description="猫步 MD v4 的 Agent 能力面:内置 Agent 面板、定时 Recipe、可重放 Trace、跨 vault Federation、Ollama 一等公民。五大支柱详细介绍,加上把自动写入变得「可审」的安全模型。"
   lang={lang}
 >
   <Header lang={lang} />
   <main id="main">
     <article class="container agents-page">
       <p class="eyebrow">v4.0 · 让 Agent 住进编辑器</p>
-      <h1>Agent in SoloMD</h1>
+      <h1>Agent in 猫步 MD</h1>
       <p class="lead">
-        SoloMD v4.0 把工作区从"按需调用 AI"变成"Agent <em>持续在场</em>工作"
+        猫步 MD v4.0 把工作区从"按需调用 AI"变成"Agent <em>持续在场</em>工作"
         的地方。五大支柱,全部跑在你早就拥有的纯 Markdown 文件上。
         每一次自动写入都先进 AutoGit 分支沙箱,你 Accept 或 Reject 后才会落到 main。
       </p>
@@ -127,10 +127,10 @@ provider: claude`}</code></pre>
       <section id="federation">
         <h2>4. 多 vault Federation</h2>
         <p>
-          内置的 <code>solomd-mcp</code> 在 v4 长出了多工作区模式。
+          内置的 <code>catstep-mcp</code> 在 v4 长出了多工作区模式。
           通过任意多个 <code>--workspace</code> 标志在一个 MCP 会话里桥接多个 vault:
         </p>
-        <pre class="code-block"><code>{`solomd-mcp \\
+        <pre class="code-block"><code>{`catstep-mcp \\
   --workspace ~/Vaults/personal \\
   --workspace ~/Vaults/work \\
   --workspace ~/Vaults/research`}</code></pre>

@@ -17,7 +17,7 @@ The file input is hidden: `input[type=file][accept=".aab"]`. Three things all
 have to happen, in order, or nothing does.
 
 ```bash
-$S/unzoo.sh upload 'input[type=file][accept=".aab"]' dist-android/SoloMD_X.Y.Z.aab
+$S/unzoo.sh upload 'input[type=file][accept=".aab"]' dist-android/CatstepMD_X.Y.Z.aab
 ```
 
 - **A synthetic `.click()` on the input does not open anything**, and clicking

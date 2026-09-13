@@ -1,7 +1,7 @@
 //! Quick capture — a global hotkey that takes a thought without switching apps.
 //!
 //! The idea arrives while you are in a browser, a terminal, a chat window.
-//! Bringing SoloMD forward, waiting for it to paint, finding the right folder
+//! Bringing Catstep MD forward, waiting for it to paint, finding the right folder
 //! and making a note is enough friction that the thought is usually gone. This
 //! is the shortest path that still ends in a real file: press the chord
 //! anywhere, a small always-on-top box appears, type, press Enter, the box

@@ -18,7 +18,7 @@ use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_solomd-mcp"))
+    PathBuf::from(env!("CARGO_BIN_EXE_catstep-mcp"))
 }
 
 fn strip_unc_prefix(path: PathBuf) -> PathBuf {

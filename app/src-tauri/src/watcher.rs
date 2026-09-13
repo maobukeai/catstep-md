@@ -123,6 +123,12 @@ pub struct WatcherState {
     inner: Arc<Mutex<WatcherInner>>,
 }
 
+impl Default for WatcherState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WatcherState {
     pub fn new() -> Self {
         Self {
@@ -180,7 +186,7 @@ fn ensure_watcher(app: &AppHandle, state: &WatcherState) {
                     .or_else(|| map.get(&original_path))
                     .copied()
             };
-            let suppressed = self_write.map_or(false, |(instant, wall)| {
+            let suppressed = self_write.is_some_and(|(instant, wall)| {
                 instant.elapsed().as_millis() < SELF_WRITE_SUPPRESSION_MS as u128
                     || mtime_matches_self_write(&canonical, wall)
             });

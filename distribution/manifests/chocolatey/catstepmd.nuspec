@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>catstepmd</id>
+    <version>1.2.1</version>
+    <title>Catstep MD</title>
+    <authors>maobukeai</authors>
+    <owners>maobukeai</owners>
+    <licenseUrl>https://github.com/maobukeai/catstep-md/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/maobukeai/catstep-md</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/maobukeai/catstep-md/main/app/src-tauri/icons/128x128%402x.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>
+Catstep MD is a lightweight, cross-platform Markdown + plain text editor built with Tauri 2.
+
+## Features
+- Live preview (WYSIWYG-style editing)
+- KaTeX math rendering
+- Mermaid diagrams
+- Multi-encoding support (UTF-8, GBK, Big5)
+- Export to PDF, DOCX, HTML
+- Light &amp; dark themes
+- Clean AI artifacts (remove citations from ChatGPT/Claude)
+- Only 15MB installer
+
+## Why Catstep MD?
+One file. One window. Just write.
+    </description>
+    <summary>A lightweight Markdown editor with live preview</summary>
+    <releaseNotes>https://github.com/maobukeai/catstep-md/releases/tag/v1.2.1</releaseNotes>
+    <copyright>Copyright 2026 maobukeai</copyright>
+    <tags>markdown editor text-editor tauri wysiwyg writing notes catstep</tags>
+    <projectSourceUrl>https://github.com/maobukeai/catstep-md</projectSourceUrl>
+    <packageSourceUrl>https://github.com/maobukeai/catstep-md/tree/main/distribution/manifests/chocolatey</packageSourceUrl>
+    <docsUrl>https://github.com/maobukeai/catstep-md#readme</docsUrl>
+    <bugTrackerUrl>https://github.com/maobukeai/catstep-md/issues</bugTrackerUrl>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

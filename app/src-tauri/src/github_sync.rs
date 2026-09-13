@@ -438,7 +438,7 @@ fn ensure_gitignore_excludes_solomd(workspace: &Path) -> Result<(), String> {
     if !new.is_empty() && !new.ends_with('\n') {
         new.push('\n');
     }
-    new.push_str("# SoloMD workspace metadata — per-device, do not sync.\n");
+    new.push_str("# Catstep MD workspace metadata — per-device, do not sync.\n");
     new.push_str(".solomd/\n");
     fs::write(&gitignore, new).map_err(|e| e.to_string())
 }
@@ -1144,7 +1144,7 @@ pub async fn github_push(
 /// One-time master → main rewrite, shared by push AND pull (#147).
 ///
 /// The init path (link_workspace) does this for fresh inits, but a vault
-/// initialized on a different machine (or pre-v3.0 SoloMD) can still be on
+/// initialized on a different machine (or pre-v3.0 Catstep MD) can still be on
 /// `master`. Push has always normalized before pushing — which meant the
 /// remote ends up with `main` — but pull used the raw local HEAD name, so a
 /// second device stuck on `master` fetched the nonexistent `origin/master`
@@ -1288,7 +1288,7 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
                 .map_err(|e| e.to_string())?;
             let upstream_oid = upstream_commit.id();
             head_ref
-                .set_target(upstream_oid, "fast-forward via SoloMD GitHub sync")
+                .set_target(upstream_oid, "fast-forward via Catstep MD GitHub sync")
                 .map_err(|e| e.to_string())?;
             repo.set_head(&format!("refs/heads/{}", branch_name))
                 .map_err(|e| e.to_string())?;

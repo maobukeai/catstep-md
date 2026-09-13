@@ -7,17 +7,17 @@ const lang = 'en' as const;
 ---
 
 <Layout
-  title="SoloMD Agents — write your own (v4)"
-  description="The agent surface inside SoloMD v4: Inline Agent Panel, scheduled Recipes, replayable Trace, multi-vault Federation, Ollama first-class. The 5 pillars, in detail, with the safety model that makes autonomous writes reviewable."
+  title="Catstep MD Agents — write your own (v4)"
+  description="The agent surface inside Catstep MD v4: Inline Agent Panel, scheduled Recipes, replayable Trace, multi-vault Federation, Ollama first-class. The 5 pillars, in detail, with the safety model that makes autonomous writes reviewable."
   lang={lang}
 >
   <Header lang={lang} />
   <main id="main">
     <article class="container agents-page">
       <p class="eyebrow">v4.0 · the editor where agents live</p>
-      <h1>Agents in SoloMD</h1>
+      <h1>Agents in Catstep MD</h1>
       <p class="lead">
-        SoloMD v4.0 turns the workspace into a place where agents work
+        Catstep MD v4.0 turns the workspace into a place where agents work
         <em>continuously</em>, not just on-demand. Five pillars, all on top of
         plain markdown files you already own. Every autonomous write goes
         through an AutoGit branch sandbox you accept or reject before it
@@ -136,11 +136,11 @@ provider: claude`}</code></pre>
       <section id="federation">
         <h2>4. Workspace Federation</h2>
         <p>
-          The bundled <code>solomd-mcp</code> grew a multi-workspace mode in
+          The bundled <code>catstep-mcp</code> grew a multi-workspace mode in
           v4. Pass any number of <code>--workspace</code> flags to bridge
           multiple vaults in a single MCP session:
         </p>
-        <pre class="code-block"><code>{`solomd-mcp \\
+        <pre class="code-block"><code>{`catstep-mcp \\
   --workspace ~/Vaults/personal \\
   --workspace ~/Vaults/work \\
   --workspace ~/Vaults/research`}</code></pre>

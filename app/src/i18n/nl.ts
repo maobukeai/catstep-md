@@ -303,7 +303,7 @@ export const nl: I18n = {
     "catWriting": "Schrijven",
     "catSync": "Synchronisatie",
     "syncUnsupportedAndroid": "Git-gebaseerde synchronisatie (versiegeschiedenis, GitHub-sync, proxy) is nog niet beschikbaar in de Android-build — de libgit2-engine waarvan het afhangt is niet in de Android-binary gecompileerd. Gebruik voorlopig de desktop- of iOS-app om deze kluis te synchroniseren.",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "Integraties",
     "catExport": "Exporteren",
@@ -849,7 +849,7 @@ export const nl: I18n = {
   "integrations": {
     "heading": "Integraties",
     "intro": "Catstep MD praat met je terminal en met MCP-bewuste AI-clients (Claude Desktop, Codex CLI, Cursor) zodat je je notities van buiten de app kunt lezen en schrijven.",
-    "cliTitle": "CLI (solomd)",
+    "cliTitle": "CLI (catstep)",
     "cliInstalled": "Geïnstalleerd op {path}",
     "cliNotInstalled": "Niet geïnstalleerd",
     "cliVersionLabel": "Versie",
@@ -860,7 +860,7 @@ export const nl: I18n = {
     "cliCopyInstallBtn": "Installatieopdracht kopiëren",
     "cliCopiedToast": "Installatieopdracht gekopieerd — plak in je terminal.",
     "cliInstallToast": "Voer dit uit in je terminal — sudo is vereist voor /usr/local/bin:",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "Wat kan het?",
@@ -872,7 +872,7 @@ export const nl: I18n = {
       "cat": "cat <titel|pad> — een notitie naar stdout schrijven",
       "help": "help — toon alle opdrachten"
     },
-    "mcpTitle": "MCP-server (solomd-mcp)",
+    "mcpTitle": "MCP-server (catstep-mcp)",
     "mcpBundled": "Meegeleverd op {path}",
     "mcpNotBundled": "Niet meegeleverd (deze dev-build slaat de externalBin sidecar over). Productiebuilds bevatten het altijd.",
     "mcpDesc": "Stelt de geopende werkruimte beschikbaar als Model Context Protocol-server, zodat Claude Desktop / Codex / Cursor je notities kunnen tonen, lezen, doorzoeken en schrijven.",
@@ -917,7 +917,7 @@ export const nl: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "MCP-profielen",
-    "profilesIntro": "Bundel meerdere werkruimten onder één solomd-mcp-instantie en kopieer vervolgens een kant-en-klaar Claude Desktop-configblok. Elk profiel toont de werkruimten (alias + pad) die de MCP-server beschikbaar stelt; de eerste vermelding is de standaard — tool-aanroepen zonder expliciet `workspace`-argument vallen daarop terug.",
+    "profilesIntro": "Bundel meerdere werkruimten onder één catstep-mcp-instantie en kopieer vervolgens een kant-en-klaar Claude Desktop-configblok. Elk profiel toont de werkruimten (alias + pad) die de MCP-server beschikbaar stelt; de eerste vermelding is de standaard — tool-aanroepen zonder expliciet `workspace`-argument vallen daarop terug.",
     "profilesEmpty": "Nog geen profielen.",
     "profilesCreate": "Nieuw profiel",
     "profilesDuplicate": "Dupliceren",
@@ -945,7 +945,7 @@ export const nl: I18n = {
     "profilesValidationFailed": "Kan niet opslaan: {msg}",
     "profilesNamePlaceholder": "werk-en-thuis",
     "profilesNewProfileDefault": "Nieuw profiel",
-    "profilesNoMcpBinary": "solomd-mcp niet meegeleverd in deze dev-build — het fragment gebruikt een tijdelijk pad."
+    "profilesNoMcpBinary": "catstep-mcp niet meegeleverd in deze dev-build — het fragment gebruikt een tijdelijk pad."
   },
   "recipes": {
     "heading": "Agent-recepten",

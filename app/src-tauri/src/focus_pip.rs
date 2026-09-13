@@ -82,7 +82,7 @@ pub fn pip_timer_resize(app: AppHandle, mini: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// Bring the main SoloMD application window to the front and focus it.
+/// Bring the main Catstep MD application window to the front and focus it.
 #[tauri::command]
 pub fn pip_focus_main(app: AppHandle) -> Result<(), String> {
     #[cfg(desktop)]

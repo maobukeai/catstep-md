@@ -10,7 +10,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
 ---
 
 <Layout
-  title="SoloMD v4.0 アップデート — Agent が住みつくエディタ"
+  title="Catstep MD v4.0 アップデート — Agent が住みつくエディタ"
   description="v4.0 は agent-native author メジャーリリース。5 つの柱: 内蔵 Agent パネル(ストリーミング chat-with-vault)、定時 Recipe(cron / on-save / on-commit, AutoGit ブランチサンドボックス + accept/reject)、リプレイ可能な Trace View、多 vault MCP Federation、Ollama 一等公民。さらに: REST API、BYOK コストメーター、11 個の Recipe テンプレート、初回起動ウィザード、ja/ko ローカリゼーション。"
   lang={lang}
 >
@@ -35,8 +35,8 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
       </p>
 
       <div class="cta-row">
-        <a class="btn btn--primary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}>⬇ v{VERSION} をダウンロード (Mac)</a>
-        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}>ダウンロード (Windows)</a>
+        <a class="btn btn--primary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_universal.dmg`}>⬇ v{VERSION} をダウンロード (Mac)</a>
+        <a class="btn btn--secondary btn--lg" href={`${baseUrl}/Catstep MD_${VERSION}_x64_en-US.msi`}>ダウンロード (Windows)</a>
         <a class="btn btn--secondary btn--lg" href={`https://github.com/maobukeai/catstep-md/releases/tag/v${VERSION}`}>すべてのプラットフォーム →</a>
       </div>
 
@@ -98,7 +98,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <div class="pillar">
             <h3>4 · 多 Vault MCP Federation</h3>
             <p>
-              <code>solomd-mcp --workspace path1 --workspace path2 --workspace path3</code>
+              <code>catstep-mcp --workspace path1 --workspace path2 --workspace path3</code>
               —— 1 MCP セッション、複数 vault。ツールシグネチャに任意の
               <code>workspace</code> パラメータ追加、デフォルト = 最初に渡された
               vault (単一 vault クライアントとの完全後方互換)。
@@ -206,7 +206,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           </li>
           <li>
             <strong>macOS 起動 UX。</strong>起動アクティベーションタイミング修正
-            —— SoloMD コールドスタートで本当にフォアグラウンドへ、Finder の後ろに
+            —— Catstep MD コールドスタートで本当にフォアグラウンドへ、Finder の後ろに
             隠れません。ウィンドウ位置復元は常に現在の表示器のワークスペース内に着地;
             副ディスプレイ切断後の壊れた状態からの復元時には自動再センタリング、
             画面外に開きません。
@@ -264,7 +264,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
             の 2 タブ追加</strong>、<em>統合</em> 配下。既存設定の場所は不変。
           </li>
           <li>
-            <strong>MCP サーバー (<code>solomd-mcp</code>) に
+            <strong>MCP サーバー (<code>catstep-mcp</code>) に
             <code>--workspace</code> パラメータ追加</strong> (繰り返し可)。
             元の単一 workspace MCP クライアントは引き続き動作;
             federation はオプトインです。
@@ -280,7 +280,7 @@ const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VE
           <a href="https://github.com/maobukeai/catstep-md/blob/main/docs/roadmap.md">roadmap</a>
           に: サンドボックス化されたスクリプト API、CLI v2 (ターミナルから
           rewrite / commit / セマンティック検索 / Recipe トリガー)、そして
-          ずっと先送りしている <em>「SoloMD は商業製品にすべきか?」</em>
+          ずっと先送りしている <em>「Catstep MD は商業製品にすべきか?」</em>
           問題 (有料同期 —— v3.0 時代からの古い問題、まだ未回答、
           決まるまでこのエリアのエンジニアリングには手を付けません)。
         </p>

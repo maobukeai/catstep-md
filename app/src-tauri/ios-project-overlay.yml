@@ -29,7 +29,7 @@ merge:
     solomd_iOS:
       info:
         properties:
-          # Expose Documents in the Files app under "On My iPhone › SoloMD".
+          # Expose Documents in the Files app under "On My iPhone › Catstep MD".
           # The iOS save flow writes there: Tauri's saveDialog hands back
           # file:// URLs that Rust's std::fs::write cannot write to, and
           # deep-link "Open With" paths are security-scoped. Users move and
@@ -38,7 +38,7 @@ merge:
 
           # Live-reload from the dev server on the Mac.
           NSLocalNetworkUsageDescription: >-
-            SoloMD connects to the Tauri development server running on your Mac
+            Catstep MD connects to the Tauri development server running on your Mac
             to live-reload the editor UI.
           NSBonjourServices:
             - _http._tcp
@@ -55,7 +55,7 @@ merge:
           #
           # UISupportsDocumentBrowser: true IMPLIES open-in-place and OVERRIDES
           # LSSupportsOpeningDocumentsInPlace: false — Apple's documented
-          # behaviour for UIDocumentBrowserViewController apps. SoloMD is a
+          # behaviour for UIDocumentBrowserViewController apps. Catstep MD is a
           # webview app that never uses a document browser, and leaving this
           # true is why the first attempt at the fix (4.8.2, which set only
           # LSSupportsOpeningDocumentsInPlace) did nothing on device.
@@ -66,7 +66,7 @@ merge:
           LSSupportsOpeningDocumentsInPlace: false
           UISupportsDocumentBrowser: false
 
-          # Declare SoloMD as an editor for .md / .markdown / .mdown / .mkd /
+          # Declare Catstep MD as an editor for .md / .markdown / .mdown / .mkd /
           # .txt so the Files app offers it under "Open With".
           CFBundleDocumentTypes:
             - CFBundleTypeName: Markdown Document

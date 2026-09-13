@@ -107,7 +107,7 @@ pub fn normalize_openai_base(raw: &str) -> Option<String> {
     }
     let has_scheme = trimmed.contains("://");
     let after_scheme = if has_scheme {
-        trimmed.splitn(2, "://").nth(1).unwrap_or("")
+        trimmed.split_once("://").map(|x| x.1).unwrap_or("")
     } else {
         trimmed
     };
@@ -130,9 +130,7 @@ pub fn normalize_openai_base(raw: &str) -> Option<String> {
     };
     // Does anything follow the host? If not, the server is expecting the
     // version prefix we'd otherwise skip.
-    let path = with_scheme
-        .splitn(2, "://")
-        .nth(1)
+    let path = with_scheme.split_once("://").map(|x| x.1)
         .and_then(|rest| rest.split_once('/'))
         .map(|(_, p)| p.trim_matches('/').to_string())
         .unwrap_or_default();
@@ -2260,7 +2258,7 @@ async fn anthropic_one_turn(
                         let i = json.get("index").and_then(|v| v.as_u64()).unwrap_or(0);
                         let delta = json.get("delta").cloned().unwrap_or(Value::Null);
                         let dtype = delta.get("type").and_then(|t| t.as_str()).unwrap_or("");
-                        let entry = blocks.entry(i).or_insert_with(Block::default);
+                        let entry = blocks.entry(i).or_default();
                         if dtype == "text_delta" {
                             if let Some(t) =
                                 delta.get("text").and_then(|s| s.as_str())

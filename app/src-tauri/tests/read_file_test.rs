@@ -33,7 +33,7 @@ fn read_gbk_chinese() {
     // chardetng needs ≥ ~100 bytes to confidently detect GBK; supply a
     // realistic paragraph rather than 4 bytes.
     let text = "中文软件开发笔记。这是一段用 GBK 编码保存的中文文本，\
-                用来验证 SoloMD 的编码识别功能能否正确把它读回来并\
+                用来验证 猫步 MD 的编码识别功能能否正确把它读回来并\
                 转成 UTF-8 显示。Markdown 编辑器的关键特性之一就是\
                 老旧编码的兼容支持。再加一行内容来确保字节数足够。";
     let (gbk_bytes, _, _) = GBK.encode(text);

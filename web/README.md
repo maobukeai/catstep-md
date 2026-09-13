@@ -1,4 +1,4 @@
-# SoloMD landing page
+# Catstep MD landing page
 
 The official website at https://solomd.app
 
@@ -39,5 +39,5 @@ Translations live in `src/i18n/translations.ts`.
 
 Push to `main` → Cloudflare Pages auto-rebuilds and deploys.
 
-To update download links after a new SoloMD release, edit the `VERSION`
+To update download links after a new Catstep MD release, edit the `VERSION`
 constant in `src/components/Download.astro`.

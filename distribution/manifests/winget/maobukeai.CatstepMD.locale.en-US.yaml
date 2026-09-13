@@ -7,15 +7,15 @@ PackageLocale: en-US
 Publisher: maobukeai
 PublisherUrl: https://github.com/maobukeai
 PublisherSupportUrl: https://github.com/maobukeai/catstep-md/issues
-Author: xiangdong li
-PackageName: SoloMD
-PackageUrl: https://solomd.app
+Author: maobukeai
+PackageName: Catstep MD
+PackageUrl: https://github.com/maobukeai/catstep-md
 License: MIT
 LicenseUrl: https://github.com/maobukeai/catstep-md/blob/main/LICENSE
-Copyright: Copyright (c) 2024 xiangdong li
+Copyright: Copyright (c) 2026 maobukeai
 ShortDescription: A lightweight, cross-platform Markdown editor with live preview
 Description: |-
-  SoloMD is a lightweight Markdown + plain text editor built with Tauri 2.
+  Catstep MD is a lightweight Markdown + plain text editor built with Tauri 2.
   Features:
   - Live preview (WYSIWYG-style editing)
   - KaTeX math rendering
@@ -24,7 +24,7 @@ Description: |-
   - Export to PDF, DOCX, HTML
   - Light & dark themes
   - Clean AI artifacts
-Moniker: solomd
+Moniker: catstepmd
 Tags:
 - markdown
 - editor

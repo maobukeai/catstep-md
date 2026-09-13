@@ -1,4 +1,4 @@
-# SoloMD 软件分发上架计划
+# Catstep MD 软件分发上架计划
 
 > 版本：v0.1.8
 > 更新日期：2026-04-13
@@ -10,20 +10,20 @@
 ### Windows
 | 文件 | 大小 | SHA256 |
 |------|------|--------|
-| SoloMD_0.1.8_x64-setup.exe | 5.2 MB | `868a9351eaf52b3cb204037ba592204d887950172ea7a982449b51ee81dd9e62` |
-| SoloMD_0.1.8_x64_en-US.msi | 6.3 MB | `be380effbfb6ab32ffb81f5f5d06d4b9d9f0c2c959cc62f5d31fbb62af1a2467` |
+| Catstep MD_0.1.8_x64-setup.exe | 5.2 MB | `868a9351eaf52b3cb204037ba592204d887950172ea7a982449b51ee81dd9e62` |
+| Catstep MD_0.1.8_x64_en-US.msi | 6.3 MB | `be380effbfb6ab32ffb81f5f5d06d4b9d9f0c2c959cc62f5d31fbb62af1a2467` |
 
 ### macOS
 | 文件 | 大小 | SHA256 |
 |------|------|--------|
-| SoloMD_0.1.8_universal.dmg | 13.1 MB | `76f277a80cd78c64939c9aaa5609c0af22e9daf68873ebaa6176611f0b62c0c5` |
+| Catstep MD_0.1.8_universal.dmg | 13.1 MB | `76f277a80cd78c64939c9aaa5609c0af22e9daf68873ebaa6176611f0b62c0c5` |
 
 ### Linux
 | 文件 | 大小 | SHA256 |
 |------|------|--------|
-| SoloMD_0.1.8_amd64.deb | 7.8 MB | `a3cd34178a0915322e10a2ca2e9b1046a573d10a46afdae02964f6d0b98f68ed` |
-| SoloMD-0.1.8-1.x86_64.rpm | 7.8 MB | `3a7f306852259fcfd9986acfdac37bb0eed89749e7b4945dee6d85c7321bbb09` |
-| SoloMD_0.1.8_amd64.AppImage | 81.6 MB | `3fc7ca85303c418c3819f732911738a8de0397190470408b7570ad1711d6e142` |
+| Catstep MD_0.1.8_amd64.deb | 7.8 MB | `a3cd34178a0915322e10a2ca2e9b1046a573d10a46afdae02964f6d0b98f68ed` |
+| Catstep MD-0.1.8-1.x86_64.rpm | 7.8 MB | `3a7f306852259fcfd9986acfdac37bb0eed89749e7b4945dee6d85c7321bbb09` |
+| Catstep MD_0.1.8_amd64.AppImage | 81.6 MB | `3fc7ca85303c418c3819f732911738a8de0397190470408b7570ad1711d6e142` |
 
 ---
 
@@ -43,15 +43,15 @@
 ```bash
 # 方法一：直接 brew 命令（推荐）
 brew tap homebrew/cask
-brew create --cask https://github.com/maobukeai/catstep-md/releases/download/v0.1.8/SoloMD_0.1.8_universal.dmg
+brew create --cask https://github.com/maobukeai/catstep-md/releases/download/v0.1.8/Catstep MD_0.1.8_universal.dmg
 
 # 方法二：手动 PR
 gh repo fork homebrew/homebrew-cask --clone
 cd homebrew-cask
 cp /path/to/solomd.rb Casks/s/solomd.rb
 git checkout -b add-solomd
-git add . && git commit -m "Add SoloMD v0.1.8"
-gh pr create --title "Add SoloMD v0.1.8" --body "New cask for SoloMD markdown editor"
+git add . && git commit -m "Add Catstep MD v0.1.8"
+gh pr create --title "Add Catstep MD v0.1.8" --body "New cask for Catstep MD markdown editor"
 ```
 
 ---
@@ -69,7 +69,7 @@ gh pr create --title "Add SoloMD v0.1.8" --body "New cask for SoloMD markdown ed
 **提交命令**：
 ```bash
 # 方法一：使用 wingetcreate 工具（推荐）
-wingetcreate new https://github.com/maobukeai/catstep-md/releases/download/v0.1.8/SoloMD_0.1.8_x64-setup.exe
+wingetcreate new https://github.com/maobukeai/catstep-md/releases/download/v0.1.8/Catstep MD_0.1.8_x64-setup.exe
 
 # 方法二：手动 PR
 gh repo fork microsoft/winget-pkgs --clone
@@ -145,7 +145,7 @@ choco push solomd.0.1.8.nupkg --source https://push.chocolatey.org/ --api-key YO
 **网址**：https://alternativeto.net/
 
 **步骤**：
-1. 搜索 "SoloMD"，如果不存在则添加
+1. 搜索 "Catstep MD"，如果不存在则添加
 2. 添加软件：https://alternativeto.net/software/add/
 3. 填写信息并关联到 Typora、Obsidian 等竞品
 
@@ -292,10 +292,10 @@ choco push solomd.0.1.8.nupkg --source https://push.chocolatey.org/ --api-key YO
 
 ## 联系信息
 
-**软件名称**：SoloMD
-**版本**：0.1.8
-**官网**：https://solomd.app
+**软件名称**：猫步 MD (Catstep MD)
+**版本**：1.0.3
+**官网**：https://github.com/maobukeai/catstep-md
 **GitHub**：https://github.com/maobukeai/catstep-md
-**作者**：xiangdong li
-**邮箱**：[填写]
+**作者**：maobukeai
+**邮箱**：maobukeai.lilan@gmail.com
 **协议**：MIT

@@ -661,9 +661,9 @@ export async function markdownToDocxBlob(
   }
 
   const doc = new Document({
-    creator: 'SoloMD',
+    creator: 'Catstep MD',
     title: tpl.title || _title,
-    description: 'Exported from SoloMD',
+    description: 'Exported from Catstep MD',
     styles: {
       default: {
         document: {

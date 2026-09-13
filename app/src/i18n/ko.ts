@@ -303,7 +303,7 @@ export const ko: I18n = {
     "catWriting": "쓰기",
     "catSync": "동기화",
     "syncUnsupportedAndroid": "Git 기반 동기화(버전 기록, GitHub 동기화, 프록시)는 아직 Android 빌드에서 사용할 수 없습니다. 이 기능이 의존하는 libgit2 엔진이 Android 바이너리에 포함되어 있지 않기 때문입니다. 당분간 데스크톱 또는 iOS 앱에서 동기화해 주세요.",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "통합",
     "catExport": "내보내기",
@@ -849,7 +849,7 @@ export const ko: I18n = {
   "integrations": {
     "heading": "통합",
     "intro": "Catstep MD는 터미널과 MCP 지원 AI 클라이언트(Claude Desktop, Codex CLI, Cursor)와 통신합니다. 앱 밖에서 노트를 읽고 쓸 수 있어요.",
-    "cliTitle": "CLI(solomd)",
+    "cliTitle": "CLI(catstep)",
     "cliInstalled": "{path}에 설치됨",
     "cliNotInstalled": "설치되지 않음",
     "cliVersionLabel": "버전",
@@ -860,7 +860,7 @@ export const ko: I18n = {
     "cliCopyInstallBtn": "설치 명령 복사",
     "cliCopiedToast": "설치 명령이 복사되었습니다 — 터미널에 붙여넣으세요.",
     "cliInstallToast": "터미널에서 실행하세요 — /usr/local/bin에는 sudo가 필요합니다:",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "무엇을 할 수 있나요?",
@@ -872,7 +872,7 @@ export const ko: I18n = {
       "cat": "cat <title|path> — 노트를 stdout으로 출력",
       "help": "help — 모든 명령 표시"
     },
-    "mcpTitle": "MCP 서버(solomd-mcp)",
+    "mcpTitle": "MCP 서버(catstep-mcp)",
     "mcpBundled": "{path}에 번들됨",
     "mcpNotBundled": "번들되지 않음(이 dev 빌드는 externalBin 사이드카를 건너뜁니다). 프로덕션 빌드에는 항상 포함됩니다.",
     "mcpDesc": "열린 워크스페이스를 Model Context Protocol 서버로 노출하여 Claude Desktop / Codex / Cursor가 노트를 목록·읽기·검색·쓰기할 수 있게 합니다.",
@@ -917,7 +917,7 @@ export const ko: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "MCP 프로필",
-    "profilesIntro": "여러 워크스페이스를 하나의 solomd-mcp 인스턴스로 묶고, 붙여넣을 수 있는 Claude Desktop 설정 블록을 복사할 수 있습니다. 각 프로필은 MCP 서버가 노출하는 워크스페이스(별칭 + 경로)를 나열합니다. 첫 번째 항목이 기본값 — `workspace` 인자 없이 호출되는 도구는 여기로 폴스루됩니다.",
+    "profilesIntro": "여러 워크스페이스를 하나의 catstep-mcp 인스턴스로 묶고, 붙여넣을 수 있는 Claude Desktop 설정 블록을 복사할 수 있습니다. 각 프로필은 MCP 서버가 노출하는 워크스페이스(별칭 + 경로)를 나열합니다. 첫 번째 항목이 기본값 — `workspace` 인자 없이 호출되는 도구는 여기로 폴스루됩니다.",
     "profilesEmpty": "아직 프로필이 없습니다.",
     "profilesCreate": "새 프로필",
     "profilesDuplicate": "복제",
@@ -945,7 +945,7 @@ export const ko: I18n = {
     "profilesValidationFailed": "저장할 수 없습니다: {msg}",
     "profilesNamePlaceholder": "work-and-home",
     "profilesNewProfileDefault": "새 프로필",
-    "profilesNoMcpBinary": "이 dev 빌드에는 solomd-mcp가 번들되지 않았습니다 — 스니펫은 플레이스홀더 경로를 사용합니다."
+    "profilesNoMcpBinary": "이 dev 빌드에는 catstep-mcp가 번들되지 않았습니다 — 스니펫은 플레이스홀더 경로를 사용합니다."
   },
   "recipes": {
     "heading": "Agent 레시피",

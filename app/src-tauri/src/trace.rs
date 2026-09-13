@@ -1,6 +1,6 @@
 //! v4.0 Pillar 3 — `trace.jsonl` emitter + reader.
 //!
-//! This is the **canonical** trace utility for SoloMD agent runs. P1 (panel
+//! This is the **canonical** trace utility for Catstep MD agent runs. P1 (panel
 //! agent) and P2 (recipe runner) both adopt this module; the helper
 //! signatures are intentionally typed (no raw `serde_json::Value` at call
 //! sites) so trace lines are well-formed by construction.
@@ -519,11 +519,11 @@ fn count_existing_lines(path: &Path) -> io::Result<u32> {
 }
 
 fn io_other<E: std::fmt::Display>(e: E) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, e.to_string())
+    io::Error::other(e.to_string())
 }
 
 fn io_poisoned() -> io::Error {
-    io::Error::new(io::ErrorKind::Other, "trace mutex poisoned")
+    io::Error::other("trace mutex poisoned")
 }
 
 // --------------------------------------------------------------------------

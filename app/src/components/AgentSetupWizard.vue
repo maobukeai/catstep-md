@@ -165,7 +165,7 @@ async function saveCloudKey() {
 //     progress is pushed as `solomd://ollama-pull` events tagged with our
 //     `request_id`.
 // `baseUrl` is optional and defaults to localhost; we pass the configured
-// one so a user who already pointed SoloMD at a LAN box sees it here too.
+// one so a user who already pointed Catstep MD at a LAN box sees it here too.
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 interface OllamaDetect {

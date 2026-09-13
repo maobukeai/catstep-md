@@ -60,7 +60,7 @@ export const onRequest: PagesFunction<StatsEnv> = async ({ request, env }) => {
 
   try {
     const headers: Record<string, string> = {
-      'User-Agent': 'SoloMD-stats-proxy',
+      'User-Agent': 'CatstepMD-stats-proxy',
       Accept: 'application/vnd.github+json',
     };
     if (env.GITHUB_TOKEN) {

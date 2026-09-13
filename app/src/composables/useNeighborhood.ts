@@ -1,7 +1,7 @@
 /**
  * v4.6 F4 — "Neighborhood" relationship explorer.
  *
- * A pure-TS port of Tolaria's `buildRelationshipGroups` over SoloMD's
+ * A pure-TS port of Tolaria's `buildRelationshipGroups` over Catstep MD's
  * `workspaceIndex` entries. Tolaria's Neighborhood is NOT a force/node-link
  * graph — it's a grouped LIST of a note's relationships, driven entirely by
  * Markdown frontmatter. We mirror that here.

@@ -303,7 +303,7 @@ export const sv: I18n = {
     "catWriting": "Skrivande",
     "catSync": "Synkronisering",
     "syncUnsupportedAndroid": "Git-baserad synkronisering (versionshistorik, GitHub-synk, proxy) finns ännu inte i Android-bygget — libgit2-motorn som den bygger på är inte kompilerad in i Android-binären. Använd tills vidare skrivbords- eller iOS-appen för att synka det här valvet.",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "Integrationer",
     "catExport": "Export",
@@ -849,7 +849,7 @@ export const sv: I18n = {
   "integrations": {
     "heading": "Integrationer",
     "intro": "Catstep MD pratar med din terminal och med MCP-medvetna AI-klienter (Claude Desktop, Codex CLI, Cursor) så att du kan läsa/skriva dina anteckningar utanför appen.",
-    "cliTitle": "CLI (solomd)",
+    "cliTitle": "CLI (catstep)",
     "cliInstalled": "Installerad i {path}",
     "cliNotInstalled": "Inte installerad",
     "cliVersionLabel": "Version",
@@ -860,7 +860,7 @@ export const sv: I18n = {
     "cliCopyInstallBtn": "Kopiera installationskommando",
     "cliCopiedToast": "Installationskommando kopierat — klistra in i terminalen.",
     "cliInstallToast": "Kör detta i din terminal — sudo krävs för /usr/local/bin:",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "Vad kan den göra?",
@@ -872,7 +872,7 @@ export const sv: I18n = {
       "cat": "cat <titel|sökväg> — skriv ut en anteckning till stdout",
       "help": "help — visa alla kommandon"
     },
-    "mcpTitle": "MCP-server (solomd-mcp)",
+    "mcpTitle": "MCP-server (catstep-mcp)",
     "mcpBundled": "Medföljer i {path}",
     "mcpNotBundled": "Medföljer inte (denna utvecklingsbygge hoppar över externalBin-sidecar). Produktionsbyggen inkluderar den alltid.",
     "mcpDesc": "Exponerar den öppna arbetsytan som en Model Context Protocol-server så Claude Desktop / Codex / Cursor kan lista, läsa, söka och skriva i dina anteckningar.",
@@ -917,7 +917,7 @@ export const sv: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "MCP-profiler",
-    "profilesIntro": "Bunta ihop flera arbetsytor under en enda solomd-mcp-instans och kopiera ett färdigt Claude Desktop-konfigurationsblock. Varje profil listar arbetsytorna (alias + sökväg) som MCP-servern exponerar; den första posten är standard — verktygsanrop utan ett uttryckligt `workspace`-argument hamnar där.",
+    "profilesIntro": "Bunta ihop flera arbetsytor under en enda catstep-mcp-instans och kopiera ett färdigt Claude Desktop-konfigurationsblock. Varje profil listar arbetsytorna (alias + sökväg) som MCP-servern exponerar; den första posten är standard — verktygsanrop utan ett uttryckligt `workspace`-argument hamnar där.",
     "profilesEmpty": "Inga profiler ännu.",
     "profilesCreate": "Ny profil",
     "profilesDuplicate": "Duplicera",
@@ -945,7 +945,7 @@ export const sv: I18n = {
     "profilesValidationFailed": "Kan inte spara: {msg}",
     "profilesNamePlaceholder": "jobb-och-hemma",
     "profilesNewProfileDefault": "Ny profil",
-    "profilesNoMcpBinary": "solomd-mcp medföljer inte i denna utvecklingsbygge — utdraget använder en platshållarsökväg."
+    "profilesNoMcpBinary": "catstep-mcp medföljer inte i denna utvecklingsbygge — utdraget använder en platshållarsökväg."
   },
   "recipes": {
     "heading": "Agentrecept",

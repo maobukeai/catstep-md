@@ -80,3 +80,6 @@ dist/
 # Python bytecode from the release scripts
 __pycache__/
 *.pyc
+
+# Local agent missions
+.mission/

@@ -9,7 +9,7 @@ const lang = 'en' as const;
 const FAQ = [
   {
     q: 'Which AI clients can connect to my vault?',
-    a: 'Claude Desktop, Codex CLI, Cursor — and any client that speaks the Model Context Protocol. The solomd-mcp sidecar binary ships with every SoloMD release and runs locally over stdio.',
+    a: 'Claude Desktop, Codex CLI, Cursor — and any client that speaks the Model Context Protocol. The catstep-mcp sidecar binary ships with every Catstep MD release and runs locally over stdio.',
   },
   {
     q: 'Can the model modify my notes?',
@@ -17,7 +17,7 @@ const FAQ = [
   },
   {
     q: 'Does my vault content leave my machine?',
-    a: 'The MCP server itself is local — it reads files on disk and talks to your AI client over stdio, with no SoloMD server in the path. What the connected AI client does with the text it reads is governed by that client and the model provider you chose.',
+    a: 'The MCP server itself is local — it reads files on disk and talks to your AI client over stdio, with no Catstep MD server in the path. What the connected AI client does with the text it reads is governed by that client and the model provider you chose.',
   },
   {
     q: 'How long does setup take?',
@@ -27,8 +27,8 @@ const FAQ = [
 ---
 
 <Layout
-  title="SoloMD MCP Server — Drive Your Notes from Claude Desktop, Codex, Cursor"
-  description="SoloMD ships an MCP (Model Context Protocol) sidecar so any MCP-aware AI client can list, search, read, and write your notes."
+  title="Catstep MD MCP Server — Drive Your Notes from Claude Desktop, Codex, Cursor"
+  description="Catstep MD ships an MCP (Model Context Protocol) sidecar so any MCP-aware AI client can list, search, read, and write your notes."
   lang={lang}
 >
   <Header lang={lang} />
@@ -38,9 +38,9 @@ const FAQ = [
         <a href="/">Home</a> / <a href="/docs/">Docs</a> / <span>MCP server</span>
       </nav>
 
-      <h1>SoloMD MCP server</h1>
+      <h1>Catstep MD MCP server</h1>
       <p class="lead">
-        Every SoloMD release ships <code>solomd-mcp</code> — a sidecar binary that
+        Every Catstep MD release ships <code>catstep-mcp</code> — a sidecar binary that
         speaks the <a href="https://modelcontextprotocol.io" rel="external">Model Context Protocol</a>.
         Point Claude Desktop, Codex CLI, Cursor, or any MCP client at it and the
         AI can list / search / read / write your notes from outside the app.
@@ -49,7 +49,7 @@ const FAQ = [
       <h2>Why this matters</h2>
       <p>
         Most note apps treat AI as a feature inside the editor — paste in some
-        text, get a rewrite back. SoloMD inverts that: your AI client gets full
+        text, get a rewrite back. Catstep MD inverts that: your AI client gets full
         access to the vault, so you can ask <em>"summarise everything I wrote
         about Q2 planning"</em> or <em>"draft a follow-up to last week's meeting
         note"</em> and the model reads the actual files itself.
@@ -57,7 +57,7 @@ const FAQ = [
 
       <h2>Quick start — Claude Desktop</h2>
       <ol>
-        <li>Open SoloMD → <strong>Settings → Integrations → MCP server</strong>.</li>
+        <li>Open Catstep MD → <strong>Settings → Integrations → MCP server</strong>.</li>
         <li>Click <strong>Copy Claude Desktop config</strong>. The block already
           embeds the bundled binary path and your currently-open workspace.</li>
         <li>Click <strong>Open Claude Desktop config file</strong>. Paste the
@@ -83,14 +83,14 @@ const FAQ = [
 
       <h2>Read-only by default</h2>
       <p>
-        <code>solomd-mcp</code> exposes write tools only when launched with
+        <code>catstep-mcp</code> exposes write tools only when launched with
         <code>--allow-write</code>. The default config the Settings panel
         copies is read-only. To enable writes, edit the args list:
       </p>
       <pre class="code"><code>{`{
   "mcpServers": {
     "solomd-vault": {
-      "command": "/path/to/solomd-mcp",
+      "command": "/path/to/catstep-mcp",
       "args": ["--workspace", "/path/to/your/notes", "--allow-write"]
     }
   }
@@ -111,7 +111,7 @@ const FAQ = [
       <h2>Where the binary lives</h2>
       <p>
         On macOS the bundled binary is inside the app bundle:
-        <code>SoloMD.app/Contents/MacOS/solomd-mcp</code>. On Windows + Linux
+        <code>Catstep MD.app/Contents/MacOS/catstep-mcp</code>. On Windows + Linux
         it's beside the main executable. The Settings panel always shows the
         absolute path under <strong>Bundled at …</strong> so you don't have to
         hunt for it.

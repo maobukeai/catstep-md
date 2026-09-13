@@ -29,7 +29,7 @@
 
 ## 前言
 
-最近用 Tauri 2 做了一个 Markdown 编辑器 —— SoloMD。安装包只有 15MB，比 Electron 应用小了将近 10 倍。
+最近用 Tauri 2 做了一个 Markdown 编辑器 —— 猫步 MD。安装包只有 15MB，比 Electron 应用小了将近 10 倍。
 
 这篇文章分享一下开发过程中的技术选型和踩坑经验，希望对想尝试 Tauri 的同学有帮助。
 
@@ -98,7 +98,7 @@ React 或 Svelte 也完全可以，Tauri 对前端框架没有限制。
 
 ### 1. 所见即所得编辑
 
-这是 SoloMD 的核心功能：Markdown 标记符号在光标离开当前行后自动隐藏。
+这是 猫步 MD 的核心功能：Markdown 标记符号在光标离开当前行后自动隐藏。
 
 实现思路：
 
@@ -201,7 +201,7 @@ Windows 上如果没有代码签名，用户第一次运行会看到「Windows �
 1. 买 EV 代码签名证书（贵，$400+/年）
 2. 或者等下载量上来，让 SmartScreen 自动信任
 
-目前 SoloMD 选择的是方案 2。
+目前 猫步 MD 选择的是方案 2。
 
 ### 3. 打包体积优化
 
@@ -227,10 +227,10 @@ Windows 上如果没有代码签名，用户第一次运行会看到「Windows �
 - WebView 兼容性需要关注
 - 生态还在发展中
 
-如果你也想尝试 Tauri，SoloMD 的代码完全开源，欢迎参考：
+如果你也想尝试 Tauri，猫步 MD 的代码完全开源，欢迎参考：
 
 - GitHub：[github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
-- 官网：[solomd.app](https://solomd.app)
+- 官网：[github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 
 ---
 

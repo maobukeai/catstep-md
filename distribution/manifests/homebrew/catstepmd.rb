@@ -1,0 +1,25 @@
+cask "catstepmd" do
+  version "1.2.1"
+  sha256 "c31182fffa48983c1947b2c8a4e1c83f63cc3826184ef2c6b3e7e09902c64e73"
+
+  url "https://github.com/maobukeai/catstep-md/releases/download/v#{version}/Catstep MD_#{version}_universal.dmg"
+  name "Catstep MD"
+  desc "Lightweight Markdown editor with live preview"
+  homepage "https://github.com/maobukeai/catstep-md/"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  depends_on macos: ">= :big_sur"
+
+  app "Catstep MD.app"
+
+  zap trash: [
+    "~/Library/Application Support/app.catstepmd",
+    "~/Library/Caches/app.catstepmd",
+    "~/Library/Preferences/app.catstepmd.plist",
+    "~/Library/Saved Application State/app.catstepmd.savedState",
+  ]
+end

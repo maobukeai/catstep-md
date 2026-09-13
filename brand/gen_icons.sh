@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate SoloMD app and Markdown document icons from the SVG masters.
+# Regenerate Catstep MD app and Markdown document icons from the SVG masters.
 set -euo pipefail
 
 BRAND_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,9 +12,8 @@ command -v rsvg-convert >/dev/null
 
 # App icon: Tauri creates the cross-platform matrix, then the macOS helper
 # applies the platform-specific safe area and continuous-corner mask.
-magick -background none "$BRAND_DIR/solomd-mark.svg" -resize 1024x1024 -depth 8 -strip \
-  "$BRAND_DIR/solomd_icon_fullbleed.png"
-magick "$BRAND_DIR/solomd_icon_fullbleed.png" -alpha off -depth 8 -strip \
+cp "$ICON_DIR/icon-macos-source-1024.png" "$BRAND_DIR/solomd_icon_fullbleed.png"
+magick "$BRAND_DIR/solomd_icon_fullbleed.png" -background white -alpha remove -alpha off -depth 8 -strip \
   "$REPO_DIR/app-store/icon-1024.png"
 (
   cd "$REPO_DIR/app"
@@ -95,4 +94,4 @@ for locale in "" "-zh"; do
   cp "$BRAND_DIR/og-image${locale}.png" "$REPO_DIR/web/public/og-image${locale}.png"
 done
 
-echo "Regenerated SoloMD app and document icon families."
+echo "Regenerated Catstep MD app and document icon families."

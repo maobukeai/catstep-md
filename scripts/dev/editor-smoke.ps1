@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Editor regression smoke test for the Windows plain-textarea editor (SoloMD).
+  Editor regression smoke test for the Windows plain-textarea editor (Catstep MD).
 
 .DESCRIPTION
-  Drives the running `tauri dev` SoloMD instance through the dev-bridge
+  Drives the running `tauri dev` Catstep MD instance through the dev-bridge
   (HTTP /eval) and exercises the editor end to end: new-doc focus, typing,
   selection replace, Enter, Tab indent, undo/redo, task-checkbox toggle,
   find/replace, word-wrap and spellcheck attributes. Each test reloads the app

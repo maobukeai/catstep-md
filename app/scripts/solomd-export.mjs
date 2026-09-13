@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * solomd-export — Headless export tool for SoloMD markdown files.
+ * solomd-export — Headless export tool for Catstep MD markdown files.
  *
  * Used by `solomd export <file>` (the bash CLI wrapper) and by the MCP
  * server's `export_note` tool. This is the path that finally closes the
@@ -87,7 +87,7 @@ Options:
   -h, --help           Show this help
 
 Notes:
-  - Reads the same markdown-it config as the SoloMD app
+  - Reads the same markdown-it config as the Catstep MD app
     (html: true, linkify, typographer, mark, footnote, katex).
   - DOCX export uses the same 'docx' npm library as the app.
   - Image embedding is not yet ported (v4.1 limitation; see source).
@@ -758,9 +758,9 @@ async function markdownToDocxBuffer(source, title = 'Document', filePath) {
   const blocks = buildBody(tokens, imageRoot, filePath);
   if (blocks.length === 0) blocks.push(new Paragraph({ text: '' }));
   const doc = new Document({
-    creator: 'SoloMD',
+    creator: 'Catstep MD',
     title,
-    description: 'Exported from SoloMD CLI',
+    description: 'Exported from Catstep MD CLI',
     numbering: {
       config: [{
         reference: 'ordered-list',

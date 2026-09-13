@@ -253,7 +253,7 @@ export function useCommands(): Command[] {
     {
       id: 'theme.customCss',
       title: 'Theme: Set Custom CSS File…',
-      hint: 'Pick a .css file to override SoloMD styles',
+      hint: 'Pick a .css file to override Catstep MD styles',
       run: async () => {
         const path = await openFileDialog({
           multiple: false,
@@ -723,11 +723,11 @@ export function useCommands(): Command[] {
         };
 
         if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-          const label = `solomd-slideshow-${Date.now()}`;
+          const label = `catstep-slideshow-${Date.now()}`;
           try {
             const win = new WebviewWindow(label, {
               url: '/?slideshow=1',
-              title: 'SoloMD — Slideshow',
+              title: 'Catstep MD — Slideshow',
               width: 1200,
               height: 800,
               decorations: true,

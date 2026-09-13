@@ -5,147 +5,147 @@ const { lang } = Astro.props;
 
 const STR = {
   en: {
-    heading: 'Contact / Join the room',
-    lead: 'One maintainer, two front doors. WeChat for the Chinese community, Telegram channel for everyone else. GitHub Discussions works too — link below.',
+    heading: 'Contact / Join the community',
+    lead: 'One maintainer. WeChat or Email for direct contact, and GitHub Discussions for async public threads.',
     wechatLabel: 'WeChat (personal)',
-    wechatHint: 'Scan to add me on WeChat. Mention "SoloMD" so I know it\'s you.',
-    telegramLabel: 'Telegram channel @SOLOMDAPP',
-    telegramHint: 'Click or scan to join. Release announcements + chat live here.',
+    wechatHint: 'Scan to add on WeChat. Mention "Catstep MD" to connect.',
+    emailLabel: 'Email',
+    emailHint: '2026958851@qq.com · Welcome to share feedback or thoughts.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, public, searchable — same maintainer, no DM required.',
+    discussionsHint: 'Async, public, searchable — no DM required.',
   },
   zh: {
-    heading: '联系作者 / 加群',
-    lead: '一个开发者,直接微信或 Telegram 找我。GitHub Discussions 也是一个等价入口 —— 见下面。',
+    heading: '联系作者 / 交流',
+    lead: '一个开发者，直接微信或邮件找我。GitHub Discussions 也是一个公开入口 —— 见下面。',
     wechatLabel: '个人微信',
-    wechatHint: '扫码加好友。注明 "SoloMD" 直接通过。',
-    telegramLabel: 'Telegram 频道 @SOLOMDAPP',
-    telegramHint: '点击或扫码进入频道,发布更新和讨论都在这里。',
+    wechatHint: '扫码加好友。注明 "猫步 MD" 直接通过。',
+    emailLabel: '作者邮箱',
+    emailHint: '2026958851@qq.com · 欢迎反馈建议与交流。',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: '不想加私聊? 可在 GitHub 公开频道讨论 —— 同一作者,异步。',
+    discussionsHint: '不想加私聊？可在 GitHub 公开讨论 —— 异步交流。',
   },
   ja: {
     heading: 'お問い合わせ / コミュニティ',
-    lead: 'メンテナは 1 人、入り口は 2 つ。中国語コミュニティは WeChat、それ以外は Telegram チャンネル。GitHub Discussions も動きます —— 下にリンク。',
+    lead: 'メンテナは 1 人。直接連絡は WeChat またはメール、公開ディスカッションは GitHub Discussions へ。',
     wechatLabel: 'WeChat (個人)',
-    wechatHint: 'WeChat 友達追加用 QR。「SoloMD」と書いてもらえると承認します。',
-    telegramLabel: 'Telegram チャンネル @SOLOMDAPP',
-    telegramHint: 'クリックまたはスキャンで参加。リリース告知とチャットはここ。',
+    wechatHint: 'WeChat 友達追加用 QR。「Catstep MD」と書いてもらえると承認します。',
+    emailLabel: 'メール',
+    emailHint: '2026958851@qq.com · ご意見やフィードバックを歓迎します。',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: '非同期、公開、検索可能 —— 同じメンテナ、DM 不要。',
+    discussionsHint: '非同期、公開、検索可能 —— DM 不要。',
   },
   ko: {
     heading: '문의 / 커뮤니티',
-    lead: '메인테이너 1명, 입구 2개. 중국어 커뮤니티는 WeChat, 그 외는 Telegram 채널. GitHub Discussions도 가능 —— 아래 링크.',
+    lead: '메인테이너 1명. 직접 문의는 WeChat 또는 이메일, 공개 토론은 GitHub Discussions를 이용해 주세요.',
     wechatLabel: 'WeChat (개인)',
-    wechatHint: 'WeChat 친구 추가용 QR. "SoloMD"라고 적어주시면 승인합니다.',
-    telegramLabel: 'Telegram 채널 @SOLOMDAPP',
-    telegramHint: '클릭하거나 스캔하여 참여. 릴리스 공지 + 채팅이 여기 있습니다.',
+    wechatHint: 'WeChat 친구 추가용 QR. "Catstep MD"라고 적어주시면 승인합니다.',
+    emailLabel: '이메일',
+    emailHint: '2026958851@qq.com · 피드백이나 제안을 환영합니다.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: '비동기, 공개, 검색 가능 —— 같은 메인테이너, DM 불필요.',
+    discussionsHint: '비동기, 공개, 검색 가능 —— DM 불필요.',
   },
   de: {
     heading: 'Kontakt / Community beitreten',
-    lead: 'Ein Maintainer, zwei Eingangstüren. WeChat für die chinesische Community, Telegram-Kanal für alle anderen. GitHub Discussions funktioniert auch — Link unten.',
+    lead: 'Ein Maintainer. WeChat oder E-Mail für direkten Kontakt, GitHub Discussions für öffentliche Themen.',
     wechatLabel: 'WeChat (persönlich)',
-    wechatHint: 'Scannen, um mich auf WeChat hinzuzufügen. Erwähnen Sie "SoloMD", damit ich weiß, dass Sie es sind.',
-    telegramLabel: 'Telegram-Kanal @SOLOMDAPP',
-    telegramHint: 'Klicken oder scannen zum Beitreten. Release-Ankündigungen + Chat leben hier.',
+    wechatHint: 'Scannen, um mich auf WeChat hinzuzufügen. Erwähnen Sie "Catstep MD".',
+    emailLabel: 'E-Mail',
+    emailHint: '2026958851@qq.com · Feedback und Ideen sind willkommen.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, öffentlich, durchsuchbar — derselbe Maintainer, keine DM erforderlich.',
+    discussionsHint: 'Async, öffentlich, durchsuchbar — keine DM erforderlich.',
   },
   fr: {
     heading: 'Contact / Rejoindre la communauté',
-    lead: 'Un mainteneur, deux portes d\'entrée. WeChat pour la communauté chinoise, canal Telegram pour tous les autres. GitHub Discussions fonctionne aussi — lien ci-dessous.',
+    lead: 'Un mainteneur. WeChat ou e-mail pour contact direct, GitHub Discussions pour les échanges publics.',
     wechatLabel: 'WeChat (personnel)',
-    wechatHint: 'Scanner pour m\'ajouter sur WeChat. Mentionnez « SoloMD » pour que je sache que c\'est vous.',
-    telegramLabel: 'Canal Telegram @SOLOMDAPP',
-    telegramHint: 'Cliquer ou scanner pour rejoindre. Annonces de release + chat vivent ici.',
+    wechatHint: 'Scanner pour m\'ajouter sur WeChat. Mentionnez « Catstep MD ».',
+    emailLabel: 'E-mail',
+    emailHint: '2026958851@qq.com · Retours et suggestions bienvenus.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, public, recherchable — même mainteneur, pas de DM requis.',
+    discussionsHint: 'Async, public, recherchable — pas de DM requis.',
   },
   es: {
     heading: 'Contacto / Unirse a la comunidad',
-    lead: 'Un mantenedor, dos puertas de entrada. WeChat para la comunidad china, canal Telegram para todos los demás. GitHub Discussions también funciona — enlace abajo.',
+    lead: 'Un mantenedor. WeChat o correo para contacto directo, GitHub Discussions para hilos públicos.',
     wechatLabel: 'WeChat (personal)',
-    wechatHint: 'Escanear para añadirme en WeChat. Menciona "SoloMD" para que sepa que eres tú.',
-    telegramLabel: 'Canal Telegram @SOLOMDAPP',
-    telegramHint: 'Haz clic o escanea para unirte. Anuncios de release + chat viven aquí.',
+    wechatHint: 'Escanear para añadirme en WeChat. Menciona "Catstep MD".',
+    emailLabel: 'Correo electrónico',
+    emailHint: '2026958851@qq.com · Sugerencias y comentarios bienvenidos.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, público, buscable — mismo mantenedor, no se requiere DM.',
+    discussionsHint: 'Async, público, buscable — no se requiere DM.',
   },
   pt: {
     heading: 'Contato / Entrar na comunidade',
-    lead: 'Um mantenedor, duas portas de entrada. WeChat para a comunidade chinesa, canal Telegram para todos os outros. GitHub Discussions também funciona — link abaixo.',
+    lead: 'Um mantenedor. WeChat ou e-mail para contato direto, GitHub Discussions para conversas públicas.',
     wechatLabel: 'WeChat (pessoal)',
-    wechatHint: 'Escaneie para me adicionar no WeChat. Mencione "SoloMD" para eu saber que é você.',
-    telegramLabel: 'Canal Telegram @SOLOMDAPP',
-    telegramHint: 'Clique ou escaneie para entrar. Anúncios de release + chat vivem aqui.',
+    wechatHint: 'Escaneie para me adicionar no WeChat. Mencione "Catstep MD".',
+    emailLabel: 'E-mail',
+    emailHint: '2026958851@qq.com · Feedbacks e ideias são bem-vindos.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, público, pesquisável — mesmo mantenedor, sem DM necessário.',
+    discussionsHint: 'Async, público, pesquisável — sem DM necessário.',
   },
   it: {
     heading: 'Contatto / Unisciti alla community',
-    lead: 'Un manutentore, due porte d\'ingresso. WeChat per la community cinese, canale Telegram per tutti gli altri. GitHub Discussions funziona anche — link sotto.',
+    lead: 'Un manutentore. WeChat o email per contatto diretto, GitHub Discussions per discussioni pubbliche.',
     wechatLabel: 'WeChat (personale)',
-    wechatHint: 'Scansiona per aggiungermi su WeChat. Menziona "SoloMD" così so che sei tu.',
-    telegramLabel: 'Canale Telegram @SOLOMDAPP',
-    telegramHint: 'Clicca o scansiona per unirti. Annunci di release + chat vivono qui.',
+    wechatHint: 'Scansiona per aggiungermi su WeChat. Menziona "Catstep MD".',
+    emailLabel: 'E-mail',
+    emailHint: '2026958851@qq.com · Suggerimenti e feedback benvenuti.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, pubblico, ricercabile — stesso manutentore, nessun DM richiesto.',
+    discussionsHint: 'Async, pubblico, ricercabile — nessun DM richiesto.',
   },
   pl: {
     heading: 'Kontakt / Dołącz do społeczności',
-    lead: 'Jeden maintainer, dwa wejścia. WeChat dla społeczności chińskiej, kanał Telegram dla wszystkich innych. GitHub Discussions też działa — link niżej.',
+    lead: 'Jeden maintainer. WeChat lub e-mail do kontaktu bezpośredniego, GitHub Discussions do wątków publicznych.',
     wechatLabel: 'WeChat (osobisty)',
-    wechatHint: 'Zeskanuj, aby dodać mnie na WeChat. Wpisz "SoloMD", abym wiedział, że to ty.',
-    telegramLabel: 'Kanał Telegram @SOLOMDAPP',
-    telegramHint: 'Kliknij lub zeskanuj, aby dołączyć. Ogłoszenia release\'ów + chat odbywają się tutaj.',
+    wechatHint: 'Zeskanuj, aby dodać mnie na WeChat. Wpisz "Catstep MD".',
+    emailLabel: 'E-mail',
+    emailHint: '2026958851@qq.com · Uwagi i sugestie mile widziane.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Asynchroniczne, publiczne, przeszukiwalne — ten sam maintainer, bez DM.',
+    discussionsHint: 'Asynchroniczne, publiczne, przeszukiwalne — bez DM.',
   },
   nl: {
     heading: 'Contact / Word lid van de community',
-    lead: 'Eén maintainer, twee voordeuren. WeChat voor de Chinese community, Telegram-kanaal voor iedereen anders. GitHub Discussions werkt ook — link hieronder.',
+    lead: 'Eén maintainer. WeChat of e-mail voor direct contact, GitHub Discussions voor openbare threads.',
     wechatLabel: 'WeChat (persoonlijk)',
-    wechatHint: 'Scan om me toe te voegen op WeChat. Vermeld "SoloMD" zodat ik weet dat jij het bent.',
-    telegramLabel: 'Telegram-kanaal @SOLOMDAPP',
-    telegramHint: 'Klik of scan om mee te doen. Release-aankondigingen + chat staan hier.',
+    wechatHint: 'Scan om me toe te voegen op WeChat. Vermeld "Catstep MD".',
+    emailLabel: 'E-mail',
+    emailHint: '2026958851@qq.com · Feedback en ideeën zijn welkom.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, openbaar, doorzoekbaar — dezelfde maintainer, geen DM nodig.',
+    discussionsHint: 'Async, openbaar, doorzoekbaar — geen DM nodig.',
   },
   tr: {
     heading: 'İletişim / Topluluğa katıl',
-    lead: 'Bir bakımcı, iki kapı. Çin topluluğu için WeChat, diğer herkes için Telegram kanalı. GitHub Discussions de çalışıyor — link aşağıda.',
+    lead: 'Bir bakımcı. Doğrudan iletişim için WeChat veya E-posta, genel konular için GitHub Discussions.',
     wechatLabel: 'WeChat (kişisel)',
-    wechatHint: 'WeChat\'ten beni eklemek için tara. Sen olduğunu bilmem için "SoloMD" yaz.',
-    telegramLabel: 'Telegram kanalı @SOLOMDAPP',
-    telegramHint: 'Katılmak için tıklayın veya tarayın. Sürüm duyuruları + sohbet burada yaşar.',
+    wechatHint: 'WeChat\'ten eklemek için tara. "Catstep MD" yaz.',
+    emailLabel: 'E-posta',
+    emailHint: '2026958851@qq.com · Geri bildirimler her zaman hoş karşılanır.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, herkese açık, aranabilir — aynı bakımcı, DM gerekmez.',
+    discussionsHint: 'Async, herkese açık, aranabilir — DM gerekmez.',
   },
   sv: {
     heading: 'Kontakt / Gå med i gemenskapen',
-    lead: 'En underhållare, två ytterdörrar. WeChat för den kinesiska gemenskapen, Telegram-kanal för alla andra. GitHub Discussions fungerar också — länk nedan.',
+    lead: 'En underhållare. WeChat eller e-post för direktkontakt, GitHub Discussions för öppna diskussioner.',
     wechatLabel: 'WeChat (personlig)',
-    wechatHint: 'Skanna för att lägga till mig på WeChat. Nämn "SoloMD" så jag vet att det är du.',
-    telegramLabel: 'Telegram-kanal @SOLOMDAPP',
-    telegramHint: 'Klicka eller skanna för att gå med. Release-meddelanden + chatt bor här.',
+    wechatHint: 'Skanna för att lägga till på WeChat. Nämn "Catstep MD".',
+    emailLabel: 'E-post',
+    emailHint: '2026958851@qq.com · Förslag och synpunkter är välkomna.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, offentlig, sökbar — samma underhållare, ingen DM krävs.',
+    discussionsHint: 'Async, offentlig, sökbar — ingen DM krävs.',
   },
   uk: {
     heading: 'Контакт / Долучитися до спільноти',
-    lead: 'Один підтримувач, два входи. WeChat для китайської спільноти, канал Telegram для всіх інших. GitHub Discussions також працює — посилання нижче.',
+    lead: 'Один розробник. WeChat або e-mail для прямого зв\'язку, GitHub Discussions для публічних обговорень.',
     wechatLabel: 'WeChat (особистий)',
-    wechatHint: 'Скануйте, щоб додати мене у WeChat. Згадайте "SoloMD", щоб я знав, що це ви.',
-    telegramLabel: 'Канал Telegram @SOLOMDAPP',
-    telegramHint: 'Натисніть або скануйте, щоб приєднатися. Анонси релізів + чат живуть тут.',
+    wechatHint: 'Скануйте, щоб додати у WeChat. Вкажіть "Catstep MD".',
+    emailLabel: 'Електронна пошта',
+    emailHint: '2026958851@qq.com · Відгуки та пропозиції вітаються.',
     discussionsLabel: 'GitHub Discussions',
-    discussionsHint: 'Async, публічно, з пошуком — той самий підтримувач, DM не потрібен.',
+    discussionsHint: 'Async, публічно, з пошуком — DM не потрібен.',
   },
 }[lang];
-const { heading, lead, wechatLabel, wechatHint, telegramLabel, telegramHint, discussionsLabel, discussionsHint } = STR;
+const { heading, lead, wechatLabel, wechatHint, emailLabel, emailHint, discussionsLabel, discussionsHint } = STR;
 ---
 
 <section id="contact" class="contact">
@@ -159,11 +159,11 @@ const { heading, lead, wechatLabel, wechatHint, telegramLabel, telegramHint, dis
       <article class="contact__card">
         <div class="contact__card-body">
           <img
-            src="/contact/wechat.jpg"
+            src="/contact/contact_qr.webp"
             alt={wechatLabel}
             loading="lazy"
-            width="342"
-            height="440"
+            width="220"
+            height="220"
           />
           <div class="contact__card-meta">
             <h3>{wechatLabel}</h3>
@@ -172,31 +172,23 @@ const { heading, lead, wechatLabel, wechatHint, telegramLabel, telegramHint, dis
         </div>
       </article>
 
-      <article class="contact__card">
+      <article class="contact__card contact__card--email">
         <div class="contact__card-body">
-          <a href="https://t.me/SOLOMDAPP" target="_blank" rel="noopener">
-            <img
-              src="/contact/telegram.jpg"
-              alt={telegramLabel}
-              loading="lazy"
-              width="229"
-              height="440"
-            />
-          </a>
+          <div class="contact__icon-box" aria-hidden="true">✉️</div>
           <div class="contact__card-meta">
             <h3>
-              <a href="https://t.me/SOLOMDAPP" target="_blank" rel="noopener">
-                @SOLOMDAPP
+              <a href="mailto:2026958851@qq.com">
+                {emailLabel}
               </a>
             </h3>
-            <p>{telegramHint}</p>
+            <p>{emailHint}</p>
           </div>
         </div>
       </article>
 
       <article class="contact__card contact__card--discussions">
         <div class="contact__card-body">
-          <div class="contact__discussions-icon" aria-hidden="true">💬</div>
+          <div class="contact__icon-box" aria-hidden="true">💬</div>
           <div class="contact__card-meta">
             <h3>
               <a href="https://github.com/maobukeai/catstep-md/discussions" target="_blank" rel="noopener">
@@ -259,12 +251,13 @@ const { heading, lead, wechatLabel, wechatHint, telegramLabel, telegramHint, dis
     width: 100%;
   }
   .contact__card-body img {
-    width: 220px;
-    height: auto;
-    max-height: 280px;
+    width: 180px;
+    height: 180px;
     object-fit: contain;
     border-radius: 8px;
     background: #fff;
+    padding: 6px;
+    border: 1px solid var(--border);
   }
   .contact__card-meta h3 {
     margin: 0 0 6px;
@@ -285,14 +278,15 @@ const { heading, lead, wechatLabel, wechatHint, telegramLabel, telegramHint, dis
     line-height: 1.55;
   }
 
+  .contact__card--email,
   .contact__card--discussions {
     background: var(--bg);
   }
-  .contact__discussions-icon {
+  .contact__icon-box {
     font-size: 56px;
     line-height: 1;
-    width: 220px;
-    max-height: 280px;
+    width: 180px;
+    height: 180px;
     display: flex;
     align-items: center;
     justify-content: center;

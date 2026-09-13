@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# smoke-test.sh — end-to-end verification for the SoloMD web clipper.
+# smoke-test.sh — end-to-end verification for the Catstep MD web clipper.
 #
 # 1. Builds the desktop `capture_drive` example (the same code path the
 #    desktop app's Settings → Integrations toggle wires up, but as a
@@ -15,7 +15,7 @@
 #
 # This is the "build the verification harness first" route required by
 # rule #2 — without this, the extension would only be testable against
-# a fully-built SoloMD desktop app on someone else's machine.
+# a fully-built Catstep MD desktop app on someone else's machine.
 #
 # Usage:
 #     web-clipper/scripts/smoke-test.sh

@@ -108,7 +108,7 @@ def main():
                         "run creates")
     p.add_argument("--uses-non-exempt-encryption", action="store_true",
                    help="declare that the build uses encryption beyond what Apple exempts. "
-                        "The default answer is no, which is what SoloMD has always declared: "
+                        "The default answer is no, which is what Catstep MD has always declared: "
                         "it speaks HTTPS through the OS and ships no cryptography of its own.")
     p.add_argument("--dry-run", action="store_true",
                    help="read the real state, print every write instead of making it")

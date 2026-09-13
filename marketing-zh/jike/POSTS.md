@@ -25,7 +25,7 @@
 
 免费开源，MIT 协议。
 
-https://solomd.app
+https://github.com/maobukeai/catstep-md
 
 反馈 bug 或建议欢迎直接回复 👇
 ```
@@ -38,7 +38,7 @@ https://solomd.app
 
 ### 版本更新
 ```
-SoloMD 更新了 [版本号]
+猫步 MD 更新了 [版本号]
 
 新增：
 • xxx
@@ -47,7 +47,7 @@ SoloMD 更新了 [版本号]
 修复：
 • xxx
 
-下载：https://solomd.app
+下载：https://github.com/maobukeai/catstep-md
 ```
 
 ### AI 功能相关
@@ -56,7 +56,7 @@ SoloMD 更新了 [版本号]
 
 做了个「一键清除 AI 格式」的功能，粘贴后一键清理干净。
 
-在 SoloMD 里：https://solomd.app
+在 猫步 MD 里：https://github.com/maobukeai/catstep-md
 ```
 
 ### 技术分享

@@ -1,11 +1,11 @@
 //! v2.6.1 — Cloud-folder detection + cross-device session restore.
 //!
-//! Two complementary primitives that together let SoloMD pick up where the
+//! Two complementary primitives that together let Catstep MD pick up where the
 //! user left off across machines, without our v2.6.0 GitHub sync layer:
 //!
 //! 1. **Cloud-folder detection.** If the workspace path lives inside iCloud
 //!    Drive, Dropbox, OneDrive, or Google Drive, the provider already runs
-//!    background sync; SoloMD just needs to surface that fact in the UI
+//!    background sync; Catstep MD just needs to surface that fact in the UI
 //!    ("your workspace is in iCloud — saves propagate automatically") and
 //!    avoid showing GitHub-sync nudges that would feel redundant.
 //!

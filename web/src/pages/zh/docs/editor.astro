@@ -8,8 +8,8 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD 编辑器 — 实时渲染、图片、表格、Vim、打字机模式"
-  description="SoloMD 编辑器工作原理:实时所见即所得渲染、图片粘贴与上传、表格编辑、数学公式、Mermaid、PlantUML、白板、专注与打字机模式、Vim 按键,以及 Windows 上对输入法安全的编辑器。"
+  title="猫步 MD 编辑器 — 实时渲染、图片、表格、Vim、打字机模式"
+  description="猫步 MD 编辑器工作原理:实时所见即所得渲染、图片粘贴与上传、表格编辑、数学公式、Mermaid、PlantUML、白板、专注与打字机模式、Vim 按键,以及 Windows 上对输入法安全的编辑器。"
   lang={lang}
 >
   <Header lang={lang} />
@@ -76,7 +76,7 @@ const lang = 'zh' as const;
 
       <h2>关于 Windows 与中日韩输入法</h2>
       <p>
-        在 Windows 上，SoloMD 使用一条专门打造的纯文本编辑器路径，绕开 WebView2
+        在 Windows 上，猫步 MD 使用一条专门打造的纯文本编辑器路径，绕开 WebView2
         长期存在的输入法 bug（首字符丢失、标点重复）。代价是：源码模式下的语法高亮
         受限；实时编辑、分栏和预览则完整渲染。在 Windows 上开启 Vim 模式会切换回
         CodeMirror 编辑器。

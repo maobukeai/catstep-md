@@ -1,9 +1,9 @@
-# SoloMD MCP
+# Catstep MD MCP
 
-[![Latest release](https://img.shields.io/github/v/release/maobukeai/catstep-md?label=SoloMD&color=blue)](https://github.com/maobukeai/catstep-md/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/maobukeai/catstep-md?label=Catstep MD&color=blue)](https://github.com/maobukeai/catstep-md/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/maobukeai/catstep-md/total?color=brightgreen)](https://github.com/maobukeai/catstep-md/releases)
 [![License](https://img.shields.io/github/license/maobukeai/catstep-md)](https://github.com/maobukeai/catstep-md/blob/main/LICENSE)
-[![Get SoloMD](https://img.shields.io/badge/Get%20SoloMD-solomd.app-black)](https://solomd.app)
+[![Get Catstep MD](https://img.shields.io/badge/Get%20Catstep MD-github.com/maobukeai/catstep-md-black)](https://github.com/maobukeai/catstep-md)
 
 **MCP server for one or more Markdown notes folders.** 13 tools: read /
 search / outline / wikilink backlinks / AutoGit history / share URLs / agent
@@ -11,42 +11,42 @@ trace replay. Read-only by default; `--allow-write` opt-in for the 3 write
 tools.
 
 Works against any plain folder of `.md` files. Pairs with the
-[SoloMD](https://solomd.app) desktop editor for a real GUI agent surface,
+[Catstep MD](https://github.com/maobukeai/catstep-md) desktop editor for a real GUI agent surface,
 but the editor isn't required.
 
-## About SoloMD
+## About Catstep MD
 
-[**SoloMD**](https://solomd.app) is a free, MIT-licensed Markdown + plaintext
+[**Catstep MD**](https://github.com/maobukeai/catstep-md) is a free, MIT-licensed Markdown + plaintext
 editor that treats agents as first-class editor surfaces — not external CLI
 handoffs. Same `.md` files as your favourite plain-text setup; the editor
 adds a Wiki-link + backlink graph, semantic search across your whole vault,
 per-note AutoGit history, a streamed Agent panel that cites notes with
-`[[wikilinks]]`, and **the same `solomd-mcp` MCP endpoint that this listing
+`[[wikilinks]]`, and **the same `catstep-mcp` MCP endpoint that this listing
 exposes — pre-wired**, so Claude Desktop / Cursor / Claude Code / Cline /
 Continue can drive the same vault from outside the app.
 
-You don't need the app to use the MCP server: `solomd-mcp` runs against any
+You don't need the app to use the MCP server: `catstep-mcp` runs against any
 plain folder of `.md` files. But if you want the **Agent panel**, **pending
 write accept/reject UI**, **AutoGit branch sandbox per agent run**, and
 **BYOK keys in the OS keychain** — get the app.
 
 | | Download |
 |---|---|
-| 🍎 **macOS** (universal — Apple Silicon + Intel) | [`SoloMD_4.5.6_universal.dmg`](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_universal.dmg) |
-| 🪟 **Windows** (x64) | [`SoloMD_4.5.6_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_x64_en-US.msi) |
-| 🪟 **Windows on ARM** (Snapdragon X / Copilot+ PCs) | [`SoloMD_4.5.6_arm64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_arm64_en-US.msi) |
-| 🐧 **Linux** (Debian / Ubuntu) | [`.deb`](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_amd64.deb) · [arm64](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_arm64.deb) |
-| 🐧 **Linux** (Fedora / RHEL) | [`.rpm`](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD-4.5.6-1.x86_64.rpm) · [aarch64](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD-4.5.6-1.aarch64.rpm) |
-| 🐧 **Linux** (portable) | [`.AppImage`](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_amd64.AppImage) · [aarch64](https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_aarch64.AppImage) |
-| 🤖 **Android / iPad** | See [solomd.app](https://solomd.app) |
+| 🍎 **macOS** (universal — Apple Silicon + Intel) | [`Catstep MD_4.5.6_universal.dmg`](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_universal.dmg) |
+| 🪟 **Windows** (x64) | [`Catstep MD_4.5.6_x64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_x64_en-US.msi) |
+| 🪟 **Windows on ARM** (Snapdragon X / Copilot+ PCs) | [`Catstep MD_4.5.6_arm64_en-US.msi`](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_arm64_en-US.msi) |
+| 🐧 **Linux** (Debian / Ubuntu) | [`.deb`](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_amd64.deb) · [arm64](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_arm64.deb) |
+| 🐧 **Linux** (Fedora / RHEL) | [`.rpm`](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD-4.5.6-1.x86_64.rpm) · [aarch64](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD-4.5.6-1.aarch64.rpm) |
+| 🐧 **Linux** (portable) | [`.AppImage`](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_amd64.AppImage) · [aarch64](https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_aarch64.AppImage) |
+| 🤖 **Android / iPad** | See [github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md) |
 
 All builds are signed (macOS Developer ID + notarised, Android v2 + v3
-keystore). No telemetry account, no SoloMD-hosted servers — your notes, AI
+keystore). No telemetry account, no Catstep MD-hosted servers — your notes, AI
 keys, embeddings index, and git history stay on your machine.
 
 ## Tools
 
-`solomd-mcp` exposes 13 JSON-RPC tools over stdio. Read tools are always
+`catstep-mcp` exposes 13 JSON-RPC tools over stdio. Read tools are always
 available; write tools require `--allow-write` at server startup.
 
 ### 8 generic Markdown-vault tools
@@ -62,9 +62,9 @@ available; write tools require `--allow-write` at server startup.
 | `write_note` *(needs `--allow-write`)* | Create or overwrite a note. Returns the new path and a diff against any prior version. |
 | `append_to_note` *(needs `--allow-write`)* | Append to an existing note (idempotent — won't duplicate a block already present at the bottom). |
 
-### 5 SoloMD-only tools
+### 5 Catstep MD-only tools
 
-These exist because SoloMD's vault carries more than just markdown — every
+These exist because Catstep MD's vault carries more than just markdown — every
 save is an AutoGit commit in a `.git` inside the workspace, and v4.0 added a
 trace file per agent run. Most other MCP servers don't have these.
 
@@ -74,17 +74,17 @@ trace file per agent run. Most other MCP servers don't have these.
 | `autogit_diff` | Diff between two revisions of one note (or "current vs N commits ago"). |
 | `autogit_rollback` *(needs `--allow-write`)* | Restore a note to a specific past commit. |
 | `sync_status` | Current sync state with the upstream git remote (ahead/behind, conflicts, dirty files). |
-| `share_url` | Generate a `solomd.app/share/?repo=…&path=…` read-only link for a note in a public GitHub repo. |
+| `share_url` | Generate a `github.com/maobukeai/catstep-md/share/?repo=…&path=…` read-only link for a note in a public GitHub repo. |
 | `read_agent_trace` | Replay a previous agent recipe run from its `.solomd/agent-runs/<run-id>/trace.jsonl`. |
 
 ### Workspace federation
 
-Every tool takes an optional `workspace` argument. Start `solomd-mcp` with
+Every tool takes an optional `workspace` argument. Start `catstep-mcp` with
 multiple `--workspace` flags to serve more than one vault in a single
 session:
 
 ```bash
-solomd-mcp --workspace work=/Users/me/notes --workspace home=/Users/me/diary
+catstep-mcp --workspace work=/Users/me/notes --workspace home=/Users/me/diary
 ```
 
 Then a tool call with `{"workspace": "home"}` resolves to the right vault.
@@ -107,6 +107,6 @@ into any vault to seed `.solomd/agents/` with 11 starter recipes:
 - `10-on-commit-changelog` — on-commit, maintain CHANGELOG.md.
 - `11-tag-classifier` — on-save, suggest tags.
 
-Recipes run inside SoloMD (with the accept/reject UI). For other MCP
+Recipes run inside Catstep MD (with the accept/reject UI). For other MCP
 clients, treat the YAML as documentation — adapt the prompts to your
 client's convention.

@@ -1,4 +1,4 @@
-# SoloMD AUR Package
+# Catstep MD AUR Package
 
 This directory contains the source for the **`solomd-bin`** package on the
 [Arch User Repository (AUR)](https://aur.archlinux.org/packages/solomd-bin).
@@ -7,7 +7,7 @@ This directory contains the source for the **`solomd-bin`** package on the
 
 [![AUR](https://img.shields.io/aur/version/solomd-bin)](https://aur.archlinux.org/packages/solomd-bin)
 
-The package is published on AUR and kept in sync with the latest SoloMD release
+The package is published on AUR and kept in sync with the latest Catstep MD release
 via a daily auto-update job that checks GitHub releases.
 
 ## Install

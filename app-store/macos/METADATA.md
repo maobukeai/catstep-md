@@ -4,11 +4,11 @@
 
 | Field | Value |
 |---|---|
-| App Name | SoloMD |
+| App Name | Catstep MD |
 | Subtitle (EN) | Minimalist Markdown editor |
 | Subtitle (zh-Hans) | 极简 Markdown 编辑器 |
-| Bundle ID | app.solomd (shared with iOS — or use `app.solomd.mac` if App Store Connect insists on a distinct record) |
-| SKU | solomd-mac-001 |
+| Bundle ID | app.catstepmd (shared with iOS — or use `app.catstepmd.mac` if App Store Connect insists on a distinct record) |
+| SKU | catstepmd-mac-001 |
 | Primary Language | English (U.S.) |
 | Additional Language | Simplified Chinese |
 | Category — Primary | Productivity |
@@ -22,9 +22,9 @@
 
 | Field | Value |
 |---|---|
-| Marketing URL | https://solomd.app |
+| Marketing URL | https://github.com/maobukeai/catstep-md |
 | Support URL | https://github.com/maobukeai/catstep-md/issues |
-| Privacy Policy URL | https://solomd.app/privacy |
+| Privacy Policy URL | https://github.com/maobukeai/catstep-md/blob/main/app-store/ios/PRIVACY.md |
 
 ## Platform
 
@@ -35,7 +35,7 @@
 
 - Sign-in required: **No**
 - Demo account: **not applicable**
-- Contact email: slushy@139.com
+- Contact email: maobukeai.lilan@gmail.com
 - Notes: see `REVIEW_NOTES.md`
 
 ## Age Rating questionnaire answers
@@ -55,7 +55,7 @@ None.
 ## Version Information
 
 - Version: 0.1.12
-- Copyright: © 2026 xiangdong li
+- Copyright: © 2026 maobukeai
 - What's New: see `WHATS_NEW_en.md` / `WHATS_NEW_zh.md`
 
 ## Screenshots required

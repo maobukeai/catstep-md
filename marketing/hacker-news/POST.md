@@ -3,13 +3,13 @@
 ## Title (80 chars max)
 
 ```
-Show HN: SoloMD – A 15 MB Markdown editor built with Tauri 2 and Rust
+Show HN: Catstep MD – A 15 MB Markdown editor built with Tauri 2 and Rust
 ```
 
 ## URL
 
 ```
-https://solomd.app
+https://github.com/maobukeai/catstep-md
 ```
 
 ## Text (for Show HN, leave URL empty and paste this)
@@ -21,7 +21,7 @@ I built a Markdown editor because I wanted something that:
 - Works fully offline with zero telemetry
 - Doesn't require an account or subscription
 
-SoloMD is the result. It's ~15 MB installed (vs Typora 80 MB / Obsidian 250 MB).
+Catstep MD is the result. It's ~15 MB installed (vs Typora 80 MB / Obsidian 250 MB).
 
 **What makes it different:**
 
@@ -58,12 +58,12 @@ Tauri lets us use the system webview instead of bundling Chromium. On macOS that
 
 ### On "Why not VS Code?"
 ```
-VS Code is great if you already live in it. SoloMD is for when you want to open a single .md file, write, and close – without loading an entire IDE. Think Notepad, but with Markdown rendering.
+VS Code is great if you already live in it. Catstep MD is for when you want to open a single .md file, write, and close – without loading an entire IDE. Think Notepad, but with Markdown rendering.
 ```
 
 ### On "What about Obsidian?"
 ```
-Obsidian is excellent for knowledge management and linking notes. SoloMD is intentionally simpler – it's a single-file editor, not a vault system. Different tools for different workflows.
+Obsidian is excellent for knowledge management and linking notes. Catstep MD is intentionally simpler – it's a single-file editor, not a vault system. Different tools for different workflows.
 ```
 
 ## Attached Images

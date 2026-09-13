@@ -1,4 +1,4 @@
-// Self-test for SoloMD pure libs (run with: npx tsx test-self.mjs)
+// Self-test for Catstep MD pure libs (run with: npx tsx test-self.mjs)
 import { simplifiedToTraditional, traditionalToSimplified, pinyin, cjkWordCount } from './src/lib/chinese.ts';
 import { extractOutline, renderMarkdown } from './src/lib/markdown.ts';
 import { rewriteImageUrls, svgTextToDataUrl } from './src/lib/image-resolve.ts';

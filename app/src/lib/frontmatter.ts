@@ -1,7 +1,7 @@
 /**
  * F2 — Frontmatter splice helpers for the Type-driven sidebar.
  *
- * SoloMD keeps "types" 100% Markdown-native (Tolaria-compatible): membership
+ * Catstep MD keeps "types" 100% Markdown-native (Tolaria-compatible): membership
  * and type-definition metadata all live in a note's YAML frontmatter block.
  * Editing that metadata must NOT clobber the rest of the file — so instead of
  * re-serializing whole documents we splice ONLY the leading `---\n…\n---`

@@ -1,10 +1,10 @@
 ---
 name: solomd
-description: Read, search, edit, and version-control any folder of Markdown notes via the SoloMD MCP server. 13 tools including AutoGit per-note history, semantic search, and write-with-sandbox via an accept/reject branch. Includes 11 starter agent recipes (weekly review, todo extract, link suggester, …).
+description: Read, search, edit, and version-control any folder of Markdown notes via the Catstep MD MCP server. 13 tools including AutoGit per-note history, semantic search, and write-with-sandbox via an accept/reject branch. Includes 11 starter agent recipes (weekly review, todo extract, link suggester, …).
 allowed-tools: ["solomd:*"]
 ---
 
-# SoloMD — Markdown vault skill
+# Catstep MD — Markdown vault skill
 
 ## When to use this skill
 
@@ -17,8 +17,8 @@ Trigger this skill when the user wants to:
 - **Edit** notes with version control — every write lands as an AutoGit
   commit (no network); past revisions are queryable via `autogit_log` /
   `autogit_diff`.
-- **Share** a note publicly via a `solomd.app/share/?repo=…&path=…` link
-  that renders the file from a public GitHub repo (no SoloMD account
+- **Share** a note publicly via a `github.com/maobukeai/catstep-md/share/?repo=…&path=…` link
+  that renders the file from a public GitHub repo (no Catstep MD account
   required for the viewer).
 
 If the user just wants generic file I/O on a directory, the built-in
@@ -27,14 +27,14 @@ filesystem tools are simpler. This skill is specifically for
 
 ## Setup (one-time)
 
-The skill assumes `solomd-mcp` is installed and registered as a user-scope
+The skill assumes `catstep-mcp` is installed and registered as a user-scope
 MCP server (`~/.claude.json`). If `/mcp` doesn't list `solomd`, run:
 
 ```bash
 bash ~/.claude/skills/solomd/install.sh
 ```
 
-This installs the binary (via `cargo install solomd-mcp` on macOS or
+This installs the binary (via `cargo install catstep-mcp` on macOS or
 downloading the prebuilt binary from
 https://github.com/maobukeai/catstep-md/releases/latest on Linux / Windows)
 and registers a `solomd` server pointing at your notes folder via
@@ -47,7 +47,7 @@ Default mode is **read-only**. To enable the 3 write tools, re-register with
 ```bash
 claude mcp remove solomd -s user
 claude mcp add --scope user solomd -- \
-  ~/.claude/bin/solomd-mcp --workspace ~/your-notes --allow-write
+  ~/.claude/bin/catstep-mcp --workspace ~/your-notes --allow-write
 ```
 
 ## Tools available
@@ -65,13 +65,13 @@ All exposed via the `solomd:` prefix.
 - `solomd:list_tags(workspace?)` — `#tag` aggregation with counts.
 - `solomd:get_outline(workspace?, path)` — H1/H2/H3 structure.
 - `solomd:autogit_log(workspace?, path, limit=20)` — per-note commit
-  history. Each save in SoloMD is a commit.
+  history. Each save in Catstep MD is a commit.
 - `solomd:autogit_diff(workspace?, path, from_revision, to_revision="HEAD")` —
   diff between revisions of one note.
 - `solomd:sync_status(workspace?)` — git remote ahead/behind, dirty files,
   conflict state.
 - `solomd:share_url(workspace?, path)` — generate a public read-only
-  `solomd.app/share/…` link (requires the workspace to be pushed to a
+  `github.com/maobukeai/catstep-md/share/…` link (requires the workspace to be pushed to a
   public GitHub repo).
 - `solomd:read_agent_trace(workspace?, run_id)` — replay a past agent
   recipe run from its `.solomd/agent-runs/<run-id>/trace.jsonl`.
@@ -103,7 +103,7 @@ plan should match the size.
 ### Always cite
 
 When responding with information from notes, link them back as
-`[[note-name]]` (the wikilink format SoloMD uses). The user can click
+`[[note-name]]` (the wikilink format Catstep MD uses). The user can click
 straight back to the source. Example:
 
 > Your three open architecture decisions are tracked in [[adr-001-storage]],
@@ -111,13 +111,13 @@ straight back to the source. Example:
 
 ### Writes go through accept/reject — surface this
 
-If the user is also running the SoloMD desktop app on the same vault,
+If the user is also running the Catstep MD desktop app on the same vault,
 every write tool call lands on an `agent/<recipe>/<run-id>` AutoGit branch
 the user must accept in **Settings → Recipes → Pending** before it touches
 `main`. Tell the user this is happening so they know to check the app:
 
 > I've written the summary to `weekly/2026-W22.md` — it's pending on an
-> AutoGit branch (`agent/claude-code/abc123`). Open SoloMD →
+> AutoGit branch (`agent/claude-code/abc123`). Open Catstep MD →
 > Settings → Recipes → Pending to accept or reject before it lands on main.
 
 If they're not running the app, the write lands on a branch they can
@@ -134,9 +134,9 @@ fanning out one-at-a-time.
 ## Starter recipes
 
 This skill ships 11 reference YAML recipes at
-[`recipes/`](recipes/). They're the same files as the SoloMD Skill Pack
+[`recipes/`](recipes/). They're the same files as the Catstep MD Skill Pack
 zip — copy any of them into `<workspace>/.solomd/agents/` to enable inside
-SoloMD (the app's recipe runner watches that directory).
+Catstep MD (the app's recipe runner watches that directory).
 
 For use from Claude Code directly, treat the YAML as documentation: adapt
 the `prompt:` block into the user's request and call the appropriate MCP
@@ -168,18 +168,18 @@ tools yourself. Example — `01-weekly-review.yml` becomes:
   use the built-in `Bash` / `Read` / `Edit` tools.
 - The user is editing a single file they've already opened — direct
   `Edit` is more efficient than going through `read_note` / `write_note`.
-- The vault isn't actually a SoloMD vault and the user doesn't care about
-  wikilinks / tags / AutoGit — the 5 SoloMD-only tools become no-ops
+- The vault isn't actually a Catstep MD vault and the user doesn't care about
+  wikilinks / tags / AutoGit — the 5 Catstep MD-only tools become no-ops
   (still useful for the other 8).
 
-## About SoloMD
+## About Catstep MD
 
-[**SoloMD**](https://solomd.app) is a free, MIT-licensed Markdown editor.
+[**Catstep MD**](https://github.com/maobukeai/catstep-md) is a free, MIT-licensed Markdown editor.
 The MCP server you just installed is **bundled with the desktop app** —
 get the app for the visual Agent panel, the accept/reject UI, and
 AutoGit history navigation.
 
-- macOS: https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_universal.dmg
-- Windows: https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_x64_en-US.msi
-- Windows ARM64: https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_arm64_en-US.msi
+- macOS: https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_universal.dmg
+- Windows: https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_x64_en-US.msi
+- Windows ARM64: https://github.com/maobukeai/catstep-md/releases/latest/download/Catstep MD_4.5.6_arm64_en-US.msi
 - Linux: see https://github.com/maobukeai/catstep-md/releases/latest

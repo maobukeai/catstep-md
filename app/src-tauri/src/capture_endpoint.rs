@@ -359,7 +359,7 @@ async fn handle_conn(mut stream: TcpStream, _app: AppHandle) -> Result<(), Strin
     // to verify URL + token without writing a note. Token-gated so we never
     // reveal anything (workspace path included) to a probe lacking the
     // bearer header. Returns the workspace path so the user can sanity-check
-    // they paired the extension with the *right* SoloMD instance.
+    // they paired the extension with the *right* Catstep MD instance.
     if req.method == "GET" && req.path == "/capture/health" {
         let (token, workspace, inbox_folder) = {
             let s = STATE.lock().expect("capture state lock");
@@ -416,7 +416,7 @@ async fn handle_conn(mut stream: TcpStream, _app: AppHandle) -> Result<(), Strin
                     &mut stream,
                     503,
                     "Service Unavailable",
-                    "{\"ok\":false,\"error\":\"no workspace folder open in SoloMD; open a folder first\"}",
+                    "{\"ok\":false,\"error\":\"no workspace folder open in Catstep MD; open a folder first\"}",
                 )
                 .await;
             }
@@ -590,7 +590,7 @@ fn resolve_safe_workspace_path(workspace: &Path, rel_path: &str) -> Result<PathB
         return Err("append_path is empty".into());
     }
     // Layer 1: any `..` segment, anywhere, is rejected.
-    for seg in rel_path.split(|c| c == '/' || c == '\\') {
+    for seg in rel_path.split(['/', '\\']) {
         if seg == ".." {
             return Err("append_path contains a `..` segment (path-traversal denied)".into());
         }

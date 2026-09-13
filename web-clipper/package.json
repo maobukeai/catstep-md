@@ -1,6 +1,6 @@
 {
   "name": "catstep-web-clipper",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "private": true,
   "description": "Catstep MD web clipper — Chrome + Firefox WebExtension. Sends the current page (or a selection) to the local Catstep MD desktop app over the v2.4 capture endpoint.",
   "license": "MIT",
@@ -8,8 +8,8 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "build:chrome": "TARGET=chrome node scripts/build.mjs",
-    "build:firefox": "TARGET=firefox node scripts/build.mjs",
+    "build:chrome": "node scripts/build.mjs chrome",
+    "build:firefox": "node scripts/build.mjs firefox",
     "sign:firefox": "pnpm build:firefox && npx --yes web-ext sign --channel=unlisted --source-dir=dist/firefox --artifacts-dir=web-ext-artifacts",
     "package": "node scripts/build.mjs && node scripts/package.mjs",
     "smoke": "bash scripts/smoke-test.sh",

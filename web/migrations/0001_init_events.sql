@@ -1,4 +1,4 @@
--- SoloMD analytics: single events table.
+-- Catstep MD analytics: single events table.
 --
 -- Design choices:
 --   * One row per event. Aggregations are computed at read time

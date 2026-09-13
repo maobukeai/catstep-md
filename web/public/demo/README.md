@@ -10,7 +10,7 @@ a placeholder until a real recording is dropped in).
 
 ## Recording recipe
 
-1. Open SoloMD with a sample markdown doc (use `Welcome.md` from the welcome tour).
+1. Open Catstep MD with a sample markdown doc (use `Welcome.md` from the welcome tour).
 2. Set window to 1280×800 (16:10) for clean aspect ratio.
 3. Record 20–30 s with these beats:
    - Type a few lines (live preview kicks in)

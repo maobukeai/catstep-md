@@ -23,7 +23,7 @@ const FAQ = [
 ---
 
 <Layout
-  title="SoloMD 命令行 — 在终端打开、搜索、写入你的笔记"
+  title="猫步 MD 命令行 — 在终端打开、搜索、写入你的笔记"
   description="solomd 命令行工具暴露和 GUI 一致的核心操作 —— 打开、新建、搜索、列出、cat —— 适合脚本与终端工作流。"
   lang={lang}
 >
@@ -34,7 +34,7 @@ const FAQ = [
         <a href="/zh/">首页</a> / <a href="/zh/docs/">文档</a> / <span>命令行</span>
       </nav>
 
-      <h1>SoloMD 命令行</h1>
+      <h1>猫步 MD 命令行</h1>
       <p class="lead">
         <code>solomd</code> 是一个小巧的命令行二进制，暴露和 GUI 同一套核心操作 ——
         打开笔记、新建笔记、搜索仓库、列出文件、把笔记 cat 到 stdout。
@@ -56,7 +56,7 @@ const FAQ = [
       <table class="kb-table">
         <thead><tr><th>命令</th><th>作用</th></tr></thead>
         <tbody>
-          <tr><th><code>solomd open &lt;标题|路径&gt;</code></th><td>在 SoloMD 中打开。传标题时按模糊匹配在仓库里查找。</td></tr>
+          <tr><th><code>solomd open &lt;标题|路径&gt;</code></th><td>在 猫步 MD 中打开。传标题时按模糊匹配在仓库里查找。</td></tr>
           <tr><th><code>solomd new &lt;标题&gt; [正文]</code></th><td>新建一篇笔记，写入可选正文，并打开它。</td></tr>
           <tr><th><code>solomd list [子目录]</code></th><td>列出工作区（或指定子目录）的 Markdown 文件。</td></tr>
           <tr><th><code>solomd search &lt;查询&gt;</code></th><td>grep 整个仓库，返回路径与匹配行。</td></tr>
@@ -81,14 +81,14 @@ solomd new "$(date +%F)" "## $(date +%A)\n\n- [ ] "`}</code></pre>
       <h2>它怎么找到你的仓库</h2>
       <p>
         命令行读取和 GUI 同一份偏好文件（<code>solomd-language</code> /
-        <code>solomd-workspace</code>）。如果你最近在 SoloMD 里打开过某个文件夹，
+        <code>solomd-workspace</code>）。如果你最近在 猫步 MD 里打开过某个文件夹，
         CLI 会沿用。临时切换可以用环境变量：
       </p>
       <pre class="code"><code>SOLOMD_WORKSPACE=/path/to/notes solomd list</code></pre>
 
       <h2>和 MCP 服务搭配</h2>
       <p>
-        命令行是「你打的字」，<code>solomd-mcp</code> 是「AI 调的接口」。两者共享同一份
+        命令行是「你打的字」，<code>catstep-mcp</code> 是「AI 调的接口」。两者共享同一份
         工作区状态，因此 AI 通过 MCP 写完一篇新笔记后，你立刻就能 <code>solomd open</code>
         打开它 —— 不用重载，不会竞争。
       </p>

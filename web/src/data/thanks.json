@@ -7,20 +7,5 @@
     "amount": "string — show as-is, e.g. '¥10' or '¥66.6'; leave empty to hide",
     "message": "optional string — donor's message or dedication"
   },
-  "donors": [
-    {
-      "name": "m*p",
-      "date": "2026-04-24",
-      "platform": "wechat",
-      "amount": "¥10",
-      "message": "支持大佬 ☕"
-    },
-    {
-      "name": "*和",
-      "date": "2026-04-22",
-      "platform": "wechat",
-      "amount": "¥5",
-      "message": "感谢您的 solomd，非常好用。"
-    }
-  ]
+  "donors": []
 }

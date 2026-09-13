@@ -14,7 +14,7 @@
 # Run from repo root: ./scripts/build-mac.sh
 #
 # Required environment variables (export them or put in .env.local):
-#   APPLE_SIGNING_IDENTITY  e.g. "Developer ID Application: xiangdong li (6NQM3XP5RF)"
+#   APPLE_SIGNING_IDENTITY  e.g. "Developer ID Application: Developer Name (TEAM_ID)"
 #
 # Notarization credentials — an App Store Connect API key is preferred and
 # used automatically when present; see scripts/lib/asc-auth.sh:
@@ -40,7 +40,7 @@ asc_resolve_auth
 
 cd app
 VERSION=$(node -p "require('./package.json').version")
-echo "==> SoloMD v${VERSION} — local Mac build with file-icon injection"
+echo "==> Catstep MD v${VERSION} — local Mac build with file-icon injection"
 
 echo "==> Installing frontend deps"
 pnpm install --frozen-lockfile
@@ -54,7 +54,7 @@ env -u APPLE_ID -u APPLE_PASSWORD \
   APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY" \
   pnpm tauri build --target universal-apple-darwin --bundles app
 
-APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/SoloMD.app"
+APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/CatstepMD.app"
 [ -d "$APP" ] || { echo "ERROR: .app not found at $APP" >&2; exit 1; }
 
 echo "==> Injecting file-type icon into Info.plist"
@@ -71,7 +71,7 @@ codesign --force --deep --options runtime \
   --sign "$APPLE_SIGNING_IDENTITY" "$APP"
 
 echo "==> Notarizing .app"
-ZIP="/tmp/SoloMD-${VERSION}.zip"
+ZIP="/tmp/CatstepMD-${VERSION}.zip"
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
 xcrun notarytool submit "$ZIP" \
@@ -85,13 +85,13 @@ xcrun stapler staple "$APP"
 echo "==> Building dmg"
 STAGE="/tmp/solomd-dmg-stage-${VERSION}"
 rm -rf "$STAGE" && mkdir -p "$STAGE"
-cp -R "$APP" "$STAGE/SoloMD.app"
+cp -R "$APP" "$STAGE/CatstepMD.app"
 ln -s /Applications "$STAGE/Applications"
 DMG_DIR="src-tauri/target/universal-apple-darwin/release/bundle/dmg"
 mkdir -p "$DMG_DIR"
-DMG="$DMG_DIR/SoloMD_${VERSION}_universal.dmg"
+DMG="$DMG_DIR/CatstepMD_${VERSION}_universal.dmg"
 rm -f "$DMG"
-hdiutil create -volname SoloMD -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+hdiutil create -volname Catstep MD -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 
 echo "==> Signing dmg"
 codesign --force --sign "$APPLE_SIGNING_IDENTITY" "$DMG"

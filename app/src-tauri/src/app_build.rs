@@ -35,5 +35,5 @@ pub fn app_build_info() -> BuildInfo {
 /// when `SOLOMD_APP_STORE_BUILD=1`; dead code in regular builds.
 #[allow(dead_code)]
 pub fn app_store_disabled<T>() -> Result<T, String> {
-    Err("This feature is not available in the App Store edition. Download the GitHub release for the full SoloMD experience.".to_string())
+    Err("This feature is not available in the App Store edition. Download the GitHub release for the full Catstep MD experience.".to_string())
 }

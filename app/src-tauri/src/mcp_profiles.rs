@@ -218,7 +218,7 @@ pub fn mcp_profiles_export_config(
 
 /// Pure rendering function — no I/O, easy to unit-test.
 pub fn render_claude_config(profile: &McpProfile, mcp_path: Option<&str>) -> String {
-    let command = mcp_path.unwrap_or("/path/to/solomd-mcp");
+    let command = mcp_path.unwrap_or("/path/to/catstep-mcp");
     let mut args: Vec<String> = Vec::with_capacity(profile.entries.len() * 2 + 1);
     for entry in &profile.entries {
         args.push("--workspace".to_string());
@@ -266,12 +266,12 @@ mod tests {
             &[("work", "/tmp/work"), ("home", "/tmp/home")],
             false,
         );
-        let snippet = render_claude_config(&prof, Some("/usr/local/bin/solomd-mcp"));
+        let snippet = render_claude_config(&prof, Some("/usr/local/bin/catstep-mcp"));
         let v: serde_json::Value = serde_json::from_str(&snippet).unwrap();
         let server = v.pointer("/mcpServers/vaults").unwrap();
         assert_eq!(
             server.get("command").unwrap().as_str().unwrap(),
-            "/usr/local/bin/solomd-mcp"
+            "/usr/local/bin/catstep-mcp"
         );
         let args: Vec<String> = server
             .get("args")
@@ -295,7 +295,7 @@ mod tests {
     #[test]
     fn render_claude_config_appends_allow_write_when_set() {
         let prof = p("w", &[("only", "/tmp/x")], true);
-        let snippet = render_claude_config(&prof, Some("solomd-mcp"));
+        let snippet = render_claude_config(&prof, Some("catstep-mcp"));
         assert!(snippet.contains("--allow-write"), "got: {snippet}");
     }
 
@@ -303,7 +303,7 @@ mod tests {
     fn render_claude_config_falls_back_to_placeholder_when_path_missing() {
         let prof = p("p", &[("only", "/tmp/x")], false);
         let snippet = render_claude_config(&prof, None);
-        assert!(snippet.contains("/path/to/solomd-mcp"), "got: {snippet}");
+        assert!(snippet.contains("/path/to/catstep-mcp"), "got: {snippet}");
     }
 
     #[test]

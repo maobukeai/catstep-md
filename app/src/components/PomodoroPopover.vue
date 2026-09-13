@@ -15,7 +15,7 @@
  *   2. Active Mode: Monospace countdown clock (MM:SS), phase status badge (专注中/休息中/已暂停),
  *      live progress bar, [⏸ 暂停 / ▶ 继续], [+5 分钟] quick extend, [⏹ 结束].
  * - Project Signature Blue Theme:
- *   Consistent with SoloMD primary blue branding in both Light (github-light) and Dark themes.
+ *   Consistent with Catstep MD primary blue branding in both Light (github-light) and Dark themes.
  */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useSettingsStore } from '../stores/settings';

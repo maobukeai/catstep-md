@@ -29,7 +29,7 @@ const IMAGE_CSS = `
     width: fit-content;
     max-width: 800px;
     min-width: 480px;
-    /* Bottom padding is set per-export based on whether the SoloMD
+    /* Bottom padding is set per-export based on whether the Catstep MD
        footer is rendered. With the footer, 56px gives the watermark
        breathing room from the content above. Without it, 36px keeps
        short notes from looking like they have a void underneath. */

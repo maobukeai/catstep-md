@@ -136,7 +136,7 @@ fn e2ee_full_round_trip_two_devices() {
         let enc_blob = bare_repo.find_blob(enc_entry.id()).unwrap();
         assert_eq!(
             &enc_blob.content()[..4],
-            b"SLMD",
+            b"CTMD",
             "ciphertext magic missing"
         );
         let bin_entry = tree.get_path(Path::new("assets/img.png")).unwrap();

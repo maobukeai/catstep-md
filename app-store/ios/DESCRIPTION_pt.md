@@ -1,4 +1,4 @@
-SoloMD é um editor Markdown leve e sem distrações para o iPad. Um arquivo. Uma janela. Apenas escreva.
+Catstep MD é um editor Markdown leve e sem distrações para o iPad. Um arquivo. Uma janela. Apenas escreva.
 
 Criado do zero como uma ferramenta de escrita focada — sem conta, sem nuvem, sem telemetria, sem assinatura. Suas notas ficam em arquivos `.md` e `.txt` simples no seu iPad, legíveis por qualquer editor em qualquer plataforma, hoje e daqui a dez anos.
 
@@ -59,8 +59,8 @@ EXPORTAÇÃO
 PRIVACIDADE EM PRIMEIRO LUGAR
 ━━━━━━━━━━━━━━━━━━
 
-O SoloMD não coleta nenhum dado pessoal. Sem conta. Sem análise de uso. Sem anúncios. Sem rastreamento. Todas as suas notas vivem localmente, em arquivos que pertencem a você.
+O Catstep MD não coleta nenhum dado pessoal. Sem conta. Sem análise de uso. Sem anúncios. Sem rastreamento. Todas as suas notas vivem localmente, em arquivos que pertencem a você.
 
-O SoloMD é open source (MIT). Código-fonte: github.com/maobukeai/catstep-md
+O Catstep MD é open source (MIT). Código-fonte: github.com/maobukeai/catstep-md
 
-Gosta do SoloMD? Dê uma ⭐ no repositório ou apoie o desenvolvimento em solomd.app
+Gosta do Catstep MD? Dê uma ⭐ no repositório ou apoie o desenvolvimento em catstepmd.app

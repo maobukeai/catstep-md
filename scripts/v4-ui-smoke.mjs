@@ -21,7 +21,7 @@
  *
  * Usage:
  *   1. Start `pnpm tauri dev` in another terminal.
- *   2. Open SoloMD, point the workspace at any folder.
+ *   2. Open Catstep MD, point the workspace at any folder.
  *   3. node scripts/v4-ui-smoke.mjs
  *
  * Exit 0 = every check green; exit 1 = at least one failed.
@@ -140,7 +140,7 @@ async function ensureSyntheticRun(workspace) {
       { ts: 1746086402500, run_id: runId, seq: 4, kind: 'tool_call', tool: 'read_note', tool_call_id: 'call_1', args: { path: 'welcome.md' } },
       { ts: 1746086402800, run_id: runId, seq: 5, kind: 'tool_result', tool_call_id: 'call_1', result: 'welcome.md content here' },
       { ts: 1746086403200, run_id: runId, seq: 6, kind: 'model_call', provider: 'claude', model: 'claude-sonnet-4-6' },
-      { ts: 1746086405100, run_id: runId, seq: 7, kind: 'model_done', input_tokens: 420, output_tokens: 85, text: 'A SoloMD onboarding tutorial.' },
+      { ts: 1746086405100, run_id: runId, seq: 7, kind: 'model_done', input_tokens: 420, output_tokens: 85, text: 'A Catstep MD onboarding tutorial.' },
       { ts: 1746086405200, run_id: runId, seq: 8, kind: 'run_ended', status: 'ok', input_tokens: 420, output_tokens: 85, cost_usd: 0.0014 },
     ];
     writeFileSync(`${runDir}/trace.jsonl`, lines.map(l => JSON.stringify(l)).join('\n') + '\n');
@@ -157,7 +157,7 @@ async function ensureSyntheticRun(workspace) {
 // ---------------------------------------------------------------------------
 
 console.log();
-console.log(`=== SoloMD v4.0 live UI smoke · ${new Date().toISOString()} ===`);
+console.log(`=== Catstep MD v4.0 live UI smoke · ${new Date().toISOString()} ===`);
 console.log();
 
 // Workspace lives in localStorage (`solomd.workspace.v1`) rather than a

@@ -1,4 +1,4 @@
-SoloMD, macOS için hafif ve dikkat dağıtmayan bir Markdown editörüdür. Tek dosya. Tek pencere. Sadece yazın.
+Catstep MD, macOS için hafif ve dikkat dağıtmayan bir Markdown editörüdür. Tek dosya. Tek pencere. Sadece yazın.
 
 Sıfırdan odaklı bir yazı aracı olarak tasarlandı — hesap yok, bulut yok, telemetri yok, abonelik yok. Notlarınız Mac'inizde düz .md ve .txt dosyaları olarak kalır; her platformdaki her editörle okunabilir — bugün de, on yıl sonra da.
 
@@ -47,6 +47,6 @@ MACOS YERLİSİ
 
 ÖNCE GİZLİLİK
 
-SoloMD hiçbir kişisel veri toplamaz. Hesap yok. Analitik yok. Reklam yok. İzleme yok. Tüm notlarınız size ait dosyalarda, yerel olarak durur.
+Catstep MD hiçbir kişisel veri toplamaz. Hesap yok. Analitik yok. Reklam yok. İzleme yok. Tüm notlarınız size ait dosyalarda, yerel olarak durur.
 
-SoloMD açık kaynaklıdır (MIT). Kaynak: github.com/maobukeai/catstep-md
+Catstep MD açık kaynaklıdır (MIT). Kaynak: github.com/maobukeai/catstep-md

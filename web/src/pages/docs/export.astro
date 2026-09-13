@@ -9,7 +9,7 @@ const lang = 'en' as const;
 const FAQ = [
   {
     q: 'Which export formats are built in, and which need Pandoc?',
-    a: 'HTML, PDF, DOCX and PNG export are built in with no external dependency. EPUB, ODT, LaTeX and RTF go through Pandoc, which SoloMD looks up on your PATH.',
+    a: 'HTML, PDF, DOCX and PNG export are built in with no external dependency. EPUB, ODT, LaTeX and RTF go through Pandoc, which Catstep MD looks up on your PATH.',
   },
   {
     q: 'Do math and diagrams survive export?',
@@ -23,8 +23,8 @@ const FAQ = [
 ---
 
 <Layout
-  title="Export & Copy in SoloMD — PDF, DOCX, HTML, Print, Image"
-  description="How SoloMD exports Markdown to PDF, DOCX, HTML, PNG and prints via system dialog. Includes rich-text copy for WeChat / Notion / Confluence."
+  title="Export & Copy in Catstep MD — PDF, DOCX, HTML, Print, Image"
+  description="How Catstep MD exports Markdown to PDF, DOCX, HTML, PNG and prints via system dialog. Includes rich-text copy for WeChat / Notion / Confluence."
   lang={lang}
 >
   <Header lang={lang} />
@@ -35,7 +35,7 @@ const FAQ = [
       </nav>
 
       <h1>Export & Copy</h1>
-      <p class="lead">Six ways to get your Markdown out of SoloMD.</p>
+      <p class="lead">Six ways to get your Markdown out of Catstep MD.</p>
 
       <h2>Export menu (toolbar → Export)</h2>
       <table class="kb-table">
@@ -74,7 +74,7 @@ const FAQ = [
 
       <h2>Image paste & embedding</h2>
       <p>
-        When you paste or drag an image into SoloMD, it's saved to a
+        When you paste or drag an image into Catstep MD, it's saved to a
         <code>_assets/</code> folder next to your document (if the file is saved)
         and a relative Markdown image link is inserted:
       </p>
@@ -86,7 +86,7 @@ const FAQ = [
 
       <h2>CJK and encoding</h2>
       <p>
-        SoloMD auto-detects UTF-8, GBK, Big5, Shift-JIS, EUC-KR, and a few others
+        Catstep MD auto-detects UTF-8, GBK, Big5, Shift-JIS, EUC-KR, and a few others
         when reading files. It saves in the source file's encoding by default
         (set per-tab in the status bar), so you don't accidentally convert
         legacy files to UTF-8.

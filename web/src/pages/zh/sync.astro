@@ -7,8 +7,8 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD 同步 — 笔记在你自己的 GitHub。免费，可选，端到端加密。"
-  description="v3.0 的同步层。把笔记推到你自己的 GitHub 私库。可选端到端加密。iCloud / Dropbox / OneDrive 联动。没有 SoloMD 服务器，不收订阅。"
+  title="猫步 MD 同步 — 笔记在你自己的 GitHub。免费，可选，端到端加密。"
+  description="v3.0 的同步层。把笔记推到你自己的 GitHub 私库。可选端到端加密。iCloud / Dropbox / OneDrive 联动。没有 猫步 MD 服务器，不收订阅。"
   lang={lang}
 >
   <Header lang={lang} />
@@ -19,12 +19,12 @@ const lang = 'zh' as const;
         <h1>同步。<br/><span class="muted">笔记在你 GitHub 上。免费。</span></h1>
         <p class="sync-lead">
           我们一直拖到 v3.0 才做同步，是因为不想变成一个 SaaS。
-          最后选的形态是：<strong>SoloMD 是一个 git 客户端</strong>。数据在你自己的 GitHub 账号里。
-          <br/>没有 SoloMD 服务器。没有订阅。不需要账号。
+          最后选的形态是：<strong>猫步 MD 是一个 git 客户端</strong>。数据在你自己的 GitHub 账号里。
+          <br/>没有 猫步 MD 服务器。没有订阅。不需要账号。
         </p>
         <div class="sync-cta">
           <a class="btn btn--primary" href="/zh/whats-new/">看 v3.0 发布说明 →</a>
-          <a class="btn" href="/zh/#download">下载 SoloMD</a>
+          <a class="btn" href="/zh/#download">下载 猫步 MD</a>
         </div>
       </div>
     </section>
@@ -35,7 +35,7 @@ const lang = 'zh' as const;
           <span class="sync-pillar__icon">☁️</span>
           <h2>GitHub 同步</h2>
           <p>
-            粘个 Personal Access Token（保存到系统钥匙串）。选一个已有仓库，或者让 SoloMD 给你新建一个私库。
+            粘个 Personal Access Token（保存到系统钥匙串）。选一个已有仓库，或者让 猫步 MD 给你新建一个私库。
             保存后 5 秒自动推，5/15/30/60 分钟间隔自动拉。
             历史侧边栏带逐文件冲突解决：用我的 / 用 GitHub 的 / 都保留。
           </p>
@@ -79,7 +79,7 @@ const lang = 'zh' as const;
           <p>
             命令面板「复制分享链接」，得到 <code>solomd.app/share/?repo=你/笔记&amp;path=note.md</code>。
             任何人在浏览器里就能阅读 —— 直接从 <code>raw.githubusercontent.com</code> 拉取，
-            DOMPurify 净化，无 SoloMD 服务器。
+            DOMPurify 净化，无 猫步 MD 服务器。
           </p>
           <p class="sync-pillar__sub">
             仅支持公开仓库 —— 私有笔记会清晰显示「可能是私有仓库」而不是默默 404。
@@ -93,7 +93,7 @@ const lang = 'zh' as const;
         <h2>对比一下</h2>
         <table>
           <thead>
-            <tr><th></th><th>SoloMD v3.0</th><th>Obsidian Sync</th><th>仅 iCloud</th></tr>
+            <tr><th></th><th>猫步 MD v3.0</th><th>Obsidian Sync</th><th>仅 iCloud</th></tr>
           </thead>
           <tbody>
             <tr><th>数据存哪</th><td>你的 GitHub</td><td>Obsidian 服务器</td><td>Apple 服务器</td></tr>
@@ -112,7 +112,7 @@ const lang = 'zh' as const;
       <div class="container">
         <h2>60 秒上手</h2>
         <ol>
-          <li>SoloMD →「设置 → GitHub 同步」。</li>
+          <li>猫步 MD →「设置 → GitHub 同步」。</li>
           <li>点「获取 Token」—— 浏览器打开 GitHub Token 页，权限（<code>repo</code>）已预填。</li>
           <li>粘贴 <code>ghp_…</code>，保存。</li>
           <li>选一个已有仓库，或者点「创建并绑定」直接新建一个私库。</li>
@@ -130,7 +130,7 @@ const lang = 'zh' as const;
           <p>加密的笔记就找不回来了。我们也帮不了 —— 这就是 E2EE 的本质。加密之前先把口令抄到安全的地方。</p>
         </div>
         <div class="faq">
-          <h3>SoloMD 哪天不维护了怎么办？</h3>
+          <h3>猫步 MD 哪天不维护了怎么办？</h3>
           <p>你的笔记仓库就是一个普通的 GitHub git 仓库，<code>git clone</code> 下来用任何编辑器都能开。
           就算开了 E2EE，格式上面写得很清楚，加密算法也是标准 XChaCha20-Poly1305 —— 30 行解密脚本就能读出来。</p>
         </div>
@@ -142,23 +142,23 @@ const lang = 'zh' as const;
         </div>
         <div class="faq">
           <h3>同步会收费吗？</h3>
-          <p>同步本身不会。SoloMD 这边没有需要付费维护的服务器，数据在你和 GitHub 之间流动，我们只是个客户端。
+          <p>同步本身不会。猫步 MD 这边没有需要付费维护的服务器，数据在你和 GitHub 之间流动，我们只是个客户端。
           （GitHub 自己对超过 1GB 的私库收费，那是你跟它的事。）</p>
         </div>
         <div class="faq">
           <h3>iPad 能用同步吗？</h3>
-          <p>SoloMD 的 iPad / iOS 版已经上架 App Store。笔记存在「文件」App 里,所以「文件」App 能访问的任何文件夹
+          <p>猫步 MD 的 iPad / iOS 版已经上架 App Store。笔记存在「文件」App 里,所以「文件」App 能访问的任何文件夹
           —— 首选 iCloud Drive —— 都能跨设备同步;之后在 macOS 打开同一个文件夹,云盘联动模式会自动衔接。</p>
         </div>
         <div class="faq">
           <h3>第一次推送时 macOS 弹密码框问我，那是啥？</h3>
-          <p>那是 macOS 钥匙串访问在问 SoloMD 是否有权读取已保存的 GitHub token。可能会弹两次：一次是 token，一次是加密钥匙（开了 E2EE 时才有）。
-          <strong>每次都点「始终允许」（Always Allow），不要点「允许」</strong>—— 这样 SoloMD 就被永久授权，以后再不会问。点「允许」是一次性的，下次推送还会再问。</p>
-          <p>SoloMD 不会把密码发给任何地方。那是 macOS 自己的授权对话框，不是我们的；我们甚至看不到你输了什么。</p>
+          <p>那是 macOS 钥匙串访问在问 猫步 MD 是否有权读取已保存的 GitHub token。可能会弹两次：一次是 token，一次是加密钥匙（开了 E2EE 时才有）。
+          <strong>每次都点「始终允许」（Always Allow），不要点「允许」</strong>—— 这样 猫步 MD 就被永久授权，以后再不会问。点「允许」是一次性的，下次推送还会再问。</p>
+          <p>猫步 MD 不会把密码发给任何地方。那是 macOS 自己的授权对话框，不是我们的；我们甚至看不到你输了什么。</p>
         </div>
         <div class="faq">
           <h3>我在国内 push 老超时怎么办？</h3>
-          <p>国内访问 github.com 经常被防火墙拦。SoloMD 内置代理输入框：<strong>设置 → GitHub 同步 → 高级 → HTTPS 代理</strong>，
+          <p>国内访问 github.com 经常被防火墙拦。猫步 MD 内置代理输入框：<strong>设置 → GitHub 同步 → 高级 → HTTPS 代理</strong>，
           填你本机的代理地址比如 <code>http://127.0.0.1:7897</code>（Clash / Surge 默认端口）或 <code>socks5://127.0.0.1:1080</code>。
           推 / 拉就会走这个代理。</p>
           <p>不用费劲在 shell 里 export <code>HTTPS_PROXY</code> —— Tauri 应用从 Finder 启动时不继承 shell 环境变量，
@@ -176,11 +176,11 @@ const lang = 'zh' as const;
   '@type': 'FAQPage',
   mainEntity: [
     { '@type': 'Question', name: '口令丢了怎么办?', acceptedAnswer: { '@type': 'Answer', text: '加密的笔记就找不回来了,我们也帮不了 —— 这是端到端加密的本质。加密之前先把口令抄到安全的地方。' } },
-    { '@type': 'Question', name: 'SoloMD 哪天不维护了怎么办?', acceptedAnswer: { '@type': 'Answer', text: '你的笔记仓库就是一个普通的 GitHub git 仓库,git clone 下来用任何编辑器都能打开。就算开了 E2EE,格式公开文档化,算法是标准 XChaCha20-Poly1305(Argon2id 派生密钥),短脚本即可解密。' } },
-    { '@type': 'Question', name: '为什么偏偏是 GitHub?', acceptedAnswer: { '@type': 'Answer', text: '用户基本都已有 GitHub 账号,且 SoloMD 没有自己的服务器。不信任 GitHub 可以用 GitLab / Gitea 或任何 HTTPS git 地址,一等支持。' } },
-    { '@type': 'Question', name: '同步会收费吗?', acceptedAnswer: { '@type': 'Answer', text: '不会。SoloMD 这边没有需要付费维护的服务器,数据在你和 GitHub 之间流动。(GitHub 对超过 1GB 的私库收费,那是你和它之间的事。)' } },
-    { '@type': 'Question', name: 'iPad 能用同步吗?', acceptedAnswer: { '@type': 'Answer', text: 'SoloMD 的 iPad / iOS 版已上架 App Store。笔记存在「文件」App 里,「文件」App 能访问的任何文件夹(首选 iCloud Drive)都能跨设备同步;macOS 端用云盘联动模式打开同一文件夹即可衔接。' } },
-    { '@type': 'Question', name: '第一次推送时 macOS 弹密码框问我,那是什么?', acceptedAnswer: { '@type': 'Answer', text: '那是 macOS 钥匙串在询问 SoloMD 是否有权读取已保存的 GitHub token(开了 E2EE 还会问一次加密钥匙)。点「始终允许」即可永久授权。SoloMD 不会看到也不会发送你的密码。' } },
+    { '@type': 'Question', name: '猫步 MD 哪天不维护了怎么办?', acceptedAnswer: { '@type': 'Answer', text: '你的笔记仓库就是一个普通的 GitHub git 仓库,git clone 下来用任何编辑器都能打开。就算开了 E2EE,格式公开文档化,算法是标准 XChaCha20-Poly1305(Argon2id 派生密钥),短脚本即可解密。' } },
+    { '@type': 'Question', name: '为什么偏偏是 GitHub?', acceptedAnswer: { '@type': 'Answer', text: '用户基本都已有 GitHub 账号,且 猫步 MD 没有自己的服务器。不信任 GitHub 可以用 GitLab / Gitea 或任何 HTTPS git 地址,一等支持。' } },
+    { '@type': 'Question', name: '同步会收费吗?', acceptedAnswer: { '@type': 'Answer', text: '不会。猫步 MD 这边没有需要付费维护的服务器,数据在你和 GitHub 之间流动。(GitHub 对超过 1GB 的私库收费,那是你和它之间的事。)' } },
+    { '@type': 'Question', name: 'iPad 能用同步吗?', acceptedAnswer: { '@type': 'Answer', text: '猫步 MD 的 iPad / iOS 版已上架 App Store。笔记存在「文件」App 里,「文件」App 能访问的任何文件夹(首选 iCloud Drive)都能跨设备同步;macOS 端用云盘联动模式打开同一文件夹即可衔接。' } },
+    { '@type': 'Question', name: '第一次推送时 macOS 弹密码框问我,那是什么?', acceptedAnswer: { '@type': 'Answer', text: '那是 macOS 钥匙串在询问 猫步 MD 是否有权读取已保存的 GitHub token(开了 E2EE 还会问一次加密钥匙)。点「始终允许」即可永久授权。猫步 MD 不会看到也不会发送你的密码。' } },
     { '@type': 'Question', name: '在国内 push 老超时怎么办?', acceptedAnswer: { '@type': 'Answer', text: '用内置代理:设置 → GitHub 同步 → 高级 → HTTPS 代理,填 http://127.0.0.1:7897 或 socks5://127.0.0.1:1080。shell 里 export HTTPS_PROXY 无效 —— Finder 启动的应用不继承 shell 环境变量。' } },
   ],
 })} />

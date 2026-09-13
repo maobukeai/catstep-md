@@ -2,9 +2,9 @@
 
 ## 软件信息
 
-**Name**: SoloMD
+**Name**: Catstep MD
 
-**Website**: https://solomd.app
+**Website**: https://github.com/maobukeai/catstep-md
 
 **One-line description**:
 ```
@@ -13,7 +13,7 @@ A lightweight Markdown editor with live preview, only 15MB
 
 **Full description**:
 ```
-SoloMD is a lightweight, cross-platform Markdown editor designed for focused writing.
+Catstep MD is a lightweight, cross-platform Markdown editor designed for focused writing.
 
 Key Features:
 - Live preview editing (Markdown syntax hides when cursor leaves)

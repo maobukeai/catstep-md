@@ -36,7 +36,7 @@ fn fresh_workspace(label: &str, note_name: &str, body: &str) -> PathBuf {
 fn binary_path() -> PathBuf {
     // CARGO_BIN_EXE_<name> is set by cargo for integration tests targeting
     // the named bin in this crate.
-    PathBuf::from(env!("CARGO_BIN_EXE_solomd-mcp"))
+    PathBuf::from(env!("CARGO_BIN_EXE_catstep-mcp"))
 }
 
 /// Drive the server through `initialize` → `notifications/initialized` →

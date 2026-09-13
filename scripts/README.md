@@ -12,7 +12,7 @@
 
 # 3. Upload a build to App Store Connect
 ./scripts/submit-mas.sh          # newest dist-mas/*.pkg
-./scripts/submit-ios.sh          # gen/apple/build/arm64/SoloMD.ipa
+./scripts/submit-ios.sh          # gen/apple/build/arm64/CatstepMD.ipa
 
 # 4. Submit an uploaded build for review (needs an API key)
 ./scripts/submit-for-review.sh --platform ios --version 4.12.0 --notes-file notes.txt
@@ -73,7 +73,7 @@ APPLE_TEAM_ID="6NQM3XP5RF"
 ### `build-ios.sh`
 Local iOS App Store build. Needs `IOS_SIGNING_PROFILE_NAME` and
 `APPLE_TEAM_ID`, and a distribution profile at
-`app/src-tauri/SoloMD-iOS.provisionprofile`.
+`app/src-tauri/CatstepMD-iOS.provisionprofile`.
 
 The Xcode project under `app/src-tauri/gen/apple/` is generated and gitignored,
 but it is not the whole truth. Signing, the `.md` file associations, the #139
@@ -142,17 +142,17 @@ Go to **Settings → Secrets and variables → Actions → New repository secret
 
 | Secret | Value | Where to get it |
 |---|---|---|
-| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: xiangdong li (6NQM3XP5RF)` | `security find-identity -v -p codesigning` |
+| `APPLE_SIGNING_IDENTITY` | `Developer ID Application: Your Name (TEAM_ID)` | `security find-identity -v -p codesigning` |
 | `APPLE_CERTIFICATE` | base64 of a `.p12` export | See "exporting the cert" below |
 | `APPLE_CERTIFICATE_PASSWORD` | the password you set when exporting | (you choose it) |
 | `APPLE_ID` | your Apple ID email | — |
 | `APPLE_PASSWORD` | app-specific password | https://account.apple.com → Sign-In and Security → App-Specific Passwords |
-| `APPLE_TEAM_ID` | `6NQM3XP5RF` | Apple Developer portal → Membership |
+| `APPLE_TEAM_ID` | `YOUR_TEAM_ID` | Apple Developer portal → Membership |
 
 ### Exporting the certificate as `.p12`
 
 1. Open **Keychain Access**
-2. Find **"Developer ID Application: xiangdong li (6NQM3XP5RF)"** in the **login** keychain
+2. Find **"Developer ID Application: Your Name (TEAM_ID)"** in the **login** keychain
 3. Right-click → **Export** → format `.p12` → set a strong password
 4. Save as e.g. `developer-id.p12`
 5. Encode it for GitHub:

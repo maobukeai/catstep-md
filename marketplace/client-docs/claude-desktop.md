@@ -1,26 +1,26 @@
-# `solomd-mcp` in Claude Desktop
+# `catstep-mcp` in Claude Desktop
 
 ## Install the server
 
 Pick one path:
 
-### Path A — bundled in SoloMD.app (recommended)
+### Path A — bundled in Catstep MD.app (recommended)
 
-Install [SoloMD](https://solomd.app) and the MCP server ships inside the
-app bundle. Then in SoloMD: `Settings → Integrations → Print MCP config`
+Install [Catstep MD](https://github.com/maobukeai/catstep-md) and the MCP server ships inside the
+app bundle. Then in Catstep MD: `Settings → Integrations → Print MCP config`
 copies the right JSON snippet for Claude Desktop.
 
 ### Path B — standalone binary
 
 1. Download from the
    [latest release](https://github.com/maobukeai/catstep-md/releases/latest):
-   - macOS arm64/x64: `cargo install solomd-mcp` (or grab the bundled
-     binary from SoloMD.app)
-   - Linux x64: `solomd-mcp-linux-x64.tar.gz`
-   - Linux arm64: `solomd-mcp-linux-arm64.tar.gz`
-   - Windows x64: `solomd-mcp-win-x64.zip`
-   - Windows arm64: `solomd-mcp-win-arm64.zip`
-2. Extract and put `solomd-mcp` on your `PATH` (or remember the absolute
+   - macOS arm64/x64: `cargo install catstep-mcp` (or grab the bundled
+     binary from Catstep MD.app)
+   - Linux x64: `catstep-mcp-linux-x64.tar.gz`
+   - Linux arm64: `catstep-mcp-linux-arm64.tar.gz`
+   - Windows x64: `catstep-mcp-win-x64.zip`
+   - Windows arm64: `catstep-mcp-win-arm64.zip`
+2. Extract and put `catstep-mcp` on your `PATH` (or remember the absolute
    path for the config below).
 
 ## Wire into Claude Desktop
@@ -37,7 +37,7 @@ Add this under `mcpServers`:
 {
   "mcpServers": {
     "solomd": {
-      "command": "solomd-mcp",
+      "command": "catstep-mcp",
       "args": [
         "--workspace", "/Users/you/notes"
       ]
@@ -52,7 +52,7 @@ Multiple workspaces? Repeat the flag:
 {
   "mcpServers": {
     "solomd": {
-      "command": "solomd-mcp",
+      "command": "catstep-mcp",
       "args": [
         "--workspace", "work=/Users/you/work-notes",
         "--workspace", "home=/Users/you/diary"
@@ -76,19 +76,19 @@ show "solomd" with all 13 tools.
 
 ## Try it
 
-> Use the SoloMD MCP tools to list every note tagged `#project`, then show me
+> Use the Catstep MD MCP tools to list every note tagged `#project`, then show me
 > the backlinks for the most-recently-modified one.
 
-## About SoloMD
+## About Catstep MD
 
-[**SoloMD**](https://solomd.app) is a free, MIT Markdown + plaintext editor.
+[**Catstep MD**](https://github.com/maobukeai/catstep-md) is a free, MIT Markdown + plaintext editor.
 Same `.md` files as your favourite plain-text setup; the editor adds a
 Wiki-link + backlink graph, semantic search, per-note AutoGit history, a
 streamed Agent panel that cites notes with `[[wikilinks]]`, and the same
-`solomd-mcp` server you just installed — pre-wired.
+`catstep-mcp` server you just installed — pre-wired.
 
 You don't need the app to use the MCP server. But if you want the **Agent
 panel**, **pending write accept/reject UI**, **AutoGit branch sandbox per
 agent run**, and **BYOK keys in the OS keychain** — get the app.
 
-[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)
+[📥 Download Catstep MD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)

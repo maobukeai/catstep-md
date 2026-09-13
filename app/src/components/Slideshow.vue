@@ -457,7 +457,7 @@ onBeforeUnmount(() => {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Reveal progress bar in SoloMD brand orange */
+/* Reveal progress bar in Catstep MD brand theme */
 .solomd-slideshow :deep(.reveal .progress) {
   height: 3px;
   background: rgba(255, 255, 255, 0.08);

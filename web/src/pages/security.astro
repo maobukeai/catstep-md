@@ -7,8 +7,8 @@ const lang = 'en' as const;
 ---
 
 <Layout
-  title="Security — How SoloMD protects your data"
-  description="SoloMD is a pure client-side, local-first Markdown editor. Your notes stay on your disk; API keys live in the OS keychain; AI calls go direct to the vendor you chose. No middlemen, no cloud, MIT-licensed and auditable."
+  title="Security — How Catstep MD protects your data"
+  description="Catstep MD is a pure client-side, local-first Markdown editor. Your notes stay on your disk; API keys live in the OS keychain; AI calls go direct to the vendor you chose. No middlemen, no cloud, MIT-licensed and auditable."
   lang={lang}
 >
   <Header lang={lang} />
@@ -18,8 +18,8 @@ const lang = 'en' as const;
       <p class="updated">Last updated: 2026-04-25 · v2.2</p>
 
       <p class="lead">
-        SoloMD is a <strong>pure client-side</strong> desktop / mobile app.
-        There is no SoloMD server, no SoloMD account, no SoloMD cloud. Below is
+        Catstep MD is a <strong>pure client-side</strong> desktop / mobile app.
+        There is no Catstep MD server, no Catstep MD account, no Catstep MD cloud. Below is
         every place data flows in the product, and exactly how we protect it.
       </p>
 
@@ -30,7 +30,7 @@ const lang = 'en' as const;
           you choose. No proprietary database, no opaque blob format.
         </li>
         <li>
-          Uninstall SoloMD and your files are still there, openable in
+          Uninstall Catstep MD and your files are still there, openable in
           Obsidian / VS Code / Notepad / <code>cat</code>. There is no
           lock-in.
         </li>
@@ -74,7 +74,7 @@ const lang = 'en' as const;
       <ul>
         <li>
           AI is <strong>off by default</strong>. You have to enable it in
-          settings and supply your own key (BYOK). No SoloMD-hosted models.
+          settings and supply your own key (BYOK). No Catstep MD-hosted models.
         </li>
         <li>
           When you trigger a rewrite, only the <strong>selected text</strong>
@@ -83,7 +83,7 @@ const lang = 'en' as const;
         </li>
         <li>
           The request goes <strong>directly</strong> from your machine to the
-          provider you picked — there is no SoloMD relay, no logging, no
+          provider you picked — there is no Catstep MD relay, no logging, no
           interception. We can't see the content because it doesn't pass
           through us.
         </li>
@@ -96,7 +96,7 @@ const lang = 'en' as const;
       <h2>4. MCP server — read-only by default, with path-traversal guard</h2>
       <ul>
         <li>
-          The bundled <code>solomd-mcp</code> binary exposes 6 read-only
+          The bundled <code>catstep-mcp</code> binary exposes 6 read-only
           tools by default: <code>list_notes</code>, <code>read_note</code>,
           <code>search</code>, <code>get_backlinks</code>,
           <code>list_tags</code>, <code>get_outline</code>.
@@ -121,7 +121,7 @@ const lang = 'en' as const;
       <ul>
         <li>
           v2.3 adds a semantic-search panel (⌘⇧F). Like everything else
-          in SoloMD it is <strong>off by default</strong>. Settings →
+          in Catstep MD it is <strong>off by default</strong>. Settings →
           "Enable semantic search" turns it on; until then nothing is
           scanned and no index file is created.
         </li>
@@ -240,7 +240,7 @@ const lang = 'en' as const;
       <h2>Reporting a vulnerability</h2>
       <p>
         Found something? Email
-        <a href="mailto:slushy@139.com">slushy@139.com</a> with details. We'll
+        <a href="mailto:maobukeai.lilan@gmail.com">maobukeai.lilan@gmail.com</a> with details. We'll
         respond within 72 hours and credit you in the release notes (unless
         you'd rather stay anonymous).
       </p>

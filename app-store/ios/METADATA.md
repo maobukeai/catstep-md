@@ -4,13 +4,13 @@
 
 | Field | Value |
 |---|---|
-| App Name | SoloMD |
+| App Name | Catstep MD |
 | Subtitle (EN) | Minimalist Markdown editor |
 | Subtitle (zh-Hans) | 极简 Markdown 编辑器 |
 | Subtitle (ja) | ミニマルな Markdown エディタ |
 | Subtitle (ko) | 미니멀한 마크다운 에디터 |
-| Bundle ID | app.solomd |
-| SKU | solomd-ios-001 |
+| Bundle ID | app.catstepmd |
+| SKU | catstepmd-ios-001 |
 | Primary Language | English (U.S.) |
 | Additional Languages | Simplified Chinese, Japanese, Korean |
 | Category — Primary | Productivity |
@@ -24,9 +24,9 @@
 
 | Field | Value |
 |---|---|
-| Marketing URL | https://solomd.app |
+| Marketing URL | https://github.com/maobukeai/catstep-md |
 | Support URL | https://github.com/maobukeai/catstep-md/issues |
-| Privacy Policy URL | https://solomd.app/privacy |
+| Privacy Policy URL | https://github.com/maobukeai/catstep-md/blob/main/app-store/ios/PRIVACY.md |
 
 ## Device family
 
@@ -38,7 +38,7 @@
 
 - Sign-in required: **No**
 - Demo account: **not applicable**
-- Contact email: slushy@139.com
+- Contact email: maobukeai.lilan@gmail.com
 - Notes: see `REVIEW_NOTES.md`
 
 ## Age Rating questionnaire answers (all "None")
@@ -73,7 +73,7 @@ None.
 ## Version Information
 
 - Version: 0.1.12
-- Copyright: © 2026 xiangdong li
+- Copyright: © 2026 maobukeai
 - What's New: see `WHATS_NEW_en.md` / `WHATS_NEW_zh.md` / `WHATS_NEW_ja.md` / `WHATS_NEW_ko.md`
 
 ## Screenshots required

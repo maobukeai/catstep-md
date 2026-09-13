@@ -190,8 +190,8 @@ fn extract_tags_for_dispatch(body: &str) -> Vec<String> {
         while i < chars.len() {
             let c = chars[i];
             let preceded_ok = i == 0 || chars[i - 1].is_whitespace();
-            if c == '#' && preceded_ok {
-                if i + 1 < chars.len() && chars[i + 1].is_alphanumeric() {
+            if c == '#' && preceded_ok
+                && i + 1 < chars.len() && chars[i + 1].is_alphanumeric() {
                     let mut j = i + 1;
                     while j < chars.len()
                         && (chars[j].is_alphanumeric()
@@ -205,7 +205,6 @@ fn extract_tags_for_dispatch(body: &str) -> Vec<String> {
                     i = j;
                     continue;
                 }
-            }
             i += 1;
         }
     }
@@ -906,7 +905,7 @@ pub fn set_frontmatter_property_str(
         // formatting / comments are untouched.
         layout
             .inner_lines
-            .splice(span.start..span.end, entry.into_iter());
+            .splice(span.start..span.end, entry);
     } else {
         // Append at the end of the block (after the last existing line).
         layout.inner_lines.extend(entry);

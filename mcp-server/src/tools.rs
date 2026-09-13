@@ -255,7 +255,7 @@ pub struct WriteResult {
 }
 
 // ---------------------------------------------------------------------------
-// v3.1 SoloMD-only tool args (autogit / sync / share)
+// v3.1 Catstep MD tool args (autogit / sync / share)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
@@ -311,7 +311,7 @@ pub struct ShareUrlArgs {
 /// v4.1 — args for `export_note`. Drives `app/scripts/solomd-export.mjs`,
 /// the same headless export tool the `solomd export` CLI uses, so MCP
 /// clients can produce .docx / .html / .txt artifacts in a CI / agent
-/// loop without a running SoloMD GUI. Engine parity with the in-app GUI
+/// loop without a running Catstep MD GUI. Engine parity with the in-app GUI
 /// export — same markdown-it config, same `docx` library.
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 pub struct ExportNoteArgs {
@@ -371,7 +371,7 @@ impl SoloMdServer {
     /// List notes in the workspace (metadata only — content is *not* loaded).
     #[tool(
         name = "list_notes",
-        description = "List Markdown notes in a SoloMD workspace. Returns metadata only (path, name, title, mtime, size, summary). Use read_note to fetch full content. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
+        description = "List Markdown notes in a Catstep MD workspace. Returns metadata only (path, name, title, mtime, size, summary). Use read_note to fetch full content. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
     )]
     pub async fn list_notes(
         &self,
@@ -646,12 +646,12 @@ impl SoloMdServer {
         ]))
     }
 
-    // ---- v3.1 SoloMD-only tools (autogit / sync / share) -----------------
+    // ---- v3.1 Catstep MD tools (autogit / sync / share) -----------------
 
-    /// List per-note commit history from SoloMD's AutoGit repo.
+    /// List per-note commit history from Catstep MD's AutoGit repo.
     #[tool(
         name = "autogit_log",
-        description = "List the commit history for a single note from SoloMD's AutoGit repo (saves are auto-committed). Returns sha + short_sha + author + time (unix seconds) + summary, newest first. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
+        description = "List the commit history for a single note from Catstep MD's AutoGit repo (saves are auto-committed). Returns sha + short_sha + author + time (unix seconds) + summary, newest first. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
     )]
     pub async fn autogit_log(
         &self,
@@ -739,10 +739,10 @@ impl SoloMdServer {
         ]))
     }
 
-    /// Read SoloMD's GitHub-sync state for the workspace.
+    /// Read Catstep MD's GitHub-sync state for the workspace.
     #[tool(
         name = "sync_status",
-        description = "Return SoloMD's GitHub-sync configuration for a workspace: linked remote, current branch, encryption flag, last push/pull timestamps. Reads .solomd/sync.json — does not require credentials. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
+        description = "Return Catstep MD's GitHub-sync configuration for a workspace: linked remote, current branch, encryption flag, last push/pull timestamps. Reads .solomd/sync.json or .catstep/sync.json — does not require credentials. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
     )]
     pub async fn sync_status(
         &self,
@@ -765,7 +765,7 @@ impl SoloMdServer {
     /// workspace is linked to a public GitHub repo).
     #[tool(
         name = "share_url",
-        description = "Return the public solomd.app/share/ URL for a note. Only resolves to a real page if the workspace's linked repo is public; for private repos the URL exists but raw.githubusercontent.com will 404. Use sync_status first to check `private`. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
+        description = "Return the public share URL for a note. Only resolves to a real page if the workspace's linked repo is public; for private repos the URL exists but raw.githubusercontent.com will 404. Use sync_status first to check `private`. Pass `workspace` (alias or absolute path) to target a non-default workspace; omit it to use the first registered workspace."
     )]
     pub async fn share_url(
         &self,
@@ -840,7 +840,7 @@ impl SoloMdServer {
     /// workspace IS gated by `allow_write` for safety.
     #[tool(
         name = "export_note",
-        description = "Export a Markdown note to html / md / txt / docx. Engine-parity with the SoloMD GUI export. Args: `path` (workspace-relative), `format` (default html), optional `output_path` (default: sibling file next to `path` with format-appropriate extension), optional `number_headings` (promote plain-text numbered sections like 6.2 / 6.2.1 to headings, default false). Returns the absolute output path. Requires Node.js + `pnpm install` in the SoloMD repo's app/ directory."
+        description = "Export a Markdown note to html / md / txt / docx. Engine-parity with the Catstep MD GUI export. Args: `path` (workspace-relative), `format` (default html), optional `output_path` (default: sibling file next to `path` with format-appropriate extension), optional `number_headings` (promote plain-text numbered sections like 6.2 / 6.2.1 to headings, default false). Returns the absolute output path. Requires Node.js + `pnpm install` in the Catstep MD repo's app/ directory."
     )]
     pub async fn export_note(
         &self,
@@ -936,10 +936,10 @@ impl SoloMdServer {
     /// lines (skipped, not errored) so partial / crashed runs are still
     /// inspectable. The reader is a slim duplicate of the canonical
     /// `app/src-tauri/src/trace.rs` parser — we don't path-dep into the
-    /// app crate to keep `solomd-mcp` self-contained.
+    /// app crate to keep `catstep-mcp` self-contained.
     #[tool(
         name = "read_agent_trace",
-        description = "Return the agent run trace as an array of step objects. Lines from `<workspace>/.solomd/agent-runs/<run_id>/trace.jsonl`. Each step has ts (unix ms), seq (1-based), kind, plus kind-specific fields (provider/model/tool/result/...). See SoloMD v4 contracts C2 for the schema."
+        description = "Return the agent run trace as an array of step objects. Lines from `<workspace>/.solomd/agent-runs/<run_id>/trace.jsonl`. Each step has ts (unix ms), seq (1-based), kind, plus kind-specific fields (provider/model/tool/result/...). See Catstep MD v4 contracts C2 for the schema."
     )]
     pub async fn read_agent_trace(
         &self,
@@ -980,7 +980,7 @@ impl SoloMdServer {
 impl ServerHandler for SoloMdServer {
     fn get_info(&self) -> ServerInfo {
         let implementation =
-            Implementation::new("catstep-mcp", env!("CARGO_PKG_VERSION")).with_title("Catstep MD (SoloMD) Vault");
+            Implementation::new("catstep-mcp", env!("CARGO_PKG_VERSION")).with_title("Catstep MD Vault");
         let aliases: Vec<&str> = self
             .inner
             .workspaces
@@ -999,7 +999,7 @@ impl ServerHandler for SoloMdServer {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(implementation)
             .with_instructions(format!(
-                "Read and (optionally) write Catstep MD / SoloMD Markdown notes vaults. \
+                "Read and (optionally) write Catstep MD Markdown notes vaults. \
                  Tools are read-only by default; restart with --allow-write to expose \
                  write_note + append_to_note + autogit_rollback. {workspace_blurb}"
             ))
@@ -1385,7 +1385,7 @@ fn share_url_inner(
         .map_err(|_| "note is outside the workspace".to_string())?;
     let rel_str = rel.to_string_lossy().replace('\\', "/");
     let url = format!(
-        "https://solomd.app/share/?repo={}&path={}&branch={}",
+        "https://github.com/maobukeai/catstep-md/share/?repo={}&path={}&branch={}",
         urlencode(&owner_repo),
         urlencode(&rel_str),
         urlencode(&branch),
@@ -1424,7 +1424,7 @@ fn urlencode(s: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// v3.1 unit tests for SoloMD-only inner helpers.
+// v3.1 unit tests for Catstep MD inner helpers.
 //
 // These don't go through the MCP protocol layer — they call the inner
 // functions directly so we can pin down behavior (fail-closed on bad
@@ -1438,7 +1438,7 @@ fn urlencode(s: &str) -> String {
 /// Search order:
 ///   1. `$SOLOMD_EXPORT_SCRIPT` env var (explicit override).
 ///   2. `<exe-dir>/../app/scripts/solomd-export.mjs` (running from the
-///      SoloMD repo's release build, e.g. `mcp-server/target/release/`).
+///      Catstep MD repo's release build, e.g. `mcp-server/target/release/`).
 ///   3. `<exe-dir>/../../app/scripts/solomd-export.mjs` (running from a
 ///      monorepo dev build).
 ///   4. `<cwd>/app/scripts/solomd-export.mjs` (running from repo root).

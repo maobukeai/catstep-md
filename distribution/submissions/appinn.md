@@ -11,7 +11,7 @@
 ## 帖子标题
 
 ```
-SoloMD - 只有 15MB 的所见即所得 Markdown 编辑器 [Win/Mac/Linux]
+Catstep MD - 只有 15MB 的所见即所得 Markdown 编辑器 [Win/Mac/Linux]
 ```
 
 ---
@@ -21,7 +21,7 @@ SoloMD - 只有 15MB 的所见即所得 Markdown 编辑器 [Win/Mac/Linux]
 ```markdown
 ## 简介
 
-SoloMD 是一款轻量级的 Markdown 编辑器，安装包只有 15MB（作为对比，Obsidian 是 250MB）。
+Catstep MD 是一款轻量级的 Markdown 编辑器，安装包只有 15MB（作为对比，Obsidian 是 250MB）。
 
 主打一个「小而美」：一个文件，一个窗口，专心写作。
 
@@ -55,7 +55,7 @@ Tauri 2 + Vue 3 + CodeMirror 6
 
 ## 下载
 
-- 官网：https://solomd.app
+- 官网：https://github.com/maobukeai/catstep-md
 - GitHub：https://github.com/maobukeai/catstep-md
 
 完全免费，MIT 开源。

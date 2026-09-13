@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# iOS App Store distribution build for SoloMD.
+# iOS App Store distribution build for Catstep MD.
 #
 # This script captures the workflow from the v4.1.0 iOS-build session
 # (2026-05-11), where each clean iOS build runs into the same family
@@ -27,11 +27,11 @@
 #      after 75s unless launchctl-level proxy is set.
 #   6. Apple Distribution signing requires a manually-managed
 #      provisioning profile (Xcode-managed ones cause CODE_SIGN_STYLE
-#      conflicts). Drop one in app/src-tauri/SoloMD-iOS.provisionprofile
+#      conflicts). Drop one in app/src-tauri/CatstepMD-iOS.provisionprofile
 #      before running this script.
 #
 # Required env (export or .env.local):
-#   IOS_SIGNING_PROFILE_NAME  e.g. "SoloMD iOS App Store 2026-05"
+#   IOS_SIGNING_PROFILE_NAME  e.g. "Catstep MD iOS App Store 2026-05"
 #                              (the profile Name as it appears in the
 #                               profile file — used as
 #                               PROVISIONING_PROFILE_SPECIFIER)
@@ -40,7 +40,7 @@
 #                              we register it at launchctl so Xcode
 #                              subprocess can reach GitHub
 #
-# Output: app/src-tauri/gen/apple/build/arm64/SoloMD.ipa
+# Output: app/src-tauri/gen/apple/build/arm64/CatstepMD.ipa
 
 set -euo pipefail
 
@@ -137,13 +137,13 @@ export SOLOMD_APP_STORE_BUILD=1
 export VITE_APP_STORE_BUILD=true
 ( cd app && pnpm tauri ios build )
 
-IPA=app/src-tauri/gen/apple/build/arm64/SoloMD.ipa
+IPA=app/src-tauri/gen/apple/build/arm64/CatstepMD.ipa
 [ -f "$IPA" ] || { echo "ERROR: build didn't produce $IPA" >&2; exit 1; }
 
 echo ""
 echo "==> Verifying .ipa signature"
 TMP=$(mktemp -d)
-unzip -p "$IPA" Payload/SoloMD.app/embedded.mobileprovision > "$TMP/profile"
+unzip -p "$IPA" Payload/CatstepMD.app/embedded.mobileprovision > "$TMP/profile"
 echo "  Profile name: $(security cms -D -i "$TMP/profile" | plutil -extract Name xml1 -o - - | grep -o "<string>.*</string>" | head -1)"
 echo "  Platform:     $(security cms -D -i "$TMP/profile" | plutil -extract Platform xml1 -o - - | grep -o "<string>.*</string>" | head -1)"
 echo "  Xcode-managed: $(security cms -D -i "$TMP/profile" | plutil -extract IsXcodeManaged xml1 -o - - | grep -o "<true\\|false/>" || echo "unknown")"

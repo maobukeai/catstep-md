@@ -7,8 +7,8 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="安全机制 — SoloMD 如何保护你的数据"
-  description="SoloMD 是一款纯客户端、本地优先的 Markdown 编辑器。笔记永远在你的硬盘上，API key 存在系统钥匙串里，AI 调用直连厂商 —— 没有中转服务器，没有云端，MIT 开源可审计。"
+  title="安全机制 — 猫步 MD 如何保护你的数据"
+  description="猫步 MD 是一款纯客户端、本地优先的 Markdown 编辑器。笔记永远在你的硬盘上，API key 存在系统钥匙串里，AI 调用直连厂商 —— 没有中转服务器，没有云端，MIT 开源可审计。"
   lang={lang}
 >
   <Header lang={lang} />
@@ -18,8 +18,8 @@ const lang = 'zh' as const;
       <p class="updated">最后更新:2026-04-25 · v2.2</p>
 
       <p class="lead">
-        SoloMD 是<strong>纯客户端</strong>桌面 / 移动应用。没有 SoloMD 服务器,
-        没有 SoloMD 账号,没有 SoloMD 云端。下面把产品里所有可能涉及数据的地方
+        猫步 MD 是<strong>纯客户端</strong>桌面 / 移动应用。没有 猫步 MD 服务器,
+        没有 猫步 MD 账号,没有 猫步 MD 云端。下面把产品里所有可能涉及数据的地方
         和我们的保护机制全部讲清楚。
       </p>
 
@@ -30,7 +30,7 @@ const lang = 'zh' as const;
           数据库,没有不透明的二进制格式。
         </li>
         <li>
-          就算卸载 SoloMD,你的文件还在原地,Obsidian / VS Code / 记事本 /
+          就算卸载 猫步 MD,你的文件还在原地,Obsidian / VS Code / 记事本 /
           <code>cat</code> 全都能打开,完全不锁定。
         </li>
         <li>
@@ -75,7 +75,7 @@ const lang = 'zh' as const;
           上下文段落,也不带任何笔记元信息。
         </li>
         <li>
-          请求<strong>直接</strong>从你的电脑发到你选的厂商 — 没有 SoloMD 中转,
+          请求<strong>直接</strong>从你的电脑发到你选的厂商 — 没有 猫步 MD 中转,
           没有日志,没有拦截。我们看不到内容,因为它根本不经过我们。
         </li>
         <li>
@@ -86,7 +86,7 @@ const lang = 'zh' as const;
       <h2>4. MCP Server — 默认只读,带路径穿越防护</h2>
       <ul>
         <li>
-          自带的 <code>solomd-mcp</code> 二进制默认只暴露 6 个只读工具:
+          自带的 <code>catstep-mcp</code> 二进制默认只暴露 6 个只读工具:
           <code>list_notes</code>、<code>read_note</code>、<code>search</code>、
           <code>get_backlinks</code>、<code>list_tags</code>、
           <code>get_outline</code>。
@@ -108,7 +108,7 @@ const lang = 'zh' as const;
       <h2>5. 本地 RAG / 语义搜索 —— 数据从不离开磁盘</h2>
       <ul>
         <li>
-          v2.3 新增了语义搜索面板（⌘⇧F）。和 SoloMD 里其他功能一样，
+          v2.3 新增了语义搜索面板（⌘⇧F）。和 猫步 MD 里其他功能一样，
           <strong>默认关闭</strong>。在「设置 → 启用语义搜索」开启后才会建立索引；
           关闭状态下不扫描、不生成索引文件、零开销。
         </li>
@@ -214,7 +214,7 @@ const lang = 'zh' as const;
       <h2>报告漏洞</h2>
       <p>
         发现安全问题?发邮件到
-        <a href="mailto:slushy@139.com">slushy@139.com</a>,我们 72 小时内回复,
+        <a href="mailto:maobukeai.lilan@gmail.com">maobukeai.lilan@gmail.com</a>,我们 72 小时内回复,
         并在版本说明里致谢(除非你希望匿名)。
       </p>
 

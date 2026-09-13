@@ -1,6 +1,6 @@
 # Mac App Store Build Notes — READ BEFORE SUBMITTING
 
-The current Mac build of SoloMD is **Developer ID-signed for direct distribution**. Shipping to the Mac App Store requires several changes. None are one-line — expect to spend some time here before first submission.
+The current Mac build of Catstep MD is **Developer ID-signed for direct distribution**. Shipping to the Mac App Store requires several changes. None are one-line — expect to spend some time here before first submission.
 
 ## Required changes
 
@@ -8,14 +8,14 @@ The current Mac build of SoloMD is **Developer ID-signed for direct distribution
 
 The MAS build must be signed with:
 
-- **`3rd Party Mac Developer Application: xiangdong li (6NQM3XP5RF)`** — app binary
-- **`3rd Party Mac Developer Installer: xiangdong li (6NQM3XP5RF)`** — the `.pkg` uploaded via Transporter / altool
+- **`3rd Party Mac Developer Application: Developer Name (TEAM_ID)`** — app binary
+- **`3rd Party Mac Developer Installer: Developer Name (TEAM_ID)`** — the `.pkg` uploaded via Transporter / altool
 
 Create both certs in App Store Connect → Certificates, Identifiers & Profiles → Certificates → **+**.
 
 ### 2. Provisioning profile
 
-Create a **Mac App Store Distribution** provisioning profile that matches bundle id `app.solomd` (or whatever you use for the MAS SKU). Download to `~/Library/MobileDevice/Provisioning Profiles/`.
+Create a **Mac App Store Distribution** provisioning profile that matches bundle id `app.catstepmd` (or whatever you use for the MAS SKU). Download to `~/Library/MobileDevice/Provisioning Profiles/`.
 
 ### 3. Sandbox entitlements
 
@@ -44,8 +44,8 @@ Add a MAS-only bundle target in `app/src-tauri/tauri.conf.json`:
 "bundle": {
   "macOS": {
     "entitlements": "entitlements.mas.plist",
-    "providerShortName": "6NQM3XP5RF",
-    "signingIdentity": "3rd Party Mac Developer Application: xiangdong li (6NQM3XP5RF)",
+    "providerShortName": "YOUR_TEAM_ID",
+    "signingIdentity": "3rd Party Mac Developer Application: Developer Name (TEAM_ID)",
     "minimumSystemVersion": "11.0"
   }
 }
@@ -77,14 +77,14 @@ Once the above is in place:
 cd app
 # Build with MAS env
 VITE_MAS_BUILD=1 pnpm tauri build --bundles app --target universal-apple-darwin
-# Tauri produces SoloMD.app signed with the 3rd Party Mac Developer Application cert
+# Tauri produces Catstep MD.app signed with the 3rd Party Mac Developer Application cert
 # Create the pkg:
-productbuild --sign "3rd Party Mac Developer Installer: xiangdong li (6NQM3XP5RF)" \
-  --component src-tauri/target/universal-apple-darwin/release/bundle/macos/SoloMD.app /Applications \
-  SoloMD-MAS-0.1.12.pkg
+productbuild --sign "3rd Party Mac Developer Installer: Developer Name (TEAM_ID)" \
+  --component src-tauri/target/universal-apple-darwin/release/bundle/macos/Catstep MD.app /Applications \
+  Catstep MD-MAS-0.1.12.pkg
 # Upload via Transporter.app or:
-xcrun altool --upload-app -f SoloMD-MAS-0.1.12.pkg -t macos \
-  -u slushy@139.com -p "@keychain:solomd"
+xcrun altool --upload-app -f Catstep MD-MAS-0.1.12.pkg -t macos \
+  -u your-apple-id@email.com -p "@keychain:app-specific-password"
 ```
 
 ### 8. First-submission gotchas
@@ -96,7 +96,7 @@ xcrun altool --upload-app -f SoloMD-MAS-0.1.12.pkg -t macos \
 
 ## Recommended order of operations
 
-1. Decide if MAS build shares the iOS bundle id (`app.solomd`) or gets its own (e.g. `app.solomd.mac`). Sharing is fine for Universal Purchase later.
+1. Decide if MAS build shares the iOS bundle id (`app.catstepmd`) or gets its own (e.g. `app.catstepmd.mac`). Sharing is fine for Universal Purchase later.
 2. Register certs + provisioning profile on developer.apple.com.
 3. Write the MAS entitlements file.
 4. Add the `MAS_BUILD` flag and gate auto-update.

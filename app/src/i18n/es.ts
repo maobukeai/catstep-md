@@ -303,7 +303,7 @@ export const es: I18n = {
     "catWriting": "Escritura",
     "catSync": "Sincronización",
     "syncUnsupportedAndroid": "La sincronización basada en Git (historial de versiones, sincronización con GitHub, proxy) aún no está disponible en la compilación de Android: el motor libgit2 del que depende no está compilado en el binario de Android. Por ahora, usa las apps de escritorio o iOS para sincronizar esta bóveda.",
-    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in SoloMD for seamless real-time offline editing and sync.",
+    "syncUnsupportedAndroidTip": "You can use Syncthing, FolderSync, or cloud drive sync tools to mirror your markdown vault folder to your Android device, then tap \"Open Folder\" in Catstep MD for seamless real-time offline editing and sync.",
     "syncUnsupportedWeb": "Git-backed sync is not available in web preview mode. Please use the desktop client (Windows / macOS / Linux).",
     "catIntegrations": "Integraciones",
     "catExport": "Exportar",
@@ -849,7 +849,7 @@ export const es: I18n = {
   "integrations": {
     "heading": "Integraciones",
     "intro": "Catstep MD habla con tu terminal y con clientes IA compatibles con MCP (Claude Desktop, Codex CLI, Cursor) para que puedas leer/escribir tus notas desde fuera de la app.",
-    "cliTitle": "CLI (solomd)",
+    "cliTitle": "CLI (catstep)",
     "cliInstalled": "Instalado en {path}",
     "cliNotInstalled": "No instalado",
     "cliVersionLabel": "Versión",
@@ -860,7 +860,7 @@ export const es: I18n = {
     "cliCopyInstallBtn": "Copiar comando de instalación",
     "cliCopiedToast": "Comando de instalación copiado — pega en tu terminal.",
     "cliInstallToast": "Ejecuta esto en tu terminal — sudo es necesario para /usr/local/bin:",
-    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep or solomd in your terminal.",
+    "cliInstallSuccessToast": "CLI installed successfully! You can now run catstep in your terminal.",
     "cliUninstallSuccessToast": "CLI uninstalled successfully.",
     "cliInstallFallbackToast": "In-app install met permission limits; command copied to clipboard, please run in terminal.",
     "cliSubcommandsHeading": "¿Qué puede hacer?",
@@ -872,7 +872,7 @@ export const es: I18n = {
       "cat": "cat <título|ruta> — imprimir una nota a stdout",
       "help": "help — mostrar todos los comandos"
     },
-    "mcpTitle": "Servidor MCP (solomd-mcp)",
+    "mcpTitle": "Servidor MCP (catstep-mcp)",
     "mcpBundled": "Incluido en {path}",
     "mcpNotBundled": "No incluido (este build dev omite el sidecar externalBin). Las builds de producción siempre lo incluyen.",
     "mcpDesc": "Expone el workspace abierto como servidor Model Context Protocol para que Claude Desktop / Codex / Cursor puedan listar, leer, buscar y escribir tus notas.",
@@ -917,7 +917,7 @@ export const es: I18n = {
     "aiClientsRemovedToast": "✓ Removed Catstep MD entry from {name}.",
     "aiClientsRestartHint": "After injecting, restart the AI client (or use its \"Reload MCP servers\" command if it has one) for the new server to load.",
     "profilesHeading": "Perfiles MCP",
-    "profilesIntro": "Agrupar varios workspaces bajo una sola instancia solomd-mcp y luego copiar un bloque de configuración de Claude Desktop listo para pegar. Cada perfil lista los workspaces (alias + ruta) que el servidor MCP expondrá; la primera entrada es la predeterminada — las llamadas a herramientas sin argumento `workspace` explícito recaen en ella.",
+    "profilesIntro": "Agrupar varios workspaces bajo una sola instancia catstep-mcp y luego copiar un bloque de configuración de Claude Desktop listo para pegar. Cada perfil lista los workspaces (alias + ruta) que el servidor MCP expondrá; la primera entrada es la predeterminada — las llamadas a herramientas sin argumento `workspace` explícito recaen en ella.",
     "profilesEmpty": "Aún no hay perfiles.",
     "profilesCreate": "Nuevo perfil",
     "profilesDuplicate": "Duplicar",
@@ -945,7 +945,7 @@ export const es: I18n = {
     "profilesValidationFailed": "No se puede guardar: {msg}",
     "profilesNamePlaceholder": "work-and-home",
     "profilesNewProfileDefault": "Nuevo perfil",
-    "profilesNoMcpBinary": "solomd-mcp no está incluido en este build dev — el snippet usa una ruta de marcador."
+    "profilesNoMcpBinary": "catstep-mcp no está incluido en este build dev — el snippet usa una ruta de marcador."
   },
   "recipes": {
     "heading": "Recipes de agente",

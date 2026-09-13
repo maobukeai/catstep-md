@@ -8,7 +8,7 @@
  *
  * Designed to be embedded inline inside SettingsPanel.vue right under the
  * AI rewrite section (so users see CLI + MCP + AI as a related cluster of
- * "things SoloMD talks to").
+ * "things Catstep MD talks to").
  */
 
 import { ref, computed, onMounted } from 'vue';

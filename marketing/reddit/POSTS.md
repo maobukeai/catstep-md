@@ -9,7 +9,7 @@ I built a lightweight Markdown editor (~15 MB) with live preview, KaTeX, and Mer
 
 ### Body
 ```
-Hey r/markdown! I've been working on SoloMD, a cross-platform Markdown editor focused on simplicity.
+Hey r/markdown! I've been working on Catstep MD, a cross-platform Markdown editor focused on simplicity.
 
 **Key features:**
 - Live preview (markers hide when cursor leaves the line)
@@ -20,11 +20,11 @@ Hey r/markdown! I've been working on SoloMD, a cross-platform Markdown editor fo
 - Multi-encoding support (UTF-8, GBK, Big5, Shift_JIS)
 
 **Why I built it:**
-I wanted something lighter than Obsidian (~250 MB) and Typora (~80 MB), that works offline and doesn't require a subscription. SoloMD is about 15 MB installed.
+I wanted something lighter than Obsidian (~250 MB) and Typora (~80 MB), that works offline and doesn't require a subscription. Catstep MD is about 15 MB installed.
 
 It's free, open source (MIT), and available for macOS, Windows, and Linux.
 
-Website: https://solomd.app
+Website: https://github.com/maobukeai/catstep-md
 GitHub: https://github.com/maobukeai/catstep-md
 
 I'd love to hear what features you'd want in a Markdown editor!
@@ -36,12 +36,12 @@ I'd love to hear what features you'd want in a Markdown editor!
 
 ### Title
 ```
-SoloMD: A lightweight, open-source Markdown editor built with Tauri 2 + Rust (MIT license)
+Catstep MD: A lightweight, open-source Markdown editor built with Tauri 2 + Rust (MIT license)
 ```
 
 ### Body
 ```
-I just released SoloMD, a cross-platform Markdown editor I've been building.
+I just released Catstep MD, a cross-platform Markdown editor I've been building.
 
 **Tech stack:**
 - Tauri 2 (Rust backend, system webview)
@@ -61,7 +61,7 @@ I just released SoloMD, a cross-platform Markdown editor I've been building.
 - Export to HTML/PDF/DOCX
 
 GitHub: https://github.com/maobukeai/catstep-md
-Website: https://solomd.app
+Website: https://github.com/maobukeai/catstep-md
 
 Contributions welcome! Looking for feedback on the editor experience.
 ```
@@ -72,7 +72,7 @@ Contributions welcome! Looking for feedback on the editor experience.
 
 ### Title
 ```
-SoloMD: A 15 MB Markdown editor for Linux (AppImage/deb/rpm) – no Electron bloat
+Catstep MD: A 15 MB Markdown editor for Linux (AppImage/deb/rpm) – no Electron bloat
 ```
 
 ### Body
@@ -99,7 +99,7 @@ Built a lightweight Markdown editor that doesn't bundle Chromium. Uses Tauri 2, 
 **Note:** "Copy as Image" requires `wl-clipboard` (Wayland) or `xclip` (X11).
 
 Download: https://github.com/maobukeai/catstep-md/releases
-Website: https://solomd.app
+Website: https://github.com/maobukeai/catstep-md
 
 Happy to answer questions about the Tauri 2 experience on Linux!
 ```
@@ -110,14 +110,14 @@ Happy to answer questions about the Tauri 2 experience on Linux!
 
 ### Title
 ```
-SoloMD: An offline-first Markdown editor with zero telemetry (open source, MIT)
+Catstep MD: An offline-first Markdown editor with zero telemetry (open source, MIT)
 ```
 
 ### Body
 ```
 For those who care about privacy in their writing tools:
 
-**SoloMD is:**
+**Catstep MD is:**
 - Fully offline – no network requests, ever
 - Zero telemetry – we don't collect anything
 - Open source – audit the code yourself
@@ -130,7 +130,7 @@ It's a simple Markdown editor with live preview, KaTeX math, and Mermaid diagram
 Available for macOS, Windows, and Linux.
 
 GitHub (audit the code): https://github.com/maobukeai/catstep-md
-Website: https://solomd.app
+Website: https://github.com/maobukeai/catstep-md
 
 Built with Tauri 2, which uses your system's webview instead of bundling Chromium.
 ```

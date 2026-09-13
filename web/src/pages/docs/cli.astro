@@ -23,7 +23,7 @@ const FAQ = [
 ---
 
 <Layout
-  title="SoloMD CLI — Open, Search, Write Your Notes from the Terminal"
+  title="Catstep MD CLI — Open, Search, Write Your Notes from the Terminal"
   description="The solomd CLI lets you create notes, search the vault, and pipe Markdown around without leaving the shell."
   lang={lang}
 >
@@ -34,7 +34,7 @@ const FAQ = [
         <a href="/">Home</a> / <a href="/docs/">Docs</a> / <span>CLI</span>
       </nav>
 
-      <h1>SoloMD CLI</h1>
+      <h1>Catstep MD CLI</h1>
       <p class="lead">
         <code>solomd</code> is a small binary that exercises the same domain
         functions as the GUI — open a note, create one, search the vault, list
@@ -58,7 +58,7 @@ const FAQ = [
       <table class="kb-table">
         <thead><tr><th>Command</th><th>What it does</th></tr></thead>
         <tbody>
-          <tr><th><code>solomd open &lt;title|path&gt;</code></th><td>Open a note in SoloMD. Title-as-arg uses fuzzy match against the vault.</td></tr>
+          <tr><th><code>solomd open &lt;title|path&gt;</code></th><td>Open a note in Catstep MD. Title-as-arg uses fuzzy match against the vault.</td></tr>
           <tr><th><code>solomd new &lt;title&gt; [text]</code></th><td>Create a new note with the given title and optional body, then open it.</td></tr>
           <tr><th><code>solomd list [folder]</code></th><td>List Markdown files in the workspace (or a sub-folder).</td></tr>
           <tr><th><code>solomd search &lt;query&gt;</code></th><td>Grep your notes. Returns paths + matching lines.</td></tr>
@@ -84,14 +84,14 @@ solomd new "$(date +%F)" "## $(date +%A)\n\n- [ ] "`}</code></pre>
       <p>
         The CLI reads the same <code>solomd-language</code> /
         <code>solomd-workspace</code> preference files the GUI writes. If
-        you've opened a folder in SoloMD recently, the CLI will use that as
+        you've opened a folder in Catstep MD recently, the CLI will use that as
         its workspace. To override, set <code>SOLOMD_WORKSPACE</code>:
       </p>
       <pre class="code"><code>SOLOMD_WORKSPACE=/path/to/notes solomd list</code></pre>
 
       <h2>Combined with the MCP server</h2>
       <p>
-        The CLI is what the user types; <code>solomd-mcp</code> is what the AI
+        The CLI is what the user types; <code>catstep-mcp</code> is what the AI
         calls. They share the same workspace state, so a model can write a new
         note via MCP and you can immediately <code>solomd open</code> it from
         the terminal — no reload, no race.

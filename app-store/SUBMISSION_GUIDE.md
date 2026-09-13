@@ -1,13 +1,13 @@
-# SoloMD — App Store Submission Guide
+# Catstep MD — App Store Submission Guide
 
-End-to-end walkthrough for submitting SoloMD to the **iPad App Store** and the **Mac App Store**. Follow top-to-bottom once; use as a reference afterwards.
+End-to-end walkthrough for submitting Catstep MD to the **iPad App Store** and the **Mac App Store**. Follow top-to-bottom once; use as a reference afterwards.
 
 **Time budget (first-time submission):**
 - iPad: ~2 hours build + ~30 min metadata + ~1–3 day review
 - Mac: ~4–6 hours (sandbox work) + ~30 min metadata + ~1–3 day review
 
 **Assumptions:**
-- You already have an active paid **Apple Developer Program** membership (`$99/year`, team `6NQM3XP5RF`, individual account `slushy@139.com`).
+- You already have an active paid **Apple Developer Program** membership (`$99/year`, team `YOUR_TEAM_ID`, individual account `your-apple-id@email.com`).
 - Local dev works: `cd app && pnpm tauri dev` launches the app, `pnpm tauri ios dev` builds for the iPad simulator, `pnpm tauri build` produces a Developer ID-signed Mac DMG.
 - You have access to the Mac signing keychain with the existing Developer ID cert.
 
@@ -33,7 +33,7 @@ End-to-end walkthrough for submitting SoloMD to the **iPad App Store** and the *
 
 ### 1.1 App Store Connect access
 
-1. Go to https://appstoreconnect.apple.com and sign in with `slushy@139.com`.
+1. Go to https://appstoreconnect.apple.com and sign in with `your-apple-id@email.com`.
 2. Accept any pending Program License Agreement and Paid Apps Agreement (required even for free apps — the contract governs tax/banking, not money).
 3. In **Users and Access**, verify your role is `Account Holder` or `Admin`.
 
@@ -48,8 +48,8 @@ In https://developer.apple.com/account → **Certificates, Identifiers & Profile
 
 **For Mac App Store (extra two certs):**
 
-- `Mac App Distribution` a.k.a. `3rd Party Mac Developer Application: xiangdong li (6NQM3XP5RF)` — signs the `.app` binary.
-- `Mac Installer Distribution` a.k.a. `3rd Party Mac Developer Installer: xiangdong li (6NQM3XP5RF)` — signs the `.pkg` installer.
+- `Mac App Distribution` a.k.a. `3rd Party Mac Developer Application: Developer Name (TEAM_ID)` — signs the `.app` binary.
+- `Mac Installer Distribution` a.k.a. `3rd Party Mac Developer Installer: Developer Name (TEAM_ID)` — signs the `.pkg` installer.
 
 Create both via **+** → choose the Mac App types. After download + install, verify:
 
@@ -65,23 +65,23 @@ In **Identifiers**, create two if they don't exist:
 
 | Identifier | Bundle ID | Platform | Capabilities |
 |---|---|---|---|
-| SoloMD iOS | `app.solomd` | iOS, iPadOS | (none — leave all unchecked) |
-| SoloMD macOS | `app.solomd` *(or `app.solomd.mac`)* | macOS | App Sandbox |
+| Catstep MD iOS | `app.catstepmd` | iOS, iPadOS | (none — leave all unchecked) |
+| Catstep MD macOS | `app.catstepmd` *(or `app.catstepmd.mac`)* | macOS | App Sandbox |
 
-If you want **Universal Purchase** (one price/purchase covers both iPad and Mac), use the **same bundle ID** `app.solomd` for both. Otherwise give the Mac version its own ID.
+If you want **Universal Purchase** (one price/purchase covers both iPad and Mac), use the **same bundle ID** `app.catstepmd` for both. Otherwise give the Mac version its own ID.
 
 ### 1.4 Provisioning profiles
 
 Xcode manages these automatically in most cases. To create manually:
 
-- iPad: `App Store` type, bundle `app.solomd`, signed by Apple Distribution cert.
-- Mac: `Mac App Store` type, bundle `app.solomd` (or `.mac`), signed by 3rd Party Mac Developer Application.
+- iPad: `App Store` type, bundle `app.catstepmd`, signed by Apple Distribution cert.
+- Mac: `Mac App Store` type, bundle `app.catstepmd` (or `.mac`), signed by 3rd Party Mac Developer Application.
 
 Download both `.mobileprovision` / `.provisionprofile` files and install by double-clicking.
 
 ### 1.5 Publish the privacy policy
 
-Apple requires a **public Privacy Policy URL** before the app is approved. Our policy is already drafted — see `ios/PRIVACY.md`. You need to publish it at `https://solomd.app/privacy` **before** submitting.
+Apple requires a **public Privacy Policy URL** before the app is approved. Our policy is already drafted — see `ios/PRIVACY.md`. You need to publish it at `https://github.com/maobukeai/catstep-md/blob/main/app-store/ios/PRIVACY.md` **before** submitting.
 
 ```bash
 # Copy the policy into the website source and deploy
@@ -89,7 +89,7 @@ cp app-store/ios/PRIVACY.md web/src/content/privacy.md   # adjust path to your A
 cd web && pnpm build && pnpm deploy                        # your usual Cloudflare Pages flow
 ```
 
-Verify it's live: `curl -sSI https://solomd.app/privacy | head -n 1` should return `200`.
+Verify it's live: `curl -sSI https://github.com/maobukeai/catstep-md/blob/main/app-store/ios/PRIVACY.md | head -n 1` should return `200`.
 
 ---
 
@@ -123,36 +123,36 @@ pnpm tauri ios build --export-method app-store-connect
 ```
 
 Tauri calls `xcodebuild archive` under the hood and produces:
-- `app/src-tauri/gen/apple/build/arm64/SoloMD.ipa`
+- `app/src-tauri/gen/apple/build/arm64/Catstep MD.ipa`
 
 If the build fails with signing errors, open the project in Xcode and let it fix signing automatically:
 
 ```bash
-open app/src-tauri/gen/apple/solomd.xcodeproj
+open app/src-tauri/gen/apple/catstepmd.xcodeproj
 ```
 
-In Xcode: select the `solomd_iOS` target → **Signing & Capabilities** → ensure team is `xiangdong li (6NQM3XP5RF)` and "Automatically manage signing" is checked. Then `Product → Archive`.
+In Xcode: select the `catstepmd_iOS` target → **Signing & Capabilities** → ensure team is `Developer Name (TEAM_ID)` and "Automatically manage signing" is checked. Then `Product → Archive`.
 
 ### 2.3 Validate & upload
 
 With an Xcode archive (Organizer will show after archiving):
 
-1. Xcode → Window → **Organizer** → select the SoloMD archive.
+1. Xcode → Window → **Organizer** → select the Catstep MD archive.
 2. Click **Distribute App** → **App Store Connect** → **Upload**.
 3. Xcode re-signs, validates, and uploads. 5–15 min for the build to show up under "TestFlight" in App Store Connect.
 
 Alternative CLI path (no Xcode GUI):
 
 ```bash
-xcrun altool --upload-app -f app/src-tauri/gen/apple/build/arm64/SoloMD.ipa \
-  -t ios -u slushy@139.com -p "@keychain:solomd"
+xcrun altool --upload-app -f app/src-tauri/gen/apple/build/arm64/Catstep MD.ipa \
+  -t ios -u your-apple-id@email.com -p "@keychain:app-specific-password"
 ```
 
-The `@keychain:solomd` is the app-specific password profile you stored earlier.
+The `@keychain:catstepmd` is the app-specific password profile you stored earlier.
 
 ### 2.4 Wait for processing
 
-In App Store Connect → **Apps → SoloMD → TestFlight → Builds**, the new build appears as "Processing" for 5–30 minutes. Once it turns into a version number with a green check, proceed to [section 4](#4-app-store-connect--creating-the-app-record).
+In App Store Connect → **Apps → Catstep MD → TestFlight → Builds**, the new build appears as "Processing" for 5–30 minutes. Once it turns into a version number with a green check, proceed to [section 4](#4-app-store-connect--creating-the-app-record).
 
 ---
 
@@ -206,11 +206,11 @@ cd app
 VITE_MAS_BUILD=1 pnpm tauri build --target universal-apple-darwin
 ```
 
-Tauri produces `app/src-tauri/target/universal-apple-darwin/release/bundle/macos/SoloMD.app` signed with the Developer ID cert. **Re-sign for MAS:**
+Tauri produces `app/src-tauri/target/universal-apple-darwin/release/bundle/macos/Catstep MD.app` signed with the Developer ID cert. **Re-sign for MAS:**
 
 ```bash
-APP=app/src-tauri/target/universal-apple-darwin/release/bundle/macos/SoloMD.app
-IDENTITY="3rd Party Mac Developer Application: xiangdong li (6NQM3XP5RF)"
+APP=app/src-tauri/target/universal-apple-darwin/release/bundle/macos/Catstep MD.app
+IDENTITY="3rd Party Mac Developer Application: Developer Name (TEAM_ID)"
 ENTITLEMENTS=app/src-tauri/entitlements.mas.plist
 
 # Remove existing signature and re-sign with MAS cert + entitlements
@@ -227,8 +227,8 @@ spctl --assess --type execute --verbose "$APP"   # ok - satisfies its Designated
 ### 3.4 Wrap in a signed pkg installer
 
 ```bash
-INSTALLER_IDENTITY="3rd Party Mac Developer Installer: xiangdong li (6NQM3XP5RF)"
-PKG=SoloMD-MAS-0.1.12.pkg
+INSTALLER_IDENTITY="3rd Party Mac Developer Installer: Developer Name (TEAM_ID)"
+PKG=Catstep MD-MAS-0.1.12.pkg
 
 productbuild \
   --sign "$INSTALLER_IDENTITY" \
@@ -243,7 +243,7 @@ pkgutil --check-signature "$PKG"
 
 ```bash
 sudo installer -pkg "$PKG" -target /
-open /Applications/SoloMD.app
+open /Applications/Catstep MD.app
 ```
 
 Manually exercise every file-touching flow:
@@ -254,13 +254,13 @@ Manually exercise every file-touching flow:
 - Export PDF / HTML / DOCX
 - Quit and relaunch — confirm "recently opened" still works (tests `files.bookmarks.app-scope`)
 
-If any file operation silently fails, the sandbox is blocking it. Open **Console.app** and filter by SoloMD to see the denied operation; add the matching entitlement or switch to a user-selected dialog for that flow.
+If any file operation silently fails, the sandbox is blocking it. Open **Console.app** and filter by Catstep MD to see the denied operation; add the matching entitlement or switch to a user-selected dialog for that flow.
 
 ### 3.6 Upload
 
 ```bash
 xcrun altool --upload-app -f "$PKG" -t macos \
-  -u slushy@139.com -p "@keychain:solomd"
+  -u your-apple-id@email.com -p "@keychain:app-specific-password"
 ```
 
 Or upload via **Transporter.app** (available in the Mac App Store — free) for a GUI. Wait 5–30 min for processing.
@@ -269,7 +269,7 @@ Or upload via **Transporter.app** (available in the Mac App Store — free) for 
 
 ## 4. App Store Connect — creating the app record
 
-You do this once per app. If the iPad and Mac versions share the bundle ID `app.solomd`, create one app record with both platforms; otherwise create two.
+You do this once per app. If the iPad and Mac versions share the bundle ID `app.catstepmd`, create one app record with both platforms; otherwise create two.
 
 1. https://appstoreconnect.apple.com → **Apps → + → New App**
 2. Fill in:
@@ -277,10 +277,10 @@ You do this once per app. If the iPad and Mac versions share the bundle ID `app.
 | Field | Value (iPad) | Value (Mac) |
 |---|---|---|
 | Platforms | ☑ iOS | ☑ macOS (check both if Universal Purchase) |
-| Name | SoloMD | SoloMD |
+| Name | Catstep MD | Catstep MD |
 | Primary Language | English (U.S.) | English (U.S.) |
-| Bundle ID | `app.solomd` | `app.solomd` *(or `app.solomd.mac`)* |
-| SKU | `solomd-ios-001` | `solomd-mac-001` |
+| Bundle ID | `app.catstepmd` | `app.catstepmd` *(or `app.catstepmd.mac`)* |
+| SKU | `catstepmd-ios-001` | `catstepmd-mac-001` |
 | User Access | Full Access | Full Access |
 
 3. Click **Create**.
@@ -322,10 +322,10 @@ All the copy is already drafted in this repo. Match fields exactly:
 | Keywords (zh) | `ios/KEYWORDS_zh.md` | |
 | What's New (EN) | `ios/WHATS_NEW_en.md` | 4000 char max |
 | What's New (zh) | `ios/WHATS_NEW_zh.md` | |
-| Marketing URL | `https://solomd.app` | optional |
+| Marketing URL | `https://github.com/maobukeai/catstep-md` | optional |
 | Support URL | `https://github.com/maobukeai/catstep-md/issues` | required |
-| Privacy Policy URL | `https://solomd.app/privacy` | **required** |
-| Copyright | `© 2026 xiangdong li` | |
+| Privacy Policy URL | `https://github.com/maobukeai/catstep-md/blob/main/app-store/ios/PRIVACY.md` | **required** |
+| Copyright | `© 2026 maobukeai` | |
 
 ### 6.2 Mac
 
@@ -396,7 +396,7 @@ Under the version (not app-level), **Build → Export Compliance Information**:
 - **Does your app implement any proprietary encryption algorithms?** → **No**
 - **Does your app implement any standard encryption algorithms instead of, or in addition to, using or accessing the encryption within Apple's operating system?** → **No**
 
-SoloMD only uses Apple's system TLS (HTTPS via WKWebView/URLSession). This qualifies for the mass-market exemption.
+Catstep MD only uses Apple's system TLS (HTTPS via WKWebView/URLSession). This qualifies for the mass-market exemption.
 
 Set `ITSAppUsesNonExemptEncryption = false` in Info.plist (iOS) and tauri.conf.json (Mac) to skip this question on future uploads.
 
@@ -406,7 +406,7 @@ Set `ITSAppUsesNonExemptEncryption = false` in Info.plist (iOS) and tauri.conf.j
 
 > "Does your app contain, show, or access third-party content?" → **No**
 
-SoloMD only edits the user's own text files.
+Catstep MD only edits the user's own text files.
 
 ---
 
@@ -419,7 +419,7 @@ With all fields filled and a build attached:
 3. Answer the final three questions:
    - **Export compliance** — already filled (see 7.3)
    - **Content rights** — "No" (matches 7.4)
-   - **Advertising Identifier** — "No" (SoloMD does not use IDFA)
+   - **Advertising Identifier** — "No" (Catstep MD does not use IDFA)
 4. Click **Submit**.
 
 Review typically takes **24–48 hours** for simple productivity apps. You'll get email notifications at each state change:
@@ -438,17 +438,17 @@ Under **Version Release**, choose **"Manually release this version"** for the fi
 
 ## 9. Common rejection reasons — and how to fix them
 
-Based on Apple's public App Review Board rulings and past productivity-app rejections. SoloMD is designed to sidestep most of these, but here's the list:
+Based on Apple's public App Review Board rulings and past productivity-app rejections. Catstep MD is designed to sidestep most of these, but here's the list:
 
-| Guideline | Why it would fail SoloMD | Mitigation already in place |
+| Guideline | Why it would fail Catstep MD | Mitigation already in place |
 |---|---|---|
 | **2.1** App Completeness | Crashes or broken features | Test the archive build on a real iPad before upload. Tauri archives ≠ dev builds — if you skip this, you risk a day of review then a rejection |
 | **2.3.7** Accurate metadata | Screenshots showing unreleased features | Our screenshots are captured from the 0.1.12 build that's being submitted — don't swap in a newer Mermaid/KaTeX demo from a future version |
 | **2.4.5(iii)** Mac/iOS apps must not install software or behave outside sandbox | Auto-update feature | Already gated off on iOS; gate off in MAS build via `VITE_MAS_BUILD=1` |
-| **2.5.2** Software requirements | Running executable code downloaded at runtime | SoloMD bundles KaTeX, Mermaid, highlight.js at build time — no runtime fetch. Do not add features that pull in JS from a CDN |
+| **2.5.2** Software requirements | Running executable code downloaded at runtime | Catstep MD bundles KaTeX, Mermaid, highlight.js at build time — no runtime fetch. Do not add features that pull in JS from a CDN |
 | **3.2.2** Acceptable business model | Mystery in-app purchases | None — set price Free with no IAP |
-| **4.0** Design | "Minimum functionality" — app is just a website wrapper | SoloMD has real native features: system file associations, sandboxed file bookmarks, native menus, multi-window. Highlight these in Review Notes |
-| **4.1** Copycats | Name/icon too similar to another app | SoloMD is distinct — verified via App Store search |
+| **4.0** Design | "Minimum functionality" — app is just a website wrapper | Catstep MD has real native features: system file associations, sandboxed file bookmarks, native menus, multi-window. Highlight these in Review Notes |
+| **4.1** Copycats | Name/icon too similar to another app | Catstep MD is distinct — verified via App Store search |
 | **5.1.1** Data collection and storage | Any tracking without disclosure | Zero data collection; App Privacy answer is "No" |
 | **5.1.1(v)** Account deletion | If you add accounts, you must let users delete them | N/A — no accounts |
 | **5.2.3** Third-party content | Embedding a browser / news aggregator | N/A |
@@ -518,7 +518,7 @@ You referenced a restricted API (e.g., Photos) without a `NSPhotoLibraryUsageDes
 Common on first MAS build — your re-sign step (section 3.3) missed a nested framework. Run:
 
 ```bash
-find SoloMD.app -name "*.dylib" -o -name "*.framework" | while read f; do
+find Catstep MD.app -name "*.dylib" -o -name "*.framework" | while read f; do
   codesign --force --sign "$IDENTITY" --entitlements "$ENTITLEMENTS" "$f"
 done
 ```
@@ -527,15 +527,15 @@ Then re-sign the outer `.app`.
 
 ### "ITMS-91053: Missing API declaration"
 
-Apple now requires declaring privacy-sensitive API usage in a `PrivacyInfo.xcprivacy` file. Tauri 2.x generates a conservative one by default; if you see this error, add or edit `app/src-tauri/gen/apple/solomd_iOS/PrivacyInfo.xcprivacy` and re-upload.
+Apple now requires declaring privacy-sensitive API usage in a `PrivacyInfo.xcprivacy` file. Tauri 2.x generates a conservative one by default; if you see this error, add or edit `app/src-tauri/gen/apple/catstepmd_iOS/PrivacyInfo.xcprivacy` and re-upload.
 
 ### Build processing stuck >2 hours
 
 Check your email for ITMS errors (they're sent to the account holder, not always surfaced in App Store Connect). If no email, write to App Review via **Contact Us → Ask a Question**.
 
-### Xcode: "No Account for Team 6NQM3XP5RF"
+### Xcode: "No Account for Team YOUR_TEAM_ID"
 
-Xcode → Settings → Accounts → **+** → sign in with `slushy@139.com`. Team should appear automatically.
+Xcode → Settings → Accounts → **+** → sign in with `your-apple-id@email.com`. Team should appear automatically.
 
 ### App Store Connect shows old build as "Latest"
 
@@ -556,13 +556,13 @@ Switch to **Chinese (Simplified)** in the top-right locale dropdown of the versi
 - [ ] 4–5 screenshots uploaded in the recommended order, all at the correct size
 - [ ] 1024×1024 icon uploaded (no alpha)
 - [ ] Marketing URL, Support URL, Privacy Policy URL all filled
-- [ ] Privacy Policy page is live at `https://solomd.app/privacy`
+- [ ] Privacy Policy page is live at `https://github.com/maobukeai/catstep-md/blob/main/app-store/ios/PRIVACY.md`
 - [ ] App Privacy: "No data collected"
 - [ ] Age Rating: 4+
 - [ ] Content Rights: No third-party content
 - [ ] Export Compliance: Exempt (standard HTTPS only)
 - [ ] Review Notes pasted from `REVIEW_NOTES.md`
-- [ ] Contact email filled (slushy@139.com)
+- [ ] Contact email filled (maobukeai.lilan@gmail.com)
 - [ ] Release: Manually
 - [ ] Price tier: Free
 - [ ] Categories: Productivity / Developer Tools
@@ -573,6 +573,6 @@ Hit **Submit for Review**. See you on the other side.
 
 ## Contact during review
 
-If Apple reaches out via Resolution Center, respond within 24h — unanswered threads can delay approval by days. Messages arrive as email to `slushy@139.com` and appear in **App Store Connect → Resolution Center**.
+If Apple reaches out via Resolution Center, respond within 24h — unanswered threads can delay approval by days. Messages arrive as email to `your-apple-id@email.com` and appear in **App Store Connect → Resolution Center**.
 
 Good luck!

@@ -8,8 +8,8 @@ const lang = 'zh' as const;
 ---
 
 <Layout
-  title="SoloMD 快速上手 — 安装、打开、书写、保存"
-  description="在 macOS、Windows、Linux、iOS 或 Android 上安装 SoloMD,打开你的第一个文件夹,理解标签页与视图模式,并且永远不丢草稿。"
+  title="猫步 MD 快速上手 — 安装、打开、书写、保存"
+  description="在 macOS、Windows、Linux、iOS 或 Android 上安装 猫步 MD,打开你的第一个文件夹,理解标签页与视图模式,并且永远不丢草稿。"
   lang={lang}
 >
   <Header lang={lang} />
@@ -27,7 +27,7 @@ const lang = 'zh' as const;
         <thead><tr><th>平台</th><th>方式</th></tr></thead>
         <tbody>
           <tr><th>macOS</th><td><code>brew install --cask maobukeai/catstep-md/solomd</code>，或从 <a href="/zh/">solomd.app</a> 下载已签名的通用 <code>.dmg</code>，拖进「应用程序」即可。需要 macOS 10.15+。</td></tr>
-          <tr><th>Windows</th><td>下载 <code>.msi</code>（x64 或 arm64）——安装到 <code>C:\Program Files\SoloMD</code>。不想安装的话也有便携版 ZIP。需要 Windows 10+（<a href="/zh/#faq">为什么不支持 Windows 7</a>）。</td></tr>
+          <tr><th>Windows</th><td>下载 <code>.msi</code>（x64 或 arm64）——安装到 <code>C:\Program Files\猫步 MD</code>。不想安装的话也有便携版 ZIP。需要 Windows 10+（<a href="/zh/#faq">为什么不支持 Windows 7</a>）。</td></tr>
           <tr><th>Linux</th><td><code>.AppImage</code>、<code>.deb</code> 或 <code>.rpm</code>，均提供 x64 与 arm64。</td></tr>
           <tr><th>iOS / Android</th><td>iOS 15+ 上架 App Store；Android 7+ 可侧载 APK，或加入 Play 商店测试版。</td></tr>
         </tbody>
@@ -35,7 +35,7 @@ const lang = 'zh' as const;
 
       <h3>Windows:任务栏图标显示空白?</h3>
       <p>
-        如果升级后任务栏按钮或固定项的 SoloMD 图标是空白的,那是 Windows
+        如果升级后任务栏按钮或固定项的 猫步 MD 图标是空白的,那是 Windows
         图标缓存里残留了坏条目——卸载重装也不会清除它。在命令提示符里执行以下四行,然后重新固定即可:
       </p>
       <pre><code>taskkill /f /im explorer.exe
@@ -53,7 +53,7 @@ start explorer.exe</code></pre>
 
       <h2>3. 打开文件或文件夹</h2>
       <ul>
-        <li><strong>单个文件：</strong>文件 → 打开（<kbd>Ctrl/⌘ O</kbd>）、把文件拖进窗口，或直接双击 <code>.md</code> 文件 —— SoloMD 会注册为 Markdown 编辑器。</li>
+        <li><strong>单个文件：</strong>文件 → 打开（<kbd>Ctrl/⌘ O</kbd>）、把文件拖进窗口，或直接双击 <code>.md</code> 文件 —— 猫步 MD 会注册为 Markdown 编辑器。</li>
         <li><strong>文件夹（推荐）：</strong>文件 → 打开文件夹。这个文件夹就成了你的<em>工作区</em>：左侧出现文件树，搜索 / 标签 / 反向链接 / 关系图会索引其中的每一篇笔记，并且每个文件夹会各自记住打开过的标签页。</li>
       </ul>
 
