@@ -1,7 +1,7 @@
 ﻿# 鐚 MD (Catstep MD)
 
 > 闈欍亱銇冻闊炽€佹緞銈撱仩鎬濈储銆侫gent 銇屼綇銇俱亞 Typora 棰ㄨ唤閲?Markdown 銈ㄣ儑銈ｃ偪銆?
-[![Version](https://img.shields.io/badge/version-v1.0.4-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
+[![Version](https://img.shields.io/badge/version-v1.0.5-2ea043.svg)](https://github.com/maobukeai/catstep-md/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue.svg)](https://github.com/maobukeai/catstep-md)
 [![Style](https://img.shields.io/badge/style-Typora--grade%20Minimalism-8A2BE2.svg)](https://github.com/maobukeai/catstep-md)

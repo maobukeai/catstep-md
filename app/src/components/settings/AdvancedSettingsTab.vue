@@ -19,7 +19,9 @@ const settingDefault = ref(false);
 async function setAsDefault() {
   settingDefault.value = true;
   try {
-    const msg = await invoke<string>('set_as_default_markdown_editor');
+    const msg = await invoke<string>('set_as_default_markdown_editor', {
+      lang: isZh.value ? 'zh' : 'en',
+    });
     toasts.success(msg);
   } catch (e) {
     toasts.error(String(e));
