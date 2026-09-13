@@ -43,7 +43,7 @@
 ```bash
 # 方法一：直接 brew 命令（推荐）
 brew tap homebrew/cask
-brew create --cask https://github.com/zhitongblog/solomd/releases/download/v0.1.8/SoloMD_0.1.8_universal.dmg
+brew create --cask https://github.com/maobukeai/catstep-md/releases/download/v0.1.8/SoloMD_0.1.8_universal.dmg
 
 # 方法二：手动 PR
 gh repo fork homebrew/homebrew-cask --clone
@@ -69,15 +69,15 @@ gh pr create --title "Add SoloMD v0.1.8" --body "New cask for SoloMD markdown ed
 **提交命令**：
 ```bash
 # 方法一：使用 wingetcreate 工具（推荐）
-wingetcreate new https://github.com/zhitongblog/solomd/releases/download/v0.1.8/SoloMD_0.1.8_x64-setup.exe
+wingetcreate new https://github.com/maobukeai/catstep-md/releases/download/v0.1.8/SoloMD_0.1.8_x64-setup.exe
 
 # 方法二：手动 PR
 gh repo fork microsoft/winget-pkgs --clone
 cd winget-pkgs
-mkdir -p manifests/z/zhitongblog/SoloMD/0.1.8
-cp /path/to/manifests/* manifests/z/zhitongblog/SoloMD/0.1.8/
-git checkout -b add-solomd-0.1.8
-git add . && git commit -m "Add SoloMD version 0.1.8"
+mkdir -p manifests/m/maobukeai/CatstepMD/0.1.8
+cp /path/to/manifests/* manifests/m/maobukeai/CatstepMD/0.1.8/
+git checkout -b add-catstepmd-0.1.8
+git add . && git commit -m "Add CatstepMD version 0.1.8"
 gh pr create
 ```
 
@@ -281,7 +281,7 @@ choco push solomd.0.1.8.nupkg --source https://push.chocolatey.org/ --api-key YO
 
 2. **提交更新 PR**
    - Homebrew: `brew bump-cask-pr solomd --version 0.1.9`
-   - Winget: `wingetcreate update zhitongblog.SoloMD --version 0.1.9`
+   - Winget: `wingetcreate update maobukeai.CatstepMD --version 0.1.9`
    - Scoop: 手动更新 JSON
 
 3. **更新软件下载站**
@@ -295,7 +295,7 @@ choco push solomd.0.1.8.nupkg --source https://push.chocolatey.org/ --api-key YO
 **软件名称**：SoloMD
 **版本**：0.1.8
 **官网**：https://solomd.app
-**GitHub**：https://github.com/zhitongblog/solomd
+**GitHub**：https://github.com/maobukeai/catstep-md
 **作者**：xiangdong li
 **邮箱**：[填写]
 **协议**：MIT

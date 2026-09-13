@@ -297,17 +297,15 @@ jobs:
           $stage = "CatstepMD_${version}_${arch}-portable"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item $exe -Destination "$stage/CatstepMD.exe"
-          Copy-Item $exe -Destination "$stage/SoloMD.exe"
           if ($mcpExe) {
             Copy-Item $mcpExe.FullName -Destination "$stage/catstep-mcp.exe"
-            Copy-Item $mcpExe.FullName -Destination "$stage/solomd-mcp.exe"
           }
           # Tiny README the user finds inside the zip.
           @"
-          SoloMD ${version} — portable build (${arch})
+          猫步 MD (Catstep MD) ${version} — portable build (${arch})
 
-          Just run SoloMD.exe. No installation required.
-          Settings + recents are stored in %APPDATA%\app.solomd as usual.
+          Just run CatstepMD.exe. No installation required.
+          Settings + recents are stored in %APPDATA%\app.catstepmd as usual.
 
           Requires Microsoft Edge WebView2 (preinstalled on Windows 10/11).
           If launch fails with a WebView2 missing error, install from
@@ -316,9 +314,6 @@ jobs:
           $zipCatstep = "CatstepMD_${version}_${arch}-portable.zip"
           Compress-Archive -Path "$stage/*" -DestinationPath $zipCatstep -Force
           gh release upload "${{ github.ref_name }}" $zipCatstep --clobber
-          $zipSolo = "SoloMD_${version}_${arch}-portable.zip"
-          Copy-Item $zipCatstep -Destination $zipSolo
-          gh release upload "${{ github.ref_name }}" $zipSolo --clobber
 
           # solomd-mcp standalone .zip (install-mcp.sh on Windows expects this).
           if ($mcpExe) {
@@ -397,9 +392,6 @@ jobs:
       - name: Rename for release
         working-directory: web-clipper/dist
         run: |
-          cp chrome.zip solomd-clipper-chrome.zip
-          cp firefox.zip solomd-clipper-firefox.zip
-          cp source.zip solomd-clipper-source.zip
           cp chrome.zip catstep-clipper-chrome.zip
           cp firefox.zip catstep-clipper-firefox.zip
           cp source.zip catstep-clipper-source.zip
@@ -413,9 +405,6 @@ jobs:
             web-clipper/dist/catstep-clipper-chrome.zip \
             web-clipper/dist/catstep-clipper-firefox.zip \
             web-clipper/dist/catstep-clipper-source.zip \
-            web-clipper/dist/solomd-clipper-chrome.zip \
-            web-clipper/dist/solomd-clipper-firefox.zip \
-            web-clipper/dist/solomd-clipper-source.zip \
             --clobber
 
   # ---------------------------------------------------------------------------
@@ -536,9 +525,6 @@ jobs:
             echo "Uploading $target..."
             gh release upload "${{ github.ref_name }}" "$target" --clobber
             
-            # Legacy alias
-            cp "$target" "SoloMD_${VERSION}_${abi}.apk"
-            gh release upload "${{ github.ref_name }}" "SoloMD_${VERSION}_${abi}.apk" --clobber
           done
 
           # Upload Google Play AAB

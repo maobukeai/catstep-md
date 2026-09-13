@@ -76,7 +76,7 @@ cookies). Use it via the bundled `unzoo.sh` wrapper, not MCP calls.
    (top-voted issue = strong signal).
 
 4. **Cross-reference against SoloMD.** Read `docs/roadmap.md` and recent SoloMD
-   issues (`gh issue list --repo zhitongblog/solomd --state open`). Then output two
+   issues (`gh issue list --repo maobukeai/catstep-md --state open`). Then output two
    ranked lists:
    - **Win-on:** pains competitors' users repeatedly hit that SoloMD already does
      better or could cheaply own (these are positioning/marketing + wedge opportunities).

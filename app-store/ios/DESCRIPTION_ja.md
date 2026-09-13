@@ -61,6 +61,6 @@ iPad のために
 
 SoloMD は個人情報を一切収集しません。アカウントなし、解析なし、広告なし、トラッキングなし。あなたのメモは、あなたが所有するファイルとしてローカルに保存されます。
 
-SoloMD はオープンソース（MIT）です。ソース：github.com/zhitongblog/solomd
+SoloMD はオープンソース（MIT）です。ソース：github.com/maobukeai/catstep-md
 
 SoloMD が気に入ったら、リポジトリに ⭐ をつけるか、solomd.app から開発をスポンサーいただけます。

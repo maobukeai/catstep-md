@@ -50,7 +50,7 @@ const pngHtml = rewriteImageUrls(
 ok('non-svg image does not get svg fallback metadata', !pngHtml.includes('data-solomd-local-src'));
 ok('svg data URL encodes XML', svgTextToDataUrl('<svg><text>中 & A</text></svg>').startsWith('data:image/svg+xml;charset=utf-8,%3Csvg%3E'));
 
-const fmHtml = renderMarkdown('---\ntitle: Test\nauthor: Alex\n---\n\n# body');
+const fmHtml = renderMarkdown('---\ntitle: Test\nauthor: Catstep\n---\n\n# body');
 ok('frontmatter parsed', fmHtml.includes('md-frontmatter'));
 ok('frontmatter dt/dd', fmHtml.includes('<dt>title</dt>') && fmHtml.includes('<dd>Test</dd>'));
 ok('frontmatter body still rendered', fmHtml.includes('<h1'));

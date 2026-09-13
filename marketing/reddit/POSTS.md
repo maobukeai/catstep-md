@@ -25,7 +25,7 @@ I wanted something lighter than Obsidian (~250 MB) and Typora (~80 MB), that wor
 It's free, open source (MIT), and available for macOS, Windows, and Linux.
 
 Website: https://solomd.app
-GitHub: https://github.com/zhitongblog/solomd
+GitHub: https://github.com/maobukeai/catstep-md
 
 I'd love to hear what features you'd want in a Markdown editor!
 ```
@@ -60,7 +60,7 @@ I just released SoloMD, a cross-platform Markdown editor I've been building.
 - Multi-encoding (GBK/Big5/Shift_JIS auto-detection)
 - Export to HTML/PDF/DOCX
 
-GitHub: https://github.com/zhitongblog/solomd
+GitHub: https://github.com/maobukeai/catstep-md
 Website: https://solomd.app
 
 Contributions welcome! Looking for feedback on the editor experience.
@@ -98,7 +98,7 @@ Built a lightweight Markdown editor that doesn't bundle Chromium. Uses Tauri 2, 
 
 **Note:** "Copy as Image" requires `wl-clipboard` (Wayland) or `xclip` (X11).
 
-Download: https://github.com/zhitongblog/solomd/releases
+Download: https://github.com/maobukeai/catstep-md/releases
 Website: https://solomd.app
 
 Happy to answer questions about the Tauri 2 experience on Linux!
@@ -129,7 +129,7 @@ It's a simple Markdown editor with live preview, KaTeX math, and Mermaid diagram
 
 Available for macOS, Windows, and Linux.
 
-GitHub (audit the code): https://github.com/zhitongblog/solomd
+GitHub (audit the code): https://github.com/maobukeai/catstep-md
 Website: https://solomd.app
 
 Built with Tauri 2, which uses your system's webview instead of bundling Chromium.

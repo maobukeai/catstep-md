@@ -22,7 +22,7 @@
  *   TARGET=firefox node scripts/build.mjs
  */
 import { build as esbuild } from 'esbuild';
-import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
@@ -32,45 +32,51 @@ const ROOT = resolve(__dirname, '..');
 const SRC = join(ROOT, 'src');
 const DIST = join(ROOT, 'dist');
 
+function copyDir(src, dest) {
+  mkdirSync(dest, { recursive: true });
+  for (const entry of readdirSync(src, { withFileTypes: true })) {
+    const s = join(src, entry.name);
+    const d = join(dest, entry.name);
+    if (entry.isDirectory()) copyDir(s, d);
+    else copyFileSync(s, d);
+  }
+}
+
 const ENTRIES = ['background', 'content', 'popup', 'options'];
 
 async function buildOne(target /* 'chrome' | 'firefox' */) {
+  console.log(`[buildOne] Starting ${target}...`);
   const outDir = join(DIST, target);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
 
   // 1. esbuild bundle every entry point individually so the manifest can
   //    reference each file by its predictable name (background.js, etc.).
-  await Promise.all(
-    ENTRIES.map((entry) =>
-      esbuild({
-        entryPoints: [join(SRC, `${entry}.ts`)],
-        outfile: join(outDir, `${entry}.js`),
-        bundle: true,
-        format: 'iife',
-        platform: 'browser',
-        target: ['chrome111', 'firefox115'],
-        minify: false,
-        sourcemap: false,
-        treeShaking: true,
-        define: {
-          'process.env.NODE_ENV': '"production"',
-          // webextension-polyfill checks `typeof browser` to decide whether
-          // it needs to wrap chrome.* — both checks work in either target,
-          // but defining this makes esbuild dead-code-eliminate the wrong path.
-          __BUILD_TARGET__: JSON.stringify(target),
-        },
-        loader: { '.css': 'text' },
-        legalComments: 'none',
-      }),
-    ),
-  );
+  for (const entry of ENTRIES) {
+    await esbuild({
+      entryPoints: [join(SRC, `${entry}.ts`)],
+      outfile: join(outDir, `${entry}.js`),
+      bundle: true,
+      format: 'iife',
+      platform: 'browser',
+      target: ['chrome111', 'firefox115'],
+      minify: false,
+      sourcemap: false,
+      treeShaking: true,
+      define: {
+        'process.env.NODE_ENV': '"production"',
+        __BUILD_TARGET__: JSON.stringify(target),
+      },
+      loader: { '.css': 'text' },
+      legalComments: 'none',
+    });
+  }
 
   // 2. Static assets.
   copyFileSync(join(SRC, 'popup.html'), join(outDir, 'popup.html'));
   copyFileSync(join(SRC, 'options.html'), join(outDir, 'options.html'));
   copyFileSync(join(SRC, 'popup.css'), join(outDir, 'popup.css'));
-  cpSync(join(SRC, 'icons'), join(outDir, 'icons'), { recursive: true });
+  copyDir(join(SRC, 'icons'), join(outDir, 'icons'));
 
   // 3. Manifest variant.
   const manifestPath = join(ROOT, `manifest.${target}.json`);
@@ -81,10 +87,14 @@ async function buildOne(target /* 'chrome' | 'firefox' */) {
   manifest.version = pkg.version;
   writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-  // 4. Zip up. Use the system `zip` CLI to keep dependencies tiny.
+  // 4. Zip up. Use the system `zip` CLI on POSIX or powershell Compress-Archive on Windows.
   const zipPath = join(DIST, `${target}.zip`);
   rmSync(zipPath, { force: true });
-  execSync(`zip -r -q ../${target}.zip .`, { cwd: outDir, stdio: 'inherit' });
+  if (process.platform === 'win32') {
+    execSync(`powershell -NoProfile -Command "Compress-Archive -Path * -DestinationPath ../${target}.zip -Force"`, { cwd: outDir, stdio: 'inherit' });
+  } else {
+    execSync(`zip -r -q ../${target}.zip .`, { cwd: outDir, stdio: 'inherit' });
+  }
 
   console.log(`[${target}] ok → ${zipPath}`);
 }
@@ -94,21 +104,26 @@ async function buildSourceZip() {
   // web-clipper/ except node_modules + dist so reviewers can rebuild.
   const zipPath = join(DIST, 'source.zip');
   rmSync(zipPath, { force: true });
-  // Use `find … -print | zip -@` so excludes are unambiguous — `zip -x` with
-  // a leading-`./` walk has well-known quoting traps. `find -prune` cleanly
-  // skips the heavy directories before zip ever sees them.
-  execSync(
-    [
-      'find . \\(',
-      '-path ./node_modules -o',
-      '-path ./dist -o',
-      '-path ./dist-tsc -o',
-      '-path ./test/.tmp',
-      '\\) -prune -o -type f -print',
-      `| zip -q -@ ${JSON.stringify(zipPath)}`,
-    ].join(' '),
-    { cwd: ROOT, stdio: 'inherit', shell: '/bin/bash' },
-  );
+  if (process.platform === 'win32') {
+    try {
+      execSync(`git archive -o "${zipPath}" HEAD:web-clipper/`, { cwd: ROOT, stdio: 'inherit' });
+    } catch (e) {
+      console.warn('[source] git archive failed, skipping source.zip on Windows', e.message);
+    }
+  } else {
+    execSync(
+      [
+        'find . \\(',
+        '-path ./node_modules -o',
+        '-path ./dist -o',
+        '-path ./dist-tsc -o',
+        '-path ./test/.tmp',
+        '\\) -prune -o -type f -print',
+        `| zip -q -@ ${JSON.stringify(zipPath)}`,
+      ].join(' '),
+      { cwd: ROOT, stdio: 'inherit', shell: '/bin/bash' },
+    );
+  }
   console.log(`[source] ok → ${zipPath}`);
 }
 

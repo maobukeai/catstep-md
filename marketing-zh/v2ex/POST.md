@@ -55,7 +55,7 @@ SoloMD：一个只有 15 MB 的 Markdown 编辑器，用 Tauri 2 + Rust 写的
 **下载**
 
 - 官网：https://solomd.app
-- GitHub：https://github.com/zhitongblog/solomd
+- GitHub：https://github.com/maobukeai/catstep-md
 - 支持 macOS / Windows / Linux
 
 MIT 开源，免费使用。

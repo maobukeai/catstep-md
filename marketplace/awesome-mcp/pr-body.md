@@ -41,7 +41,7 @@ to the first registered workspace (back-compat with single-vault clients).
 
 Claude Desktop, Claude Code, Cursor, Cline (VS Code), Continue.dev, Zed.
 Per-client install snippets at
-https://github.com/zhitongblog/solomd/tree/main/marketplace/client-docs.
+https://github.com/maobukeai/catstep-md/tree/main/marketplace/client-docs.
 
 ### Where it fits
 
@@ -50,15 +50,15 @@ seems like the closest match. Happy to move it if there's a better fit.
 
 ### Distribution
 
-- **Prebuilt binaries** on [every GitHub release](https://github.com/zhitongblog/solomd/releases/latest)
+- **Prebuilt binaries** on [every GitHub release](https://github.com/maobukeai/catstep-md/releases/latest)
   for linux-x64, linux-arm64, win-x64, win-arm64 (~4 MB each, signed).
 - **macOS**: `cargo install solomd-mcp` (crate published to crates.io as
   `solomd-mcp`), or use the binary bundled inside SoloMD.app from
   https://solomd.app.
 - **Docker** for unsupported platforms / CI:
-  https://github.com/zhitongblog/solomd/blob/main/marketplace/smithery/Dockerfile.
+  https://github.com/maobukeai/catstep-md/blob/main/marketplace/smithery/Dockerfile.
 
 ### Maintainer
 
-@zhitongblog (Alex / lixd220@gmail.com) — same as the SoloMD repo owner.
-License: MIT. Issues + PRs welcome at https://github.com/zhitongblog/solomd.
+@maobukeai (Catstep MD contributors)
+License: MIT. Issues + PRs welcome at https://github.com/maobukeai/catstep-md.

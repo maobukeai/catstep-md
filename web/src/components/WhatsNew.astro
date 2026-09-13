@@ -20,7 +20,7 @@ const { lang } = Astro.props;
 
 const data = whatsNew[lang] ?? whatsNew.en;
 const VERSION = data.version;
-const baseUrl = `https://github.com/zhitongblog/solomd/releases/download/v${VERSION}`;
+const baseUrl = `https://github.com/maobukeai/catstep-md/releases/download/v${VERSION}`;
 const home = lang === 'en' ? '/' : `/${lang}/`;
 
 // Sections are rendered with set:html, so the styles below cannot be
@@ -55,7 +55,7 @@ const metaDescription = fill(data.meta.description);
       <div class="cta-row">
         <a class="btn btn--primary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_universal.dmg`}>{cta[0]}</a>
         <a class="btn btn--secondary btn--lg" href={`${baseUrl}/SoloMD_${VERSION}_x64_en-US.msi`}>{cta[1]}</a>
-        <a class="btn btn--secondary btn--lg" href={`https://github.com/zhitongblog/solomd/releases/tag/v${VERSION}`}>{cta[2]}</a>
+        <a class="btn btn--secondary btn--lg" href={`https://github.com/maobukeai/catstep-md/releases/tag/v${VERSION}`}>{cta[2]}</a>
       </div>
 
       {data.sections.map((html) => <section set:html={html} />)}

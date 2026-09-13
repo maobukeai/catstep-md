@@ -5,7 +5,7 @@ const { lang } = Astro.props;
 const tr = getT(lang);
 
 const VERSION = '4.12.0';
-const REPO = 'zhitongblog/solomd';
+const REPO = 'maobukeai/catstep-md';
 const baseUrl = `https://github.com/${REPO}/releases/download/v${VERSION}`;
 const langPrefix = lang === 'en' ? '' : `/${lang}`;
 const whatsNewHref = `${langPrefix}/whats-new/`;
@@ -171,15 +171,6 @@ const initialDownloadsText = initialDownloads > 0 ? fmtDownloads(initialDownload
       </div>
     </div>
     <a href="#download" class="hero__all-platforms">{tr.hero.ctaAllPlatforms}</a>
-    {lang === 'zh' && (
-      <a
-        href={`https://gitee.com/zhitong45/solomd/releases/tag/v${VERSION}`}
-        class="hero__gitee"
-        rel="noopener"
-      >
-        🪞 国内用户：从 Gitee 镜像下载（更快）→
-      </a>
-    )}
     <div class="hero__chips">
       {tr.hero.chips.map((c) => <span class="chip">{c}</span>)}
     </div>

@@ -13,7 +13,7 @@ copies the right JSON snippet for Claude Desktop.
 ### Path B — standalone binary
 
 1. Download from the
-   [latest release](https://github.com/zhitongblog/solomd/releases/latest):
+   [latest release](https://github.com/maobukeai/catstep-md/releases/latest):
    - macOS arm64/x64: `cargo install solomd-mcp` (or grab the bundled
      binary from SoloMD.app)
    - Linux x64: `solomd-mcp-linux-x64.tar.gz`
@@ -91,4 +91,4 @@ You don't need the app to use the MCP server. But if you want the **Agent
 panel**, **pending write accept/reject UI**, **AutoGit branch sandbox per
 agent run**, and **BYOK keys in the OS keychain** — get the app.
 
-[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/zhitongblog/solomd/releases/latest)
+[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)

@@ -8,7 +8,7 @@ Paste the section below into **App Review Information → Notes** in App Store C
 
 Thank you for reviewing SoloMD.
 
-**What it is**: SoloMD is a local, offline-first Markdown text editor. It edits plain `.md` and `.txt` files stored on the user's Mac. It is open source (github.com/zhitongblog/solomd, MIT) and has been distributed outside the Mac App Store since v0.1.0 — this is our first App Store submission.
+**What it is**: SoloMD is a local, offline-first Markdown text editor. It edits plain `.md` and `.txt` files stored on the user's Mac. It is open source (github.com/maobukeai/catstep-md, MIT) and has been distributed outside the Mac App Store since v0.1.0 — this is our first App Store submission.
 
 **No sign-in required**: There is no account system, no login screen, no paywall. All features are immediately available after launch. No demo account is needed.
 
@@ -31,7 +31,7 @@ Thank you for reviewing SoloMD.
 
 **Export compliance**: The app uses only standard HTTPS (via system APIs). No custom cryptography. Exempt per `ITSAppUsesNonExemptEncryption = NO`.
 
-**Open source**: The entire source is at github.com/zhitongblog/solomd under MIT license. The App Store build is identical to the GitHub release tagged `v0.1.12`, with only the sandbox and App Store receipt validation enabled.
+**Open source**: The entire source is at github.com/maobukeai/catstep-md under MIT license. The App Store build is identical to the GitHub release tagged `v0.1.12`, with only the sandbox and App Store receipt validation enabled.
 
 **Contact during review**:
 - Email: slushy@139.com

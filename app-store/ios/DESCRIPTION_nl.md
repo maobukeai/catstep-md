@@ -61,6 +61,6 @@ PRIVACY VOOROP
 
 SoloMD verzamelt geen persoonsgegevens. Geen account. Geen analytics. Geen advertenties. Geen tracking. Al je notities staan lokaal in bestanden die van jou zijn.
 
-SoloMD is open source (MIT). Broncode: github.com/zhitongblog/solomd
+SoloMD is open source (MIT). Broncode: github.com/maobukeai/catstep-md
 
 Fan van SoloMD? Geef de repo een ⭐ of sponsor de ontwikkeling op solomd.app

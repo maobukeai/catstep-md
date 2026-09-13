@@ -70,18 +70,18 @@ Cursor, …), the recipes describe themselves — read them and adapt the
 
 These recipes are the canonical examples from SoloMD's v4.0 Agent
 Recipes spec. The full schema lives at
-[docs/agents.md](https://github.com/zhitongblog/solomd/blob/main/docs/agents.md).
+[docs/agents.md](https://github.com/maobukeai/catstep-md/blob/main/docs/agents.md).
 
 If you want the GUI for managing runs (Pending / Accept / Reject /
 Replay), get the desktop app:
 
-- **macOS**: [Download .dmg](https://github.com/zhitongblog/solomd/releases/latest)
-- **Windows**: [Download .msi](https://github.com/zhitongblog/solomd/releases/latest)
-- **Linux**: [Download .deb / .rpm / .AppImage](https://github.com/zhitongblog/solomd/releases/latest)
+- **macOS**: [Download .dmg](https://github.com/maobukeai/catstep-md/releases/latest)
+- **Windows**: [Download .msi](https://github.com/maobukeai/catstep-md/releases/latest)
+- **Linux**: [Download .deb / .rpm / .AppImage](https://github.com/maobukeai/catstep-md/releases/latest)
 - **Mobile**: Android APK / iOS App Store — see [solomd.app](https://solomd.app)
 
 MIT licensed. Issues & PRs welcome at
-[github.com/zhitongblog/solomd](https://github.com/zhitongblog/solomd).
+[github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md).
 EOF
 
 mkdir -p "$OUT_DIR"

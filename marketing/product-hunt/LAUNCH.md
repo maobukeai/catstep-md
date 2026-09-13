@@ -21,7 +21,7 @@ A 15 MB Markdown editor. No bloat. No cloud. Just write.
 
 ### Links
 - Website: https://solomd.app
-- GitHub: https://github.com/zhitongblog/solomd
+- GitHub: https://github.com/maobukeai/catstep-md
 
 ---
 
@@ -83,7 +83,7 @@ SoloMD is my answer: a simple, fast editor that respects your privacy and your d
 
 It's fully open source under MIT license. I'd love to hear your feedback and feature requests!
 
-GitHub: https://github.com/zhitongblog/solomd
+GitHub: https://github.com/maobukeai/catstep-md
 ```
 
 ---

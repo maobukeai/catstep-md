@@ -11,7 +11,7 @@
 # who don't want to figure out their CPU arch. The .aab is for Play Console
 # (Google does the per-device splitting server-side).
 #
-# Requirements (already in .env.local on alexlee's machine):
+# Requirements (can be placed in .env.local):
 #   ANDROID_HOME              /opt/homebrew/share/android-commandlinetools
 #   ANDROID_NDK_HOME          $ANDROID_HOME/ndk/<version>
 #   ANDROID_KEYSTORE_PATH     path to solomd-release.jks

@@ -56,7 +56,7 @@ Tauri 2 + Vue 3 + CodeMirror 6
 ## 下载
 
 - 官网：https://solomd.app
-- GitHub：https://github.com/zhitongblog/solomd
+- GitHub：https://github.com/maobukeai/catstep-md
 
 完全免费，MIT 开源。
 

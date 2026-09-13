@@ -5,8 +5,8 @@
     <version>1.2.1</version>
     <title>SoloMD</title>
     <authors>xiangdong li</authors>
-    <owners>zhitongblog</owners>
-    <licenseUrl>https://github.com/zhitongblog/solomd/blob/main/LICENSE</licenseUrl>
+    <owners>maobukeai</owners>
+    <licenseUrl>https://github.com/maobukeai/catstep-md/blob/main/LICENSE</licenseUrl>
     <projectUrl>https://solomd.app</projectUrl>
     <iconUrl>https://solomd.app/favicon.svg</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -27,13 +27,13 @@ SoloMD is a lightweight, cross-platform Markdown + plain text editor built with 
 One file. One window. Just write.
     </description>
     <summary>A lightweight Markdown editor with live preview</summary>
-    <releaseNotes>https://github.com/zhitongblog/solomd/releases/tag/v1.2.1</releaseNotes>
+    <releaseNotes>https://github.com/maobukeai/catstep-md/releases/tag/v1.2.1</releaseNotes>
     <copyright>Copyright 2024 xiangdong li</copyright>
     <tags>markdown editor text-editor tauri wysiwyg writing notes</tags>
-    <projectSourceUrl>https://github.com/zhitongblog/solomd</projectSourceUrl>
-    <packageSourceUrl>https://github.com/zhitongblog/solomd/tree/main/distribution/manifests/chocolatey</packageSourceUrl>
-    <docsUrl>https://github.com/zhitongblog/solomd#readme</docsUrl>
-    <bugTrackerUrl>https://github.com/zhitongblog/solomd/issues</bugTrackerUrl>
+    <projectSourceUrl>https://github.com/maobukeai/catstep-md</projectSourceUrl>
+    <packageSourceUrl>https://github.com/maobukeai/catstep-md/tree/main/distribution/manifests/chocolatey</packageSourceUrl>
+    <docsUrl>https://github.com/maobukeai/catstep-md#readme</docsUrl>
+    <bugTrackerUrl>https://github.com/maobukeai/catstep-md/issues</bugTrackerUrl>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />

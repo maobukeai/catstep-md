@@ -25,7 +25,7 @@
  * 60 req/hour unauth rate limit on the user's own IP.
  */
 
-const REPO = 'zhitongblog/solomd';
+const REPO = 'maobukeai/catstep-md';
 const CACHE_TTL = 300; // 5 minutes (edge cache TTL on success)
 const CACHE_TTL_STALE = 60; // 1 minute (when serving D1 fallback — refresh sooner)
 

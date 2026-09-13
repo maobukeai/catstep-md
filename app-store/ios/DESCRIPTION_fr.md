@@ -61,6 +61,6 @@ LA CONFIDENTIALITÉ D'ABORD
 
 SoloMD ne collecte aucune donnée personnelle. Pas de compte. Pas de statistiques. Pas de publicité. Pas de pistage. Toutes vos notes vivent localement, dans des fichiers qui vous appartiennent.
 
-SoloMD est open source (MIT). Code source : github.com/zhitongblog/solomd
+SoloMD est open source (MIT). Code source : github.com/maobukeai/catstep-md
 
 Vous aimez SoloMD ? Mettez une ⭐ au dépôt ou soutenez le développement sur solomd.app

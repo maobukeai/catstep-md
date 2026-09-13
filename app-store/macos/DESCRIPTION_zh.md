@@ -61,6 +61,6 @@ macOS 原生体验
 
 SoloMD 不收集任何个人数据。没有账号、没有统计、没有广告、没有跟踪。你的笔记完全保存在你自己的文件里。
 
-SoloMD 是 MIT 协议下的开源项目。源码：github.com/zhitongblog/solomd
+SoloMD 是 MIT 协议下的开源项目。源码：github.com/maobukeai/catstep-md
 
 觉得好用？去 GitHub 给颗 ⭐ 或在 solomd.app 赞助开发者。

@@ -25,7 +25,7 @@ Translations live in `src/i18n/translations.ts`.
 
 1. Go to https://dash.cloudflare.com → Workers & Pages → Create
 2. Choose **Pages** → **Connect to Git**
-3. Select repo `zhitongblog/solomd`
+3. Select repo `maobukeai/catstep-md`
 4. Build settings:
    - **Framework preset**: Astro
    - **Build command**: `cd web && pnpm install --frozen-lockfile && pnpm build`

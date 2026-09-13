@@ -10,11 +10,11 @@
 cargo install solomd-mcp
 
 # Linux x64
-curl -L https://github.com/zhitongblog/solomd/releases/latest/download/solomd-mcp-linux-x64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-x64.tar.gz \
   | tar -xz -C /usr/local/bin
 
 # Linux arm64
-curl -L https://github.com/zhitongblog/solomd/releases/latest/download/solomd-mcp-linux-arm64.tar.gz \
+curl -L https://github.com/maobukeai/catstep-md/releases/latest/download/solomd-mcp-linux-arm64.tar.gz \
   | tar -xz -C /usr/local/bin
 ```
 
@@ -61,4 +61,4 @@ In Zed's chat panel:
 [**SoloMD**](https://solomd.app) is the Markdown editor that ships this MCP
 server pre-wired. Get the desktop app for the Agent panel UI:
 
-[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/zhitongblog/solomd/releases/latest)
+[📥 Download SoloMD for macOS / Windows / Linux](https://github.com/maobukeai/catstep-md/releases/latest)

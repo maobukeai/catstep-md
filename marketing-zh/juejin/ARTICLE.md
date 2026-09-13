@@ -33,7 +33,7 @@
 
 这篇文章分享一下开发过程中的技术选型和踩坑经验，希望对想尝试 Tauri 的同学有帮助。
 
-项目地址：[github.com/zhitongblog/solomd](https://github.com/zhitongblog/solomd)
+项目地址：[github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 
 ## 为什么选 Tauri？
 
@@ -229,7 +229,7 @@ Windows 上如果没有代码签名，用户第一次运行会看到「Windows �
 
 如果你也想尝试 Tauri，SoloMD 的代码完全开源，欢迎参考：
 
-- GitHub：[github.com/zhitongblog/solomd](https://github.com/zhitongblog/solomd)
+- GitHub：[github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 - 官网：[solomd.app](https://solomd.app)
 
 ---

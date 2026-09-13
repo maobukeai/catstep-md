@@ -24,7 +24,7 @@ const lang = 'en' as const;
         In June a user reported that typing Chinese in SoloMD on Windows was
         "sometimes fine, sometimes broken" — characters silently dropped,
         punctuation needing two keypresses, worst with Sogou Pinyin
-        (<a href="https://github.com/zhitongblog/solomd/issues/108" rel="external">#108</a>).
+        (<a href="https://github.com/maobukeai/catstep-md/issues/108" rel="external">#108</a>).
         A month later the fix shipped, and it wasn't a patch: SoloMD v4.7
         replaced CodeMirror on Windows with a block editor built on native
         <code>&lt;textarea&gt;</code> elements. This post is the debugging trail
@@ -139,7 +139,7 @@ const lang = 'en' as const;
   headline: "The bug we couldn't fix in JavaScript — why SoloMD's Windows editor left contentEditable",
   datePublished: '2026-07-08',
   dateModified: '2026-07-08',
-  author: { '@type': 'Person', name: 'xiangdong li', url: 'https://github.com/zhitongblog' },
+  author: { '@type': 'Person', name: 'xiangdong li', url: 'https://github.com/maobukeai' },
   publisher: { '@type': 'Person', name: 'xiangdong li' },
   url: 'https://solomd.app/blog/webview2-ime-why-we-left-contenteditable/',
   description: 'Chinese IME input was intermittently broken in SoloMD on Windows. We chased it through CodeMirror autocomplete, proved the real defect lives in WebView2 contentEditable TSF integration, filed WebView2Feedback#5625, and rewrote the Windows editor on native textarea blocks.',

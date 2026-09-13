@@ -49,4 +49,4 @@ PRIVATSPHÄRE ZUERST
 
 SoloMD sammelt keine persönlichen Daten. Kein Konto. Keine Analyse. Keine Werbung. Kein Tracking. Alle Notizen liegen lokal in Dateien, die dir gehören.
 
-SoloMD ist Open Source (MIT). Quellcode: github.com/zhitongblog/solomd
+SoloMD ist Open Source (MIT). Quellcode: github.com/maobukeai/catstep-md

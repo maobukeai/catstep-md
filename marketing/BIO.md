@@ -39,7 +39,7 @@ I believe software should be small, fast, and respect user privacy. Too many mod
 
 When I'm not coding, I [填写你的爱好/其他身份].
 
-You can find my work on GitHub (github.com/zhitongblog) or reach me at [email].
+You can find my work on GitHub (github.com/maobukeai) or reach me at [email].
 ```
 
 ---
@@ -69,7 +69,7 @@ You can find my work on GitHub (github.com/zhitongblog) or reach me at [email].
 • 隐私是基本权利
 • 开源让世界更好
 
-GitHub: github.com/zhitongblog
+GitHub: github.com/maobukeai
 ```
 
 ### 长版（博客关于页/演讲介绍）
@@ -82,7 +82,7 @@ GitHub: github.com/zhitongblog
 
 工作之外，我 [填写你的爱好]。
 
-欢迎通过 GitHub (github.com/zhitongblog) 或邮件联系我。
+欢迎通过 GitHub (github.com/maobukeai) 或邮件联系我。
 ```
 
 ---

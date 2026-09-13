@@ -93,7 +93,7 @@
 > - ~15 MB installed (vs Typora 70 MB / Obsidian 110 MB)
 > - MIT licensed, no telemetry, fully offline
 >
-> https://solomd.app | https://github.com/zhitongblog/solomd
+> https://solomd.app | https://github.com/maobukeai/catstep-md
 
 ### 话术 3：AI 内容圈（即刻 / 小红书 / Twitter）
 
@@ -142,7 +142,7 @@
 
 ## 工具
 
-- **下载量追踪**: GitHub Releases 自带统计（`gh api repos/zhitongblog/solomd/releases -q '.[].assets[].download_count'`）
+- **下载量追踪**: GitHub Releases 自带统计（`gh api repos/maobukeai/catstep-md/releases -q '.[].assets[].download_count'`）
 - **网站分析**: Cloudflare Web Analytics（免费，已内置）
-- **Star 历史**: https://star-history.com/#zhitongblog/solomd
+- **Star 历史**: https://star-history.com/#maobukeai/catstep-md
 - **社交监控**: 搜 "SoloMD" 在 Twitter / Reddit / HN / V2EX

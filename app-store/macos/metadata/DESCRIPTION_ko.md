@@ -49,4 +49,4 @@ macOS 네이티브
 
 SoloMD는 어떠한 개인정보도 수집하지 않습니다. 계정 없음, 분석 없음, 광고 없음, 추적 없음. 모든 메모는 사용자 소유의 파일로 로컬에 보관됩니다.
 
-SoloMD는 오픈소스(MIT)입니다. 소스: github.com/zhitongblog/solomd
+SoloMD는 오픈소스(MIT)입니다. 소스: github.com/maobukeai/catstep-md

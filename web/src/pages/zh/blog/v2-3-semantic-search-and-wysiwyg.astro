@@ -90,7 +90,7 @@ const lang = 'zh' as const;
 
       <h2>📦 Windows 便携版 .zip</h2>
       <p>
-        来自 <a href="https://github.com/zhitongblog/solomd/issues/27" rel="external">issue #27</a>
+        来自 <a href="https://github.com/maobukeai/catstep-md/issues/27" rel="external">issue #27</a>
         的请求:无需安装的 Windows 版本。从这个版本开始,每次发布会同时产生一个
         <code>SoloMD_&lt;version&gt;_x64-portable.zip</code>,跟现有的 .msi /
         .exe 并列。解压跑 <code>SoloMD.exe</code> 即可 —— 不要管理员权限,不写
@@ -105,14 +105,14 @@ const lang = 'zh' as const;
       <ul>
         <li>
           <strong>Win11 切换文件树时闪退</strong>
-          (<a href="https://github.com/zhitongblog/solomd/issues/25" rel="external">#25</a>)
+          (<a href="https://github.com/maobukeai/catstep-md/issues/25" rel="external">#25</a>)
           —— v2.2.1 修了。根因是 <code>list_dir</code> 是同步 Tauri 命令,在慢盘
           (OneDrive 占位符、网盘、杀软)上堵主线程,Win11 把进程当无响应杀掉。
           现在 async + spawn_blocking。
         </li>
         <li>
           <strong>Windows 本地图片不显示</strong>
-          (<a href="https://github.com/zhitongblog/solomd/issues/22" rel="external">#22</a>)
+          (<a href="https://github.com/maobukeai/catstep-md/issues/22" rel="external">#22</a>)
           —— v2.0 就修了;混斜杠路径现在过 <code>normalizePath</code> 才到
           <code>convertFileSrc</code>。
         </li>
@@ -143,9 +143,9 @@ const lang = 'zh' as const;
 
       <h2>📥 下载</h2>
       <p>
-        <a class="btn btn--primary" href="https://github.com/zhitongblog/solomd/releases/latest">下载最新版 →</a>
+        <a class="btn btn--primary" href="https://github.com/maobukeai/catstep-md/releases/latest">下载最新版 →</a>
         &nbsp;
-        <a class="btn" href="https://github.com/zhitongblog/solomd/releases">所有版本</a>
+        <a class="btn" href="https://github.com/maobukeai/catstep-md/releases">所有版本</a>
       </p>
 
       <h2>下一步</h2>

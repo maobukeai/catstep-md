@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # solomd - CLI for SoloMD Markdown Editor
-# https://github.com/zhitongblog/solomd
+# https://github.com/maobukeai/catstep-md
 #
 # Usage:
 #   solomd open <title|path>     Open a markdown file in SoloMD
@@ -105,7 +105,7 @@ resolve_path() {
 # ---- Commands ------------------------------------------------------------
 cmd_help() {
     printf "${GREEN}solomd${NC} — CLI for SoloMD Markdown Editor\n"
-    printf "         %s\n\n" "https://github.com/zhitongblog/solomd"
+    printf "         %s\n\n" "https://github.com/maobukeai/catstep-md"
     printf "${BLUE}USAGE${NC}\n"
     printf "  solomd <command> [args]\n\n"
     printf "${BLUE}COMMANDS${NC}\n"
@@ -278,7 +278,7 @@ cmd_mcp_config() {
     local mcp_bin
     if ! mcp_bin="$(detect_mcp_bin)"; then
         printf "${YELLOW}solomd-mcp not found.${NC} Install SoloMD or run install-mcp.sh.\n" >&2
-        printf "${DIM}https://github.com/zhitongblog/solomd/blob/main/scripts/install-mcp.sh${NC}\n" >&2
+        printf "${DIM}https://github.com/maobukeai/catstep-md/blob/main/scripts/install-mcp.sh${NC}\n" >&2
         exit 1
     fi
     local workspace="${SOLOMD_NOTES:-$HOME/Documents/SoloMD}"

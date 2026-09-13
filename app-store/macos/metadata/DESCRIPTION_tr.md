@@ -49,4 +49,4 @@ MACOS YERLİSİ
 
 SoloMD hiçbir kişisel veri toplamaz. Hesap yok. Analitik yok. Reklam yok. İzleme yok. Tüm notlarınız size ait dosyalarda, yerel olarak durur.
 
-SoloMD açık kaynaklıdır (MIT). Kaynak: github.com/zhitongblog/solomd
+SoloMD açık kaynaklıdır (MIT). Kaynak: github.com/maobukeai/catstep-md

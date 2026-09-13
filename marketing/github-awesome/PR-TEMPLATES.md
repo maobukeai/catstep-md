@@ -6,7 +6,7 @@
 
 ### Entry to Add
 ```markdown
-- [SoloMD](https://solomd.app) - A lightweight (15 MB) cross-platform Markdown editor with live preview, KaTeX, and Mermaid support. Built with Tauri 2. [![Open Source](https://img.shields.io/badge/Open%20Source-MIT-green.svg)](https://github.com/zhitongblog/solomd)
+- [SoloMD](https://solomd.app) - A lightweight (15 MB) cross-platform Markdown editor with live preview, KaTeX, and Mermaid support. Built with Tauri 2. [![Open Source](https://img.shields.io/badge/Open%20Source-MIT-green.svg)](https://github.com/maobukeai/catstep-md)
 ```
 
 ### PR Title
@@ -30,7 +30,7 @@ SoloMD is a lightweight, cross-platform Markdown editor (~15 MB installed) built
 
 **Links:**
 - Website: https://solomd.app
-- GitHub: https://github.com/zhitongblog/solomd
+- GitHub: https://github.com/maobukeai/catstep-md
 - License: MIT
 
 **Platforms:** macOS, Windows, Linux
@@ -44,7 +44,7 @@ SoloMD is a lightweight, cross-platform Markdown editor (~15 MB installed) built
 
 ### Entry to Add (under Applications > Productivity or Editors)
 ```markdown
-- [SoloMD](https://github.com/zhitongblog/solomd) - A lightweight Markdown editor with live preview, KaTeX math, and Mermaid diagrams.
+- [SoloMD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor with live preview, KaTeX math, and Mermaid diagrams.
 ```
 
 ### PR Title
@@ -65,7 +65,7 @@ Adding SoloMD, a Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
 
 **Links:**
 - Website: https://solomd.app
-- GitHub: https://github.com/zhitongblog/solomd
+- GitHub: https://github.com/maobukeai/catstep-md
 - License: MIT
 
 This is a real-world Tauri 2 application that might be useful for developers learning the framework.
@@ -79,7 +79,7 @@ This is a real-world Tauri 2 application that might be useful for developers lea
 
 ### Entry to Add (under Applications > Text editors)
 ```markdown
-* [SoloMD](https://github.com/zhitongblog/solomd) - A lightweight Markdown editor built with Tauri 2. [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/zhitongblog/solomd)
+* [SoloMD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor built with Tauri 2. [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/maobukeai/catstep-md)
 ```
 
 ### PR Title
@@ -102,7 +102,7 @@ Adding SoloMD, a cross-platform Markdown editor.
 - KaTeX math, Mermaid diagrams
 - Multi-platform: macOS, Windows, Linux
 
-GitHub: https://github.com/zhitongblog/solomd
+GitHub: https://github.com/maobukeai/catstep-md
 License: MIT
 ```
 
@@ -114,7 +114,7 @@ License: MIT
 
 ### Entry to Add (under Projects Using Vue.js > Desktop)
 ```markdown
-- [SoloMD](https://github.com/zhitongblog/solomd) - A lightweight Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
+- [SoloMD](https://github.com/maobukeai/catstep-md) - A lightweight Markdown editor built with Tauri 2 + Vue 3 + CodeMirror 6.
 ```
 
 ### PR Title
@@ -138,7 +138,7 @@ Adding SoloMD, a cross-platform Markdown editor.
 - KaTeX math, Mermaid diagrams
 - Export to HTML/PDF/DOCX
 
-GitHub: https://github.com/zhitongblog/solomd
+GitHub: https://github.com/maobukeai/catstep-md
 License: MIT
 ```
 
@@ -150,7 +150,7 @@ License: MIT
 
 ### Entry to Add
 ```markdown
-- [SoloMD](https://github.com/zhitongblog/solomd) - Lightweight Markdown editor (Tauri 2 + Vue 3) `MIT`
+- [SoloMD](https://github.com/maobukeai/catstep-md) - Lightweight Markdown editor (Tauri 2 + Vue 3) `MIT`
 ```
 
 ### PR Title

@@ -21,12 +21,12 @@ from our root README.
 
 ```bash
 # Option A — Clone from the SoloMD repo (recommended; tracks updates):
-git clone https://github.com/zhitongblog/solomd.git /tmp/solomd-skill
+git clone https://github.com/maobukeai/catstep-md.git /tmp/solomd-skill
 cp -r /tmp/solomd-skill/marketplace/claude-code-skill/solomd ~/.claude/skills/solomd
 bash ~/.claude/skills/solomd/install.sh
 
 # Option B — One-shot installer:
-curl -L https://raw.githubusercontent.com/zhitongblog/solomd/main/marketplace/claude-code-skill/solomd/install.sh | bash
+curl -L https://raw.githubusercontent.com/maobukeai/catstep-md/main/marketplace/claude-code-skill/solomd/install.sh | bash
 ```
 
 After install, start a new Claude Code session in your notes folder and

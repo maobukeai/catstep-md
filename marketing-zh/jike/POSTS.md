@@ -68,7 +68,7 @@ SoloMD 更新了 [版本号]
 3. 但不同平台的 WebView 有差异，要适配
 4. Rust 学习曲线陡峭，但写完很爽
 
-代码开源：github.com/zhitongblog/solomd
+代码开源：github.com/maobukeai/catstep-md
 ```
 
 ---

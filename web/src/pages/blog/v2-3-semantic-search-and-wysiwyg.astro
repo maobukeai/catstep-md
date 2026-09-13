@@ -102,7 +102,7 @@ const lang = 'en' as const;
 
       <h2>📦 Windows portable .zip</h2>
       <p>
-        Requested by <a href="https://github.com/zhitongblog/solomd/issues/27" rel="external">issue #27</a>:
+        Requested by <a href="https://github.com/maobukeai/catstep-md/issues/27" rel="external">issue #27</a>:
         a no-installer Windows build. Each release now produces
         <code>SoloMD_&lt;version&gt;_x64-portable.zip</code> alongside the
         existing .msi / .exe. Just unzip and run <code>SoloMD.exe</code> — no
@@ -118,14 +118,14 @@ const lang = 'en' as const;
       <ul>
         <li>
           <strong>Win11 file-tree crash on toggle</strong>
-          (<a href="https://github.com/zhitongblog/solomd/issues/25" rel="external">#25</a>)
+          (<a href="https://github.com/maobukeai/catstep-md/issues/25" rel="external">#25</a>)
           — fixed in v2.2.1; root cause was a synchronous <code>list_dir</code>
           Tauri command blocking the main thread on slow filesystems
           (OneDrive placeholders, network drives, antivirus). Now async + spawn_blocking.
         </li>
         <li>
           <strong>Windows local images not displaying</strong>
-          (<a href="https://github.com/zhitongblog/solomd/issues/22" rel="external">#22</a>)
+          (<a href="https://github.com/maobukeai/catstep-md/issues/22" rel="external">#22</a>)
           — fixed back in v2.0; mixed-slash paths now go through a
           <code>normalizePath</code> helper before reaching
           <code>convertFileSrc</code>.
@@ -159,9 +159,9 @@ const lang = 'en' as const;
 
       <h2>📥 Download</h2>
       <p>
-        <a class="btn btn--primary" href="https://github.com/zhitongblog/solomd/releases/latest">Download latest →</a>
+        <a class="btn btn--primary" href="https://github.com/maobukeai/catstep-md/releases/latest">Download latest →</a>
         &nbsp;
-        <a class="btn" href="https://github.com/zhitongblog/solomd/releases">All releases</a>
+        <a class="btn" href="https://github.com/maobukeai/catstep-md/releases">All releases</a>
       </p>
 
       <h2>What's next</h2>

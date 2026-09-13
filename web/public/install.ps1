@@ -7,7 +7,7 @@
 # For silent install: set $env:SOLOMD_SILENT=1 before running.
 
 $ErrorActionPreference = 'Stop'
-$repo = "zhitongblog/solomd"
+$repo = "maobukeai/catstep-md"
 
 function Write-Step($msg) {
     Write-Host "==> " -ForegroundColor Yellow -NoNewline

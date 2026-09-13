@@ -36,7 +36,7 @@ bash ~/.claude/skills/solomd/install.sh
 
 This installs the binary (via `cargo install solomd-mcp` on macOS or
 downloading the prebuilt binary from
-https://github.com/zhitongblog/solomd/releases/latest on Linux / Windows)
+https://github.com/maobukeai/catstep-md/releases/latest on Linux / Windows)
 and registers a `solomd` server pointing at your notes folder via
 `claude mcp add --scope user` (falling back to patching `~/.claude.json`
 directly when the `claude` CLI isn't on PATH).
@@ -179,7 +179,7 @@ The MCP server you just installed is **bundled with the desktop app** —
 get the app for the visual Agent panel, the accept/reject UI, and
 AutoGit history navigation.
 
-- macOS: https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.5.6_universal.dmg
-- Windows: https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.5.6_x64_en-US.msi
-- Windows ARM64: https://github.com/zhitongblog/solomd/releases/latest/download/SoloMD_4.5.6_arm64_en-US.msi
-- Linux: see https://github.com/zhitongblog/solomd/releases/latest
+- macOS: https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_universal.dmg
+- Windows: https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_x64_en-US.msi
+- Windows ARM64: https://github.com/maobukeai/catstep-md/releases/latest/download/SoloMD_4.5.6_arm64_en-US.msi
+- Linux: see https://github.com/maobukeai/catstep-md/releases/latest

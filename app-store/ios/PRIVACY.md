@@ -48,7 +48,7 @@ We do not request contacts, location, microphone, camera, calendar, Bluetooth, o
 
 ## Third Parties
 
-SoloMD does not embed any third-party analytics, advertising, crash reporting, or social media SDKs. The app's source is open at github.com/zhitongblog/solomd (MIT).
+SoloMD does not embed any third-party analytics, advertising, crash reporting, or social media SDKs. The app's source is open at github.com/maobukeai/catstep-md (MIT).
 
 ## Children
 
@@ -60,5 +60,5 @@ Any material changes will be reflected on this page and noted in the app's relea
 
 ## Contact
 
-Questions? Email slushy@139.com or file an issue at github.com/zhitongblog/solomd/issues.
+Questions? Email slushy@139.com or file an issue at github.com/maobukeai/catstep-md/issues.
 ```

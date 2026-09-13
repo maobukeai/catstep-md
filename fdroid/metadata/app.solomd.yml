@@ -2,18 +2,18 @@ Categories:
   - Writing
   - Office
 License: MIT
-AuthorName: zhitong
-AuthorEmail: lixd220@gmail.com
-WebSite: https://solomd.app
-SourceCode: https://github.com/zhitongblog/solomd
-IssueTracker: https://github.com/zhitongblog/solomd/issues
-Changelog: https://github.com/zhitongblog/solomd/releases
+AuthorName: maobukeai
+AuthorEmail: maobukeai@users.noreply.github.com
+WebSite: https://github.com/maobukeai/catstep-md
+SourceCode: https://github.com/maobukeai/catstep-md
+IssueTracker: https://github.com/maobukeai/catstep-md/issues
+Changelog: https://github.com/maobukeai/catstep-md/releases
 
-AutoName: SoloMD
+AutoName: 猫步 MD (Catstep MD)
 Summary: Lightweight Markdown + plain-text editor
 
 Description: |-
-    SoloMD is a distraction-free Markdown + plain-text editor for phones,
+    Catstep MD (猫步 MD) is a distraction-free Markdown + plain-text editor for phones,
     tablets, and desktops.
 
     One file. One window. Just write.
@@ -35,7 +35,7 @@ Description: |-
       Turkish, Swedish, Ukrainian
 
 RepoType: git
-Repo: https://github.com/zhitongblog/solomd.git
+Repo: https://github.com/maobukeai/catstep-md.git
 
 Builds:
   - versionName: 4.1.8

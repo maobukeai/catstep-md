@@ -44,9 +44,9 @@ interface ExtractErr {
 type ExtractResponse = ExtractOk | ExtractErr;
 
 const MENU_IDS = {
-  page: 'solomd-clip-page',
-  selection: 'solomd-clip-selection',
-  link: 'solomd-save-link',
+  page: 'catstep-clip-page',
+  selection: 'catstep-clip-selection',
+  link: 'catstep-save-link',
 };
 
 // ---------------------------------------------------------------------------
@@ -75,7 +75,7 @@ async function ensureContextMenus(): Promise<void> {
       contexts: ['page', 'link'],
     });
   } catch (e) {
-    console.warn('[solomd-clipper] contextMenus setup failed', e);
+    console.warn('[catstep-clipper] contextMenus setup failed', e);
   }
 }
 
@@ -371,10 +371,10 @@ function notify(message: string, kind: 'success' | 'error'): void {
     void browser.notifications.create({
       type: 'basic',
       iconUrl: browser.runtime.getURL('icons/icon-128.png'),
-      title: kind === 'success' ? t('clipper.popup.title') : 'SoloMD',
+      title: kind === 'success' ? t('clipper.popup.title') : '猫步 MD',
       message,
     });
   } catch (e) {
-    console.warn('[solomd-clipper] notify failed', e);
+    console.warn('[catstep-clipper] notify failed', e);
   }
 }

@@ -23,7 +23,7 @@
 | Field | Value |
 |---|---|
 | Marketing URL | https://solomd.app |
-| Support URL | https://github.com/zhitongblog/solomd/issues |
+| Support URL | https://github.com/maobukeai/catstep-md/issues |
 | Privacy Policy URL | https://solomd.app/privacy |
 
 ## Platform

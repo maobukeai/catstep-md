@@ -40,5 +40,5 @@ ENTRYPOINT ["/usr/local/bin/solomd-mcp"]
 LABEL org.opencontainers.image.title="solomd-mcp"
 LABEL org.opencontainers.image.description="MCP server for SoloMD Markdown vaults"
 LABEL org.opencontainers.image.url="https://solomd.app"
-LABEL org.opencontainers.image.source="https://github.com/zhitongblog/solomd"
+LABEL org.opencontainers.image.source="https://github.com/maobukeai/catstep-md"
 LABEL org.opencontainers.image.licenses="MIT"

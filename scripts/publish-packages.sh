@@ -19,7 +19,7 @@
 #   - nuget installed (brew install nuget)
 #   - CHOCOLATEY_API_KEY env var or .env.local file with it
 #   - Fork repos already exist on your GitHub account:
-#       zhitongblog/homebrew-cask, zhitongblog/winget-pkgs, zhitongblog/Extras
+#       maobukeai/homebrew-cask, maobukeai/winget-pkgs, maobukeai/Extras
 
 set -euo pipefail
 
@@ -39,9 +39,9 @@ else
     TARGETS=("$@")
 fi
 
-REPO="zhitongblog/solomd"
+REPO="maobukeai/catstep-md"
 BASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
-YOUR_GH="zhitongblog"
+YOUR_GH="maobukeai"
 
 # Colors
 ORANGE='\033[0;33m'
@@ -184,7 +184,7 @@ publish_winget() {
         local branch="add-solomd-${VERSION}"
         git checkout -B "$branch" >/dev/null
 
-        local manifest_dir="manifests/z/zhitong/SoloMD/${VERSION}"
+        local manifest_dir="manifests/m/maobukeai/CatstepMD/${VERSION}"
         mkdir -p "$manifest_dir"
 
         local sha_upper
@@ -192,20 +192,20 @@ publish_winget() {
         local today
         today=$(date +%Y-%m-%d)
 
-        cat > "$manifest_dir/zhitong.SoloMD.yaml" <<YAML
+        cat > "$manifest_dir/maobukeai.CatstepMD.yaml" <<YAML
 # yaml-language-server: \$schema=https://aka.ms/winget-manifest.version.1.9.0.schema.json
 
-PackageIdentifier: zhitong.SoloMD
+PackageIdentifier: maobukeai.CatstepMD
 PackageVersion: ${VERSION}
 DefaultLocale: en-US
 ManifestType: version
 ManifestVersion: 1.9.0
 YAML
 
-        cat > "$manifest_dir/zhitong.SoloMD.installer.yaml" <<YAML
+        cat > "$manifest_dir/maobukeai.CatstepMD.installer.yaml" <<YAML
 # yaml-language-server: \$schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
 
-PackageIdentifier: zhitong.SoloMD
+PackageIdentifier: maobukeai.CatstepMD
 PackageVersion: ${VERSION}
 MinimumOSVersion: 10.0.17763.0
 InstallerType: wix
@@ -219,19 +219,19 @@ FileExtensions:
 ReleaseDate: ${today}
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/${REPO}/releases/download/v${VERSION}/SoloMD_${VERSION}_x64_en-US.msi
+  InstallerUrl: https://github.com/${REPO}/releases/download/v${VERSION}/CatstepMD_${VERSION}_x64_en-US.msi
   InstallerSha256: ${sha_upper}
 ManifestType: installer
 ManifestVersion: 1.9.0
 YAML
 
-        cat > "$manifest_dir/zhitong.SoloMD.locale.en-US.yaml" <<YAML
+        cat > "$manifest_dir/maobukeai.CatstepMD.locale.en-US.yaml" <<YAML
 # yaml-language-server: \$schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
 
-PackageIdentifier: zhitong.SoloMD
+PackageIdentifier: maobukeai.CatstepMD
 PackageVersion: ${VERSION}
 PackageLocale: en-US
-Publisher: zhitong
+Publisher: maobukeai
 PublisherUrl: https://github.com/${YOUR_GH}
 PublisherSupportUrl: https://github.com/${REPO}/issues
 PackageName: SoloMD
@@ -259,15 +259,15 @@ ManifestVersion: 1.9.0
 YAML
 
         git add "$manifest_dir/"
-        git -c user.email=dev@solomd.local -c user.name="${YOUR_GH}" commit -q -m "New version: zhitong.SoloMD version ${VERSION}"
+        git -c user.email=dev@catstepmd.local -c user.name="${YOUR_GH}" commit -q -m "New version: maobukeai.CatstepMD version ${VERSION}"
         git push origin "$branch" --force >/dev/null 2>&1
     )
 
     local url
     url=$(gh pr create --repo microsoft/winget-pkgs \
-        --head "${YOUR_GH}:add-solomd-${VERSION}" \
-        --title "New version: zhitong.SoloMD version ${VERSION}" \
-        --body "Update SoloMD to v${VERSION}. Release notes: https://github.com/${REPO}/releases/tag/v${VERSION}" 2>&1 | tail -1 || true)
+        --head "${YOUR_GH}:add-catstepmd-${VERSION}" \
+        --title "New version: maobukeai.CatstepMD version ${VERSION}" \
+        --body "Update CatstepMD to v${VERSION}. Release notes: https://github.com/${REPO}/releases/tag/v${VERSION}" 2>&1 | tail -1 || true)
     ok "winget PR: $url"
 }
 
@@ -380,8 +380,8 @@ publish_choco() {
     <id>solomd</id>
     <version>${VERSION}</version>
     <title>SoloMD</title>
-    <authors>zhitong</authors>
-    <owners>zhitong</owners>
+    <authors>maobukeai</authors>
+    <owners>maobukeai</owners>
     <projectUrl>https://solomd.app</projectUrl>
     <iconUrl>https://raw.githubusercontent.com/${REPO}/main/brand/solomd_icon_fullbleed.png</iconUrl>
     <licenseUrl>https://github.com/${REPO}/blob/main/LICENSE</licenseUrl>

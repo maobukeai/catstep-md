@@ -104,7 +104,7 @@ Fully offline. Always.
 MIT licensed. Fully open source.
 
 Download: https://solomd.app
-GitHub: https://github.com/zhitongblog/solomd
+GitHub: https://github.com/maobukeai/catstep-md
 
 Available for macOS, Windows, and Linux.
 
@@ -140,7 +140,7 @@ SoloMD is a real-world example.
 - ~15 MB installed
 
 MIT licensed, fully open source:
-https://github.com/zhitongblog/solomd
+https://github.com/maobukeai/catstep-md
 ```
 
 ### For privacy-conscious users
@@ -187,7 +187,7 @@ SoloMD is simpler – just a fast editor for single files. Different tools for d
 ```
 Thanks for the report! Could you open an issue on GitHub with details?
 
-https://github.com/zhitongblog/solomd/issues
+https://github.com/maobukeai/catstep-md/issues
 
 I'll look into it ASAP.
 ```
@@ -196,7 +196,7 @@ I'll look into it ASAP.
 ```
 Great idea! Would you mind opening a feature request on GitHub?
 
-https://github.com/zhitongblog/solomd/issues
+https://github.com/maobukeai/catstep-md/issues
 
 That helps me track and prioritize requests.
 ```

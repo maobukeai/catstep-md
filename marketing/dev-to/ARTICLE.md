@@ -121,7 +121,7 @@ SoloMD is MIT licensed and fully open source. I'm actively maintaining it and ha
 ## Try It
 
 - **Website**: [solomd.app](https://solomd.app)
-- **GitHub**: [github.com/zhitongblog/solomd](https://github.com/zhitongblog/solomd)
+- **GitHub**: [github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 - **Downloads**: macOS (universal), Windows (x64), Linux (AppImage/deb/rpm)
 
 If you're interested in Tauri 2 development, the codebase might be a useful reference. PRs and feedback welcome!

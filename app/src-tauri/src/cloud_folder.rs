@@ -291,35 +291,35 @@ mod tests {
 
     #[test]
     fn icloud_path_detected() {
-        let p = "/Users/alex/Library/Mobile Documents/com~apple~CloudDocs/Notes";
+        let p = "/Users/user/Library/Mobile Documents/com~apple~CloudDocs/Notes";
         assert_eq!(detect_provider(Path::new(p)).provider, CloudProvider::ICloud);
     }
 
     #[test]
     fn dropbox_path_detected() {
-        let p = "/Users/alex/Dropbox/Notes";
+        let p = "/Users/user/Dropbox/Notes";
         assert_eq!(detect_provider(Path::new(p)).provider, CloudProvider::Dropbox);
-        let p2 = "/Users/alex/Dropbox (Personal)/Notes";
+        let p2 = "/Users/user/Dropbox (Personal)/Notes";
         assert_eq!(detect_provider(Path::new(p2)).provider, CloudProvider::Dropbox);
     }
 
     #[test]
     fn onedrive_path_detected() {
-        let p = "/Users/alex/OneDrive/Notes";
+        let p = "/Users/user/OneDrive/Notes";
         assert_eq!(detect_provider(Path::new(p)).provider, CloudProvider::OneDrive);
-        let p2 = "/Users/alex/OneDrive - Acme Inc/Notes";
+        let p2 = "/Users/user/OneDrive - Acme Inc/Notes";
         assert_eq!(detect_provider(Path::new(p2)).provider, CloudProvider::OneDrive);
     }
 
     #[test]
     fn google_drive_path_detected() {
-        let p = "/Users/alex/Library/CloudStorage/GoogleDrive-me@gmail.com/My Drive/Notes";
+        let p = "/Users/user/Library/CloudStorage/GoogleDrive-me@gmail.com/My Drive/Notes";
         assert_eq!(detect_provider(Path::new(p)).provider, CloudProvider::GoogleDrive);
     }
 
     #[test]
     fn plain_path_is_none() {
-        let p = "/Users/alex/Documents/Notes";
+        let p = "/Users/user/Documents/Notes";
         assert_eq!(detect_provider(Path::new(p)).provider, CloudProvider::None);
     }
 

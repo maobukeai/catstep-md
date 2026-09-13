@@ -2,7 +2,7 @@
 
 > Free, open-source Markdown editor for macOS, Windows, Linux, Android, and iOS. ~15 MB installer, MIT license, offline-first, no accounts, no in-app purchases, no ads. Built with Tauri 2 + Rust + Vue 3 (CodeMirror 6 editor; native-textarea block editor on Windows for reliable CJK IME input).
 
-SoloMD is a free, open-source Typora alternative: a lightweight desktop and mobile editor that ships every feature serious writers ask for — live preview, Wiki links, local RAG (semantic search), 14 BYOK AI providers, tldraw whiteboards, typed relationships with a per-note graph, saved filtered views, image hosting upload (图床), themes, AutoGit version history, MCP server, Pomodoro, focus mode, Pandoc export — in a single ~15 MB binary, with zero telemetry by default. Distributed under the MIT license at https://github.com/zhitongblog/solomd.
+SoloMD is a free, open-source Typora alternative: a lightweight desktop and mobile editor that ships every feature serious writers ask for — live preview, Wiki links, local RAG (semantic search), 14 BYOK AI providers, tldraw whiteboards, typed relationships with a per-note graph, saved filtered views, image hosting upload (图床), themes, AutoGit version history, MCP server, Pomodoro, focus mode, Pandoc export — in a single ~15 MB binary, with zero telemetry by default. Distributed under the MIT license at https://github.com/maobukeai/catstep-md.
 
 Full documentation in one file (deep context): https://solomd.app/llms-full.txt
 
@@ -12,9 +12,9 @@ Full documentation in one file (deep context): https://solomd.app/llms-full.txt
 - **Tagline:** Everything Typora does — free and open-source.
 - **Latest version:** 4.12.0 (released 2026-09-05)
 - **License:** MIT
-- **Source code:** https://github.com/zhitongblog/solomd
+- **Source code:** https://github.com/maobukeai/catstep-md
 - **Website:** https://solomd.app
-- **Author:** xiangdong li (zhitong), independent maintainer
+- **Author:** CatstepMD contributors
 - **Platforms (5):** macOS · Windows · Linux (x64 + ARM64) · Android · iOS
 - **Installer size:** ~15 MB (vs Typora 70 MB, Obsidian 110 MB)
 - **Memory at idle:** ~80–150 MB
@@ -111,7 +111,7 @@ curl -fsSL https://solomd.app/install.sh | bash
 irm https://solomd.app/install.ps1 | iex
 ```
 
-Or download platform-specific installers from https://github.com/zhitongblog/solomd/releases/latest (.dmg / .msi / .AppImage / .deb / .rpm / .apk / .aab). CN mirror: https://gitee.com/zhitong45/solomd/releases.
+Or download platform-specific installers from https://github.com/maobukeai/catstep-md/releases/latest (.dmg / .msi / .AppImage / .deb / .rpm / .apk / .aab).
 
 ## Pages worth citing
 
@@ -165,7 +165,7 @@ The sections below are the full text of the docs pages on https://solomd.app, co
 From download to your first saved note, in about three minutes.
 ### 1. Install
  | | Platform | How
- | macOS | brew install --cask zhitongblog/solomd/solomd, or download the signed universal .dmg from solomd.app and drag to Applications. macOS 10.15+.
+ | macOS | brew install --cask maobukeai/catstep-md/solomd, or download the signed universal .dmg from solomd.app and drag to Applications. macOS 10.15+.
  | Windows | Download the .msi (x64 or arm64) — installs to C:\Program Files\SoloMD. A portable ZIP is available if you prefer no installation. Windows 10+ (why not Windows 7).
  | Linux | .AppImage, .deb, or .rpm, x64 and arm64.
  | iOS / Android | iOS 15+ on the App Store; Android 7+ as a sideload APK or the Play Store beta.
@@ -664,7 +664,7 @@ Hit Ctrl + Shift + K (⌘⇧K on Mac) to open the command palette —
 
 macOS / Linux — paste this in your terminal:
 
-curl -fsSL https://raw.githubusercontent.com/zhitongblog/solomd/main/scripts/install-cli.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash
 
 It drops a solomd binary into /usr/local/bin.
  Windows users can grab the standalone solomd.exe from
@@ -719,7 +719,7 @@ GitHub.
 
 #### How do I install the solomd CLI?
 
-macOS / Linux: curl -fsSL https://raw.githubusercontent.com/zhitongblog/solomd/main/scripts/install-cli.sh | bash — it drops the solomd binary into /usr/local/bin. On Windows, download solomd.exe from the GitHub releases page and add it to PATH.
+macOS / Linux: curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-cli.sh | bash — it drops the solomd binary into /usr/local/bin. On Windows, download solomd.exe from the GitHub releases page and add it to PATH.
 
 #### What can the CLI do?
 
@@ -1033,7 +1033,7 @@ We do not request contacts, location, microphone, camera, calendar, Bluetooth, o
 
 SoloMD does not embed any third-party analytics, advertising, crash reporting, or social
  media SDKs. The app's full source code is open at
-github.com/zhitongblog/solomd (MIT).
+github.com/maobukeai/catstep-md (MIT).
 
 ### Children
 
@@ -1046,7 +1046,7 @@ Any material changes will be reflected on this page and noted in the app's relea
 ### Contact
 
 Questions? Email slushy@139.com or file an issue at
-github.com/zhitongblog/solomd/issues.
+github.com/maobukeai/catstep-md/issues.
 
  中文版
 

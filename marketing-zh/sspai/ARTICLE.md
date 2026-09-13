@@ -124,7 +124,7 @@ Tauri 2 是今年正式发布的，相比 Electron 最大的优势就是体积�
 ## 下载
 
 - 官网：https://solomd.app
-- GitHub：https://github.com/zhitongblog/solomd
+- GitHub：https://github.com/maobukeai/catstep-md
 
 支持 macOS（Intel + Apple Silicon）、Windows（x64）、Linux（AppImage / deb / rpm）。
 

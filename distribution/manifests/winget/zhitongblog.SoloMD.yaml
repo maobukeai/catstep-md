@@ -1,7 +1,7 @@
 # Created using wingetcreate
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
 
-PackageIdentifier: zhitongblog.SoloMD
+PackageIdentifier: maobukeai.CatstepMD
 PackageVersion: 0.1.8
 DefaultLocale: en-US
 ManifestType: version

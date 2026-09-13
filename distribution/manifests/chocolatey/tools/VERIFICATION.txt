@@ -5,7 +5,7 @@ in verifying that this package's contents are trustworthy.
 
 Package Source:
 The installer is downloaded directly from the official GitHub releases page:
-https://github.com/zhitongblog/solomd/releases/download/v1.2.1/SoloMD_1.2.1_x64-setup.exe
+https://github.com/maobukeai/catstep-md/releases/download/v1.2.1/SoloMD_1.2.1_x64-setup.exe
 
 Verification Steps:
 1. Download the installer from the URL above
@@ -15,4 +15,4 @@ Verification Steps:
 3. Verify the hash matches: 7177315e349e0a7ea7c0f1a405141e8cad3861da9164d156daf1d2004f84b1dc
 
 License:
-MIT License - https://github.com/zhitongblog/solomd/blob/main/LICENSE
+MIT License - https://github.com/maobukeai/catstep-md/blob/main/LICENSE

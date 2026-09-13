@@ -5,8 +5,8 @@
 //! AutoGit operations, screenshots — without trying to coerce
 //! AppleScript into clicking on the WKWebView.
 //!
-//! Why a dev-only MCP and not just a CLI? Because the global rule
-//! (alexlee's CLAUDE.md) says every client project ships with both —
+//! Why a dev-only MCP and not just a CLI? Because the engineering guidelines
+//! say every client project ships with both —
 //! and the ergonomics of "ask the model to call a tool" beat
 //! "ask the model to compose a multi-step shell pipeline".
 //!

@@ -33,11 +33,11 @@ from xml.sax.saxutils import escape
 # the published package (displaycatalog's PublisherCertificateName and
 # PackageFamilyName) and the publisher string is verified against the family
 # name hash below — get the case wrong and Windows derives a different hash.
-IDENTITY_NAME = "zhitong.SoloMD"
+IDENTITY_NAME = "maobukeai.CatstepMD"
 PUBLISHER = "CN=359F6F65-9E32-4216-A4A1-9AF570A7877A"
-PUBLISHER_DISPLAY = "zhitong"
+PUBLISHER_DISPLAY = "maobukeai"
 EXPECTED_FAMILY_HASH = "3vmxy07xh2v3m"
-DISPLAY_NAME = "SoloMD"
+DISPLAY_NAME = "CatstepMD"
 DESCRIPTION = "One file. One window. Just write."
 BACKGROUND_COLOR = "#121110"
 

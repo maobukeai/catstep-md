@@ -393,7 +393,7 @@ SoloMD 可能永远不会有 Obsidian 那样的生态，但对于「只是想安
 
 如果你也在考虑做独立开发，我的建议是：**从自己的痛点出发，先做一个自己愿意用的东西**。
 
-项目地址：[github.com/zhitongblog/solomd](https://github.com/zhitongblog/solomd)
+项目地址：[github.com/maobukeai/catstep-md](https://github.com/maobukeai/catstep-md)
 
 官网：[solomd.app](https://solomd.app)
 

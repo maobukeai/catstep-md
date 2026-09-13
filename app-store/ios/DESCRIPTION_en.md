@@ -61,6 +61,6 @@ PRIVACY FIRST
 
 SoloMD collects no personal data. No account. No analytics. No ads. No tracking. All your notes live locally in files you own.
 
-SoloMD is open source (MIT). Source: github.com/zhitongblog/solomd
+SoloMD is open source (MIT). Source: github.com/maobukeai/catstep-md
 
 Love SoloMD? ⭐ the repo or sponsor development at solomd.app

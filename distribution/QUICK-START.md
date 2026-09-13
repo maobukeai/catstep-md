@@ -26,7 +26,7 @@ git commit -m "Add SoloMD v0.1.8"
 gh pr create --title "Add SoloMD v0.1.8" --body "Add SoloMD - A lightweight Markdown editor with live preview.
 
 **Homepage:** https://solomd.app
-**GitHub:** https://github.com/zhitongblog/solomd
+**GitHub:** https://github.com/maobukeai/catstep-md
 
 SoloMD is a lightweight (~15MB) cross-platform Markdown editor built with Tauri 2.
 
@@ -49,19 +49,19 @@ gh repo fork microsoft/winget-pkgs --clone
 cd winget-pkgs
 
 # 创建目录结构
-mkdir -p manifests/z/zhitongblog/SoloMD/0.1.8
+mkdir -p manifests/m/maobukeai/CatstepMD/0.1.8
 
 # 复制 manifest 文件
-cp ../distribution/manifests/winget/*.yaml manifests/z/zhitongblog/SoloMD/0.1.8/
+cp ../distribution/manifests/winget/*.yaml manifests/m/maobukeai/CatstepMD/0.1.8/
 
 # 创建分支并提交
-git checkout -b add-solomd-0.1.8
-git add manifests/z/zhitongblog/SoloMD/
-git commit -m "Add SoloMD version 0.1.8"
+git checkout -b add-catstepmd-0.1.8
+git add manifests/m/maobukeai/CatstepMD/
+git commit -m "Add CatstepMD version 0.1.8"
 
 # 创建 PR
-gh pr create --title "New package: zhitongblog.SoloMD version 0.1.8" --body "## Package Information
-- Package: zhitongblog.SoloMD
+gh pr create --title "New package: maobukeai.CatstepMD version 0.1.8" --body "## Package Information
+- Package: maobukeai.CatstepMD
 - Version: 0.1.8
 
 ## Description
@@ -69,7 +69,7 @@ SoloMD is a lightweight Markdown editor with live preview. Built with Tauri 2.
 
 ## Links
 - Homepage: https://solomd.app
-- GitHub: https://github.com/zhitongblog/solomd"
+- GitHub: https://github.com/maobukeai/catstep-md"
 ```
 
 ---

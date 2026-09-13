@@ -66,7 +66,7 @@ clear "restart with --allow-write" message until you opt in.
 ### One-line installer (macOS / Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zhitongblog/solomd/main/scripts/install-mcp.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maobukeai/catstep-md/main/scripts/install-mcp.sh | bash
 ```
 
 This downloads the right binary for your platform from the latest GitHub
@@ -76,13 +76,13 @@ release and drops it into `/usr/local/bin/solomd-mcp` (falling back to
 ### Cargo
 
 ```bash
-cargo install --git https://github.com/zhitongblog/solomd solomd-mcp
+cargo install --git https://github.com/maobukeai/catstep-md solomd-mcp
 ```
 
 ### Manual
 
 Grab the right archive from
-[github.com/zhitongblog/solomd/releases](https://github.com/zhitongblog/solomd/releases),
+[github.com/maobukeai/catstep-md/releases](https://github.com/maobukeai/catstep-md/releases),
 extract `solomd-mcp`, and put it on your `PATH`.
 
 ## Wire it up

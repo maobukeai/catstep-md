@@ -61,6 +61,6 @@ INTEGRITET FRÄMST
 
 SoloMD samlar inte in några personuppgifter. Inget konto. Ingen analys. Inga annonser. Ingen spårning. Alla dina anteckningar ligger lokalt i filer som du äger.
 
-SoloMD är öppen källkod (MIT). Källkod: github.com/zhitongblog/solomd
+SoloMD är öppen källkod (MIT). Källkod: github.com/maobukeai/catstep-md
 
 Gillar du SoloMD? Ge repot en ⭐ eller sponsra utvecklingen på solomd.app

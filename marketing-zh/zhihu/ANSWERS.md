@@ -44,7 +44,7 @@
 **支持平台**：macOS / Windows / Linux
 
 官网：https://solomd.app
-GitHub：https://github.com/zhitongblog/solomd
+GitHub：https://github.com/maobukeai/catstep-md
 
 ---
 
@@ -113,7 +113,7 @@ Typora 收费后我也找了很久替代品，试了一圈最后留下了 **Solo
 - MIT 开源
 - 有完整的 CI/CD 配置
 
-GitHub：https://github.com/zhitongblog/solomd
+GitHub：https://github.com/maobukeai/catstep-md
 ```
 
 ---

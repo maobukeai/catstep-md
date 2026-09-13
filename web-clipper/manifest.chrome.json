@@ -1,15 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "SoloMD Web Clipper",
+  "name": "猫步 MD 网页剪藏 (Catstep MD Clipper)",
   "version": "2.4.0",
-  "description": "Save the current page, your selection, or just the link to your local SoloMD inbox. Local-only — never phones home.",
+  "description": "将当前网页、选中文本或链接一键保存到本地猫步 MD (Catstep MD) 知识库。仅本地运行，绝不上传数据。",
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "SoloMD Web Clipper",
+    "default_title": "猫步 MD 网页剪藏",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.png",

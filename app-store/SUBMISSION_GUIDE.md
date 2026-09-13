@@ -323,7 +323,7 @@ All the copy is already drafted in this repo. Match fields exactly:
 | What's New (EN) | `ios/WHATS_NEW_en.md` | 4000 char max |
 | What's New (zh) | `ios/WHATS_NEW_zh.md` | |
 | Marketing URL | `https://solomd.app` | optional |
-| Support URL | `https://github.com/zhitongblog/solomd/issues` | required |
+| Support URL | `https://github.com/maobukeai/catstep-md/issues` | required |
 | Privacy Policy URL | `https://solomd.app/privacy` | **required** |
 | Copyright | `© 2026 xiangdong li` | |
 

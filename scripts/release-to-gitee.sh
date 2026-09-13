@@ -18,7 +18,7 @@
 #   - `gh` CLI authenticated to the GitHub repo
 #   - `GITEE_TOKEN` env var (or in .env.local) — Gitee personal
 #     access token with `releases` scope
-#   - `GITEE_USER` env var (default: zhitong45)
+#   - `GITEE_USER` env var (default: maobukeai)
 #   - jq, curl, python3
 
 set -euo pipefail
@@ -39,9 +39,9 @@ if [ -f "$ROOT/.env.local" ]; then
 fi
 
 : "${GITEE_TOKEN:?Set GITEE_TOKEN (export or in .env.local)}"
-GITEE_USER="${GITEE_USER:-zhitong45}"
-REPO_GH="zhitongblog/solomd"
-REPO_GITEE="$GITEE_USER/solomd"
+GITEE_USER="${GITEE_USER:-maobukeai}"
+REPO_GH="maobukeai/catstep-md"
+REPO_GITEE="$GITEE_USER/catstep-md"
 API="https://gitee.com/api/v5/repos/$REPO_GITEE"
 
 echo "==> Sync $TAG  ($REPO_GH → gitee.com/$REPO_GITEE)"

@@ -17,7 +17,7 @@
 #   SOLOMD_WORKSPACE=/path bash install.sh  # non-interactive
 set -euo pipefail
 
-LATEST=https://github.com/zhitongblog/solomd/releases/latest/download
+LATEST=https://github.com/maobukeai/catstep-md/releases/latest/download
 BIN_DIR="${HOME}/.claude/bin"
 MCP_JSON="${HOME}/.claude.json"
 
@@ -156,5 +156,5 @@ with --allow-write:
   claude mcp add --scope user solomd -- $BIN_DIR/solomd-mcp --workspace $SOLOMD_WORKSPACE --allow-write
 
 Pair with the SoloMD desktop app for the Agent panel UI:
-  https://github.com/zhitongblog/solomd/releases/latest
+  https://github.com/maobukeai/catstep-md/releases/latest
 EOF

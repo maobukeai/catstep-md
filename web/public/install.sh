@@ -16,7 +16,7 @@
 
 set -e
 
-REPO="zhitongblog/solomd"
+REPO="maobukeai/catstep-md"
 ORANGE='\033[0;33m'
 YELLOW='\033[0;93m'
 BOLD='\033[1m'

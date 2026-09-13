@@ -33,7 +33,7 @@ SoloMD is the result. It's ~15 MB installed (vs Typora 80 MB / Obsidian 250 MB).
 
 **Tech stack:** Tauri 2 + Vue 3 + CodeMirror 6 + Rust backend
 
-MIT licensed, fully open source: https://github.com/zhitongblog/solomd
+MIT licensed, fully open source: https://github.com/maobukeai/catstep-md
 
 I'd love feedback on the editor experience. What features would make you switch from your current Markdown tool?
 ```

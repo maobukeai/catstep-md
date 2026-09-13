@@ -1,16 +1,16 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.6.0.schema.json
 
-PackageIdentifier: zhitongblog.SoloMD
+PackageIdentifier: maobukeai.CatstepMD
 PackageVersion: 0.1.8
 PackageLocale: zh-CN
-Publisher: zhitongblog
-PublisherUrl: https://github.com/zhitongblog
-PublisherSupportUrl: https://github.com/zhitongblog/solomd/issues
+Publisher: maobukeai
+PublisherUrl: https://github.com/maobukeai
+PublisherSupportUrl: https://github.com/maobukeai/catstep-md/issues
 Author: 李向东
 PackageName: SoloMD
 PackageUrl: https://solomd.app
 License: MIT
-LicenseUrl: https://github.com/zhitongblog/solomd/blob/main/LICENSE
+LicenseUrl: https://github.com/maobukeai/catstep-md/blob/main/LICENSE
 Copyright: Copyright (c) 2024 xiangdong li
 ShortDescription: 轻量级跨平台 Markdown 编辑器，支持所见即所得
 Description: |-

@@ -8,7 +8,7 @@ Paste the section below into **App Review Information → Notes** in App Store C
 
 Thank you for reviewing SoloMD.
 
-**What it is**: SoloMD is a local, offline-first Markdown text editor. It is the iPad port of our open-source desktop editor (github.com/zhitongblog/solomd). The app edits plain `.md` and `.txt` files stored on the user's device.
+**What it is**: SoloMD is a local, offline-first Markdown text editor. It is the iPad port of our open-source desktop editor (github.com/maobukeai/catstep-md). The app edits plain `.md` and `.txt` files stored on the user's device.
 
 **No sign-in required**: There is no account system, no login screen, no paywall. All features are immediately available after launch. No demo account is needed.
 
@@ -28,7 +28,7 @@ Thank you for reviewing SoloMD.
 
 **Export compliance**: The app uses only standard HTTPS (via system APIs) for any optional future network features. No custom cryptography. Exempt per `ITSAppUsesNonExemptEncryption = NO`.
 
-**Open source**: The entire source is at github.com/zhitongblog/solomd under MIT license.
+**Open source**: The entire source is at github.com/maobukeai/catstep-md under MIT license.
 
 **Contact during review**:
 - Email: slushy@139.com

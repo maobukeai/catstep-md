@@ -61,6 +61,6 @@ DIŞA AKTARMA
 
 SoloMD hiçbir kişisel veri toplamaz. Hesap yok. Analitik yok. Reklam yok. İzleme yok. Tüm notlarınız size ait dosyalarda, cihazınızda durur.
 
-SoloMD açık kaynaklıdır (MIT). Kaynak: github.com/zhitongblog/solomd
+SoloMD açık kaynaklıdır (MIT). Kaynak: github.com/maobukeai/catstep-md
 
 SoloMD'yi sevdiniz mi? Depoya ⭐ verin veya solomd.app üzerinden geliştirmeye destek olun

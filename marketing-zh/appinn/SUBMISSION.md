@@ -24,7 +24,7 @@ SoloMD - 只有 15MB 的开源 Markdown 编辑器 [Win/Mac/Linux]
 SoloMD 是一个轻量级的跨平台 Markdown 编辑器，安装包只有 15MB。
 
 - 官网：https://solomd.app
-- GitHub：https://github.com/zhitongblog/solomd
+- GitHub：https://github.com/maobukeai/catstep-md
 - 协议：MIT（免费开源）
 
 ## 特点
@@ -92,7 +92,7 @@ SoloMD 对中文用户特别友好，支持 GBK/Big5 编码自动识别、简繁
 软件完全免费开源（MIT 协议），不联网，不收集用户数据。
 
 * 官网：https://solomd.app
-* GitHub：https://github.com/zhitongblog/solomd
+* GitHub：https://github.com/maobukeai/catstep-md
 ```
 
 ---

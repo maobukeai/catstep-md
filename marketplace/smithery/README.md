@@ -86,7 +86,7 @@ distribution exactly the same way Smithery wants it.
 
    ## Maintainer
 
-   @zhitongblog (Alex / lixd220@gmail.com) — same as the SoloMD repo owner.
+   @maobukeai (Catstep MD contributors)
    ```
 
 5. Once merged, Smithery's indexer picks it up within ~1 hour. The listing

@@ -145,7 +145,7 @@ export const t = {
       items: [
         {
           q: 'Is SoloMD really free?',
-          a: 'Yes. SoloMD is MIT-licensed open-source software at https://github.com/zhitongblog/solomd. There is no paid tier, no subscription, no in-app purchase, no ads, and no telemetry by default. Compare: Typora costs $14.99, iA Writer costs $29.99, Obsidian Sync is $4/month. SoloMD is $0 forever — sponsor the developer if it helps your writing.',
+          a: 'Yes. SoloMD is MIT-licensed open-source software at https://github.com/maobukeai/catstep-md. There is no paid tier, no subscription, no in-app purchase, no ads, and no telemetry by default. Compare: Typora costs $14.99, iA Writer costs $29.99, Obsidian Sync is $4/month. SoloMD is $0 forever — sponsor the developer if it helps your writing.',
         },
         {
           q: 'Is there a free alternative to Typora?',
@@ -209,7 +209,7 @@ export const t = {
         },
         {
           q: 'How do I install SoloMD?',
-          a: 'One line. macOS / Linux: run \'curl -fsSL https://solomd.app/install.sh | bash\' in a terminal — the script auto-detects your OS and CPU architecture and installs the latest release. Windows: open PowerShell and run \'irm https://solomd.app/install.ps1 | iex\'. Or download platform-specific installers (.dmg / .msi / .AppImage / .deb / .rpm / .apk) from https://github.com/zhitongblog/solomd/releases/latest. Average install time: under 2 minutes on a normal connection.',
+          a: 'One line. macOS / Linux: run \'curl -fsSL https://solomd.app/install.sh | bash\' in a terminal — the script auto-detects your OS and CPU architecture and installs the latest release. Windows: open PowerShell and run \'irm https://solomd.app/install.ps1 | iex\'. Or download platform-specific installers (.dmg / .msi / .AppImage / .deb / .rpm / .apk) from https://github.com/maobukeai/catstep-md/releases/latest. Average install time: under 2 minutes on a normal connection.',
         },
         {
           q: 'What are the system requirements? Does SoloMD run on Windows 7?',
@@ -495,7 +495,7 @@ export const t = {
       items: [
         {
           q: 'SoloMD 真的免费吗？',
-          a: '是的。SoloMD 是 MIT 协议开源软件,源码在 https://github.com/zhitongblog/solomd。没有付费版,没有订阅,没有内购,没有广告,默认零遥测。对比:Typora $14.99、iA Writer $29.99、Obsidian Sync 每月 $4。SoloMD 永远 $0 —— 如果对你有帮助,可以赞助开发者一杯咖啡的钱。',
+          a: '是的。SoloMD 是 MIT 协议开源软件,源码在 https://github.com/maobukeai/catstep-md。没有付费版,没有订阅,没有内购,没有广告,默认零遥测。对比:Typora $14.99、iA Writer $29.99、Obsidian Sync 每月 $4。SoloMD 永远 $0 —— 如果对你有帮助,可以赞助开发者一杯咖啡的钱。',
         },
         {
           q: '有没有免费的 Typora 替代品？',
@@ -559,7 +559,7 @@ export const t = {
         },
         {
           q: '怎么安装 SoloMD？',
-          a: '一行命令。macOS / Linux:终端运行 \'curl -fsSL https://solomd.app/install.sh | bash\',脚本自动识别系统和 CPU 架构,装最新版。Windows:PowerShell 运行 \'irm https://solomd.app/install.ps1 | iex\'。或者去 https://github.com/zhitongblog/solomd/releases/latest 下载对应平台安装包(.dmg / .msi / .AppImage / .deb / .rpm / .apk)。正常网速下平均装机时间不到 2 分钟。',
+          a: '一行命令。macOS / Linux:终端运行 \'curl -fsSL https://solomd.app/install.sh | bash\',脚本自动识别系统和 CPU 架构,装最新版。Windows:PowerShell 运行 \'irm https://solomd.app/install.ps1 | iex\'。或者去 https://github.com/maobukeai/catstep-md/releases/latest 下载对应平台安装包(.dmg / .msi / .AppImage / .deb / .rpm / .apk)。正常网速下平均装机时间不到 2 分钟。',
         },
         {
           q: '系统要求是什么?SoloMD 能在 Windows 7 上运行吗?',
