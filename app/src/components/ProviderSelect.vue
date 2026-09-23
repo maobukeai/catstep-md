@@ -8,23 +8,41 @@ import {
 } from 'vue';
 import {
   PROVIDERS,
-  PROVIDER_CATEGORIES,
   providerById,
   type ProviderId,
   type ProviderConfig,
-  type ProviderCategory,
 } from '../lib/ai-providers';
+import {
+  availableCategories as computeAvailableCategories,
+  categoryCounts as computeCategoryCounts,
+  categoryLabel,
+  filterProviders,
+  groupProviders,
+  highlightAfterListChange,
+  indexOfProvider,
+  moveHighlight,
+  type CategoryFilter,
+} from '../lib/provider-filter';
+import { useI18n } from '../i18n';
+
+const { t, lang } = useI18n();
+
+let instanceSeq = 0;
 
 interface Props {
   modelValue: ProviderId | string;
+  /** Applied to the trigger button so an external `<label for="…">` binds to
+   *  the control rather than to the wrapper `<div>`. */
+  id?: string;
   providers?: ProviderConfig[];
   placeholder?: string;
   disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  id: undefined,
   providers: () => PROVIDERS,
-  placeholder: '选择大模型服务商...',
+  placeholder: undefined,
   disabled: false,
 });
 
@@ -33,9 +51,15 @@ const emit = defineEmits<{
   (e: 'change', value: ProviderId): void;
 }>();
 
+/** Unique per instance so the listbox ids referenced by
+ *  `aria-activedescendant` can't collide when two pickers are on screen. */
+const uid = `provider-select-${++instanceSeq}`;
+const listboxId = `${uid}-listbox`;
+const optionId = (providerId: string) => `${uid}-opt-${providerId}`;
+
 const isOpen = ref(false);
 const searchQuery = ref('');
-const activeCategory = ref<'all' | ProviderCategory>('all');
+const activeCategory = ref<CategoryFilter>('all');
 const highlightedIndex = ref(-1);
 
 const triggerRef = ref<HTMLElement | null>(null);
@@ -55,7 +79,6 @@ const popoverStyle = ref<{
   maxWidth: '460px',
 });
 
-// Selected provider object
 const currentProvider = computed<ProviderConfig | undefined>(() => {
   return (
     props.providers.find((p) => p.id === props.modelValue) ??
@@ -63,74 +86,32 @@ const currentProvider = computed<ProviderConfig | undefined>(() => {
   );
 });
 
-// Category item counts
-const categoryCounts = computed(() => {
-  const counts: Record<string, number> = { all: props.providers.length };
-  for (const cat of PROVIDER_CATEGORIES) {
-    counts[cat.id] = props.providers.filter((p) => p.category === cat.id).length;
-  }
-  return counts;
-});
+const categoryCounts = computed(() => computeCategoryCounts(props.providers));
 
-// Available categories that actually have at least 1 provider in props.providers
-const availableCategories = computed(() => {
-  return PROVIDER_CATEGORIES.filter(
-    (cat) => (categoryCounts.value[cat.id] ?? 0) > 0,
-  );
-});
+const availableCategories = computed(() => computeAvailableCategories(props.providers));
 
-// Filtered providers based on search and category
-const filteredProviders = computed(() => {
-  const q = searchQuery.value.trim().toLowerCase();
-  return props.providers.filter((p) => {
-    if (activeCategory.value !== 'all' && p.category !== activeCategory.value) {
-      return false;
-    }
-    if (!q) return true;
-    const matchLabel = p.label.toLowerCase().includes(q);
-    const matchId = p.id.toLowerCase().includes(q);
-    const matchDesc = p.description?.toLowerCase().includes(q) ?? false;
-    const matchBadge = p.badge?.toLowerCase().includes(q) ?? false;
-    return matchLabel || matchId || matchDesc || matchBadge;
-  });
-});
+const filteredProviders = computed(() =>
+  filterProviders(props.providers, searchQuery.value, activeCategory.value),
+);
 
-// Flat list of providers for keyboard navigation
+/** Flat list of providers for keyboard navigation. */
 const flatDisplayProviders = computed(() => filteredProviders.value);
 
-// Grouped providers for display
-const groupedProviders = computed(() => {
-  if (activeCategory.value !== 'all') {
-    const cat = PROVIDER_CATEGORIES.find((c) => c.id === activeCategory.value);
-    return [
-      {
-        category: cat,
-        items: filteredProviders.value,
-      },
-    ];
-  }
+const groupedProviders = computed(() =>
+  groupProviders(filteredProviders.value, activeCategory.value),
+);
 
-  // When 'all', group by category in predefined order
-  const groups: Array<{
-    category: (typeof PROVIDER_CATEGORIES)[number] | undefined;
-    items: ProviderConfig[];
-  }> = [];
-
-  for (const cat of PROVIDER_CATEGORIES) {
-    const items = filteredProviders.value.filter((p) => p.category === cat.id);
-    if (items.length > 0) {
-      groups.push({ category: cat, items });
-    }
-  }
-
-  // Any without category
-  const uncategorized = filteredProviders.value.filter((p) => !p.category);
-  if (uncategorized.length > 0) {
-    groups.push({ category: undefined, items: uncategorized });
-  }
-
-  return groups;
+/** The option the screen reader should announce as current. */
+const activeDescendant = computed(() => {
+  const items = flatDisplayProviders.value;
+  const i = highlightedIndex.value;
+  if (i < 0 || i >= items.length) return undefined;
+  return optionId(items[i].id);
 });
+
+const resolvedPlaceholder = computed(
+  () => props.placeholder ?? t('ai.providerSelectPlaceholder'),
+);
 
 function updatePosition() {
   if (!isOpen.value || !triggerRef.value) return;
@@ -172,12 +153,19 @@ function toggleOpen() {
 
 function openPopover() {
   isOpen.value = true;
+  // Reset every piece of transient state — the search box, the category tab and
+  // the highlight. The category used to survive, so a picker reopened in a
+  // different context came up still filtered to whatever tab was chosen last
+  // time (possibly a tab the user never expects to be on).
   searchQuery.value = '';
-  highlightedIndex.value = flatDisplayProviders.value.findIndex(
-    (p) => p.id === props.modelValue,
-  );
+  activeCategory.value = 'all';
   updatePosition();
   nextTick(() => {
+    // Runs after the `searchQuery` watcher has re-anchored the highlight, so
+    // "land on whatever is currently selected" is the value that wins.
+    const selected = indexOfProvider(flatDisplayProviders.value, props.modelValue);
+    highlightedIndex.value =
+      selected >= 0 ? selected : highlightAfterListChange(flatDisplayProviders.value.length);
     searchInputRef.value?.focus();
     scrollHighlightedIntoView();
   });
@@ -186,6 +174,7 @@ function openPopover() {
 function closePopover() {
   isOpen.value = false;
   searchQuery.value = '';
+  activeCategory.value = 'all';
 }
 
 function selectProvider(id: ProviderId) {
@@ -195,9 +184,12 @@ function selectProvider(id: ProviderId) {
   triggerRef.value?.focus();
 }
 
-function selectCategory(catId: 'all' | ProviderCategory) {
+function selectCategory(catId: CategoryFilter) {
   activeCategory.value = catId;
-  highlightedIndex.value = 0;
+  // The visible list changed wholesale. It used to be pinned to 0 regardless of
+  // whether the new tab had any matches at all.
+  highlightedIndex.value = highlightAfterListChange(filteredProviders.value.length);
+  scrollHighlightedIntoView();
   nextTick(() => {
     searchInputRef.value?.focus();
   });
@@ -220,6 +212,17 @@ function scrollHighlightedIntoView() {
   });
 }
 
+/**
+ * Typing re-filters the list, so the highlight has to be re-anchored to a
+ * position that still exists. It used to keep its old index, which after a
+ * search pointed at an unrelated provider — or past the end, where the
+ * `index < length` guard swallowed Enter and nothing was selected at all.
+ */
+watch(searchQuery, () => {
+  highlightedIndex.value = highlightAfterListChange(filteredProviders.value.length);
+  scrollHighlightedIntoView();
+});
+
 function onKeyDown(e: KeyboardEvent) {
   if (!isOpen.value) {
     if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
@@ -230,22 +233,35 @@ function onKeyDown(e: KeyboardEvent) {
   }
 
   const items = flatDisplayProviders.value;
-  if (items.length === 0) return;
+  if (items.length === 0) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closePopover();
+      triggerRef.value?.focus();
+    }
+    return;
+  }
 
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    highlightedIndex.value = (highlightedIndex.value + 1) % items.length;
+    highlightedIndex.value = moveHighlight(highlightedIndex.value, 1, items.length);
     scrollHighlightedIntoView();
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
-    highlightedIndex.value =
-      (highlightedIndex.value - 1 + items.length) % items.length;
+    highlightedIndex.value = moveHighlight(highlightedIndex.value, -1, items.length);
+    scrollHighlightedIntoView();
+  } else if (e.key === 'Home') {
+    e.preventDefault();
+    highlightedIndex.value = 0;
+    scrollHighlightedIntoView();
+  } else if (e.key === 'End') {
+    e.preventDefault();
+    highlightedIndex.value = items.length - 1;
     scrollHighlightedIntoView();
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    if (highlightedIndex.value >= 0 && highlightedIndex.value < items.length) {
-      selectProvider(items[highlightedIndex.value].id);
-    }
+    const target = items[highlightedIndex.value];
+    if (target) selectProvider(target.id);
   } else if (e.key === 'Escape') {
     e.preventDefault();
     closePopover();
@@ -288,6 +304,7 @@ onBeforeUnmount(() => {
   <div class="provider-select">
     <!-- Trigger Button -->
     <button
+      :id="props.id"
       ref="triggerRef"
       type="button"
       class="provider-select__trigger"
@@ -309,7 +326,7 @@ onBeforeUnmount(() => {
         </span>
       </div>
       <div v-else class="provider-select__placeholder">
-        {{ placeholder }}
+        {{ resolvedPlaceholder }}
       </div>
 
       <div class="provider-select__arrow">
@@ -362,7 +379,12 @@ onBeforeUnmount(() => {
               v-model="searchQuery"
               type="text"
               class="provider-popover__search-input"
-              placeholder="搜索模型服务商 (如: deepseek, qwen, claude)..."
+              role="combobox"
+              aria-autocomplete="list"
+              :aria-expanded="true"
+              :aria-controls="listboxId"
+              :aria-activedescendant="activeDescendant"
+              :placeholder="t('ai.providerSelectSearchPlaceholder')"
               autocomplete="off"
               spellcheck="false"
             />
@@ -370,7 +392,7 @@ onBeforeUnmount(() => {
               v-if="searchQuery"
               type="button"
               class="provider-popover__search-clear"
-              title="清除"
+              :title="t('ai.providerSelectClear')"
               @click="clearSearch"
             >
               ×
@@ -385,7 +407,7 @@ onBeforeUnmount(() => {
               :class="{ 'is-active': activeCategory === 'all' }"
               @click="selectCategory('all')"
             >
-              全部 ({{ categoryCounts.all || 0 }})
+              {{ t('ai.providerSelectAll') }} ({{ categoryCounts.all || 0 }})
             </button>
             <button
               v-for="cat in availableCategories"
@@ -395,13 +417,13 @@ onBeforeUnmount(() => {
               :class="{ 'is-active': activeCategory === cat.id }"
               @click="selectCategory(cat.id)"
             >
-              <span>{{ cat.icon }} {{ cat.name.split(' ')[0] }}</span>
+              <span>{{ cat.icon }} {{ categoryLabel(cat, lang) }}</span>
               <span class="provider-popover__cat-count">({{ categoryCounts[cat.id] || 0 }})</span>
             </button>
           </div>
 
           <!-- Providers List -->
-          <div ref="listRef" class="provider-popover__list" role="listbox">
+          <div :id="listboxId" ref="listRef" class="provider-popover__list" role="listbox">
             <template v-if="filteredProviders.length > 0">
               <div
                 v-for="group in groupedProviders"
@@ -410,12 +432,13 @@ onBeforeUnmount(() => {
               >
                 <!-- Group Header -->
                 <div v-if="group.category" class="provider-popover__group-title">
-                  <span>{{ group.category.icon }} {{ group.category.name }}</span>
+                  <span>{{ group.category.icon }} {{ categoryLabel(group.category, lang) }}</span>
                 </div>
 
                 <!-- Provider Item -->
                 <div
                   v-for="p in group.items"
+                  :id="optionId(p.id)"
                   :key="p.id"
                   class="provider-popover__item"
                   :class="{
@@ -424,6 +447,7 @@ onBeforeUnmount(() => {
                       flatDisplayProviders.findIndex((x) => x.id === p.id) === highlightedIndex,
                   }"
                   role="option"
+                  tabindex="-1"
                   :aria-selected="p.id === modelValue"
                   @click="selectProvider(p.id)"
                   @mouseenter="
@@ -468,14 +492,14 @@ onBeforeUnmount(() => {
             <!-- Empty Search State -->
             <div v-else class="provider-popover__empty">
               <div class="provider-popover__empty-text">
-                未找到与 "<strong>{{ searchQuery }}</strong>" 匹配的服务商
+                {{ t('ai.providerSelectEmpty', { q: searchQuery }) }}
               </div>
               <button
                 type="button"
                 class="provider-popover__empty-btn"
                 @click="clearSearch"
               >
-                重置搜索
+                {{ t('ai.providerSelectResetSearch') }}
               </button>
             </div>
           </div>

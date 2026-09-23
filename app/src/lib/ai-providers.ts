@@ -43,6 +43,24 @@ export type ProviderId =
 /** Wire format the Rust proxy uses to talk to the provider. */
 export type ApiFormat = 'openai' | 'anthropic' | 'ollama';
 
+/**
+ * How the credential is presented on the wire. Declared per provider instead
+ * of being guessed at request time: `ai_list_models` used to staple every
+ * plausible auth header onto one request (`Authorization`, `api-key`,
+ * `x-goog-api-key`, `x-api-key`, `anthropic-version`) and then retry with the
+ * key in the query string — strict gateways reject the surplus headers, and a
+ * key in a URL leaks into logs and error text.
+ *
+ * Mirrors `ai_proxy::AuthStrategy` on the Rust side; keep the two in sync.
+ */
+export type AuthStrategy = 'bearer' | 'anthropic' | 'google' | 'none';
+
+/**
+ * How (and whether) this vendor exposes a model list. Mirrors
+ * `ai_proxy::ModelListStrategy`.
+ */
+export type ModelListStrategy = 'openai' | 'anthropic' | 'google' | 'ollama' | 'none';
+
 /** A "preset" model surfaced as a quick-pick chip in AI Settings — one
  *  step up from the freeform `modelHint` string. v4.0 Pillar 5 introduces
  *  this for Ollama only (3 qwen2.5 variants); other providers keep the
@@ -82,13 +100,21 @@ export interface ProviderConfig {
   /** OpenAI / Anthropic / Ollama wire format. Most providers below speak
    *  the OpenAI Chat Completions format. */
   apiFormat: ApiFormat;
-  /** Default model name shown in settings + used if user leaves the field empty. */
+  /** Default model name shown in settings + used if user leaves the field empty.
+   *  Empty string means "this provider has no default the user could rely on"
+   *  — see `openai-compat`, where inventing one (`gpt-4o`) made first-run
+   *  requests fail against every LM Studio / vLLM / llama.cpp server. */
   defaultModel: string;
   /** Default endpoint; user may override. */
   defaultBaseUrl?: string;
-  /** Examples shown under the model input — surfaces the standard / coder /
-   *  reasoner model names without forcing separate dropdown entries. */
+  /** Human-readable model examples shown under the model input. NEVER parsed
+   *  — it used to be split on `/`, which silently turned the legal model id
+   *  `deepseek-ai/DeepSeek-V3` into `deepseek-ai` + `DeepSeek-V3` and made
+   *  the resulting requests 404. Use `modelIds` for machine-readable ids. */
   modelHint?: string;
+  /** Structured quick-pick model ids. This is the list the UI actually offers;
+   *  every entry is a verbatim model id, slashes and all. */
+  modelIds?: string[];
   /** Where to get an API key (button-link in settings). */
   signupUrl?: string;
   /** Optional curated quick-pick list. v4.0 Pillar 5 ships these for
@@ -101,6 +127,16 @@ export interface ProviderConfig {
    *  connection probe instead of a key-verification pill. Mirrors
    *  `ai_proxy::is_keyless_provider` on the Rust side. */
   keyless?: boolean;
+  /** Credential presentation on the wire. Mirrors `ai_proxy::AuthStrategy`. */
+  authStrategy: AuthStrategy;
+  /** Model-list probe strategy. Mirrors `ai_proxy::ModelListStrategy`. */
+  modelListStrategy: ModelListStrategy;
+  /** Whether the vendor accepts a `tools` array. Drives whether the Rust
+   *  tool-call loop attaches one, instead of discovering it via a 400. */
+  supportsTools?: boolean;
+  /** Whether the vendor streams. Every entry here does; the flag exists so a
+   *  future non-streaming vendor fails loudly instead of being mis-parsed. */
+  supportsStreaming?: boolean;
 }
 
 export const PROVIDERS: ProviderConfig[] = [
@@ -117,7 +153,12 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://api.deepseek.com/v1',
     // deepseek-chat / deepseek-reasoner were retired 2026-07-24 — V4 ids only.
     modelHint: 'deepseek-v4-pro · deepseek-v4-flash',
+    modelIds: ['deepseek-v4-pro', 'deepseek-v4-flash'],
     signupUrl: 'https://platform.deepseek.com/api_keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'qwen',
@@ -131,7 +172,22 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     modelHint:
       'qwen3-max · qwen3.5-plus · qwen-plus · qwen-flash · qwen3-coder-plus · qwen3-coder-flash · qwq-plus · qvq-max · qwen3-vl-plus',
+    modelIds: [
+      'qwen3-max',
+      'qwen3.5-plus',
+      'qwen-plus',
+      'qwen-flash',
+      'qwen3-coder-plus',
+      'qwen3-coder-flash',
+      'qwq-plus',
+      'qvq-max',
+      'qwen3-vl-plus',
+    ],
     signupUrl: 'https://bailian.console.aliyun.com/?apiKey=1',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'glm',
@@ -145,7 +201,21 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     modelHint:
       'glm-5.2 · glm-5.1 · glm-5 · glm-5-turbo · glm-4.7 · glm-4.7-flashx · glm-4.5-air · glm-5v-turbo',
+    modelIds: [
+      'glm-5.2',
+      'glm-5.1',
+      'glm-5',
+      'glm-5-turbo',
+      'glm-4.7',
+      'glm-4.7-flashx',
+      'glm-4.5-air',
+      'glm-5v-turbo',
+    ],
     signupUrl: 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'kimi',
@@ -159,7 +229,12 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://api.moonshot.cn/v1',
     modelHint:
       'kimi-k3 · kimi-k2-thinking · kimi-k2-turbo-preview · kimi-latest',
+    modelIds: ['kimi-k3', 'kimi-k2-thinking', 'kimi-k2-turbo-preview', 'kimi-latest'],
     signupUrl: 'https://platform.moonshot.cn/console/api-keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'volcengine',
@@ -173,7 +248,18 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     modelHint:
       'doubao-seed-2.1-pro · doubao-seed-2.1-turbo · doubao-seed-2.0-lite · doubao-seed-2.0-mini · doubao-seed-1.6',
+    modelIds: [
+      'doubao-seed-2.1-pro',
+      'doubao-seed-2.1-turbo',
+      'doubao-seed-2.0-lite',
+      'doubao-seed-2.0-mini',
+      'doubao-seed-1.6',
+    ],
     signupUrl: 'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'siliconflow',
@@ -187,7 +273,19 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://api.siliconflow.cn/v1',
     modelHint:
       'deepseek-ai/DeepSeek-V3 · Qwen/Qwen2.5-Coder-32B-Instruct · moonshotai/Kimi-K2-Instruct · meta-llama/Meta-Llama-3.1-70B-Instruct',
+    // These ids contain `/` and MUST survive intact — the old code split them
+    // on that character and offered `deepseek-ai` as a model name.
+    modelIds: [
+      'deepseek-ai/DeepSeek-V3',
+      'Qwen/Qwen2.5-Coder-32B-Instruct',
+      'moonshotai/Kimi-K2-Instruct',
+      'meta-llama/Meta-Llama-3.1-70B-Instruct',
+    ],
     signupUrl: 'https://cloud.siliconflow.cn/account/ak',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'minimax',
@@ -200,7 +298,12 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultModel: 'MiniMax-M3',
     defaultBaseUrl: 'https://api.minimax.io/v1',
     modelHint: 'MiniMax-M3 · MiniMax-M2.7',
+    modelIds: ['MiniMax-M3', 'MiniMax-M2.7'],
     signupUrl: 'https://platform.minimax.io/',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
 
   // ---- 国际顶级服务商 (Global) ---------------------------------------
@@ -215,7 +318,12 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultModel: 'gpt-5.6',
     defaultBaseUrl: 'https://api.openai.com/v1',
     modelHint: 'gpt-5.6 · gpt-5.6-sol · gpt-5.6-terra · gpt-5.6-luna · gpt-5.4-mini',
+    modelIds: ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4-mini'],
     signupUrl: 'https://platform.openai.com/api-keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'anthropic',
@@ -228,7 +336,12 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultModel: 'claude-sonnet-4-6',
     defaultBaseUrl: 'https://api.anthropic.com',
     modelHint: 'claude-fable-5 · claude-opus-4-8 · claude-sonnet-4-6 · claude-haiku-4-5',
+    modelIds: ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
     signupUrl: 'https://console.anthropic.com/settings/keys',
+    authStrategy: 'anthropic',
+    modelListStrategy: 'anthropic',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'gemini',
@@ -238,11 +351,24 @@ export const PROVIDERS: ProviderConfig[] = [
     icon: '✨',
     description: '谷歌前沿多模态大模型 · 百万上下文',
     apiFormat: 'openai',
-    defaultModel: 'gemini-3.1-pro-preview',
+    // Chat goes through Google's OpenAI-compatibility layer …
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModel: 'gemini-3.1-pro-preview',
     modelHint:
       'gemini-3.1-pro-preview · gemini-3.6-flash · gemini-3.5-flash · gemini-3.5-flash-lite',
+    modelIds: [
+      'gemini-3.1-pro-preview',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+    ],
     signupUrl: 'https://aistudio.google.com/apikey',
+    // … but the model list is the native Generative Language one, which needs
+    // `x-goog-api-key` and lives at `/v1beta/models` (see modelListStrategy).
+    authStrategy: 'google',
+    modelListStrategy: 'google',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'xai',
@@ -256,7 +382,18 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://api.x.ai/v1',
     modelHint:
       'grok-4.5 · grok-4.3 · grok-build-0.1 · grok-4.20-0309-reasoning · grok-4.20-0309-non-reasoning',
+    modelIds: [
+      'grok-4.5',
+      'grok-4.3',
+      'grok-build-0.1',
+      'grok-4.20-0309-reasoning',
+      'grok-4.20-0309-non-reasoning',
+    ],
     signupUrl: 'https://console.x.ai',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'mistral',
@@ -270,7 +407,19 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://api.mistral.ai/v1',
     modelHint:
       'mistral-large-3 · mistral-medium-3.1 · mistral-small-4 · magistral-medium-1.2 · devstral-2 · codestral',
+    modelIds: [
+      'mistral-large-3',
+      'mistral-medium-3.1',
+      'mistral-small-4',
+      'magistral-medium-1.2',
+      'devstral-2',
+      'codestral',
+    ],
     signupUrl: 'https://console.mistral.ai/api-keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'groq',
@@ -284,7 +433,20 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://api.groq.com/openai/v1',
     modelHint:
       'llama-3.3-70b-versatile · meta-llama/llama-4-scout-17b-16e-instruct · openai/gpt-oss-120b · qwen/qwen3-32b · groq/compound · groq/compound-mini',
+    // Groq's model ids are namespaced with `/` — keep them verbatim.
+    modelIds: [
+      'llama-3.3-70b-versatile',
+      'meta-llama/llama-4-scout-17b-16e-instruct',
+      'openai/gpt-oss-120b',
+      'qwen/qwen3-32b',
+      'groq/compound',
+      'groq/compound-mini',
+    ],
     signupUrl: 'https://console.groq.com/keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
 
   // ---- 聚合网关 (Aggregator) -----------------------------------------
@@ -300,7 +462,20 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
     modelHint:
       'anthropic/claude-sonnet-4-6 · openai/gpt-5.5 · google/gemini-3.1-pro · deepseek/deepseek-v4 · x-ai/grok-4.20 · meta-llama/llama-4-scout',
+    // `vendor/model` is the wire format here, not a display convention.
+    modelIds: [
+      'anthropic/claude-sonnet-4-6',
+      'openai/gpt-5.5',
+      'google/gemini-3.1-pro',
+      'deepseek/deepseek-v4',
+      'x-ai/grok-4.20',
+      'meta-llama/llama-4-scout',
+    ],
     signupUrl: 'https://openrouter.ai/keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
   {
     id: 'opencode-go',
@@ -314,7 +489,37 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultBaseUrl: 'https://opencode.ai/zen/go/v1',
     modelHint:
       'deepseek-v4-flash · deepseek-v4-pro · mimo-v2.5 · mimo-v2.5-pro · mimo-v2-pro · mimo-v2-omni · qwen3.8-max · qwen3.7-max · qwen3.7-plus · qwen3.6-plus · qwen3.5-plus · glm-5.2 · glm-5.1 · glm-5 · kimi-k3 · kimi-k2.7-code · kimi-k2.6 · kimi-k2.5 · minimax-m3 · minimax-m2.7 · minimax-m2.5 · gpt-5.6-luna · grok-4.5 · hy3',
+    modelIds: [
+      'deepseek-v4-flash',
+      'deepseek-v4-pro',
+      'mimo-v2.5',
+      'mimo-v2.5-pro',
+      'mimo-v2-pro',
+      'mimo-v2-omni',
+      'qwen3.8-max',
+      'qwen3.7-max',
+      'qwen3.7-plus',
+      'qwen3.6-plus',
+      'qwen3.5-plus',
+      'glm-5.2',
+      'glm-5.1',
+      'glm-5',
+      'kimi-k3',
+      'kimi-k2.7-code',
+      'kimi-k2.6',
+      'kimi-k2.5',
+      'minimax-m3',
+      'minimax-m2.7',
+      'minimax-m2.5',
+      'gpt-5.6-luna',
+      'grok-4.5',
+      'hy3',
+    ],
     signupUrl: 'https://opencode.ai/auth',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
 
   // ---- 本地与私有部署 (Local) ---------------------------------------
@@ -329,12 +534,21 @@ export const PROVIDERS: ProviderConfig[] = [
     defaultModel: 'qwen2.5:1.5b',
     defaultBaseUrl: 'http://localhost:11434',
     modelHint: 'qwen2.5 · llama3.2 · deepseek-r1 · gemma3 · mistral · phi3',
+    // Real `name:tag` ids — the hint above lists families, which are not
+    // valid model names on their own.
+    modelIds: ['qwen2.5:7b', 'qwen2.5:1.5b', 'qwen2.5:14b'],
     presets: [
       { id: 'rewrite', model: 'qwen2.5:7b', labelKey: 'ai.ollama.preset.rewrite' },
       { id: 'quick', model: 'qwen2.5:1.5b', labelKey: 'ai.ollama.preset.quick' },
       { id: 'cjk', model: 'qwen2.5:14b', labelKey: 'ai.ollama.preset.cjk' },
     ],
     keyless: true,
+    authStrategy: 'none',
+    modelListStrategy: 'ollama',
+    // Ollama's OpenAI shim is used only for chat; tools are not wired for it
+    // (see `ai_proxy::ai_chat`), so don't advertise them.
+    supportsTools: false,
+    supportsStreaming: true,
   },
   {
     id: 'openai-compat',
@@ -345,8 +559,17 @@ export const PROVIDERS: ProviderConfig[] = [
     description: 'LM Studio · vLLM · llama.cpp · 局域网/自建网关',
     apiFormat: 'openai',
     defaultBaseUrl: 'http://localhost:8080/v1',
+    // No default model on purpose. There is no model called `gpt-4o` behind
+    // LM Studio / vLLM / llama.cpp, and pre-filling one made the very first
+    // request fail with a 404 the user couldn't explain. The model comes from
+    // the server's `/models` list or from the user typing it.
     defaultModel: '',
+    modelIds: [],
     keyless: true,
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
   },
 ];
 
@@ -384,6 +607,27 @@ export function resolveProvider(id: string): string {
 export function providerById(id: string): ProviderConfig | undefined {
   const canonical = resolveProvider(id);
   return PROVIDERS.find((p) => p.id === canonical);
+}
+
+/**
+ * The machine-readable model ids to offer for a provider, in preference
+ * order. Returns the curated `modelIds` list when present, else just the
+ * single `defaultModel`.
+ *
+ * This replaced a parser that split `modelHint` on `·` and then on `/` to
+ * recover ids. Two of those steps were wrong: the `/` split corrupted every
+ * vendor-namespaced id (`deepseek-ai/DeepSeek-V3`, `anthropic/claude-…`,
+ * `meta-llama/…`), and the `:`-split intended to strip a "label: value"
+ * prefix silently truncated Ollama tags (`qwen2.5:1.5b` → `1.5b`). Model
+ * ids are opaque strings — read them from data, never re-derive them from
+ * prose.
+ */
+export function providerModelIds(id: string): string[] {
+  const cfg = providerById(id);
+  if (!cfg) return [];
+  if (cfg.modelIds && cfg.modelIds.length > 0) return [...cfg.modelIds];
+  const fallback = cfg.defaultModel.trim();
+  return fallback ? [fallback] : [];
 }
 
 export interface AIAction {

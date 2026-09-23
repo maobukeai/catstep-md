@@ -2,7 +2,12 @@ import { defineStore } from 'pinia';
 import type { Theme, ViewMode } from '../types';
 import { isIOS, isMobile } from '../lib/platform';
 import { isDarkTheme } from '../lib/themes';
-import { providerById, type ProviderId } from '../lib/ai-providers';
+import {
+  providerById,
+  providerModelIds,
+  resolveProvider,
+  type ProviderId,
+} from '../lib/ai-providers';
 
 export interface AIProviderProfile {
   id: string;
@@ -492,7 +497,35 @@ export function defaultPdfDefaults(): PdfDefaults {
   };
 }
 
+/**
+ * The AI profile a brand-new install starts with.
+ *
+ * `aiProfiles` used to default to `[]` with `activeProfileId: ''`, and the
+ * only code that ever created a profile lived in the *migration* branch of
+ * `load()` — which only runs when a saved blob exists. A genuine first run
+ * therefore had no profile at all: the setup wizard wrote to the legacy flat
+ * fields, AI Settings showed an empty list, and chat picked up a provider
+ * that no profile described. Seeding one profile makes "no profiles" a state
+ * that can only happen if the user deletes every provider on purpose.
+ */
+function firstRunAiProfile(): AIProviderProfile {
+  const provider: ProviderId = 'openai';
+  const cfg = providerById(provider);
+  const ids = providerModelIds(provider);
+  return {
+    id: `profile-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    provider,
+    name: cfg?.label || provider,
+    baseUrl: cfg?.defaultBaseUrl || '',
+    models: ids,
+    selectedModel: cfg?.defaultModel || ids[0] || '',
+    enabled: true,
+    createdAt: Date.now(),
+  };
+}
+
 function defaults(): Settings {
+  const aiProfile = firstRunAiProfile();
   return {
     theme: 'github-light',
     viewMode: 'edit',
@@ -606,8 +639,8 @@ function defaults(): Settings {
     aiProvider: 'openai',
     aiModel: '',
     aiBaseUrl: '',
-    aiProfiles: [],
-    activeProfileId: '',
+    aiProfiles: [aiProfile],
+    activeProfileId: aiProfile.id,
     workspaceBibliography: '',
     workspaceCsl: '',
     autoGitEnabled: false,
@@ -844,25 +877,17 @@ function load(): Settings {
         if (merged.aiModel && merged.aiModel.trim()) {
           initialModels.push(merged.aiModel.trim());
         }
-        if (cfg?.defaultModel && !initialModels.includes(cfg.defaultModel)) {
-          initialModels.push(cfg.defaultModel);
+        // Structured ids only. This used to re-derive ids by splitting the
+        // human-readable `modelHint` on `·` and then on `/`, which corrupted
+        // every vendor-namespaced model (`deepseek-ai/DeepSeek-V3` became
+        // `deepseek-ai`) and truncated Ollama tags at the colon.
+        for (const id of providerModelIds(pId)) {
+          if (!initialModels.includes(id)) initialModels.push(id);
         }
-        if (cfg?.modelHint) {
-          for (const segment of cfg.modelHint.split('·')) {
-            let s = segment.trim().replace(/^\(/, '').replace(/\)$/, '');
-            const colonIdx = s.indexOf(':');
-            if (colonIdx >= 0) s = s.slice(colonIdx + 1);
-            for (const m of s.split('/')) {
-              const id = m.trim();
-              if (id && !id.includes(' ') && !id.includes('…') && !id.includes('（')) {
-                if (!initialModels.includes(id)) initialModels.push(id);
-              }
-            }
-          }
-        }
-        if (initialModels.length === 0) {
-          initialModels.push('gpt-4o');
-        }
+        // No `gpt-4o` fallback: a custom OpenAI-compatible endpoint has no
+        // such model, so inventing one only produced a confusing 404 on the
+        // user's first request. An empty list is honest — the UI asks for a
+        // model (or a `/models` fetch) before the profile can be used.
 
         const defaultProfile: AIProviderProfile = {
           id: pId,
@@ -1478,9 +1503,91 @@ export const useSettingsStore = defineStore('settings', {
       this.aiProvider = p;
       const active = this.aiProfiles.find((x) => x.id === this.activeProfileId);
       if (active) {
-        active.provider = p as ProviderId;
+        const next = resolveProvider(p) as ProviderId;
+        const changed = active.provider !== next;
+        active.provider = next;
+        // A model list belongs to the vendor it came from. Flipping the
+        // provider used to leave `gpt-5.6` sitting in a DeepSeek profile,
+        // which then got sent to api.deepseek.com as-is. Re-seed from the new
+        // provider's own catalog whenever the vendor actually changes.
+        if (changed) {
+          const ids = providerModelIds(next);
+          active.models = ids.length > 0 ? ids : [];
+          active.selectedModel = providerById(next)?.defaultModel || ids[0] || '';
+          if (!active.baseUrl || active.baseUrl === '') {
+            active.baseUrl = providerById(next)?.defaultBaseUrl || '';
+          }
+        }
       }
+      this.syncActiveProfile();
       this.persist();
+    },
+    /**
+     * Make `providerId` the active AI configuration, atomically.
+     *
+     * This is the operation the Agent Setup Wizard and any "switch to vendor
+     * X" flow must go through. Before it existed, the wizard called the flat
+     * `setAiProvider` / `setAiModel` / `setAiBaseUrl` setters, each of which
+     * writes into *whatever profile is currently active*. Picking DeepSeek on
+     * a machine whose only profile was OpenAI produced a chimera: a profile
+     * with an OpenAI id and name, `provider: deepseek`, a mix of OpenAI and
+     * DeepSeek models, and a key stored under a slot nobody read. Nothing
+     * created a DeepSeek profile and `activeProfileId` never moved.
+     *
+     * Steps:
+     *   1. resolve the provider alias to its canonical id;
+     *   2. reuse that provider's existing profile if there is one, else create;
+     *   3. apply the caller's model / base URL / name overrides;
+     *   4. point `activeProfileId` at it and sync the legacy flat fields.
+     *
+     * The caller saves the API key under the returned `profile.id` — the same
+     * id every request now sends as `key_id`.
+     */
+    adoptProvider(
+      providerId: string,
+      opts?: { model?: string; baseUrl?: string; name?: string },
+    ): AIProviderProfile {
+      const canonical = resolveProvider(providerId) as ProviderId;
+      const cfg = providerById(canonical);
+      // Reuse only a profile that is genuinely this vendor. Prefer the one
+      // that is already active so re-running the wizard is idempotent.
+      let profile =
+        this.aiProfiles.find((x) => x.provider === canonical && x.id === this.activeProfileId) ??
+        this.aiProfiles.find((x) => x.provider === canonical);
+      if (!profile) {
+        const ids = providerModelIds(canonical);
+        profile = this.addAiProfile({
+          provider: canonical,
+          name: opts?.name?.trim() || cfg?.label || canonical,
+          baseUrl: opts?.baseUrl?.trim() || cfg?.defaultBaseUrl || '',
+          models: ids,
+          selectedModel: opts?.model?.trim() || cfg?.defaultModel || ids[0] || '',
+          enabled: true,
+        });
+      } else {
+        const patch: Partial<AIProviderProfile> = {};
+        const wantedModel = opts?.model?.trim();
+        if (wantedModel && !profile.models.includes(wantedModel)) {
+          // The caller knows a model this profile doesn't carry yet (e.g. the
+          // first one an Ollama install reported back).
+          patch.models = [...profile.models, wantedModel];
+          patch.selectedModel = wantedModel;
+        } else if (wantedModel) {
+          patch.selectedModel = wantedModel;
+        }
+        if (opts?.baseUrl !== undefined && opts.baseUrl.trim() !== '') {
+          patch.baseUrl = opts.baseUrl.trim();
+        }
+        if (opts?.name?.trim()) patch.name = opts.name.trim();
+        if (Object.keys(patch).length > 0) {
+          this.updateAiProfile(profile.id, patch);
+          profile = this.aiProfiles.find((x) => x.id === profile!.id) ?? profile;
+        }
+      }
+      this.activeProfileId = profile.id;
+      this.syncActiveProfile();
+      this.persist();
+      return profile;
     },
     setAiModel(m: string) {
       this.aiModel = m;

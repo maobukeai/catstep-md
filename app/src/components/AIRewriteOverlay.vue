@@ -46,6 +46,13 @@ const props = defineProps<{
   model: string;
   /** Optional base URL override. */
   baseUrl?: string;
+  /**
+   * Id of the active AI profile. This is the keychain slot the key was saved
+   * under, so it must travel with the request as `key_id` — without it the
+   * backend falls back to a slot named after the provider, which nothing
+   * writes to once profiles own their keys.
+   */
+  profileId?: string;
   /** Whether the user has stored a key for the current provider. */
   hasKey: boolean;
 }>();
@@ -88,6 +95,10 @@ const providerLabel = computed(
   () => providerById(props.provider)?.label || props.provider,
 );
 
+/** The keychain slot to read/write for this request: the profile's id when the
+ *  parent supplied one, else the legacy provider-named slot. */
+const keySlot = computed(() => props.profileId || props.provider);
+
 // Local runtimes (Ollama, a self-hosted OpenAI-compatible server) have no
 // key to miss — `keyless` on the provider config is the single source of
 // truth, mirrored by `ai_proxy::is_keyless_provider` on the Rust side.
@@ -98,8 +109,14 @@ const needsKey = computed(
 async function refreshLiveHasKey(): Promise<void> {
   try {
     liveHasKey.value = await invoke<boolean>('ai_has_key', {
-      provider: props.provider,
+      provider: keySlot.value,
     });
+    if (!liveHasKey.value && keySlot.value !== props.provider) {
+      // Legacy slot, pre-profile-scoped keys.
+      liveHasKey.value = await invoke<boolean>('ai_has_key', {
+        provider: props.provider,
+      });
+    }
   } catch {
     liveHasKey.value = false;
   }
@@ -219,7 +236,7 @@ async function startAction(a: AIAction): Promise<void> {
   }
   if (needsKey.value) {
     streamingError.value =
-      `No API key found in keychain for "${props.provider}". Open AI Settings, paste your key, click Save & verify.`;
+      `No API key found in keychain for "${providerLabel.value}". Open AI Settings, paste your key, click Save & verify.`;
     streaming.value = true;
     sentBanner.value = false;
     action.value = a;
@@ -256,6 +273,9 @@ async function startAction(a: AIAction): Promise<void> {
       user: userPrompt,
       selection: range.value.selection,
       base_url: props.baseUrl || cfg?.defaultBaseUrl || null,
+      // Same slot the key was saved under. Omitting this made the backend
+      // read a provider-named slot that no profile ever writes.
+      key_id: props.profileId || null,
       request_id: newRequestId,
     };
     await invoke<string>('ai_rewrite', { request: payload });

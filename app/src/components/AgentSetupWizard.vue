@@ -79,6 +79,16 @@ const showAdvancedUrl = ref(false);
 const cloudConfig = computed(() => providerById(cloudProvider.value));
 const cloudNeedsKey = computed(() => !cloudConfig.value?.keyless);
 
+/**
+ * Address to use for Ollama detection and adoption. Read from the Ollama
+ * profile when one exists — that is where a LAN address the user typed in AI
+ * Settings actually lives — and only then from the legacy flat field.
+ */
+const ollamaBaseUrl = computed(() => {
+  const p = settings.aiProfiles.find((x) => x.provider === 'ollama');
+  return (p?.baseUrl || settings.aiBaseUrl || '').trim();
+});
+
 function onCloudProviderChange(): void {
   cloudBaseUrl.value = cloudConfig.value?.defaultBaseUrl ?? '';
   verifyResult.value = null;
@@ -109,9 +119,28 @@ async function saveCloudKey() {
   verifyResult.value = null;
   verifyMessage.value = '';
   try {
+    const cfg = cloudConfig.value;
+    const baseUrl = cloudBaseUrl.value.trim() || cfg?.defaultBaseUrl || null;
+    // Adopt the provider FIRST, so we have a profile — and therefore a
+    // keychain slot — to save the key under. This used to be a trio of flat
+    // setters (`setAiProvider` / `setAiModel` / `setAiBaseUrl`) applied to
+    // whichever profile happened to be active: no profile was created, no
+    // `activeProfileId` moved, and the key landed in a slot the request path
+    // never read. `adoptProvider` finds-or-creates the right profile, points
+    // `activeProfileId` at it, and returns the id every request now sends as
+    // `key_id`.
+    const profile = settings.adoptProvider(cloudProvider.value, {
+      model: cfg?.defaultModel || undefined,
+      // Only persist an override; leaving the default in place means a later
+      // provider-side URL change still reaches the user.
+      baseUrl: baseUrl && baseUrl !== cfg?.defaultBaseUrl ? baseUrl : undefined,
+      name: cfg?.label,
+    });
+
     if (cloudKey.value.trim()) {
       await invoke('ai_set_key', {
-        provider: cloudProvider.value,
+        provider: profile.id,
+        keyId: profile.id,
         key: cloudKey.value.trim(),
       });
     }
@@ -120,19 +149,19 @@ async function saveCloudKey() {
     // without `apiFormat` it falls back to the provider id ("deepseek",
     // "gemini", …) and errors `unknown api_format: <id>` for every provider
     // whose id isn't literally "openai"/"anthropic"/"ollama". Pass the
-    // provider config's apiFormat + defaultBaseUrl (and the key directly,
-    // avoiding a keystore read race) so DeepSeek/Gemini/etc. verify cleanly.
-    const cfg = cloudConfig.value;
-    const baseUrl = cloudBaseUrl.value.trim() || cfg?.defaultBaseUrl || null;
+    // provider config's apiFormat + base URL (and the key directly, avoiding
+    // a keystore read race) so DeepSeek/Gemini/etc. verify cleanly.
     try {
       await invoke('ai_verify_key', {
-        provider: cloudProvider.value,
+        provider: profile.provider,
         key: cloudKey.value.trim(),
         apiFormat: cfg?.apiFormat || 'openai',
-        baseUrl,
+        baseUrl: profile.baseUrl || baseUrl,
         // Lets the Rust side fall back to a chat ping when the endpoint
-        // has no GET /models to list (#261).
-        model: cfg?.defaultModel || null,
+        // has no GET /models to list (#261), and (for Anthropic) pings the
+        // model the user actually chose instead of a hardcoded one.
+        model: profile.selectedModel || cfg?.defaultModel || null,
+        keyId: profile.id,
       });
       verifyResult.value = 'ok';
       verifyMessage.value = t('wizard.verifyOk');
@@ -141,11 +170,6 @@ async function saveCloudKey() {
       verifyMessage.value = String(e);
       // Key was saved anyway; the user can fix the model later.
     }
-    settings.setAiProvider(cloudProvider.value);
-    settings.setAiModel(cfg?.defaultModel || '');
-    // Only persist an override; leaving the default in place means a later
-    // provider-side URL change still reaches the user.
-    settings.setAiBaseUrl(baseUrl && baseUrl !== cfg?.defaultBaseUrl ? baseUrl : '');
     if (!settings.aiEnabled) settings.toggleAiEnabled();
     if (verifyResult.value === 'ok') {
       step.value = 'done';
@@ -189,7 +213,7 @@ async function detectOllama() {
   detecting.value = true;
   try {
     ollama.value = await invoke<OllamaDetect>('ollama_detect', {
-      baseUrl: settings.aiBaseUrl || undefined,
+      baseUrl: ollamaBaseUrl.value || undefined,
     });
   } catch (e) {
     toasts.error(`Ollama detect: ${e}`);
@@ -240,7 +264,7 @@ async function pullRecommended() {
     await invoke('ollama_pull', {
       model: 'qwen2.5:1.5b',
       requestId: pullRequestId,
-      baseUrl: settings.aiBaseUrl || undefined,
+      baseUrl: ollamaBaseUrl.value || undefined,
     });
     toasts.success(t('wizard.ollamaPullDone'));
     await detectOllama();
@@ -257,10 +281,15 @@ async function pullRecommended() {
 }
 
 function adoptOllama() {
-  settings.setAiProvider('ollama');
-  // Pick the first installed model, or fall back to the recommended.
+  // Same find-or-create path as the cloud branch: if the user already has an
+  // Ollama profile we switch to it (keeping whatever base URL they pointed at
+  // a LAN box), otherwise we create one. The old flat setters rewrote the
+  // active profile's provider field and left its model list behind.
   const m = ollama.value.models[0] ?? 'qwen2.5:1.5b';
-  settings.setAiModel(m);
+  settings.adoptProvider('ollama', {
+    model: m,
+    baseUrl: ollamaBaseUrl.value,
+  });
   if (!settings.aiEnabled) settings.toggleAiEnabled();
   step.value = 'done';
 }
@@ -299,12 +328,12 @@ const ollamaCanAdopt = computed(
 );
 // The address the wizard reports in its success messages: whatever the AI
 // settings point at, falling back to the canonical local one.
-const ollamaUrl = computed(() => settings.aiBaseUrl || 'http://localhost:11434');
+const ollamaUrl = computed(() => ollamaBaseUrl.value || 'http://localhost:11434');
 
 onMounted(() => {
   // Pre-detect ollama in the background so the choice card can highlight
   // the local option if it's already installed (subtle dot, no claim).
-  invoke<OllamaDetect>('ollama_detect', { baseUrl: settings.aiBaseUrl || undefined })
+  invoke<OllamaDetect>('ollama_detect', { baseUrl: ollamaBaseUrl.value || undefined })
     .then((s) => {
       ollama.value = s;
     })

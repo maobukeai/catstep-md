@@ -17,6 +17,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { safeInvoke as invoke } from '../lib/tauri-bridge';
 import {
   providerById,
+  providerModelIds,
   type ProviderId,
 } from '../lib/ai-providers';
 import ProviderSelect from './ProviderSelect.vue';
@@ -97,7 +98,11 @@ const profileNewModelInput = ref<Record<string, string>>({});
 async function refreshProfileHasKey(profileId: string, provider: string): Promise<boolean> {
   let ok = false;
   try {
-    ok = await invoke<boolean>('ai_has_key', { provider: profileId });
+    // The profile id IS the keychain slot. `keyId` is passed alongside so the
+    // backend's slot resolution is explicit rather than inferred, and the
+    // provider-named lookup stays only as a legacy fallback for keys saved
+    // before profiles owned their credentials.
+    ok = await invoke<boolean>('ai_has_key', { provider: profileId, keyId: profileId });
     if (!ok && profileId !== provider) {
       ok = await invoke<boolean>('ai_has_key', { provider });
     }
@@ -160,7 +165,7 @@ async function onSaveKeyForProfile(profile: AIProviderProfile): Promise<void> {
       model: profile.selectedModel || profile.models[0] || cfg?.defaultModel || null,
       keyId: profile.id,
     });
-    await invoke('ai_set_key', { provider: profile.id, key });
+    await invoke('ai_set_key', { provider: profile.id, keyId: profile.id, key });
     profileKeyInputs.value[profile.id] = '';
     await refreshProfileHasKey(profile.id, profile.provider);
     diagnosisMap.value[profile.id] = {
@@ -182,7 +187,7 @@ async function onSaveKeyForProfile(profile: AIProviderProfile): Promise<void> {
 async function onClearKeyForProfile(profile: AIProviderProfile): Promise<void> {
   profileKeySaving.value[profile.id] = true;
   try {
-    await invoke('ai_clear_key', { provider: profile.id });
+    await invoke('ai_clear_key', { provider: profile.id, keyId: profile.id });
     if (profile.id !== profile.provider) {
       await invoke('ai_clear_key', { provider: profile.provider });
     }
@@ -296,21 +301,8 @@ function onDeleteProfile(profile: AIProviderProfile): void {
 }
 
 function getHintModelsForProvider(providerId: ProviderId): string[] {
-  const cfg = providerById(providerId);
-  if (!cfg?.modelHint) return [];
-  const out: string[] = [];
-  for (const segment of cfg.modelHint.split('·')) {
-    let s = segment.trim().replace(/^\(/, '').replace(/\)$/, '');
-    const colonIdx = s.indexOf(':');
-    if (colonIdx >= 0) s = s.slice(colonIdx + 1);
-    for (const m of s.split('/')) {
-      const id = m.trim();
-      if (id && !id.includes(' ') && !id.includes('…') && !id.includes('（')) {
-        if (!out.includes(id)) out.push(id);
-      }
-    }
-  }
-  return out;
+  // Structured ids only — no string parsing. See `providerModelIds`.
+  return providerModelIds(providerId);
 }
 
 // ---------------------------------------------------------------------------
@@ -371,6 +363,25 @@ function removeModelFromNewProvider(m: string): void {
 
 async function confirmAddProvider(): Promise<void> {
   const name = newProviderName.value.trim() || newProviderTemplate.value;
+  const cfg = providerById(newProviderTemplate.value);
+  // Fall back to the provider's own default model, never to a hardcoded
+  // OpenAI one. `openai-compat` deliberately has no default: LM Studio /
+  // vLLM / llama.cpp are not serving `gpt-4o`, so pre-filling it turned the
+  // first request into an unexplainable 404.
+  const fallbackModel = cfg?.defaultModel?.trim() || '';
+  const models =
+    newProviderModels.value.length > 0
+      ? [...newProviderModels.value]
+      : fallbackModel
+        ? [fallbackModel]
+        : [];
+  // A provider with neither a curated default nor a user-supplied model
+  // cannot be called — say so here instead of saving a profile that is
+  // guaranteed to fail on first use.
+  if (models.length === 0) {
+    addError.value = t('ai.needModelBeforeSave');
+    return;
+  }
   addingProvider.value = true;
   addError.value = '';
   try {
@@ -378,14 +389,15 @@ async function confirmAddProvider(): Promise<void> {
       provider: newProviderTemplate.value,
       name,
       baseUrl: newProviderBaseUrl.value.trim() || undefined,
-      models: newProviderModels.value.length > 0 ? [...newProviderModels.value] : ['gpt-4o'],
-      selectedModel: newProviderModels.value[0] || 'gpt-4o',
+      models,
+      selectedModel: models[0],
       enabled: true,
     });
 
     if (newProviderKey.value.trim()) {
       await invoke('ai_set_key', {
         provider: profile.id,
+        keyId: profile.id,
         key: newProviderKey.value.trim(),
       });
       await refreshProfileHasKey(profile.id, profile.provider);

@@ -1363,10 +1363,21 @@ async function send() {
   showMentionMenu.value = false;
   autoscroll();
 
-  const cfg = providerById(settings.aiProvider as ProviderId);
+  // Resolve everything from the ACTIVE PROFILE, not from the flat
+  // `settings.aiProvider` / `aiModel` / `aiBaseUrl` mirrors. The mirrors are
+  // kept in sync by `syncActiveProfile()` for legacy readers, but the key we
+  // are about to use is stored under the profile's id — so the provider,
+  // model and endpoint must come from that same profile or the request and
+  // the credential can describe two different vendors. That mismatch is
+  // exactly what made a saved-and-verified key look unconfigured at chat time.
+  const activeProfile = settings.aiProfiles.find(
+    (p) => p.id === settings.activeProfileId,
+  );
+  const activeProviderId = (activeProfile?.provider ?? settings.aiProvider) as ProviderId;
+  const cfg = providerById(activeProviderId);
   const apiFormat = cfg?.apiFormat || 'openai';
-  const model = settings.aiModel || cfg?.defaultModel || '';
-  const baseUrl = settings.aiBaseUrl || cfg?.defaultBaseUrl || null;
+  const model = activeProfile?.selectedModel || settings.aiModel || cfg?.defaultModel || '';
+  const baseUrl = activeProfile?.baseUrl || settings.aiBaseUrl || cfg?.defaultBaseUrl || null;
   const isOllama = apiFormat === 'ollama';
   const isToolAllowed = settings.agentAllowWrite && !isOllama;
 
@@ -1554,11 +1565,16 @@ async function send() {
   try {
     await invoke<string>('ai_chat', {
       request: {
-        provider: settings.aiProvider,
+        provider: activeProviderId,
         api_format: apiFormat,
         model,
         messages,
         base_url: baseUrl,
+        // The keychain slot this request authenticates with. Must be the
+        // profile's own id: profiles save under `profile-<ts>-<rand>`, and
+        // omitting this made the backend fall back to reading a slot named
+        // after the provider — a slot nothing had ever written to.
+        key_id: activeProfile?.id ?? null,
         // v4.0 — let the model decide which tools to call. The Rust side
         // passes `null` ⇒ all read-only tools by default; write tools
         // need explicit `allow_write: true`.

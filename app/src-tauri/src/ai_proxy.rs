@@ -87,6 +87,183 @@ fn with_optional_bearer(rb: reqwest::RequestBuilder, key: &str) -> reqwest::Requ
     }
 }
 
+// ---------------------------------------------------------------------------
+// Provider capabilities
+// ---------------------------------------------------------------------------
+//
+// Each vendor's dialect is declared here instead of being discovered at
+// request time. `ai_list_models` used to staple every plausible credential
+// header onto one request — `Authorization`, `api-key`, `x-goog-api-key`,
+// `x-api-key`, `anthropic-version` — and then retry with the key in the query
+// string when that failed. Three problems with that: strict gateways reject
+// the surplus headers, the query-string retry writes the key into logs and
+// error text, and "try everything" silently masked a wrong endpoint instead of
+// reporting it. Mirrored by `authStrategy` / `modelListStrategy` in
+// `app/src/lib/ai-providers.ts`; keep the two in sync.
+
+/// How a provider wants its credential presented.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthStrategy {
+    /// `Authorization: Bearer <key>` — OpenAI and every compatible vendor,
+    /// gateway, aggregator and self-hosted runtime.
+    Bearer,
+    /// `x-api-key` + `anthropic-version`.
+    Anthropic,
+    /// `x-goog-api-key` (Google Generative Language API).
+    Google,
+    /// No credential (local runtime).
+    None,
+}
+
+/// How (and whether) a provider exposes a model list.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelListStrategy {
+    /// `GET {base}/models`, OpenAI envelope.
+    OpenAi,
+    /// `GET {root}/v1/models`, Anthropic envelope.
+    Anthropic,
+    /// `GET {root}/v1beta/models`, Google envelope.
+    Google,
+    /// `GET {base}/api/tags`, Ollama envelope.
+    Ollama,
+    /// The vendor has no list endpoint at all — don't probe, say so.
+    None,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ProviderCaps {
+    pub auth: AuthStrategy,
+    pub models: ModelListStrategy,
+    pub supports_tools: bool,
+    pub supports_streaming: bool,
+}
+
+/// Capability declaration for a provider id (aliases resolved first).
+pub fn provider_caps(provider: &str) -> ProviderCaps {
+    let openai_like = ProviderCaps {
+        auth: AuthStrategy::Bearer,
+        models: ModelListStrategy::OpenAi,
+        supports_tools: true,
+        supports_streaming: true,
+    };
+    match resolve_provider(provider) {
+        "anthropic" => ProviderCaps {
+            auth: AuthStrategy::Anthropic,
+            models: ModelListStrategy::Anthropic,
+            supports_tools: true,
+            supports_streaming: true,
+        },
+        "gemini" => ProviderCaps {
+            auth: AuthStrategy::Google,
+            models: ModelListStrategy::Google,
+            supports_tools: true,
+            supports_streaming: true,
+        },
+        "ollama" => ProviderCaps {
+            auth: AuthStrategy::None,
+            models: ModelListStrategy::Ollama,
+            // The panel never wires tools for Ollama (the open models we ship
+            // don't emit reliable tool_use blocks), so don't offer them.
+            supports_tools: false,
+            supports_streaming: true,
+        },
+        // `openai-compat` plus anything unrecognised: plain OpenAI dialect.
+        _ => openai_like,
+    }
+}
+
+/// Apply the provider's declared credential presentation to a request.
+fn apply_auth(
+    rb: reqwest::RequestBuilder,
+    auth: AuthStrategy,
+    key: &str,
+) -> reqwest::RequestBuilder {
+    match auth {
+        AuthStrategy::None => rb,
+        AuthStrategy::Bearer => with_optional_bearer(rb, key),
+        AuthStrategy::Anthropic => rb
+            .header("x-api-key", key)
+            .header("anthropic-version", "2023-06-01"),
+        AuthStrategy::Google => rb.header("x-goog-api-key", key),
+    }
+}
+
+/// The keychain slot a request reads/writes: the caller's profile id when one
+/// was supplied, else the legacy provider-named slot.
+///
+/// Profiles save their keys under `profile-<timestamp>-<rand>`, so a request
+/// that omits `key_id` looks in a slot nothing ever writes to — which is why a
+/// key that AI Settings had just "saved and verified" was still missing at
+/// chat time. The provider fallback stays for keys stored before profiles
+/// owned credentials.
+fn key_slot<'a>(key_id: Option<&'a str>, provider: &'a str) -> &'a str {
+    match key_id {
+        Some(s) if !s.trim().is_empty() => s,
+        _ => provider,
+    }
+}
+
+/// Read the credential for a request: the profile's slot, falling back to the
+/// provider-named slot once (and only once — no double read when they match).
+fn read_key_for(key_id: Option<&str>, provider: &str) -> Result<String, String> {
+    let slot = key_slot(key_id, provider);
+    match read_key(slot) {
+        Ok(k) => Ok(k),
+        Err(e) => {
+            if slot == provider {
+                Err(e)
+            } else {
+                read_key(provider)
+            }
+        }
+    }
+}
+
+/// Root of the Anthropic Messages API for a (possibly user-supplied) base URL.
+/// A base that already ends in `/v1` — which people paste, since that is what
+/// every Anthropic example shows — must not become `/v1/v1/messages`.
+fn anthropic_v1_root(base_url: Option<&str>) -> String {
+    let base = base_url
+        .map(str::trim)
+        .map(|s| s.trim_end_matches('/'))
+        .filter(|s| !s.is_empty())
+        .unwrap_or("https://api.anthropic.com");
+    if base.ends_with("/v1") {
+        base.to_string()
+    } else {
+        format!("{base}/v1")
+    }
+}
+
+/// `…/v1/messages`, `…/v1/models` — the URL the real request uses AND the URL
+/// verification must use. They used to disagree: verification hardcoded
+/// `https://api.anthropic.com/v1/messages` with `claude-haiku-4-5` while chat
+/// honoured the user's base URL and model, so a working custom gateway could
+/// fail verification and vice versa.
+fn anthropic_endpoint(base_url: Option<&str>, path: &str) -> String {
+    format!("{}/{}", anthropic_v1_root(base_url), path)
+}
+
+/// Native Generative Language root (`…/v1beta`) for a base URL that may be
+/// either the OpenAI-compatibility base (`…/v1beta/openai`) or the native one.
+///
+/// The old code appended `/v1beta/models` to whatever base it had, so the
+/// default Gemini base produced
+/// `https://generativelanguage.googleapis.com/v1beta/openai/v1beta/models`.
+fn google_v1beta_root(base_url: Option<&str>) -> String {
+    let raw = base_url
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("https://generativelanguage.googleapis.com/v1beta");
+    let trimmed = raw.trim_end_matches('/');
+    let native = trimmed.strip_suffix("/openai").unwrap_or(trimmed);
+    if native.ends_with("/v1beta") || native.ends_with("/v1") {
+        native.to_string()
+    } else {
+        format!("{native}/v1beta")
+    }
+}
+
 /// Clean up a user-typed OpenAI-compatible base URL.
 ///
 /// The convention (same as the OpenAI SDK) is that the base already carries
@@ -182,6 +359,14 @@ pub struct RewriteRequest {
     /// non-default Ollama port). Empty / missing = provider default.
     #[serde(default)]
     pub base_url: Option<String>,
+    /// Keychain slot to authenticate with. Callers send the active AI
+    /// profile's id here; when absent we fall back to the provider-named slot
+    /// for keys stored before profiles owned their credentials. Same field and
+    /// same rule as `ChatRequest::key_id` — the two paths must not disagree,
+    /// or the panel and the inline rewrite authenticate against different
+    /// credentials for the same settings screen.
+    #[serde(default)]
+    pub key_id: Option<String>,
     /// Optional caller-provided request id. When present, the backend uses
     /// this instead of `make_request_id()` so the frontend can wire its
     /// event listeners BEFORE invoking the command — closes a race where
@@ -436,7 +621,7 @@ pub async fn ai_verify_key(
     model: Option<String>,
     key_id: Option<String>,
 ) -> Result<String, String> {
-    let key_slot = key_id.as_deref().unwrap_or(&provider);
+    let caps = provider_caps(&provider);
     let format = wire_format(&api_format.unwrap_or_else(|| provider.clone()));
     let key_str = match key {
         Some(k) if !k.trim().is_empty() => k,
@@ -444,9 +629,9 @@ pub async fn ai_verify_key(
         // server) verifies fine with no key at all — don't fail the probe
         // just because the keychain has nothing for it.
         _ if is_keyless_provider(&provider) => {
-            read_key(key_slot).or_else(|_| read_key(&provider)).unwrap_or_default()
+            read_key_for(key_id.as_deref(), &provider).unwrap_or_default()
         }
-        _ => match read_key(key_slot).or_else(|_| read_key(&provider)) {
+        _ => match read_key_for(key_id.as_deref(), &provider) {
             Ok(k) => k,
             Err(e) => return Err(e),
         },
@@ -458,8 +643,10 @@ pub async fn ai_verify_key(
     match format.as_str() {
         "openai" => {
             let base = openai_base(base_url.as_deref());
+            // The OpenAI-compatibility surface lives at `{base}/models` for
+            // every vendor that exposes one, including Gemini's `/v1beta/openai`.
             let url = format!("{base}/models");
-            let res = with_optional_bearer(client.get(&url), &key_str)
+            let res = apply_auth(client.get(&url), caps.auth, &key_str)
                 .send()
                 .await
                 .map_err(|e| format!("network: {e}"))?;
@@ -496,24 +683,62 @@ pub async fn ai_verify_key(
             }
         }
         "anthropic" => {
-            // Anthropic doesn't have a free /models endpoint — send a 1-token ping.
-            let url = "https://api.anthropic.com/v1/messages";
+            // Verify the endpoint the user actually configured, not a
+            // hardcoded host. This used to POST to `api.anthropic.com` with
+            // `claude-haiku-4-5` no matter what the caller passed, so a
+            // working custom gateway failed verification while a broken
+            // custom base URL passed it.
+            let base = base_url.as_deref();
+            // Anthropic serves `GET /v1/models` — try that first, since it
+            // costs nothing and doesn't depend on the model being valid.
+            let models_url = anthropic_endpoint(base, "models");
+            let res = apply_auth(client.get(&models_url), AuthStrategy::Anthropic, &key_str)
+                .send()
+                .await
+                .map_err(|e| format!("network: {e}"))?;
+            let status = res.status();
+            if status.is_success() {
+                let body: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+                let n = body
+                    .get("data")
+                    .and_then(|d| d.as_array())
+                    .map(|a| a.len())
+                    .unwrap_or(0);
+                return Ok(format!("OK · {n} models available"));
+            }
+            if status == reqwest::StatusCode::UNAUTHORIZED
+                || status == reqwest::StatusCode::FORBIDDEN
+            {
+                let txt = res.text().await.unwrap_or_default();
+                return Err(format!("HTTP {status}: {}", truncate(&txt, 200)));
+            }
+            // Gateways that only proxy `/v1/messages` will 404 the list —
+            // fall back to a 1-token ping on the caller's own model.
+            let list_txt = res.text().await.unwrap_or_default();
+            let model = model
+                .as_deref()
+                .map(str::trim)
+                .filter(|m| !m.is_empty())
+                .ok_or_else(|| {
+                    format!(
+                        "HTTP {status}: {} · no model name configured to test with",
+                        truncate(&list_txt, 160)
+                    )
+                })?;
+            let url = anthropic_endpoint(base, "messages");
             let body = serde_json::json!({
-                "model": "claude-haiku-4-5",
+                "model": model,
                 "max_tokens": 1,
                 "messages": [{"role":"user","content":"ping"}]
             });
-            let res = client
-                .post(url)
-                .header("x-api-key", &key_str)
-                .header("anthropic-version", "2023-06-01")
+            let res = apply_auth(client.post(&url), AuthStrategy::Anthropic, &key_str)
                 .json(&body)
                 .send()
                 .await
                 .map_err(|e| format!("network: {e}"))?;
             let status = res.status();
             if status.is_success() {
-                Ok("OK · key accepted".to_string())
+                Ok(format!("OK · {model} responded"))
             } else {
                 let txt = res.text().await.unwrap_or_default();
                 Err(format!("HTTP {status}: {}", truncate(&txt, 200)))
@@ -634,8 +859,16 @@ fn extract_models_from_json(json: &serde_json::Value) -> Vec<String> {
     models
 }
 
-/// `GET {base}/models` against any provider/server and return the
-/// model ids it advertises.
+/// `GET {base}/models` against the provider and return the model ids it
+/// advertises.
+///
+/// One request, aimed with the provider's declared `ModelListStrategy`. The
+/// previous version built a list of guessed URLs and, on any 404/401, retried
+/// with the API key appended as `?key=…` after stapling five different auth
+/// headers onto the first attempt. That had to go: keys in query strings end
+/// up in server logs and in the error text we show the user, and "try
+/// everything" reported a wrong endpoint as a generic failure instead of the
+/// endpoint's own answer.
 #[tauri::command]
 pub async fn ai_list_models(
     provider: String,
@@ -643,22 +876,46 @@ pub async fn ai_list_models(
     key: Option<String>,
     key_id: Option<String>,
 ) -> ModelProbe {
-    let key_slot = key_id.as_deref().unwrap_or(&provider);
+    let caps = provider_caps(&provider);
+    let strategy = caps.models;
     let default_base = default_base_for_provider(&provider);
-    let raw_base = match base_url.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        Some(b) => b,
-        None => default_base.unwrap_or("https://api.openai.com/v1"),
-    };
+    let supplied = base_url.as_deref().map(str::trim).filter(|s| !s.is_empty());
 
-    let base = if provider == "ollama" {
-        ollama_addr::base_url(Some(raw_base))
-    } else {
-        normalize_openai_base(raw_base).unwrap_or_else(|| raw_base.trim_end_matches('/').to_string())
+    if strategy == ModelListStrategy::None {
+        return ModelProbe {
+            ok: false,
+            models: Vec::new(),
+            url: String::new(),
+            error: Some(format!(
+                "{provider} has no model-list endpoint here — enter the model name manually"
+            )),
+        };
+    }
+
+    // The list endpoint does not always share the chat base. Gemini chats
+    // against `…/v1beta/openai` but lists on `…/v1beta/models`, and Anthropic's
+    // base is the bare host while both endpoints live under `/v1`.
+    let base = match strategy {
+        ModelListStrategy::Ollama => ollama_addr::base_url(supplied.or(default_base)),
+        ModelListStrategy::Anthropic => anthropic_v1_root(supplied.or(default_base)),
+        ModelListStrategy::Google => google_v1beta_root(supplied.or(default_base)),
+        ModelListStrategy::OpenAi => {
+            let raw = supplied.or(default_base).unwrap_or("https://api.openai.com/v1");
+            normalize_openai_base(raw)
+                .unwrap_or_else(|| raw.trim_end_matches('/').to_string())
+        }
+        ModelListStrategy::None => unreachable!("handled above"),
     };
 
     let key_str = match key {
         Some(k) if !k.trim().is_empty() => k.trim().to_string(),
-        _ => read_key(key_slot).or_else(|_| read_key(&provider)).unwrap_or_default(),
+        _ => read_key_for(key_id.as_deref(), &provider).unwrap_or_default(),
+    };
+
+    let url = match strategy {
+        ModelListStrategy::Ollama => format!("{base}/api/tags"),
+        // Anthropic base is already the `/v1` root; Google's is the `v1beta`.
+        _ => format!("{base}/models"),
     };
 
     let client = match reqwest::Client::builder()
@@ -669,118 +926,89 @@ pub async fn ai_list_models(
         Ok(c) => c,
         Err(e) => {
             return ModelProbe {
-                url: base,
+                url,
                 error: Some(e.to_string()),
                 ..Default::default()
             }
         }
     };
 
-    let mut candidate_urls = Vec::new();
-    if provider == "ollama" {
-        candidate_urls.push(format!("{base}/api/tags"));
-        candidate_urls.push(format!("{base}/v1/models"));
-    } else {
-        candidate_urls.push(format!("{base}/models"));
-        if provider == "gemini" || base.contains("googleapis.com") || base.contains("google-ai-studio") {
-            candidate_urls.push(format!("{base}/v1beta/models"));
-        }
-    }
-
-    let mut last_error = None;
-    let mut chosen_url = candidate_urls[0].clone();
-
-    for url in candidate_urls {
-        chosen_url = url.clone();
-        let mut req_builder = client.get(&url);
-        if !key_str.is_empty() {
-            req_builder = with_optional_bearer(req_builder, &key_str);
-            req_builder = req_builder.header("api-key", &key_str);
-            req_builder = req_builder.header("x-goog-api-key", &key_str);
-            req_builder = req_builder.header("x-api-key", &key_str);
-            req_builder = req_builder.header("anthropic-version", "2023-06-01");
-        }
-
-        let resp_res = req_builder.send().await;
-        let resp = match resp_res {
-            Ok(r) => r,
-            Err(e) => {
-                last_error = Some(format!("network: {e}"));
-                continue;
+    let resp = match apply_auth(client.get(&url), caps.auth, &key_str).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            return ModelProbe {
+                url,
+                error: Some(format!("network: {e}")),
+                ..Default::default()
             }
-        };
-
-        let status = resp.status();
-        if !status.is_success() {
-            if (status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::UNAUTHORIZED)
-                && !key_str.is_empty()
-                && !url.contains("key=")
-            {
-                let sep = if url.contains('?') { '&' } else { '?' };
-                let alt_url = format!("{url}{sep}key={key_str}");
-                if let Ok(alt_resp) = client.get(&alt_url).send().await {
-                    if alt_resp.status().is_success() {
-                        if let Ok(json) = alt_resp.json::<serde_json::Value>().await {
-                            let models = extract_models_from_json(&json);
-                            if !models.is_empty() {
-                                return ModelProbe {
-                                    ok: true,
-                                    models,
-                                    url: alt_url,
-                                    error: None,
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-
-            let txt = resp.text().await.unwrap_or_default();
-            last_error = Some(format!("HTTP {status}: {}", truncate(&txt, 160)));
-            continue;
         }
+    };
 
-        let json: serde_json::Value = match resp.json().await {
-            Ok(v) => v,
-            Err(e) => {
-                last_error = Some(format!("bad JSON: {e}"));
-                continue;
-            }
-        };
-
-        let models = extract_models_from_json(&json);
+    let status = resp.status();
+    if !status.is_success() {
+        let txt = resp.text().await.unwrap_or_default();
         return ModelProbe {
-            ok: true,
-            models,
-            url: chosen_url,
-            error: None,
+            ok: false,
+            models: Vec::new(),
+            url,
+            error: Some(format!("HTTP {status}: {}", truncate(&txt, 160))),
         };
     }
+
+    let json: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            return ModelProbe {
+                ok: false,
+                models: Vec::new(),
+                url,
+                error: Some(format!("bad JSON: {e}")),
+            }
+        }
+    };
 
     ModelProbe {
-        ok: false,
-        models: Vec::new(),
-        url: chosen_url,
-        error: last_error,
+        ok: true,
+        models: extract_models_from_json(&json),
+        url,
+        error: None,
     }
 }
 
+/// Store an API key. `key_id` is the profile id the key belongs to; when the
+/// caller omits it the key lands in the provider-named slot, which is the
+/// pre-multi-profile convention. Prefer passing `key_id` — every request path
+/// resolves the profile slot first, so a key written to the provider slot is
+/// only found via the legacy fallback.
 #[tauri::command]
-pub fn ai_set_key(app: AppHandle, provider: String, key: String) -> Result<(), String> {
+pub fn ai_set_key(
+    app: AppHandle,
+    provider: String,
+    key: String,
+    key_id: Option<String>,
+) -> Result<(), String> {
     ai_keystore::prime_config_dir(&app);
-    ai_keystore::set_key(&provider, &key)
+    ai_keystore::set_key(key_slot(key_id.as_deref(), &provider), &key)
 }
 
 #[tauri::command]
-pub fn ai_has_key(app: AppHandle, provider: String) -> Result<bool, String> {
+pub fn ai_has_key(
+    app: AppHandle,
+    provider: String,
+    key_id: Option<String>,
+) -> Result<bool, String> {
     ai_keystore::prime_config_dir(&app);
-    ai_keystore::has_key(&provider)
+    ai_keystore::has_key(key_slot(key_id.as_deref(), &provider))
 }
 
 #[tauri::command]
-pub fn ai_clear_key(app: AppHandle, provider: String) -> Result<(), String> {
+pub fn ai_clear_key(
+    app: AppHandle,
+    provider: String,
+    key_id: Option<String>,
+) -> Result<(), String> {
     ai_keystore::prime_config_dir(&app);
-    ai_keystore::clear_key(&provider)
+    ai_keystore::clear_key(key_slot(key_id.as_deref(), &provider))
 }
 
 fn read_key(provider: &str) -> Result<String, String> {
@@ -852,16 +1080,27 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
             .unwrap_or_else(|| request.provider.clone()),
     );
 
-    let key_slot = request.key_id.as_deref().unwrap_or(&request.provider);
+    // Every runner below is written against a streamed response. A provider
+    // declared non-streaming would be parsed as if it were streaming and fail
+    // in a confusing way, so refuse up front instead.
+    if !provider_caps(&request.provider).supports_streaming {
+        drop_cancel_flag(&request_id);
+        return Err(format!(
+            "{} does not support streaming responses, which this client requires",
+            request.provider
+        ));
+    }
+
+    let key_id = request.key_id.clone().filter(|s| !s.trim().is_empty());
 
     // Ollama and self-hosted OpenAI-compatible servers have no account
     // behind them: an absent key is the normal case, not a failure.
     let api_key = if format == "ollama" {
         String::new()
     } else if is_keyless_provider(&request.provider) {
-        read_key(key_slot).or_else(|_| read_key(&request.provider)).unwrap_or_default()
+        read_key_for(key_id.as_deref(), &request.provider).unwrap_or_default()
     } else {
-        match read_key(key_slot).or_else(|_| read_key(&request.provider)) {
+        match read_key_for(key_id.as_deref(), &request.provider) {
             Ok(k) => k,
             Err(e) => {
                 drop_cancel_flag(&request_id);
@@ -1044,14 +1283,22 @@ pub async fn ai_rewrite(app: AppHandle, request: RewriteRequest) -> Result<Strin
             .unwrap_or_else(|| request.provider.clone()),
     );
 
+    if !provider_caps(&request.provider).supports_streaming {
+        drop_cancel_flag(&request_id);
+        return Err(format!(
+            "{} does not support streaming responses, which this client requires",
+            request.provider
+        ));
+    }
+
     // Ollama and self-hosted OpenAI-compatible servers don't need a key —
     // every hosted provider does.
     let api_key = if format == "ollama" {
         String::new()
     } else if is_keyless_provider(&request.provider) {
-        read_key(&request.provider).unwrap_or_default()
+        read_key_for(request.key_id.as_deref(), &request.provider).unwrap_or_default()
     } else {
-        match read_key(&request.provider) {
+        match read_key_for(request.key_id.as_deref(), &request.provider) {
             Ok(k) => k,
             Err(e) => {
                 drop_cancel_flag(&request_id);
@@ -1116,6 +1363,21 @@ fn http_client() -> Result<reqwest::Client, String> {
 
 fn cancelled() -> String {
     "cancelled".to_string()
+}
+
+/// Returned by every streaming runner when the connection ends without the
+/// provider's completion marker (`[DONE]`, `message_stop`, `done: true`).
+///
+/// This has to be an error rather than "return what we got": a dropped
+/// connection a third of the way through a rewrite otherwise reaches the UI as
+/// a finished answer. The partial text is deliberately not emitted — a
+/// truncated rewrite silently applied to the user's document is worse than a
+/// visible failure they can retry.
+fn stream_ended_early(provider: &str) -> String {
+    format!(
+        "{provider} stream ended before the completion marker — the connection closed \
+         early and the partial output was discarded. Check your network and retry."
+    )
 }
 
 fn emit_chunk(app: &AppHandle, request_id: &str, chunk: &str) {
@@ -1185,12 +1447,35 @@ async fn run_openai(
     let mut full = String::new();
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    // Terminal markers. `[DONE]` ends an OpenAI stream; a non-empty
+    // `finish_reason` counts too, because a few OpenAI-compatible servers
+    // close the connection without ever sending `[DONE]`. Neither one means
+    // the connection dropped mid-answer, which used to be indistinguishable
+    // from success: the runner returned whatever had arrived and the overlay
+    // showed half a rewrite as if it were the whole thing.
+    let mut saw_done = false;
+    let mut finish_reason = String::new();
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => {
+                eof = true;
+                // A final event can still be sitting in the buffer without its
+                // terminating blank line — the server closed right after the
+                // last `data:`. Give it the separator it was missing so it is
+                // parsed like every other event instead of being dropped.
+                if !buf.trim().is_empty() {
+                    buf.push_str("\n\n");
+                }
+            }
         }
-        let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         // Process complete SSE events terminated by blank line.
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
@@ -1209,12 +1494,23 @@ async fn run_openai(
                     None => continue,
                 };
                 if payload == "[DONE]" {
-                    return Ok(full);
+                    saw_done = true;
+                    break 'stream;
                 }
                 let json: serde_json::Value = match serde_json::from_str(payload) {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
+                if let Some(reason) = json
+                    .get("choices")
+                    .and_then(|c| c.get(0))
+                    .and_then(|c| c.get("finish_reason"))
+                    .and_then(|s| s.as_str())
+                {
+                    if !reason.is_empty() {
+                        finish_reason = reason.to_string();
+                    }
+                }
                 if let Some(content) = json
                     .get("choices")
                     .and_then(|c| c.get(0))
@@ -1229,6 +1525,9 @@ async fn run_openai(
                 }
             }
         }
+    }
+    if !saw_done && finish_reason.is_empty() {
+        return Err(stream_ended_early("openai"));
     }
     Ok(full)
 }
@@ -1275,12 +1574,25 @@ async fn run_chat_openai(
     let mut full = String::new();
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    let mut saw_done = false;
+    let mut finish_reason = String::new();
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => {
+                eof = true;
+                if !buf.trim().is_empty() {
+                    buf.push_str("\n\n");
+                }
+            }
         }
-        let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
             let after = if buf[idx..].starts_with("\r\n\r\n") {
@@ -1297,12 +1609,23 @@ async fn run_chat_openai(
                     None => continue,
                 };
                 if payload == "[DONE]" {
-                    return Ok(full);
+                    saw_done = true;
+                    break 'stream;
                 }
                 let json: serde_json::Value = match serde_json::from_str(payload) {
                     Ok(v) => v,
                     Err(_) => continue,
                 };
+                if let Some(reason) = json
+                    .get("choices")
+                    .and_then(|c| c.get(0))
+                    .and_then(|c| c.get("finish_reason"))
+                    .and_then(|s| s.as_str())
+                {
+                    if !reason.is_empty() {
+                        finish_reason = reason.to_string();
+                    }
+                }
                 if let Some(content) = json
                     .get("choices")
                     .and_then(|c| c.get(0))
@@ -1318,6 +1641,9 @@ async fn run_chat_openai(
             }
         }
     }
+    if !saw_done && finish_reason.is_empty() {
+        return Err(stream_ended_early("openai"));
+    }
     Ok(full)
 }
 
@@ -1330,13 +1656,9 @@ async fn run_anthropic(
     api_key: &str,
     cancel: Arc<AtomicBool>,
 ) -> Result<String, String> {
-    let base = req
-        .base_url
-        .as_ref()
-        .map(|s| s.trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "https://api.anthropic.com".to_string());
-    let url = format!("{base}/v1/messages");
+    // One derivation shared with verification and the model probe, so the URL
+    // we test is the URL we use.
+    let url = anthropic_endpoint(req.base_url.as_deref(), "messages");
 
     let body = serde_json::json!({
         "model": req.model,
@@ -1368,12 +1690,29 @@ async fn run_anthropic(
     let mut full = String::new();
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    // `message_stop` is Anthropic's completion marker. Without it the stream
+    // was cut short, and the old code returned the partial text as a finished
+    // rewrite.
+    let mut saw_message_stop = false;
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => {
+                eof = true;
+                // Parse a trailing event that arrived without its blank-line
+                // separator before the connection closed.
+                if !buf.trim().is_empty() {
+                    buf.push_str("\n\n");
+                }
+            }
         }
-        let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
             let after = if buf[idx..].starts_with("\r\n\r\n") {
@@ -1410,7 +1749,8 @@ async fn run_anthropic(
                         }
                     }
                     "message_stop" => {
-                        return Ok(full);
+                        saw_message_stop = true;
+                        break 'stream;
                     }
                     "error" => {
                         let msg = json
@@ -1424,6 +1764,9 @@ async fn run_anthropic(
                 }
             }
         }
+    }
+    if !saw_message_stop {
+        return Err(stream_ended_early("anthropic"));
     }
     Ok(full)
 }
@@ -1493,13 +1836,9 @@ async fn run_chat_anthropic(
     api_key: &str,
     cancel: Arc<AtomicBool>,
 ) -> Result<String, String> {
-    let base = req
-        .base_url
-        .as_ref()
-        .map(|s| s.trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "https://api.anthropic.com".to_string());
-    let url = format!("{base}/v1/messages");
+    // One derivation shared with verification and the model probe, so the URL
+    // we test is the URL we use.
+    let url = anthropic_endpoint(req.base_url.as_deref(), "messages");
 
     // Anthropic separates `system` from `messages`. Pull every system-role
     // message out of the chat history into a single concatenated system
@@ -1541,12 +1880,24 @@ async fn run_chat_anthropic(
     let mut full = String::new();
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    let mut saw_message_stop = false;
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => {
+                eof = true;
+                if !buf.trim().is_empty() {
+                    buf.push_str("\n\n");
+                }
+            }
         }
-        let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
             let after = if buf[idx..].starts_with("\r\n\r\n") {
@@ -1581,12 +1932,12 @@ async fn run_chat_anthropic(
                         }
                     }
                     "message_stop" => {
-                        // This legacy single-turn path is the rewrite
-                        // overlay's Anthropic runner — usage capture not
-                        // wired (rewrite UI doesn't surface a cost
-                        // footer); the v4.0 panel goes through
-                        // run_chat_anthropic_loop above.
-                        return Ok(full);
+                        // Legacy single-turn Anthropic path (dead code today —
+                        // the panel and the rewrite overlay both go through the
+                        // tool loop / one-turn helpers). Kept behaviourally in
+                        // step with them, including the completion check.
+                        saw_message_stop = true;
+                        break 'stream;
                     }
                     "error" => {
                         let msg = json
@@ -1600,6 +1951,9 @@ async fn run_chat_anthropic(
                 }
             }
         }
+    }
+    if !saw_message_stop {
+        return Err(stream_ended_early("anthropic"));
     }
     Ok(full)
 }
@@ -1642,12 +1996,21 @@ async fn run_ollama(
     let mut full = String::new();
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    // `done: true` is Ollama's completion marker. Without it the connection
+    // dropped and the text so far is only part of the answer.
+    let mut saw_done = false;
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("ollama stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => eof = true,
         }
-        let bytes = chunk.map_err(|e| format!("ollama stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         // Ollama emits one JSON object per line.
         while let Some(nl) = buf.find('\n') {
             let line = buf[..nl].trim().to_string();
@@ -1670,12 +2033,16 @@ async fn run_ollama(
                 }
             }
             if json.get("done").and_then(|b| b.as_bool()).unwrap_or(false) {
-                return Ok(full);
+                saw_done = true;
+                break 'stream;
             }
             if let Some(err) = json.get("error").and_then(|s| s.as_str()) {
                 return Err(format!("ollama: {err}"));
             }
         }
+    }
+    if !saw_done {
+        return Err(stream_ended_early("ollama"));
     }
     Ok(full)
 }
@@ -1725,12 +2092,19 @@ pub async fn run_chat_ollama(
     let mut tokens_in: u64 = 0;
     let mut tokens_out: u64 = 0;
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    let mut saw_done = false;
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("ollama stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => eof = true,
         }
-        let bytes = chunk.map_err(|e| format!("ollama stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         while let Some(nl) = buf.find('\n') {
             let line = buf[..nl].trim().to_string();
             buf = buf[nl + 1..].to_string();
@@ -1766,12 +2140,16 @@ pub async fn run_chat_ollama(
                 }
             }
             if json.get("done").and_then(|b| b.as_bool()).unwrap_or(false) {
-                return Ok((full, tokens_in, tokens_out));
+                saw_done = true;
+                break 'stream;
             }
             if let Some(err) = json.get("error").and_then(|s| s.as_str()) {
                 return Err(format!("ollama: {err}"));
             }
         }
+    }
+    if !saw_done {
+        return Err(stream_ended_early("ollama"));
     }
     Ok((full, tokens_in, tokens_out))
 }
@@ -2105,13 +2483,9 @@ async fn anthropic_one_turn(
     tools: &Value,
     cancel: Arc<AtomicBool>,
 ) -> Result<TurnOutcome, String> {
-    let base = req
-        .base_url
-        .as_ref()
-        .map(|s| s.trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "https://api.anthropic.com".to_string());
-    let url = format!("{base}/v1/messages");
+    // One derivation shared with verification and the model probe, so the URL
+    // we test is the URL we use.
+    let url = anthropic_endpoint(req.base_url.as_deref(), "messages");
 
     let mut body = serde_json::json!({
         "model": req.model,
@@ -2120,7 +2494,9 @@ async fn anthropic_one_turn(
         "stream": true,
         "max_tokens": 4096,
     });
-    if tools.as_array().map(|a| !a.is_empty()).unwrap_or(false) {
+    if provider_caps(&req.provider).supports_tools
+        && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false)
+    {
         body["tools"] = tools.clone();
     }
 
@@ -2178,12 +2554,27 @@ async fn anthropic_one_turn(
 
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    // `message_stop` is Anthropic's completion marker — see the other runners.
+    let mut saw_message_stop = false;
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => {
+                eof = true;
+                // Parse a trailing event that arrived without its blank-line
+                // separator before the connection closed.
+                if !buf.trim().is_empty() {
+                    buf.push_str("\n\n");
+                }
+            }
         }
-        let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
             let after = if buf[idx..].starts_with("\r\n\r\n") {
@@ -2300,27 +2691,12 @@ async fn anthropic_one_turn(
                         }
                     }
                     "message_stop" => {
-                        // Drain into TurnOutcome below.
-                        let mut outcome = TurnOutcome::default();
-                        outcome.finish_reason = stop_reason.clone();
-                        outcome.tokens_in = tokens_in;
-                        outcome.tokens_out = tokens_out;
-                        for (_, b) in blocks {
-                            match b.kind.as_str() {
-                                "text" => outcome.text.push_str(&b.text),
-                                "tool_use" => {
-                                    let args: Value = if b.partial_json.trim().is_empty() {
-                                        Value::Object(Default::default())
-                                    } else {
-                                        serde_json::from_str(&b.partial_json)
-                                            .unwrap_or(Value::String(b.partial_json.clone()))
-                                    };
-                                    outcome.tool_uses.push((b.tool_id, b.tool_name, args));
-                                }
-                                _ => {}
-                            }
-                        }
-                        return Ok(outcome);
+                        // Drain into TurnOutcome after the loop. Leaving via
+                        // the shared epilogue (instead of returning here) lets
+                        // the EOF pass parse a trailing event that arrived
+                        // without its blank-line separator.
+                        saw_message_stop = true;
+                        break 'stream;
                     }
                     "error" => {
                         let msg = json
@@ -2336,7 +2712,14 @@ async fn anthropic_one_turn(
         }
     }
 
-    // Stream ended without a `message_stop` — flush whatever we got.
+    // A stream that never reached `message_stop` was cut short. Flushing the
+    // blocks here is what used to make a truncated turn look like a finished
+    // one — the panel would render half an answer, or replay a half-parsed
+    // tool call built from incomplete `input_json_delta` fragments.
+    if !saw_message_stop {
+        return Err(stream_ended_early("anthropic"));
+    }
+
     let mut outcome = TurnOutcome::default();
     outcome.finish_reason = stop_reason;
     outcome.tokens_in = tokens_in;
@@ -2621,6 +3004,7 @@ async fn openai_one_turn(
     // Bug O: build the body, omitting `stream_options` if a previous
     // request to this (provider, base_url) returned 400 because the
     // server didn't recognise the field. See STREAM_OPTIONS_UNSUPPORTED.
+    let caps = provider_caps(&req.provider);
     let cache_key = stream_options_cache_key(&req.provider, &base);
     let include_stream_options = !stream_options_unsupported(&cache_key);
     let build_body = |with_options: bool| -> Value {
@@ -2637,7 +3021,7 @@ async fn openai_one_turn(
             // tiers) reject it with a 400 — handled below.
             b["stream_options"] = serde_json::json!({"include_usage": true});
         }
-        if tools.as_array().map(|a| !a.is_empty()).unwrap_or(false) {
+        if caps.supports_tools && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false) {
             b["tools"] = tools.clone();
         }
         b
@@ -2746,12 +3130,26 @@ async fn openai_one_turn(
 
     let mut buf = String::new();
     let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        if cancel.load(Ordering::SeqCst) {
-            return Err(cancelled());
+    let mut saw_done = false;
+    let mut eof = false;
+    'stream: while !eof {
+        match stream.next().await {
+            Some(chunk) => {
+                if cancel.load(Ordering::SeqCst) {
+                    return Err(cancelled());
+                }
+                let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
+                buf.push_str(&String::from_utf8_lossy(&bytes));
+            }
+            None => {
+                eof = true;
+                // Parse a trailing event that arrived without its blank-line
+                // separator before the connection closed.
+                if !buf.trim().is_empty() {
+                    buf.push_str("\n\n");
+                }
+            }
         }
-        let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
-        buf.push_str(&String::from_utf8_lossy(&bytes));
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
             let after = if buf[idx..].starts_with("\r\n\r\n") {
@@ -2778,31 +3176,10 @@ async fn openai_one_turn(
                         });
                 }
                 if payload == "[DONE]" {
-                    let mut outcome = TurnOutcome::default();
-                    outcome.text = text;
-                    outcome.finish_reason = finish_reason;
-                    outcome.tokens_in = tokens_in;
-                    outcome.tokens_out = tokens_out;
-                    for (idx, t) in tools_acc {
-                        let call_id = if t.id.is_empty() {
-                            make_tool_call_id(idx)
-                        } else {
-                            t.id
-                        };
-                        let args: Value = if t.arguments.trim().is_empty() {
-                            Value::Object(Default::default())
-                        } else {
-                            serde_json::from_str(&t.arguments)
-                                .unwrap_or(Value::String(t.arguments.clone()))
-                        };
-                        if !t.extras.is_empty() {
-                            outcome
-                                .tool_extras
-                                .insert(call_id.clone(), Value::Object(t.extras));
-                        }
-                        outcome.tool_uses.push((call_id, t.name, args));
-                    }
-                    return Ok(outcome);
+                    // Build the outcome in the shared epilogue so the EOF pass
+                    // gets to parse a trailing event too.
+                    saw_done = true;
+                    break 'stream;
                 }
                 let json: Value = match serde_json::from_str(payload) {
                     Ok(v) => v,
@@ -2885,6 +3262,12 @@ async fn openai_one_turn(
         }
     }
 
+    // A cut connection used to yield a "successful" turn made of whatever
+    // arrived — including a half-parsed tool call assembled from incomplete
+    // `arguments` fragments, which the loop would then dispatch. Fail instead.
+    if !saw_done && finish_reason.is_empty() {
+        return Err(stream_ended_early("openai"));
+    }
     let mut outcome = TurnOutcome::default();
     outcome.text = text;
     outcome.finish_reason = finish_reason;
@@ -3088,6 +3471,7 @@ mod tests {
             user: "u".to_string(),
             selection: "sel".to_string(),
             base_url: None,
+            key_id: None,
             request_id: Some("xyz".to_string()),
         };
         assert_eq!(pick(&with_id), "xyz");
@@ -3242,5 +3626,112 @@ mod tests {
         assert_eq!(norm[0]["role"], "user");
         assert_eq!(norm[1]["role"], "assistant");
         assert_eq!(norm[2]["role"], "user");
+    }
+
+    // ---- provider capabilities, endpoints, key slots ----------------------
+
+    #[test]
+    fn capabilities_are_declared_per_provider_instead_of_probed() {
+        let deepseek = super::provider_caps("deepseek");
+        assert_eq!(deepseek.auth, super::AuthStrategy::Bearer);
+        assert_eq!(deepseek.models, super::ModelListStrategy::OpenAi);
+        assert!(deepseek.supports_tools);
+
+        let anthropic = super::provider_caps("anthropic");
+        assert_eq!(anthropic.auth, super::AuthStrategy::Anthropic);
+        assert_eq!(anthropic.models, super::ModelListStrategy::Anthropic);
+
+        let gemini = super::provider_caps("gemini");
+        assert_eq!(gemini.auth, super::AuthStrategy::Google);
+        assert_eq!(gemini.models, super::ModelListStrategy::Google);
+
+        let ollama = super::provider_caps("ollama");
+        assert_eq!(ollama.auth, super::AuthStrategy::None);
+        assert_eq!(ollama.models, super::ModelListStrategy::Ollama);
+        assert!(!ollama.supports_tools, "tools are not wired for ollama");
+
+        // Aliases resolve first, and unknown ids land on the plain OpenAI
+        // dialect — which is exactly what a self-hosted compatible server is.
+        assert_eq!(super::provider_caps("lmstudio").models, super::ModelListStrategy::OpenAi);
+        assert_eq!(super::provider_caps("local").models, super::ModelListStrategy::Ollama);
+        assert_eq!(super::provider_caps("brand-new-vendor").auth, super::AuthStrategy::Bearer);
+    }
+
+    #[test]
+    fn key_slot_prefers_the_profile_id_and_falls_back_to_the_provider() {
+        assert_eq!(super::key_slot(Some("profile-1712-ab12"), "deepseek"), "profile-1712-ab12");
+        assert_eq!(super::key_slot(None, "deepseek"), "deepseek");
+        // Blank counts as "not supplied", matching the rule the request-id
+        // selector and the frontend both use.
+        assert_eq!(super::key_slot(Some(""), "deepseek"), "deepseek");
+        assert_eq!(super::key_slot(Some("   "), "deepseek"), "deepseek");
+    }
+
+    #[test]
+    fn anthropic_endpoint_honours_the_configured_base_without_doubling_v1() {
+        assert_eq!(
+            super::anthropic_endpoint(None, "messages"),
+            "https://api.anthropic.com/v1/messages"
+        );
+        // A custom gateway — the case the hardcoded URL used to break.
+        assert_eq!(
+            super::anthropic_endpoint(Some("https://gw.internal.example"), "messages"),
+            "https://gw.internal.example/v1/messages"
+        );
+        // A base that already carries `/v1` must not become `/v1/v1`.
+        assert_eq!(
+            super::anthropic_endpoint(Some("https://gw.internal.example/v1"), "messages"),
+            "https://gw.internal.example/v1/messages"
+        );
+        assert_eq!(
+            super::anthropic_endpoint(Some("https://gw.internal.example/v1/"), "models"),
+            "https://gw.internal.example/v1/models"
+        );
+    }
+
+    #[test]
+    fn google_model_list_does_not_staple_v1beta_onto_the_openai_base() {
+        // Regression: the default Gemini base is the OpenAI-compatibility one,
+        // and appending `/v1beta/models` to it produced
+        // `…/v1beta/openai/v1beta/models`.
+        assert_eq!(
+            super::google_v1beta_root(Some(
+                "https://generativelanguage.googleapis.com/v1beta/openai"
+            )),
+            "https://generativelanguage.googleapis.com/v1beta"
+        );
+        assert_eq!(
+            super::google_v1beta_root(Some("https://generativelanguage.googleapis.com/v1beta")),
+            "https://generativelanguage.googleapis.com/v1beta"
+        );
+        assert_eq!(
+            super::google_v1beta_root(Some("https://generativelanguage.googleapis.com")),
+            "https://generativelanguage.googleapis.com/v1beta"
+        );
+        assert_eq!(
+            super::google_v1beta_root(None),
+            "https://generativelanguage.googleapis.com/v1beta"
+        );
+        assert_eq!(
+            format!(
+                "{}/models",
+                super::google_v1beta_root(Some(
+                    "https://generativelanguage.googleapis.com/v1beta/openai"
+                ))
+            ),
+            "https://generativelanguage.googleapis.com/v1beta/models"
+        );
+    }
+
+    #[test]
+    fn a_stream_cut_before_its_completion_marker_is_an_error_not_a_result() {
+        let msg = super::stream_ended_early("openai");
+        assert!(msg.contains("openai"), "should name the provider, got {msg}");
+        assert!(
+            msg.contains("completion marker"),
+            "should say what was missing, got {msg}"
+        );
+        // It must be actionable, not just a code.
+        assert!(msg.contains("retry"), "should tell the user what to do, got {msg}");
     }
 }

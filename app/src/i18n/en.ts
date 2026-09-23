@@ -1100,6 +1100,13 @@ export const en = {
     fetchedModelsCount: 'Fetched {n} models',
     fetchModelsSuccess: 'Successfully fetched {n} models',
     fetchModelsFailed: 'Failed to fetch models',
+    needModelBeforeSave: 'Add at least one model before saving — fetch the list from the endpoint or type a model id.',
+    providerSelectPlaceholder: 'Select a model provider…',
+    providerSelectSearchPlaceholder: 'Search providers (e.g. deepseek, qwen, claude)…',
+    providerSelectAll: 'All',
+    providerSelectClear: 'Clear',
+    providerSelectEmpty: 'No provider matches "{q}"',
+    providerSelectResetSearch: 'Reset search',
     selectFetchedModel: 'Select fetched model…',
     clickToApplyModel: 'Click to use model',
     // Multi-provider profile & model manager strings

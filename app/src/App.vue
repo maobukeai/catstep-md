@@ -2344,10 +2344,25 @@ const viewOpen = ref(false);
 const savedViewsStore = useSavedViewsStore();
 const viewPaneVisible = computed(() => viewOpen.value && !!savedViewsStore.activeView);
 const aiHasKey = ref(false);
+/**
+ * The AI configuration every rewrite request authenticates against. Read from
+ * the profile list rather than the flat `settings.aiProvider` / `aiModel` /
+ * `aiBaseUrl` mirrors so the provider/model/endpoint in the request always
+ * describe the same profile whose id is used as the keychain slot.
+ */
+const activeAiProfile = computed(
+  () => settings.aiProfiles.find((p) => p.id === settings.activeProfileId) ?? null,
+);
 async function refreshAiHasKey() {
   if (!settings.aiEnabled) { aiHasKey.value = false; return; }
   try {
-    aiHasKey.value = await invoke<boolean>('ai_has_key', { provider: settings.aiProvider });
+    // Ask about the profile's own slot first; `provider` is only a legacy
+    // fallback for profiles created before keys moved to profile-scoped ids.
+    const slot = activeAiProfile.value?.id || settings.aiProvider;
+    aiHasKey.value = await invoke<boolean>('ai_has_key', { provider: slot });
+    if (!aiHasKey.value && slot !== settings.aiProvider) {
+      aiHasKey.value = await invoke<boolean>('ai_has_key', { provider: settings.aiProvider });
+    }
   } catch {
     aiHasKey.value = false;
   }
@@ -2362,7 +2377,7 @@ onMounted(() => {
   document.documentElement.classList.add('no-collapse-outline');
 });
 
-watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAiHasKey(); });
+watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void settings.activeProfileId; refreshAiHasKey(); });
 </script>
 
 <template>
@@ -2824,9 +2839,10 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; refreshAi
     <AIRewriteOverlay
       v-if="!IS_APP_STORE_BUILD"
       :enabled="settings.aiEnabled && settings.aiRewriteEnabled"
-      :provider="(settings.aiProvider as any)"
-      :model="settings.aiModel"
-      :base-url="settings.aiBaseUrl"
+      :provider="((activeAiProfile?.provider ?? settings.aiProvider) as any)"
+      :model="activeAiProfile?.selectedModel || settings.aiModel"
+      :base-url="activeAiProfile?.baseUrl || settings.aiBaseUrl"
+      :profile-id="activeAiProfile?.id || ''"
       :has-key="aiHasKey"
       @open-settings="(section?: string) => openSettingsAt(section ?? 'integrations')"
     />

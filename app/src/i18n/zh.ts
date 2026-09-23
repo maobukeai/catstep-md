@@ -1096,6 +1096,13 @@ export const zh: I18n = {
     fetchedModelsCount: '已获取 {n} 个模型',
     fetchModelsSuccess: '成功获取 {n} 个可用模型',
     fetchModelsFailed: '获取模型失败',
+    needModelBeforeSave: '请先添加至少一个模型：可从服务地址拉取模型列表，或手动填写模型 ID。',
+    providerSelectPlaceholder: '选择大模型服务商...',
+    providerSelectSearchPlaceholder: '搜索模型服务商 (如: deepseek, qwen, claude)...',
+    providerSelectAll: '全部',
+    providerSelectClear: '清除',
+    providerSelectEmpty: '未找到与 "{q}" 匹配的服务商',
+    providerSelectResetSearch: '重置搜索',
     selectFetchedModel: '选择已获取的模型…',
     clickToApplyModel: '点击快速填入模型',
     // Multi-provider profile & model manager strings
