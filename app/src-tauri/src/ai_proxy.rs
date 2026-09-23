@@ -188,6 +188,28 @@ fn apply_auth(
     }
 }
 
+/// Credential to present when calling a vendor's **OpenAI-compatibility**
+/// surface — `{base}/models`, `{base}/chat/completions` where `base` ends in
+/// `/v1beta/openai` for Gemini and `/v1` for everyone else.
+///
+/// Deliberately *not* `provider_caps(provider).auth`: the credential a vendor
+/// wants depends on which surface you are calling, and Gemini's two surfaces
+/// disagree outright.
+///
+///   native  `…/v1beta/models`, `…/v1beta/models/x:generateContent`
+///           → `x-goog-api-key` (a bare `Authorization` is not accepted)
+///   compat  `…/v1beta/openai/models`, `…/v1beta/openai/chat/completions`
+///           → `Authorization: Bearer`; sending only `x-goog-api-key` comes
+///             back `400 Missing Authorization header`
+///
+/// So this is always a bearer. Everything that talks to the compat surface —
+/// `ai_verify_key` here, plus the chat runners via `with_optional_bearer`
+/// (note that `with_optional_bearer` also omits the header when the key is
+/// empty, which is what keyless local servers need) — must agree on that.
+fn compat_surface_auth() -> AuthStrategy {
+    AuthStrategy::Bearer
+}
+
 /// The keychain slot a request reads/writes: the caller's profile id when one
 /// was supplied, else the legacy provider-named slot.
 ///
@@ -621,7 +643,6 @@ pub async fn ai_verify_key(
     model: Option<String>,
     key_id: Option<String>,
 ) -> Result<String, String> {
-    let caps = provider_caps(&provider);
     let format = wire_format(&api_format.unwrap_or_else(|| provider.clone()));
     let key_str = match key {
         Some(k) if !k.trim().is_empty() => k,
@@ -646,7 +667,12 @@ pub async fn ai_verify_key(
             // The OpenAI-compatibility surface lives at `{base}/models` for
             // every vendor that exposes one, including Gemini's `/v1beta/openai`.
             let url = format!("{base}/models");
-            let res = apply_auth(client.get(&url), caps.auth, &key_str)
+            // The credential header follows the *surface*, not the vendor —
+            // see `compat_surface_auth`. Keying this off
+            // `provider_caps(provider).auth` sent Gemini's key in the one form
+            // its compat endpoint rejects, so verification only ever passed by
+            // falling through to the chat ping below.
+            let res = apply_auth(client.get(&url), compat_surface_auth(), &key_str)
                 .send()
                 .await
                 .map_err(|e| format!("network: {e}"))?;
@@ -3655,6 +3681,36 @@ mod tests {
         assert_eq!(super::provider_caps("lmstudio").models, super::ModelListStrategy::OpenAi);
         assert_eq!(super::provider_caps("local").models, super::ModelListStrategy::Ollama);
         assert_eq!(super::provider_caps("brand-new-vendor").auth, super::AuthStrategy::Bearer);
+    }
+
+    #[test]
+    fn the_openai_compat_surface_takes_a_bearer_not_the_vendor_auth() {
+        // `compat_surface_auth` exists to keep this from being re-derived from
+        // `provider_caps`, which is right for the native surface and wrong for
+        // the compat one.
+        assert_eq!(super::compat_surface_auth(), super::AuthStrategy::Bearer);
+
+        // Gemini is the provider where the two answers differ, and the only one
+        // that was actually broken: its compat endpoint
+        // (`…/v1beta/openai/models`) answers `x-goog-api-key` with
+        // `400 Missing Authorization header`.
+        assert_eq!(super::provider_caps("gemini").auth, super::AuthStrategy::Google);
+        assert_ne!(
+            super::compat_surface_auth(),
+            super::provider_caps("gemini").auth,
+            "the compat surface must not be authenticated the way the native one is"
+        );
+
+        // Its native surface — the one `ai_list_models` derives from
+        // `ModelListStrategy::Google` — does want the Google header, and does
+        // have to be reached by stripping `/openai` off the chat base.
+        assert_eq!(super::provider_caps("gemini").models, super::ModelListStrategy::Google);
+        assert_eq!(
+            super::google_v1beta_root(Some(
+                "https://generativelanguage.googleapis.com/v1beta/openai"
+            )),
+            "https://generativelanguage.googleapis.com/v1beta"
+        );
     }
 
     #[test]
