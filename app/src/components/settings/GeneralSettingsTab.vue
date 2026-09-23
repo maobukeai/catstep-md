@@ -6,7 +6,7 @@ import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { themeLabels, allThemeLabels, isValidTheme } from '../../lib/themes';
 import { reloadAllCustomStyles, loadCustomTheme } from '../../lib/custom-theme';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { pickFile } from '../../lib/user-pick';
 import { useViewport } from '../../composables/useViewport';
 import { isMobile } from '../../lib/platform';
 import ThemeMarketplace from '../ThemeMarketplace.vue';
@@ -35,11 +35,10 @@ function openThemeMarketplace() {
 }
 
 async function pickCustomCss() {
-  const path = await openFileDialog({
-    multiple: false,
+  const path = await pickFile({
     filters: [{ name: 'CSS', extensions: ['css'] }],
   });
-  if (path && typeof path === 'string') {
+  if (path) {
     settings.setCustomCssPath(path);
     toasts.success(t('settings.customCssLoaded'));
   }
@@ -98,11 +97,10 @@ function onThemeSelectChange(val: string) {
 }
 
 async function pickWallpaper(mode: 'light' | 'dark' = 'light') {
-  const path = await openFileDialog({
-    multiple: false,
+  const path = await pickFile({
     filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }],
   });
-  if (path && typeof path === 'string') {
+  if (path) {
     try {
       const savedPath = await themesStore.saveWallpaper(path);
       if (mode === 'dark') {

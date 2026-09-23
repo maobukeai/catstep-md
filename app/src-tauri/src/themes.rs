@@ -726,6 +726,9 @@ pub fn theme_read_user_css(app: AppHandle) -> Result<String, String> {
 /// Save a user selected wallpaper into `<config_dir>/wallpapers/`.
 #[tauri::command]
 pub fn theme_save_wallpaper(app: AppHandle, source_path: String) -> Result<String, String> {
+    // Caller-supplied source path — prove it is inside an authorized root
+    // before reading (copying) it out of the user's filesystem.
+    super::commands::authorize(&source_path)?;
     let src = PathBuf::from(&source_path);
     if !src.exists() {
         return Err("source wallpaper file does not exist".into());

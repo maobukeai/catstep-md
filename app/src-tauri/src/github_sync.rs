@@ -463,6 +463,8 @@ pub async fn github_link_workspace(
     if folder.is_empty() || remote_url.is_empty() {
         return Err("folder and remote_url are required".into());
     }
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     let encrypted = encrypted.unwrap_or(false);
     let provider = provider.unwrap_or_else(default_provider);
     tauri::async_runtime::spawn_blocking(move || -> Result<SyncConfig, String> {
@@ -515,6 +517,8 @@ pub async fn github_set_config(
     auto_push: bool,
     auto_pull_minutes: u32,
 ) -> Result<SyncConfig, String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<SyncConfig, String> {
         let path = PathBuf::from(&folder);
         let mut cfg = load_config(&path)?
@@ -556,6 +560,9 @@ pub async fn github_enable_encryption(
     folder: String,
     passphrase: String,
 ) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root
+    // before we set a passphrase or force-push.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let path = PathBuf::from(&folder);
         let cfg = load_config(&path)?
@@ -653,6 +660,8 @@ pub async fn github_enable_encryption(
 
 #[tauri::command]
 pub async fn github_unlink_workspace(folder: String) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let path = PathBuf::from(&folder);
         let repo_dir = git_dir(&path)?;
@@ -692,6 +701,8 @@ pub struct SyncStatus {
 
 #[tauri::command]
 pub async fn github_sync_status(folder: String) -> Result<SyncStatus, String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<SyncStatus, String> {
         let path = PathBuf::from(&folder);
         let cfg = load_config(&path)?.unwrap_or_default();
@@ -1130,6 +1141,9 @@ pub async fn github_push(
     folder: String,
     commit_message: Option<String>,
 ) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root
+    // before reading config or reaching the network.
+    super::commands::authorize(&folder)?;
     let path = PathBuf::from(&folder);
     let cfg = load_config(&path)?.unwrap_or_default();
     let token = match cfg.provider.as_str() {
@@ -1381,6 +1395,9 @@ fn finalize_decrypt(cfg: &SyncConfig, workspace: &Path) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn github_pull(folder: String) -> Result<PullResult, String> {
+    // Caller-supplied vault path — prove it is inside an authorized root
+    // before reading config or reaching the network.
+    super::commands::authorize(&folder)?;
     let path = PathBuf::from(&folder);
     let cfg = load_config(&path)?.unwrap_or_default();
     let token = match cfg.provider.as_str() {
@@ -1412,6 +1429,9 @@ pub async fn github_resolve_conflict(
     file: String,
     choice: String, // "local" | "remote" | "both"
 ) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    // `file` is repo-relative, so it rides on the folder's authorization.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
         let path = PathBuf::from(&folder);
         let repo = Repository::open(&path).map_err(|e| e.to_string())?;

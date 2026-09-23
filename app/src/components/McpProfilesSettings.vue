@@ -25,7 +25,7 @@
 import { ref, computed, onMounted, reactive } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { pickFolder } from '../lib/user-pick';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceStore } from '../stores/workspace';
 import {
@@ -106,12 +106,10 @@ function moveDraftEntry(d: DraftProfile, idx: number, delta: number) {
 }
 
 async function pickPathForEntry(d: DraftProfile, idx: number) {
-  const selected = await openDialog({
-    directory: true,
-    multiple: false,
+  const selected = await pickFolder({
     defaultPath: d.entries[idx].path || workspace.currentFolder || undefined,
   });
-  if (typeof selected === 'string' && selected) {
+  if (selected) {
     d.entries[idx].path = selected;
     if (!d.entries[idx].alias) {
       // Default alias to the basename, mirroring the server-side rule.

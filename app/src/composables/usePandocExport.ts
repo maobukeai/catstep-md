@@ -16,7 +16,7 @@
  * job (see SUMMARY.md). Until they exist, this file references them via a
  * `// @ts-ignore` shim so it still type-checks.
  */
-import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { pickSavePath } from '../lib/user-pick';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabsStore } from '../stores/tabs';
 import { useToastsStore } from '../stores/toasts';
@@ -228,7 +228,7 @@ export function usePandocExport() {
       ext === '*'
         ? [{ name: 'All Files', extensions: ['*'] }]
         : [{ name: filterName, extensions: [ext] }];
-    const outputPath = await saveDialog({
+    const outputPath = await pickSavePath({
       defaultPath: `${ctx.baseName}.${ext === '*' ? 'out' : ext}`,
       filters,
     });

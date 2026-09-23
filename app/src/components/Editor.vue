@@ -125,7 +125,7 @@ import { installSvgImageFallbacks, rewriteImageUrls } from '../lib/image-resolve
 import { SLASH_BLOCKS, filterBlocks, expandSnippet } from '../lib/slash-blocks';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { isWindowsEditorRuntime, shouldUsePlainWindowsEditor } from '../lib/platform';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { pickFile } from '../lib/user-pick';
 
 // Incremental find. CoreMirror's search panel only scrolls to a match when you
 // press Enter / click Next — typing in the field just repaints the highlights
@@ -5047,11 +5047,10 @@ async function insertImageFromPath(srcPath: string): Promise<void> {
 
 async function pickAndInsertImage(): Promise<void> {
   try {
-    const sel = await openFileDialog({
-      multiple: false,
+    const sel = await pickFile({
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'tiff'] }],
     });
-    if (typeof sel !== 'string') return;
+    if (!sel) return;
     await insertImageFromPath(sel);
   } catch (e) {
     console.error('Failed to pick image', e);

@@ -848,6 +848,10 @@ pub fn inject_mcp(
     workspace: String,
     allow_write: bool,
 ) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    if !workspace.trim().is_empty() {
+        super::commands::authorize(&workspace)?;
+    }
     let config_path = ai_client_config_path(&client_id, &app)
         .ok_or_else(|| format!("no config path for {client_id} on this OS"))?;
     let mcp_path_pb = resolve_mcp_path(&app)

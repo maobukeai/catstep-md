@@ -1,4 +1,4 @@
-import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { pickSavePath } from '../lib/user-pick';
 import { EditorView } from '@codemirror/view';
 import { invoke } from '@tauri-apps/api/core';
 import { writeText, writeHtml, writeImage } from '@tauri-apps/plugin-clipboard-manager';
@@ -381,7 +381,7 @@ export function useExport() {
     // last save happened. Falls back to a bare filename for unsaved
     // buffers and virtual (SAF) paths, which is the old behaviour.
     const defaultPath = exportDefaultPath(activeOr()?.filePath, filename) ?? filename;
-    return await saveDialog({ defaultPath, filters });
+    return await pickSavePath({ defaultPath, filters });
   }
 
   function iosSavedToast(filename: string): string {

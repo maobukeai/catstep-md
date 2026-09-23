@@ -91,6 +91,11 @@ pub enum UploaderConfig {
 /// docs for per-backend behavior.
 #[tauri::command]
 pub async fn upload_image(config: UploaderConfig, path: String) -> Result<String, String> {
+    // `path` is read and its bytes are sent to a remote endpoint, so an
+    // unguarded version was a ready-made exfiltration primitive: point it at
+    // `~/.ssh/id_rsa` with an attacker's image-bed endpoint and the file leaves
+    // the machine. Only files inside an authorized root may be uploaded.
+    super::commands::authorize(&path)?;
     match config {
         UploaderConfig::Picgo { endpoint } => upload_picgo(&endpoint, &path).await,
         UploaderConfig::Command { command } => {

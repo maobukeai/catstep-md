@@ -34,6 +34,9 @@ pub async fn search_in_dir(
     query: String,
     max_results: usize,
 ) -> Result<Vec<SearchHit>, String> {
+    // Recursive search reads file contents — an unguarded `root` would be a
+    // "read any text file on disk" primitive for injected markup.
+    super::commands::path_guard::ensure_authorized(&root)?;
     tauri::async_runtime::spawn_blocking(move || search_in_dir_inner(root, query, max_results))
         .await
         .map_err(|e| format!("join: {e}"))?

@@ -57,6 +57,8 @@ pub async fn agent_trace_read(
     workspace: String,
     run_id: String,
 ) -> Result<Vec<TraceLine>, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let dir = resolve_run_dir(&workspace, &run_id).map_err(|e| e.to_string())?;
     trace::read_trace(&dir).map_err(|e| format!("read_trace: {e}"))
 }
@@ -67,6 +69,8 @@ pub async fn agent_trace_read(
 
 #[tauri::command]
 pub async fn agent_trace_list(workspace: String) -> Result<Vec<RunSummary>, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let runs_dir = resolve_runs_root(&workspace).map_err(|e| e.to_string())?;
     if !runs_dir.exists() {
         return Ok(Vec::new());
@@ -108,6 +112,8 @@ pub async fn agent_trace_replay_from(
     run_id: String,
     seq: u32,
 ) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let orig_dir = resolve_run_dir(&workspace, &run_id).map_err(|e| e.to_string())?;
     let prefix = trace::replay_prefix(&orig_dir, seq).map_err(|e| format!("replay_prefix: {e}"))?;
     if prefix.is_empty() {

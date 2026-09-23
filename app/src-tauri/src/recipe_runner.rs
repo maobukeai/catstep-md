@@ -174,6 +174,8 @@ pub async fn recipes_list(
     app: AppHandle,
     workspace: String,
 ) -> Result<Vec<RecipeSummary>, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let state = app.state::<RecipesState>();
     let ws_path = PathBuf::from(&workspace);
     let (recipes, errors) = recipes::load_recipes(&ws_path);
@@ -199,6 +201,8 @@ pub async fn recipes_list(
 
 #[tauri::command]
 pub async fn recipes_get(workspace: String, slug: String) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let dir = recipes::agents_dir(Path::new(&workspace));
     for ext in ["yml", "yaml"] {
         let p = dir.join(format!("{slug}.{ext}"));
@@ -222,6 +226,8 @@ pub struct SaveRecipeRequest {
 
 #[tauri::command]
 pub async fn recipes_save(req: SaveRecipeRequest) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&req.workspace)?;
     let recipe = recipes::parse_recipe(&req.yaml, None)?;
     let dir = recipes::agents_dir(Path::new(&req.workspace));
     std::fs::create_dir_all(&dir).map_err(|e| format!("mkdir: {e}"))?;
@@ -233,6 +239,8 @@ pub async fn recipes_save(req: SaveRecipeRequest) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn recipes_delete(workspace: String, slug: String) -> Result<(), String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     recipes::delete_recipe(Path::new(&workspace), &slug)
 }
 
@@ -246,6 +254,8 @@ pub async fn recipes_run_now(
     workspace: String,
     slug: String,
 ) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let ws = PathBuf::from(&workspace);
     let (recipes, _errs) = recipes::load_recipes(&ws);
     let recipe = recipes
@@ -270,6 +280,8 @@ pub async fn recipes_run_now(
 /// don't write to an AutoGit branch — they're filtered out here.
 #[tauri::command]
 pub async fn recipes_pending_runs(workspace: String) -> Result<Vec<RunMeta>, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     let runs = agent_run::list_runs(Path::new(&workspace));
     Ok(runs
         .into_iter()
@@ -281,6 +293,8 @@ pub async fn recipes_pending_runs(workspace: String) -> Result<Vec<RunMeta>, Str
 /// have their own listing under AI settings).
 #[tauri::command]
 pub async fn recipes_history(workspace: String) -> Result<Vec<RunMeta>, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     Ok(agent_run::list_runs(Path::new(&workspace))
         .into_iter()
         .filter(|r| r.kind == "recipe")
@@ -289,12 +303,16 @@ pub async fn recipes_history(workspace: String) -> Result<Vec<RunMeta>, String> 
 
 #[tauri::command]
 pub async fn recipes_read_trace(workspace: String, run_id: String) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     validate_run_id(&run_id)?;
     agent_run::read_trace(Path::new(&workspace), &run_id)
 }
 
 #[tauri::command]
 pub async fn recipes_read_run_md(workspace: String, run_id: String) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     validate_run_id(&run_id)?;
     agent_run::read_run_md(Path::new(&workspace), &run_id)
 }
@@ -304,6 +322,8 @@ pub async fn recipes_read_run_md(workspace: String, run_id: String) -> Result<St
 /// libgit2 directly rather than shelling out to `git diff`.
 #[tauri::command]
 pub async fn recipes_run_diff(workspace: String, run_id: String) -> Result<String, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     validate_run_id(&run_id)?;
     let ws = PathBuf::from(&workspace);
     let meta = agent_run::read_run_meta(&ws, &run_id)?;
@@ -364,6 +384,8 @@ pub async fn recipes_accept_run(
     workspace: String,
     run_id: String,
 ) -> Result<(), String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     validate_run_id(&run_id)?;
     let ws = PathBuf::from(&workspace);
     let mut meta = agent_run::read_run_meta(&ws, &run_id)?;
@@ -389,6 +411,8 @@ pub async fn recipes_reject_run(
     workspace: String,
     run_id: String,
 ) -> Result<(), String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     validate_run_id(&run_id)?;
     let ws = PathBuf::from(&workspace);
     let mut meta = agent_run::read_run_meta(&ws, &run_id)?;

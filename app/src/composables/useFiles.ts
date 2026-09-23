@@ -1,6 +1,6 @@
 import { inject } from 'vue';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { pickFile, pickFiles, pickFolder, pickSavePath } from '../lib/user-pick';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { documentDir, join } from '@tauri-apps/api/path';
 import { isIOS, isAndroid, isWindowsDesktop } from '../lib/platform';
@@ -86,8 +86,13 @@ export function useFiles() {
     // No filters: rfd's filter behavior on macOS greys out non-matching files
     // and `'*'` is not treated as a wildcard. Letting the user pick anything
     // is simpler and more reliable.
-    const selected = await openDialog({ multiple: false });
-    if (!selected || typeof selected !== 'string') return;
+    //
+    // Goes through `pickFile` rather than the dialog plugin directly so the
+    // chosen file's directory is authorized in Rust — `openPath` below switches
+    // the workspace to that directory, and the guard would refuse an unapproved
+    // one. See `lib/user-pick.ts`.
+    const selected = await pickFile();
+    if (!selected) return;
     await openPath(selected);
   }
 
@@ -421,8 +426,7 @@ export function useFiles() {
    * falls back to the old behaviour and opens unsaved tabs.
    */
   async function importDocuments() {
-    const selected = await openDialog({
-      multiple: true,
+    const selected = await pickFiles({
       filters: [
         {
           name: 'Documents',
@@ -591,12 +595,10 @@ export function useFiles() {
       }
       return;
     }
-    const selected = await openDialog({
-      directory: true,
-      multiple: false,
+    const selected = await pickFolder({
       defaultPath: workspace.currentFolder ?? undefined,
     });
-    if (!selected || typeof selected !== 'string') return;
+    if (!selected) return;
     workspace.setFolder(selected);
     if (!settings.showFileTree) settings.toggleFileTree();
   }
@@ -715,7 +717,7 @@ export function useFiles() {
       // straight to app Documents; user surfaces / moves via Files app.
       path = await iosResolvePath(tab);
     } else {
-      path = await saveDialog({
+      path = await pickSavePath({
         defaultPath: tab.filePath ?? defaultName,
         filters: SAVE_FILTERS,
       });

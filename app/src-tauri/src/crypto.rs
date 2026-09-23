@@ -341,6 +341,8 @@ fn key_marker_path(workspace: &Path) -> PathBuf {
 
 #[tauri::command]
 pub fn crypto_status(folder: String) -> Result<CryptoStatus, String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     let path = PathBuf::from(&folder);
     let enabled = config_path(&path).exists();
     // Marker-file check — no keychain access. The actual key is still
@@ -412,6 +414,8 @@ pub fn crypto_set_passphrase(folder: String, passphrase: String) -> Result<(), S
 
 #[tauri::command]
 pub fn crypto_clear_passphrase(folder: String) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     let path = PathBuf::from(&folder);
     let _ = fs::remove_file(key_marker_path(&path));
     delete_key_from_keyring(&path)
@@ -426,6 +430,8 @@ pub fn crypto_clear_passphrase(folder: String) -> Result<(), String> {
 /// from there.
 #[tauri::command]
 pub async fn crypto_encrypt_for_push(folder: String) -> Result<String, String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || crypto_encrypt_for_push_inner(folder))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -514,6 +520,8 @@ fn copy_if_changed(src: &Path, dst: &Path) -> Result<(), String> {
 /// into the workspace at the same relative path.
 #[tauri::command]
 pub async fn crypto_decrypt_after_pull(folder: String) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || crypto_decrypt_after_pull_inner(folder))
         .await
         .map_err(|e| format!("join: {e}"))?

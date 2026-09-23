@@ -15,7 +15,7 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { pickFile } from '../lib/user-pick';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
@@ -63,13 +63,12 @@ function applySetting(key: 'workspaceBibliography' | 'workspaceCsl', value: stri
 }
 
 async function pickBibliography() {
-  const path = await openFileDialog({
-    multiple: false,
+  const path = await pickFile({
     filters: [
       { name: 'BibTeX / CSL-JSON', extensions: ['bib', 'json', 'cslj', 'csl-json'] },
     ],
   });
-  if (path && typeof path === 'string') {
+  if (path) {
     applySetting('workspaceBibliography', path);
     invalidateCitationsCache();
     toasts.success(t('settings.bibliographyPicked'));
@@ -77,11 +76,10 @@ async function pickBibliography() {
 }
 
 async function pickCsl() {
-  const path = await openFileDialog({
-    multiple: false,
+  const path = await pickFile({
     filters: [{ name: 'CSL Style', extensions: ['csl', 'xml'] }],
   });
-  if (path && typeof path === 'string') {
+  if (path) {
     applySetting('workspaceCsl', path);
     toasts.success(t('settings.cslPicked'));
   }

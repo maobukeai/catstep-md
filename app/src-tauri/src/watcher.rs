@@ -214,6 +214,8 @@ pub fn watch_file(
     state: tauri::State<'_, WatcherState>,
     path: String,
 ) -> Result<(), String> {
+    // Caller-supplied file path — prove it is inside an authorized root.
+    super::commands::authorize(&path)?;
     let canonical = PathBuf::from(&path)
         .canonicalize()
         .map_err(|e| format!("canonicalize failed: {e}"))?;
@@ -273,6 +275,8 @@ pub fn unwatch_file(
     state: tauri::State<'_, WatcherState>,
     path: String,
 ) -> Result<(), String> {
+    // Caller-supplied file path — prove it is inside an authorized root.
+    super::commands::authorize(&path)?;
     let canonical = PathBuf::from(&path)
         .canonicalize()
         .map_err(|e| format!("canonicalize failed: {e}"))?;

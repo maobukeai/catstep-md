@@ -353,6 +353,11 @@ pub fn git_workspace_status_inner(folder: String) -> Result<WorkspaceStatus, Str
 
 #[tauri::command]
 pub async fn git_workspace_status(folder: String) -> Result<WorkspaceStatus, String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    // An empty folder means "no workspace yet" and is allowed through.
+    if !folder.trim().is_empty() {
+        super::commands::authorize(&folder)?;
+    }
     tauri::async_runtime::spawn_blocking(move || git_workspace_status_inner(folder))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -397,6 +402,8 @@ pub async fn git_init_workspace(
     initial_message: Option<String>,
     exclude_assets: Option<bool>,
 ) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
     tauri::async_runtime::spawn_blocking(move || {
         git_init_workspace_inner(folder, initial_message, exclude_assets)
     })
@@ -431,6 +438,12 @@ pub async fn git_auto_commit(
     file_path: Option<String>,
     message: Option<String>,
 ) -> Result<Option<String>, String> {
+    // Both the vault and the note path are caller-supplied — prove each is
+    // inside an authorized root before touching git.
+    super::commands::authorize(&folder)?;
+    if let Some(f) = file_path.as_deref().filter(|s| !s.trim().is_empty()) {
+        super::commands::authorize(f)?;
+    }
     let folder_for_dispatch = folder.clone();
     let file_for_dispatch = file_path.clone();
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -502,6 +515,10 @@ pub async fn git_file_history(
     file_path: String,
     limit: u32,
 ) -> Result<Vec<CommitMeta>, String> {
+    // Both the vault and the note path are caller-supplied — prove each is
+    // inside an authorized root before touching git.
+    super::commands::authorize(&folder)?;
+    super::commands::authorize(&file_path)?;
     tauri::async_runtime::spawn_blocking(move || {
         git_file_history_inner(folder, file_path, limit)
     })
@@ -650,6 +667,10 @@ pub async fn git_file_diff(
     file_path: String,
     sha: String,
 ) -> Result<DiffResult, String> {
+    // Both the vault and the note path are caller-supplied — prove each is
+    // inside an authorized root before touching git.
+    super::commands::authorize(&folder)?;
+    super::commands::authorize(&file_path)?;
     tauri::async_runtime::spawn_blocking(move || {
         git_file_diff_inner(folder, file_path, sha)
     })
@@ -687,6 +708,10 @@ pub async fn git_file_at_version(
     file_path: String,
     sha: String,
 ) -> Result<String, String> {
+    // Both the vault and the note path are caller-supplied — prove each is
+    // inside an authorized root before touching git.
+    super::commands::authorize(&folder)?;
+    super::commands::authorize(&file_path)?;
     tauri::async_runtime::spawn_blocking(move || {
         git_file_at_version_inner(folder, file_path, sha)
     })
@@ -710,6 +735,10 @@ pub async fn git_rollback_file(
     file_path: String,
     sha: String,
 ) -> Result<(), String> {
+    // Both the vault and the note path are caller-supplied — prove each is
+    // inside an authorized root. This one overwrites the note on disk.
+    super::commands::authorize(&folder)?;
+    super::commands::authorize(&file_path)?;
     tauri::async_runtime::spawn_blocking(move || {
         git_rollback_file_inner(folder, file_path, sha)
     })

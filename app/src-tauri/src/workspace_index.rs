@@ -147,6 +147,19 @@ static PENDING: Lazy<Mutex<HashMap<PathBuf, SystemTime>>> =
 // Tauri commands
 // ---------------------------------------------------------------------------
 
+/// Add the vault (and its subtree) to the Tauri asset-protocol scope so
+/// `convertFileSrc` URLs resolve for local images. Additive by design — see the
+/// call site for why revoking is not an option.
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+fn apply_workspace_asset_scope(app: &AppHandle, root: &Path) {
+    let _ = app.asset_protocol_scope().allow_directory(root, true);
+}
+
+/// Mobile has no `asset_protocol_scope` in the same shape and no plain
+/// filesystem vault paths; nothing to keep in step.
+#[cfg(any(target_os = "android", target_os = "ios"))]
+fn apply_workspace_asset_scope(_app: &AppHandle, _root: &Path) {}
+
 #[tauri::command]
 pub async fn workspace_index_init(app: AppHandle, folder: String) -> Result<usize, String> {
     tauri::async_runtime::spawn_blocking(move || workspace_index_init_inner(app, folder))
@@ -159,6 +172,51 @@ fn workspace_index_init_inner(app: AppHandle, folder: String) -> Result<usize, S
     if !root.is_dir() {
         return Err(format!("not a directory: {folder}"));
     }
+
+    // This command is the app's canonical "a vault is now open" signal — the
+    // frontend pushes `workspace.currentFolder` here on every workspace change
+    // (App.vue watchEffect → workspaceIndex.setFolder). Registering the vault
+    // as the authorized root for the file commands (read_file / write_file /
+    // list_dir / …) here means the guard tracks the user's workspace without a
+    // separate command or an extra round-trip. See `commands::path_guard`.
+    //
+    // SECURITY: the folder arrives as a plain string from the WebView, so it
+    // must not be trusted with widening the guard on its own. Without the check
+    // below, one `invoke('workspace_index_init', { folder: 'C:/' })` from
+    // injected script would authorize the whole disk and every guard in the app
+    // would become decorative. Only roots the user picked in a native dialog
+    // (`user_pick::pick_user_path`) are accepted.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        use super::commands::path_guard;
+        if !path_guard::is_approved(&folder) {
+            // Single exception: on the first launch that has an opinion at all
+            // (fresh install, or the first run after this guard shipped) the
+            // approval store does not exist yet, and the vault the app restored
+            // from its own settings has never been through a native picker.
+            // Adopt it once. The store is written immediately afterwards and is
+            // itself forbidden to the WebView, so it cannot be deleted to
+            // re-open this door.
+            if path_guard::store_exists() {
+                return Err(format!(
+                    "workspace folder was not chosen in a folder picker: {folder}"
+                ));
+            }
+            path_guard::approve_root(&root)?;
+        }
+    }
+
+    super::commands::path_guard::set_workspace_root(Some(&folder));
+
+    // Keep the asset protocol (used by `convertFileSrc` to render local images)
+    // in step with the vault. The static scope in tauri.conf.json only covers
+    // the user's standard folders, so a vault on another drive would render
+    // every image as a broken link. Grants are additive only: Tauri's scope has
+    // no "un-forbid", so revoking the previous vault would permanently break
+    // its images once the user switched back (forbid outranks allow). Every
+    // folder that gets granted here went through the approval check above, so
+    // the set only ever contains vaults the user actually opened.
+    apply_workspace_asset_scope(&app, &root);
 
     // Reset state.
     {

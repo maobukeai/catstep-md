@@ -1,5 +1,9 @@
 pub mod app_build;
 pub mod commands;
+// Native file / folder pickers. They live in Rust because `commands::path_guard`
+// only trusts roots the user picked in a dialog it drove itself — see the module
+// header for why the WebView must not be the one naming a workspace root.
+pub mod user_pick;
 // Image-bed (图床) upload: PicGo / shell command / sm.ms / S3-compatible / GitHub.
 pub mod image_upload;
 pub mod search;
@@ -145,6 +149,11 @@ pub fn run() {
     let builder = builder.manage(updater::UpdaterState::new());
     builder
         .setup(|app| {
+            // Path guard: register the app's own config / data / temp dirs as
+            // authorized roots once, before any path-taking command runs. The
+            // workspace root is registered separately, when a vault is opened
+            // (`workspace_index_init`). See `commands::path_guard`.
+            commands::path_guard::prime_app_roots(app.handle());
             #[cfg(debug_assertions)]
             {
                 dev_bridge::spawn(app.handle().clone());
@@ -207,6 +216,7 @@ pub fn run() {
             commands::fs_rename,
             search::search_in_dir,
             workspace_index::workspace_index_init,
+            user_pick::pick_user_path,
             workspace_index::workspace_index_files,
             workspace_index::workspace_index_backlinks,
             workspace_index::workspace_index_tags,

@@ -4,6 +4,462 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
+// ---------------------------------------------------------------------------
+// path_guard — authorized-root enforcement for every path-taking command.
+//
+// Why: rendered Markdown is injected with `v-html`, and a `<script>`/`onerror`
+// payload in a file the user merely *opened* (GitHub, a web clipper, a chat
+// message) runs in the WebView main context — the same context that can call
+// these commands. Before this guard, `read_file("/etc/passwd")` or
+// `fs_delete("C:\\Users\\me")` from an injected script was a plain IPC call
+// away. Now every command first proves its path lives inside an authorized
+// root.
+//
+// Allowed roots:
+//   * vaults the user has actually chosen in a **native** folder picker
+//     (`APPROVED_ROOTS`, persisted next to the app config). This is the
+//     important one: `workspace_index_init` used to accept any string the
+//     frontend handed it, which meant injected script could call
+//     `workspace_index_init("C:/")` and turn "open a Markdown file" into
+//     "read/write/delete anything on disk". Only the Rust-side pickers
+//     (`pick_workspace_folder` / `pick_user_path`) may add a root now, because
+//     only they observe an actual user gesture — the WebView cannot forge one.
+//   * the app's own config / data directories and the OS temp directory
+//     (`prime_app_roots`, called once from the Tauri setup hook), because the
+//     app writes settings, themes and dictionaries there itself.
+//   * the vault the user currently has open (`set_workspace_root`), which is a
+//     *replacement* (never merged) so switching vaults does not accumulate.
+//
+// A `FORBIDDEN_ROOTS` list wins over all of the above, and is checked both ways
+// round: a target inside a forbidden root is rejected, and so is a target that
+// *contains* one (otherwise `fs_delete("<config dir>")` would wipe the approval
+// store and let the attacker re-bootstrap it).
+//
+// Comparison is done on canonicalized paths, so `.`, `..` and symlinks are
+// resolved before the check, and Windows path comparison is case-insensitive
+// with the `\\?\` verbatim prefix stripped. A rejected path returns a readable
+// error; it never panics.
+//
+// NOTE: the guard lives in the `#[tauri::command]` shells, not in the
+// `*_inner` helpers — the helpers stay callable from tests (see
+// `tests/path_guard_test.rs` and the existing `tests/*_test.rs`) without
+// pre-registering roots. Do not move the check into `_inner` without updating
+// those tests, and do not relax it.
+// ---------------------------------------------------------------------------
+pub mod path_guard {
+    use once_cell::sync::Lazy;
+    use std::ffi::OsString;
+    use std::path::{Component, Path, PathBuf};
+    use std::sync::RwLock;
+
+    /// Roots that are always authorized for this process: the app's own
+    /// config / data dirs and the OS temp dir.
+    static PROCESS_ROOTS: Lazy<RwLock<Vec<PathBuf>>> = Lazy::new(|| RwLock::new(Vec::new()));
+
+    /// Roots the user explicitly picked in a native dialog. Persisted — see
+    /// `APPROVED_STORE` — so a vault stays authorized across restarts without
+    /// re-prompting. Capped so it cannot grow without bound.
+    static APPROVED_ROOTS: Lazy<RwLock<Vec<PathBuf>>> = Lazy::new(|| RwLock::new(Vec::new()));
+
+    /// Path of the JSON file backing `APPROVED_ROOTS`, resolved from the app
+    /// config dir on startup. `None` until `prime_app_roots` runs.
+    static APPROVED_STORE: Lazy<RwLock<Option<PathBuf>>> = Lazy::new(|| RwLock::new(None));
+
+    /// Paths that are never authorized even when they sit inside a root above.
+    static FORBIDDEN_ROOTS: Lazy<RwLock<Vec<PathBuf>>> = Lazy::new(|| RwLock::new(Vec::new()));
+
+    /// The vault the user has open right now. *Replaced* on every workspace
+    /// switch (never merged), so opening a vault does not accumulate grants.
+    static WORKSPACE_ROOT: Lazy<RwLock<Option<PathBuf>>> = Lazy::new(|| RwLock::new(None));
+
+    /// Upper bound on persisted approvals. Recent-folders MRU in the UI is 10;
+    /// people do not open 32 distinct vaults on one machine in practice, and a
+    /// hard cap keeps the store from silently becoming a whole-disk grant.
+    const MAX_APPROVED_ROOTS: usize = 32;
+
+    /// Subdirectory of the app config dir holding guard state. Registered as
+    /// forbidden so the WebView cannot read, rewrite or delete it.
+    pub const SECURITY_DIR: &str = "security";
+    const APPROVED_STORE_FILE: &str = "approved-roots.json";
+
+    #[cfg(windows)]
+    fn fold(s: &str) -> String {
+        s.to_lowercase()
+    }
+    #[cfg(not(windows))]
+    fn fold(s: &str) -> String {
+        s.to_string()
+    }
+
+    /// Windows `canonicalize` returns `\\?\C:\…` (and `\\?\UNC\server\share`);
+    /// strip the verbatim prefix so it compares equal to a plain path.
+    #[cfg(windows)]
+    fn strip_verbatim(p: PathBuf) -> PathBuf {
+        let s = p.to_string_lossy().into_owned();
+        if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+            return PathBuf::from(format!(r"\\{rest}"));
+        }
+        if let Some(rest) = s.strip_prefix(r"\\?\") {
+            return PathBuf::from(rest.to_string());
+        }
+        p
+    }
+    #[cfg(not(windows))]
+    fn strip_verbatim(p: PathBuf) -> PathBuf {
+        p
+    }
+
+    /// Pure lexical reduction: drop `.`, apply `..`, keep the root.
+    fn lexical(path: &Path) -> PathBuf {
+        let mut out = PathBuf::new();
+        for comp in path.components() {
+            match comp {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    out.pop();
+                }
+                other => out.push(other.as_os_str()),
+            }
+        }
+        out
+    }
+
+    /// Resolve `path` as far as the filesystem allows, then append the part
+    /// that does not exist yet (lexically reduced). This is what lets a *new*
+    /// file inside an authorized root pass the check while a `../` escape
+    /// still fails.
+    fn canonicalize_best_effort(path: &Path) -> PathBuf {
+        if let Ok(c) = std::fs::canonicalize(path) {
+            return strip_verbatim(c);
+        }
+        let mut missing: Vec<OsString> = Vec::new();
+        let mut cur = path.to_path_buf();
+        loop {
+            let Some(parent) = cur.parent().map(Path::to_path_buf) else {
+                break;
+            };
+            match cur.file_name() {
+                Some(name) => missing.push(name.to_os_string()),
+                None => break,
+            }
+            if let Ok(c) = std::fs::canonicalize(&parent) {
+                let mut out = strip_verbatim(c);
+                for seg in missing.iter().rev() {
+                    let s = seg.to_string_lossy();
+                    if s == "." {
+                        continue;
+                    }
+                    if s == ".." {
+                        out.pop();
+                        continue;
+                    }
+                    out.push(&*s);
+                }
+                return out;
+            }
+            if parent.as_os_str().is_empty() || parent == cur {
+                break;
+            }
+            cur = parent;
+        }
+        strip_verbatim(lexical(path))
+    }
+
+    /// Absolute + canonicalized form of `raw` (relative paths resolve against
+    /// the process CWD, matching what `std::fs` would have done).
+    pub fn normalize(raw: &str) -> PathBuf {
+        let p = PathBuf::from(raw);
+        let abs = if p.is_absolute() {
+            p
+        } else {
+            std::env::current_dir().map(|d| d.join(&p)).unwrap_or(p)
+        };
+        canonicalize_best_effort(&abs)
+    }
+
+    /// Is `target` equal to `root` or below it? Component-wise, so
+    /// `/a/bb` is *not* inside `/a/b`.
+    pub fn path_within(root: &Path, target: &Path) -> bool {
+        let r: Vec<String> = root
+            .components()
+            .map(|c| fold(&c.as_os_str().to_string_lossy()))
+            .collect();
+        let t: Vec<String> = target
+            .components()
+            .map(|c| fold(&c.as_os_str().to_string_lossy()))
+            .collect();
+        t.len() >= r.len() && r.iter().zip(t.iter()).all(|(a, b)| a == b)
+    }
+
+    fn read_roots(lock: &RwLock<Vec<PathBuf>>) -> Vec<PathBuf> {
+        lock.read()
+            .map(|g| g.clone())
+            .unwrap_or_else(|e| e.into_inner().clone())
+    }
+
+    pub fn authorized_roots() -> Vec<PathBuf> {
+        let mut roots: Vec<PathBuf> = Vec::new();
+        roots.extend(read_roots(&APPROVED_ROOTS));
+        if let Some(ws) = WORKSPACE_ROOT
+            .read()
+            .map(|g| g.clone())
+            .unwrap_or_else(|e| e.into_inner().clone())
+        {
+            roots.push(ws);
+        }
+        roots.extend(read_roots(&PROCESS_ROOTS));
+        roots
+    }
+
+    /// Does `target` sit inside a forbidden root, or would touching it reach
+    /// one? The second half is what keeps the approval store safe: deleting or
+    /// renaming a *parent* directory of the store would otherwise reset the
+    /// guard and let an attacker re-bootstrap an arbitrary root.
+    fn touches_forbidden(target: &Path) -> bool {
+        read_roots(&FORBIDDEN_ROOTS)
+            .iter()
+            .any(|f| path_within(f, target) || path_within(target, f))
+    }
+
+    /// Is `raw` inside one of the authorized roots? `false` for empty input.
+    pub fn is_authorized(raw: &str) -> bool {
+        if raw.trim().is_empty() {
+            return false;
+        }
+        let target = normalize(raw);
+        if touches_forbidden(&target) {
+            return false;
+        }
+        authorized_roots()
+            .iter()
+            .any(|root| path_within(root, &target))
+    }
+
+    /// `Ok(())` when `raw` may be touched, otherwise the readable error every
+    /// guarded command returns.
+    pub fn ensure_authorized(raw: &str) -> Result<(), String> {
+        if is_authorized(raw) {
+            Ok(())
+        } else {
+            Err(format!("path outside authorized roots: {raw}"))
+        }
+    }
+
+    /// Never authorize `dir`, or anything under it, for the lifetime of the
+    /// process. Used for the approval store itself.
+    pub fn add_forbidden_root(dir: &Path) {
+        let normalized = canonicalize_best_effort(dir);
+        let mut roots = FORBIDDEN_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+        if !roots.iter().any(|r| r == &normalized) {
+            roots.push(normalized);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // User-picked roots
+    // -----------------------------------------------------------------------
+
+    fn store_path() -> Option<PathBuf> {
+        APPROVED_STORE
+            .read()
+            .map(|g| g.clone())
+            .unwrap_or_else(|e| e.into_inner().clone())
+    }
+
+    /// Has the approval store ever been written on this machine? `false` means
+    /// this is the first run that knows about the guard (fresh install, or an
+    /// upgrade from a version that had none), which is the single situation in
+    /// which `workspace_index_init` may adopt a root on its own.
+    pub fn store_exists() -> bool {
+        store_path().map(|p| p.exists()).unwrap_or(false)
+    }
+
+    /// Persist `APPROVED_ROOTS` to disk. Best effort: a failure to write means
+    /// the grant still applies for this session, it just won't survive a
+    /// restart (and the user is asked again next launch, which is safe).
+    fn save_approved_roots() {
+        let Some(path) = store_path() else { return };
+        let roots = read_roots(&APPROVED_ROOTS);
+        let list: Vec<String> = roots.iter().map(|r| r.to_string_lossy().to_string()).collect();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(json) = serde_json::to_vec_pretty(&list) {
+            let _ = std::fs::write(&path, json);
+        }
+    }
+
+    /// Load the persisted approvals. Called once from `prime_app_roots`.
+    pub fn load_approved_roots() {
+        let Some(path) = store_path() else { return };
+        let Ok(bytes) = std::fs::read(&path) else { return };
+        let Ok(list) = serde_json::from_slice::<Vec<String>>(&bytes) else {
+            return;
+        };
+        let mut roots = APPROVED_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+        roots.clear();
+        for raw in list {
+            let p = canonicalize_best_effort(&PathBuf::from(&raw));
+            if p.is_absolute() && !roots.iter().any(|r| r == &p) {
+                roots.push(p);
+            }
+        }
+        roots.truncate(MAX_APPROVED_ROOTS);
+    }
+
+    /// Record a directory the *user* just picked in a native dialog and make it
+    /// a permanent authorized root. Only the Rust-side pickers call this.
+    pub fn approve_root(dir: &Path) -> Result<(), String> {
+        if !dir.is_dir() {
+            return Err(format!("not a directory: {}", dir.display()));
+        }
+        let normalized = canonicalize_best_effort(dir);
+        if touches_forbidden(&normalized) {
+            return Err(format!("refusing to approve protected path: {}", dir.display()));
+        }
+        {
+            let mut roots = APPROVED_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+            roots.retain(|r| r != &normalized);
+            roots.push(normalized);
+            // Drop the oldest grants first — never the one just added.
+            let len = roots.len();
+            if len > MAX_APPROVED_ROOTS {
+                roots.drain(0..len - MAX_APPROVED_ROOTS);
+            }
+        }
+        save_approved_roots();
+        Ok(())
+    }
+
+    /// Is `raw` inside a root the user picked (or an app-owned directory)?
+    /// Unlike `is_authorized` this ignores the *current* workspace, because it
+    /// answers "may this become the workspace?" rather than "may I touch it?".
+    pub fn is_approved(raw: &str) -> bool {
+        if raw.trim().is_empty() {
+            return false;
+        }
+        let target = normalize(raw);
+        if touches_forbidden(&target) {
+            return false;
+        }
+        read_roots(&APPROVED_ROOTS)
+            .iter()
+            .chain(read_roots(&PROCESS_ROOTS).iter())
+            .any(|root| path_within(root, &target))
+    }
+
+    /// Register a permanent root for this process (config / data / temp).
+    pub fn add_process_root(dir: &Path) {
+        let normalized = canonicalize_best_effort(dir);
+        let mut roots = PROCESS_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+        if !roots.iter().any(|r| r == &normalized) {
+            roots.push(normalized);
+        }
+    }
+
+    /// Called once from the Tauri `setup` hook with the live app handle.
+    pub fn prime_app_roots(app: &tauri::AppHandle) {
+        use tauri::Manager;
+        if let Ok(dir) = app.path().app_config_dir() {
+            add_process_root(&dir);
+            // Guard state lives under <config>/security/. Resolve it, load the
+            // persisted approvals, then forbid the whole subtree so the WebView
+            // can neither read nor rewrite nor delete the allowlist.
+            let security = dir.join(SECURITY_DIR);
+            *APPROVED_STORE.write().unwrap_or_else(|e| e.into_inner()) =
+                Some(security.join(APPROVED_STORE_FILE));
+            add_forbidden_root(&security);
+            load_approved_roots();
+        }
+        if let Ok(dir) = app.path().app_data_dir() {
+            add_process_root(&dir);
+        }
+        add_process_root(&std::env::temp_dir());
+    }
+
+    /// Register the vault the user just opened. `None` / empty clears it.
+    pub fn set_workspace_root(folder: Option<&str>) {
+        let next = folder
+            .map(str::trim)
+            .filter(|f| !f.is_empty())
+            .map(normalize);
+        let mut slot = WORKSPACE_ROOT.write().unwrap_or_else(|e| e.into_inner());
+        *slot = next;
+    }
+
+    /// Record a path the OS handed us because the user dropped it on the
+    /// window. Drag & drop is a real user gesture observed by Rust (unlike
+    /// anything the WebView reports), so — like a native picker — it may widen
+    /// the authorized roots. Dropping a *file* authorizes its directory, since
+    /// the point of dropping a note is usually to edit and save it.
+    pub fn approve_from_os_drop(path: &Path) {
+        let dir = if path.is_dir() {
+            Some(path.to_path_buf())
+        } else {
+            path.parent().map(Path::to_path_buf)
+        };
+        if let Some(dir) = dir {
+            let _ = approve_root(&dir);
+        }
+    }
+
+    /// Test hook (`tests/path_guard_test.rs`). Mirrors the `_test_*` naming
+    /// this codebase already uses for such knobs.
+    pub fn _test_reset(workspace: Option<&Path>, process: &[&Path]) {
+        {
+            let mut slot = WORKSPACE_ROOT.write().unwrap_or_else(|e| e.into_inner());
+            *slot = workspace.map(canonicalize_best_effort);
+        }
+        let mut roots = PROCESS_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+        roots.clear();
+        for p in process {
+            roots.push(canonicalize_best_effort(p));
+        }
+        APPROVED_ROOTS.write().unwrap_or_else(|e| e.into_inner()).clear();
+        FORBIDDEN_ROOTS.write().unwrap_or_else(|e| e.into_inner()).clear();
+        *APPROVED_STORE.write().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    /// Test hook: seed an approved root without touching the filesystem, so
+    /// tests never write into the real user profile.
+    pub fn _test_approve(path: &Path) {
+        let mut roots = APPROVED_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+        roots.push(canonicalize_best_effort(path));
+    }
+
+    /// Test hook: seed a forbidden root.
+    pub fn _test_forbid(path: &Path) {
+        let mut roots = FORBIDDEN_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+        roots.push(canonicalize_best_effort(path));
+    }
+
+    /// Test hook: pretend the approval store lives at `path` (so `store_exists`
+    /// and `approve_root` can be exercised without the app config dir).
+    pub fn _test_set_store(path: Option<&Path>) {
+        *APPROVED_STORE.write().unwrap_or_else(|e| e.into_inner()) =
+            path.map(|p| p.to_path_buf());
+    }
+}
+
+/// Shorthand used by the guarded command shells below.
+///
+/// Mobile is exempt on purpose: Android reaches the user's files through SAF
+/// (`content://…`) and iOS through its own container, neither of which is a
+/// real filesystem path the guard could canonicalize — and the OS sandbox,
+/// not this module, is the boundary there. Desktop (the platform the guard
+/// was written for) is enforced unconditionally.
+pub fn authorize(path: &str) -> Result<(), String> {
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let _ = path;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        path_guard::ensure_authorized(path)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileReadResult {
     pub content: String,
@@ -20,6 +476,7 @@ pub struct FileReadResult {
 /// `feedback_tauri_sync_command_audit.md`. The inner is exposed for tests.
 #[tauri::command]
 pub async fn read_file(path: String) -> Result<FileReadResult, String> {
+    authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || read_file_inner(path))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -131,6 +588,7 @@ pub async fn write_file(
     encoding: String,
     workspace: Option<String>,
 ) -> Result<(), String> {
+    authorize(&path)?;
     let path_for_dispatch = path.clone();
     let content_for_dispatch = content.clone();
     tauri::async_runtime::spawn_blocking({
@@ -238,6 +696,7 @@ pub fn write_file_inner(path: String, content: String, encoding: String) -> Resu
 /// siblings so a slow disk doesn't queue parallel IPC calls.
 #[tauri::command]
 pub async fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
+    authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         fs::read(&path).map_err(|e| format!("read failed: {e}"))
     })
@@ -248,6 +707,7 @@ pub async fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
 /// Write raw bytes to disk. Used for binary export targets like DOCX/PDF.
 #[tauri::command]
 pub async fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || write_binary_file_inner(path, data))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -296,6 +756,8 @@ pub fn print_webview(_window: tauri::WebviewWindow) -> Result<(), String> {
 /// `_assets/` folder without round-tripping bytes through JavaScript.
 #[tauri::command]
 pub async fn copy_file(src: String, dst: String) -> Result<(), String> {
+    authorize(&src)?;
+    authorize(&dst)?;
     tauri::async_runtime::spawn_blocking(move || copy_file_inner(src, dst))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -317,6 +779,7 @@ pub fn copy_file_inner(src: String, dst: String) -> Result<(), String> {
 /// so the UI can show "already exists" without us silently overwriting.
 #[tauri::command]
 pub fn fs_create_file(path: String, content: Option<String>) -> Result<(), String> {
+    authorize(&path)?;
     let p = Path::new(&path);
     if p.exists() {
         return Err(format!("already exists: {path}"));
@@ -332,6 +795,7 @@ pub fn fs_create_file(path: String, content: Option<String>) -> Result<(), Strin
 
 #[tauri::command]
 pub fn fs_create_dir(path: String) -> Result<(), String> {
+    authorize(&path)?;
     let p = Path::new(&path);
     if p.exists() {
         return Err(format!("already exists: {path}"));
@@ -341,6 +805,7 @@ pub fn fs_create_dir(path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn fs_delete(path: String) -> Result<(), String> {
+    authorize(&path)?;
     let p = Path::new(&path);
     if !p.exists() {
         return Ok(()); // idempotent — already gone is fine
@@ -372,11 +837,18 @@ pub fn fs_delete(path: String) -> Result<(), String> {
 /// Windows.
 #[tauri::command]
 pub fn fs_dir_exists(path: String) -> bool {
+    // Guarded too: an unguarded probe would let injected markup map the
+    // filesystem one directory at a time. Out-of-scope paths report "no".
+    if authorize(&path).is_err() {
+        return false;
+    }
     Path::new(&path).is_dir()
 }
 
 #[tauri::command]
 pub fn fs_rename(from: String, to: String) -> Result<(), String> {
+    authorize(&from)?;
+    authorize(&to)?;
     let from_p = Path::new(&from);
     let to_p = Path::new(&to);
     if !from_p.exists() {
@@ -571,6 +1043,7 @@ pub fn list_dir_inner(path: String) -> Result<Vec<DirEntry>, String> {
 /// git_history: hand off to the blocking pool.
 #[tauri::command]
 pub async fn list_dir(path: String) -> Result<Vec<DirEntry>, String> {
+    authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || list_dir_inner(path))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -940,6 +1413,7 @@ pub async fn update_frontmatter_property(
     key: String,
     value: serde_json::Value,
 ) -> Result<String, String> {
+    authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
         let next = set_frontmatter_property_str(&raw, &key, &value)?;
@@ -958,6 +1432,7 @@ pub async fn delete_frontmatter_property(
     path: String,
     key: String,
 ) -> Result<String, String> {
+    authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
         let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
         let next = delete_frontmatter_property_str(&raw, &key)?;

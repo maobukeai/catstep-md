@@ -9,7 +9,7 @@ import { useExport } from './useExport';
 import { useToastsStore } from '../stores/toasts';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { openNewWindow } from '../lib/new-window';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
+import { pickFile } from '../lib/user-pick';
 import { toggleFullscreen } from '../lib/fullscreen';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { cleanAIArtifacts, stripMarkdownToPlain } from '../lib/clean-ai';
@@ -255,11 +255,10 @@ export function useCommands(): Command[] {
       title: 'Theme: Set Custom CSS File…',
       hint: 'Pick a .css file to override Catstep MD styles',
       run: async () => {
-        const path = await openFileDialog({
-          multiple: false,
+        const path = await pickFile({
           filters: [{ name: 'CSS', extensions: ['css'] }],
         });
-        if (path && typeof path === 'string') {
+        if (path) {
           settings.setCustomCssPath(path);
           toasts.success('Custom CSS theme loaded');
         }
@@ -431,11 +430,10 @@ export function useCommands(): Command[] {
           toasts.warning('No active document');
           return;
         }
-        const sel = await openFileDialog({
-          multiple: false,
+        const sel = await pickFile({
           filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'avif', 'tiff'] }],
         });
-        if (typeof sel !== 'string') return;
+        if (!sel) return;
         window.dispatchEvent(
           new CustomEvent('solomd:insert-image-path', {
             detail: { path: sel, paneId: tiles.focusedPaneId },

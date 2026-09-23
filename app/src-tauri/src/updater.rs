@@ -121,7 +121,7 @@ pub async fn updater_start_download(
         return Err(err_msg);
     }
 
-    let target_file_path = temp_dir.join(&filename);
+    let target_file_path = temp_dir.join(sanitize_download_filename(&filename)?);
     let target_path_str = target_file_path.to_string_lossy().to_string();
 
     let client = match reqwest::Client::builder()
@@ -349,6 +349,29 @@ pub fn updater_cancel_download(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Reduce a caller-supplied download name to a bare file name.
+///
+/// The frontend normally passes the asset name out of the release URL, but
+/// nothing stopped a compromised WebView from passing `../../../x.exe` — and
+/// the file we download is later handed to `updater_install_and_restart`, which
+/// *executes* it. Combined, an un-sanitized name was a one-call path from
+/// "injected script" to "arbitrary code execution". Keep only the last path
+/// segment and reject anything empty or still suspicious.
+fn sanitize_download_filename(raw: &str) -> Result<String, String> {
+    let name = raw
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("")
+        .trim();
+    if name.is_empty() || name == "." || name == ".." {
+        return Err("invalid download file name".into());
+    }
+    if name.contains(['/', '\\', '\0']) || name.chars().count() > 200 {
+        return Err("invalid download file name".into());
+    }
+    Ok(name.to_string())
+}
+
 #[tauri::command]
 pub fn updater_install_and_restart(
     app: AppHandle,
@@ -360,6 +383,11 @@ pub fn updater_install_and_restart(
     if !path.exists() {
         return Err(format!("Installer file not found at: {file_path}"));
     }
+    // This command *executes* whatever it is given. The installer lives in the
+    // updater's own cache directory (an authorized root), so requiring the path
+    // to be authorized keeps a compromised WebView from pointing it at any
+    // executable on disk.
+    super::commands::authorize(&file_path)?;
 
     #[cfg(target_os = "windows")]
     {
@@ -472,5 +500,53 @@ pub fn updater_install_and_restart(
     {
         let _ = (app, file_path, silent);
         Err("Auto-installation is only supported on Desktop platforms".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_download_filename;
+
+    #[test]
+    fn download_name_keeps_only_the_basename() {
+        assert_eq!(
+            sanitize_download_filename("CatstepMD_1.0.5_x64-setup.exe").unwrap(),
+            "CatstepMD_1.0.5_x64-setup.exe"
+        );
+        // A release URL's last segment is what the frontend normally passes.
+        assert_eq!(
+            sanitize_download_filename("v1.0.5/CatstepMD.msi").unwrap(),
+            "CatstepMD.msi"
+        );
+        assert_eq!(sanitize_download_filename(r"a\b\setup.exe").unwrap(), "setup.exe");
+    }
+
+    #[test]
+    fn traversal_in_a_download_name_is_stripped_not_honoured() {
+        // This file is later handed to `updater_install_and_restart`, which
+        // *runs* it — so `..` here used to be a path to arbitrary execution.
+        let name = sanitize_download_filename("../../../../Startup/evil.exe").unwrap();
+        assert_eq!(name, "evil.exe");
+        assert!(!name.contains(".."));
+        assert!(!name.contains('/'));
+        assert!(!name.contains('\\'));
+
+        // Windows-style traversal too.
+        assert_eq!(
+            sanitize_download_filename(r"..\..\Windows\Temp\x.msi").unwrap(),
+            "x.msi"
+        );
+    }
+
+    #[test]
+    fn empty_or_degenerate_download_names_are_refused() {
+        for bad in ["", "   ", "/", "\\", "..", ".", "a/.."] {
+            assert!(
+                sanitize_download_filename(bad).is_err(),
+                "{bad:?} should be refused"
+            );
+        }
+        // Absurdly long names are refused rather than handed to the filesystem.
+        assert!(sanitize_download_filename(&"x".repeat(201)).is_err());
     }
 }

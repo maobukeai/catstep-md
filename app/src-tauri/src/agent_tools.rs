@@ -2044,6 +2044,8 @@ agent_tool_cmd!(agent_tool_read_agent_trace, "read_agent_trace");
 /// AI Settings "recent runs" section.
 #[tauri::command]
 pub async fn agent_list_runs(workspace: String) -> Result<Vec<Value>, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized root.
+    super::commands::authorize(&workspace)?;
     tauri::async_runtime::spawn_blocking(move || agent_list_runs_inner(workspace))
         .await
         .map_err(|e| format!("join: {e}"))?

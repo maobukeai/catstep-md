@@ -147,6 +147,19 @@ fn locate_pandoc() -> Option<PathBuf> {
 /// relative paths correctly (it resolves relative to the input file).
 #[tauri::command]
 pub async fn pandoc_export(args: ExportArgs) -> Result<(), String> {
+    // Pandoc writes to `output_path` (and reads the optional bibliography / CSL
+    // style). All three arrive from the WebView, so each has to prove it lives
+    // inside an authorized root — otherwise `pandoc -o` is an arbitrary-file
+    // overwrite, e.g. dropping a payload into a startup folder. The frontend
+    // reaches these paths through the native save / open dialogs, which
+    // authorize what the user picks (see `user_pick`).
+    super::commands::authorize(&args.output_path)?;
+    if let Some(bib) = args.bibliography.as_deref().filter(|s| !s.trim().is_empty()) {
+        super::commands::authorize(bib)?;
+    }
+    if let Some(csl) = args.csl.as_deref().filter(|s| !s.trim().is_empty()) {
+        super::commands::authorize(csl)?;
+    }
     tauri::async_runtime::spawn_blocking(move || pandoc_export_inner(args))
         .await
         .map_err(|e| format!("join: {e}"))?

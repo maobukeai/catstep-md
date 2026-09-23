@@ -13,6 +13,7 @@ import mark from 'markdown-it-mark';
 import cjkFriendly from 'markdown-it-cjk-friendly';
 import yaml from 'js-yaml';
 import { numberEquations } from './equations';
+import { sanitizeHtml } from './sanitize-html';
 
 // NOTE: `@hedgedoc/markdown-it-task-lists` is installed but unusable here —
 // its compiled ESM entry does `import Token from 'markdown-it/lib/token.js'`
@@ -42,10 +43,17 @@ let lastFrontMatterRaw: string | null = null;
 
 // `html: true` lets users embed inline HTML like
 // `<img src=… style="zoom:50%;">`, `<details>`, `<sub>`, or table HTML for
-// edge cases markdown can't express. CSP in tauri.conf.json is `null` for
-// the local webview, but this app only ever renders the user's own files
-// — no untrusted input — so the security tradeoff is the same as Typora /
-// Obsidian (both ship with HTML on by default). See issue #54.
+// edge cases markdown can't express. See issue #54.
+//
+// SECURITY: raw HTML is a script-injection surface. A `*.md` file from GitHub,
+// a web clipper, or a chat message is untrusted input, and rendered HTML is
+// injected with `v-html` in the WebView context that can call Tauri IPC — so
+// `<script>` / `<img onerror=…>` used to escalate to arbitrary local file
+// read/write. Every string this module hands back is therefore run through the
+// allowlist sanitizer in `sanitize-html.ts` (see `renderMarkdown` /
+// `renderInlineMarkdown` below). The sanitizer keeps the #54 feature set —
+// inline `<img style>`, `<details>`, `<sub>`/`<sup>`, table HTML — and drops
+// everything executable. Do NOT return `md.render*()` without it.
 export const md = new MarkdownIt({
   html: true,
   linkify: true,
@@ -833,24 +841,37 @@ export function renderMarkdown(source: string, options?: { breaks?: boolean }): 
   } finally {
     if (options?.breaks !== undefined) md.set({ breaks: prevBreaks });
   }
+  let html: string;
   if (lastFrontMatterRaw !== null) {
     const fmHtml = renderFrontMatterHtml(lastFrontMatterRaw);
     lastFrontMatterRaw = null;
-    return fmHtml + body;
+    html = fmHtml + body;
+  } else {
+    html = body;
   }
-  return body;
+  // Single choke point for every consumer (preview pane, plain/live-edit
+  // blocks, slideshow, the print overlay, HTML/PDF/PNG exports, clipboard
+  // HTML). Export targets sanitize too: the exported artifact is handed to
+  // other applications, and "sanitizing only the in-app preview" would leave
+  // the same injection one export away from a different renderer. The DOCX
+  // path does not come through here — it walks `md.parse()` tokens and never
+  // emits HTML.
+  return sanitizeHtml(html);
 }
 
 /**
  * Render an inline Markdown snippet (bold, italic, code, links, math) without
  * wrapping it in block-level <p> tags. Used by in-place table cells.
+ *
+ * Sanitized for the same reason as `renderMarkdown` — callers assign the
+ * result to `innerHTML`.
  */
 export function renderInlineMarkdown(source: string): string {
   if (!source) return '';
   try {
-    return md.renderInline(source);
+    return sanitizeHtml(md.renderInline(source));
   } catch {
-    return source;
+    return sanitizeHtml(source);
   }
 }
 

@@ -790,6 +790,11 @@ fn ensure_gitignore(folder: &Path) {
 
 #[tauri::command]
 pub async fn rag_set_enabled(folder: String, enabled: bool) -> Result<RagStatus, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized
+    // root. Empty means "no workspace yet" and is allowed through.
+    if !folder.trim().is_empty() {
+        super::commands::authorize(&folder)?;
+    }
     tauri::async_runtime::spawn_blocking(move || rag_set_enabled_inner(folder, enabled))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -797,6 +802,11 @@ pub async fn rag_set_enabled(folder: String, enabled: bool) -> Result<RagStatus,
 
 #[tauri::command]
 pub async fn rag_index_status(folder: String) -> Result<RagStatus, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized
+    // root. Empty means "no workspace yet" and is allowed through.
+    if !folder.trim().is_empty() {
+        super::commands::authorize(&folder)?;
+    }
     tauri::async_runtime::spawn_blocking(move || rag_index_status_inner(folder))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -804,6 +814,11 @@ pub async fn rag_index_status(folder: String) -> Result<RagStatus, String> {
 
 #[tauri::command]
 pub async fn rag_reindex(folder: String) -> Result<RagStatus, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized
+    // root. Empty is left to the inner, which reports it as an error.
+    if !folder.trim().is_empty() {
+        super::commands::authorize(&folder)?;
+    }
     tauri::async_runtime::spawn_blocking(move || rag_reindex_inner(folder))
         .await
         .map_err(|e| format!("join: {e}"))?
@@ -829,6 +844,14 @@ pub async fn rag_search(args: SearchArgs) -> Result<Vec<RagHit>, String> {
 
 #[tauri::command]
 pub async fn rag_reindex_file(folder: String, file_path: String) -> Result<(), String> {
+    // Both paths are caller-supplied — prove each is inside an authorized
+    // root. Empty inputs are a no-op in the inner, so skip them here.
+    if !folder.trim().is_empty() {
+        super::commands::authorize(&folder)?;
+    }
+    if !file_path.trim().is_empty() {
+        super::commands::authorize(&file_path)?;
+    }
     tauri::async_runtime::spawn_blocking(move || rag_reindex_file_inner(folder, file_path))
         .await
         .map_err(|e| format!("join: {e}"))?

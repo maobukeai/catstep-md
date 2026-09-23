@@ -7,7 +7,7 @@ import { plantumlSvgUrl } from '../lib/plantuml';
 import { installSvgImageFallbacks, rewriteImageUrls } from '../lib/image-resolve';
 import { openImageOverlay, type OverlayStrings } from '../lib/image-overlay';
 import { svgToPngBlob, diagramBackground } from '../lib/mermaid-export';
-import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { pickSavePath } from '../lib/user-pick';
 import { invoke } from '@tauri-apps/api/core';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
@@ -375,7 +375,7 @@ async function exportDiagramPng(svg: SVGElement) {
   const toasts = useToastsStore();
   try {
     const blob = await svgToPngBlob(svg, { scale: 2, background: diagramBackground() });
-    const path = await saveDialog({
+    const path = await pickSavePath({
       defaultPath: diagramExportName(),
       filters: [{ name: 'PNG Image', extensions: ['png'] }],
     });

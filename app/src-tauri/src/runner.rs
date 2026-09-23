@@ -16,6 +16,11 @@ mod convert;
 #[path = "workspace_index.rs"]
 mod workspace_index;
 
+// Native file / folder pickers — declared in both lib.rs and runner.rs so the
+// binary's compile root resolves `crate::user_pick` the same way the lib does.
+#[path = "user_pick.rs"]
+mod user_pick;
+
 #[path = "spellcheck.rs"]
 mod spellcheck;
 
@@ -838,6 +843,7 @@ pub fn run_with(initial_file: Option<String>) {
             set_default::set_as_default_markdown_editor,
             convert::convert_file_to_markdown,
             workspace_index::workspace_index_init,
+            user_pick::pick_user_path,
             workspace_index::workspace_index_files,
             workspace_index::workspace_index_backlinks,
             workspace_index::workspace_index_tags,
@@ -1022,6 +1028,11 @@ pub fn run_with(initial_file: Option<String>) {
             let _ = app_handle.emit("solomd://menu", id);
         })
         .setup(|app| {
+            // Path guard: register the app's own config / data / temp dirs as
+            // authorized roots once, before any path-taking command runs. The
+            // workspace root is registered separately, when a vault is opened
+            // (`workspace_index_init`). See `commands::path_guard`.
+            commands::path_guard::prime_app_roots(app.handle());
             // Build initial menu in English — the frontend will call
             // `set_menu_language` on mount to apply the user's saved preference.
             // Windows: no native menu — the frameless window renders its own
@@ -1052,6 +1063,23 @@ pub fn run_with(initial_file: Option<String>) {
                         tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Moved(_)
                     ) {
                         fit_main_window_once(&win_clone);
+                    }
+                });
+
+                // Dragging a file in from Explorer / Finder is the second place
+                // the user picks a path, and the OS delivers it here rather than
+                // to JS — so it can be trusted to widen the path guard. Without
+                // this, dropping an image or a note from outside the vault would
+                // be refused by every file command. See `commands::path_guard`.
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                win.on_window_event(|event| {
+                    if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop {
+                        paths, ..
+                    }) = event
+                    {
+                        for p in paths {
+                            commands::path_guard::approve_from_os_drop(p);
+                        }
                     }
                 });
                 // Windows frameless chrome: Snap-Layouts hit-testing subclass.

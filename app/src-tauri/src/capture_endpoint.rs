@@ -187,11 +187,18 @@ pub fn capture_set_inbox_folder(folder: String) -> CaptureState {
 /// 503 with a friendly error.
 #[tauri::command]
 pub fn capture_set_workspace(folder: Option<String>) {
-    let mut s = STATE.lock().expect("capture state lock");
-    s.workspace = folder
+    // Caller-supplied workspace path — refuse to store one that is outside
+    // the authorized roots (this path is what the HTTP endpoint writes into).
+    let normalized = folder
         .map(|f| f.trim().to_string())
-        .filter(|f| !f.is_empty())
-        .map(PathBuf::from);
+        .filter(|f| !f.is_empty());
+    if let Some(f) = normalized.as_deref() {
+        if super::commands::authorize(f).is_err() {
+            return;
+        }
+    }
+    let mut s = STATE.lock().expect("capture state lock");
+    s.workspace = normalized.map(PathBuf::from);
 }
 
 /// Where a capture should land right now: the open workspace plus the
