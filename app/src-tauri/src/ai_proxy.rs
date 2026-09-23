@@ -2513,45 +2513,82 @@ async fn anthropic_one_turn(
     // we test is the URL we use.
     let url = anthropic_endpoint(req.base_url.as_deref(), "messages");
 
-    let mut body = serde_json::json!({
-        "model": req.model,
-        "system": system_str,
-        "messages": history,
-        "stream": true,
-        "max_tokens": 4096,
-    });
-    if provider_caps(&req.provider).supports_tools
-        && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false)
-    {
-        body["tools"] = tools.clone();
-    }
+    // Build the body, dropping `tools` when the endpoint refuses them. Claude
+    // models all take tools, but a user can point this provider at any
+    // Anthropic-dialect base URL, and `claude-2.1`-era ids reject `tool_use`
+    // outright with a 400. Mirrors what `openai_one_turn` does, because the
+    // failure mode is the same: the model answers fine without tool use, so
+    // one silent retry is better than a dead panel.
+    let tools_offered = provider_caps(&req.provider).supports_tools
+        && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false);
+    let build_body = |with_tools: bool| -> Value {
+        let mut body = serde_json::json!({
+            "model": req.model,
+            "system": system_str,
+            "messages": history,
+            "stream": true,
+            "max_tokens": 4096,
+        });
+        if with_tools && tools_offered {
+            body["tools"] = tools.clone();
+        }
+        body
+    };
 
     let client = http_client()?;
-    let mut attempts = 0;
-    let resp = loop {
-        attempts += 1;
-        let res = client
-            .post(&url)
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
-            .json(&body)
-            .send()
-            .await;
-        match res {
-            Ok(r) => break r,
-            Err(e) if attempts <= 2 && (e.is_connect() || e.is_timeout() || e.is_request()) => {
-                tokio::time::sleep(std::time::Duration::from_millis(600)).await;
-                continue;
+    let send_once = |body: Value| {
+        let url = url.clone();
+        let api_key = api_key.to_string();
+        let client = client.clone();
+        async move {
+            let mut attempts = 0;
+            loop {
+                attempts += 1;
+                let res = client
+                    .post(&url)
+                    .header("x-api-key", api_key.as_str())
+                    .header("anthropic-version", "2023-06-01")
+                    .header("content-type", "application/json")
+                    .json(&body)
+                    .send()
+                    .await;
+                match res {
+                    Ok(resp) => return Ok(resp),
+                    Err(e) if attempts <= 2 && (e.is_connect() || e.is_timeout() || e.is_request()) => {
+                        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                        continue;
+                    }
+                    Err(e) => return Err(format!("anthropic request failed: {e}")),
+                }
             }
-            Err(e) => return Err(format!("anthropic request failed: {e}")),
         }
     };
 
+    let mut resp = send_once(build_body(true)).await?;
+
     if !resp.status().is_success() {
         let status = resp.status();
-        let txt = resp.text().await.unwrap_or_default();
-        return Err(format!("anthropic {status}: {txt}"));
+        if status == reqwest::StatusCode::BAD_REQUEST && tools_offered {
+            let txt = resp.text().await.unwrap_or_default();
+            let lower = txt.to_lowercase();
+            if lower.contains("tools")
+                || lower.contains("tool_use")
+                || lower.contains("tool_choice")
+                || lower.contains("functions")
+            {
+                resp = send_once(build_body(false)).await?;
+                if !resp.status().is_success() {
+                    let s = resp.status();
+                    let t = resp.text().await.unwrap_or_default();
+                    return Err(format!("anthropic {s}: {t}"));
+                }
+            } else {
+                return Err(format!("anthropic {status}: {txt}"));
+            }
+        } else {
+            let txt = resp.text().await.unwrap_or_default();
+            return Err(format!("anthropic {status}: {txt}"));
+        }
     }
 
     // Block accumulators keyed by `index` from `content_block_start`.
@@ -3711,6 +3748,118 @@ mod tests {
             )),
             "https://generativelanguage.googleapis.com/v1beta"
         );
+    }
+
+    // ---- frontend / backend capability-table agreement --------------------
+
+    /// The frontend table the UI renders. Read at compile time so the two
+    /// tables can be compared without shipping the file.
+    const PROVIDERS_TS: &str = include_str!("../../src/lib/ai-providers.ts");
+
+    /// Top-level entries of the `PROVIDERS` array.
+    fn ts_provider_chunks() -> Vec<&'static str> {
+        let block = &PROVIDERS_TS[PROVIDERS_TS
+            .find("export const PROVIDERS")
+            .expect("frontend provider table")..];
+        let block = &block[..block.find("\n];").expect("end of provider table")];
+        // Every provider declares `apiFormat`; the category entries that
+        // precede them do not, which is what tells the two apart.
+        block
+            .split("\n  {")
+            .filter(|c| c.contains("\n    apiFormat:"))
+            .collect()
+    }
+
+    fn ts_str(chunk: &str, key: &str) -> Option<String> {
+        let at = chunk.find(&format!("\n    {key}:"))?;
+        let after = chunk[at..].split_once(':')?.1.trim_start();
+        let inner = after.strip_prefix('\'')?;
+        Some(inner[..inner.find('\'')?].to_string())
+    }
+
+    fn ts_bool(chunk: &str, key: &str) -> Option<bool> {
+        let at = chunk.find(&format!("\n    {key}:"))?;
+        let after = chunk[at..].split_once(':')?.1.trim_start();
+        if after.starts_with("true") {
+            Some(true)
+        } else if after.starts_with("false") {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
+    /// `ai-providers.ts` and `provider_caps()` are two sources of truth for the
+    /// same facts, and nothing tied them together — they agreed by coincidence.
+    /// Adding a provider with, say, an `api-key` scheme to the frontend would
+    /// have left the Rust fallback sending a bearer token, and the only symptom
+    /// would be a 401 in one user's panel. This asserts they agree.
+    #[test]
+    fn the_frontend_provider_table_and_the_rust_capability_table_agree() {
+        let chunks = ts_provider_chunks();
+        assert!(
+            chunks.len() >= 17,
+            "parsed only {} providers out of ai-providers.ts — the table's \
+             shape probably changed and stopped being checked",
+            chunks.len()
+        );
+
+        let mut seen: Vec<String> = Vec::new();
+        for chunk in chunks {
+            let id = ts_str(chunk, "id").expect("provider id");
+            let caps = super::provider_caps(&id);
+
+            let auth = ts_str(chunk, "authStrategy").expect("authStrategy");
+            let want_auth = match auth.as_str() {
+                "bearer" => super::AuthStrategy::Bearer,
+                "anthropic" => super::AuthStrategy::Anthropic,
+                "google" => super::AuthStrategy::Google,
+                "none" => super::AuthStrategy::None,
+                other => panic!(
+                    "{id}: unknown authStrategy {other:?} — `provider_caps()` \
+                     needs an arm for it, or requests will 401"
+                ),
+            };
+            assert_eq!(caps.auth, want_auth, "{id}: authStrategy");
+
+            let models = ts_str(chunk, "modelListStrategy").expect("modelListStrategy");
+            let want_models = match models.as_str() {
+                "openai" => super::ModelListStrategy::OpenAi,
+                "anthropic" => super::ModelListStrategy::Anthropic,
+                "google" => super::ModelListStrategy::Google,
+                "ollama" => super::ModelListStrategy::Ollama,
+                "none" => super::ModelListStrategy::None,
+                other => panic!("{id}: unknown modelListStrategy {other:?}"),
+            };
+            assert_eq!(caps.models, want_models, "{id}: modelListStrategy");
+
+            assert_eq!(
+                caps.supports_tools,
+                ts_bool(chunk, "supportsTools").expect("supportsTools"),
+                "{id}: supportsTools"
+            );
+            assert_eq!(
+                caps.supports_streaming,
+                ts_bool(chunk, "supportsStreaming").expect("supportsStreaming"),
+                "{id}: supportsStreaming"
+            );
+            // `is_keyless_provider` also drives the legacy alias list, so this
+            // is the pair that decides whether an absent key is an error.
+            assert_eq!(
+                super::is_keyless_provider(&id),
+                ts_bool(chunk, "keyless").unwrap_or(false),
+                "{id}: keyless"
+            );
+
+            seen.push(id);
+        }
+
+        // The non-OpenAI dialects are the entries a drifted table gets wrong,
+        // so prove the parser reached them instead of parsing seventeen
+        // similar-looking OpenAI rows.
+        for id in ["anthropic", "gemini", "ollama"] {
+            assert!(seen.iter().any(|s| s == id), "parser never saw {id}");
+        }
     }
 
     #[test]
