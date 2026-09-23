@@ -44,6 +44,7 @@ import {
   rewriteImageUrls,
 } from './image-resolve';
 import { renderMarkdown, renderInlineMarkdown, extractImageRoot } from './markdown';
+import { openExternalUrl } from './open-external';
 import { findHtmlBlockEnd } from './html-live-render';
 import { caretTouchesInline } from './cm-live-render';
 import {
@@ -298,6 +299,18 @@ class TableWidget extends WidgetType {
       }, 25);
     };
 
+    const decorateCellLinks = (el: HTMLElement) => {
+      const links = el.querySelectorAll('a');
+      links.forEach((a) => {
+        const href = a.getAttribute('href') || '';
+        if (href) {
+          a.setAttribute('title', `Ctrl + 单击以访问链接: ${href}`);
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener noreferrer');
+        }
+      });
+    };
+
     const setupCell = (cell: HTMLTableCellElement, r: number, c: number, rawVal: string) => {
       cell.setAttribute('contenteditable', 'true');
       cell.setAttribute('spellcheck', 'false');
@@ -306,6 +319,28 @@ class TableWidget extends WidgetType {
       cell.dataset.raw = rawVal;
       cell.style.textAlign = currentModel.aligns[c] || 'left';
       cell.innerHTML = renderInlineMarkdown(rawVal) || '<br>';
+      decorateCellLinks(cell);
+
+      cell.addEventListener('mousedown', (e: MouseEvent) => {
+        const target = e.target as HTMLElement | null;
+        const link = target?.closest('a');
+        if (link && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+        }
+      });
+
+      cell.addEventListener('click', (e: MouseEvent) => {
+        const target = e.target as HTMLElement | null;
+        const link = target?.closest('a');
+        if (link && (e.ctrlKey || e.metaKey)) {
+          const href = link.getAttribute('href');
+          if (href) {
+            e.preventDefault();
+            e.stopPropagation();
+            void openExternalUrl(href);
+          }
+        }
+      });
 
       let isComposing = false;
 
@@ -380,6 +415,7 @@ class TableWidget extends WidgetType {
         const text = cell.textContent || '';
         cell.dataset.raw = text;
         cell.innerHTML = renderInlineMarkdown(text) || '<br>';
+        decorateCellLinks(cell);
         window.dispatchEvent(new CustomEvent('solomd:table-toolbar-hide'));
       });
 
@@ -1475,6 +1511,16 @@ export const liveBlocksTheme = EditorView.theme({
     minWidth: '64px',
     outline: 'none',
     transition: 'box-shadow 0.15s ease, background 0.15s ease',
+  },
+  '.cm-live-block--table a, .cm-interactive-table a': {
+    color: 'var(--accent) !important',
+    textDecoration: 'underline !important',
+    textUnderlineOffset: '2px',
+    cursor: 'pointer',
+    transition: 'opacity 0.15s ease, color 0.15s ease',
+  },
+  '.cm-live-block--table a:hover, .cm-interactive-table a:hover': {
+    opacity: '0.82',
   },
   '.cm-live-block--table thead th, .cm-interactive-table thead th': {
     background: 'var(--bg-elev)',

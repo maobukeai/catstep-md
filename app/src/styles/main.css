@@ -1478,6 +1478,22 @@ body.solomd-printing--dark {
   padding: 0.15em 0.4em;
   border-radius: 4px;
 }
+.cm-interactive-table a,
+.cm-live-block--table a,
+.plain-block__render a,
+.cm-editor a {
+  color: var(--accent) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: opacity var(--dur-fast, 0.15s) var(--ease, ease);
+}
+.cm-interactive-table a:hover,
+.cm-live-block--table a:hover,
+.plain-block__render a:hover,
+.cm-editor a:hover {
+  opacity: 0.82;
+}
 
 /* Interactive table cell hover — clean soft blue highlight */
 .cm-interactive-table th:hover,

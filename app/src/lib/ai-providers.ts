@@ -56,9 +56,29 @@ export interface ProviderPreset {
   labelKey: string;
 }
 
+export type ProviderCategory = 'cn' | 'global' | 'aggregator' | 'local';
+
+export interface ProviderCategoryInfo {
+  id: ProviderCategory;
+  name: string;
+  nameEn: string;
+  icon: string;
+}
+
+export const PROVIDER_CATEGORIES: ProviderCategoryInfo[] = [
+  { id: 'cn', name: '国内主流大模型', nameEn: 'China AI Models', icon: '🌟' },
+  { id: 'global', name: '国际前沿服务商', nameEn: 'Global Frontier Models', icon: '🌐' },
+  { id: 'aggregator', name: '聚合与中转网关', nameEn: 'Aggregator Gateways', icon: '🔀' },
+  { id: 'local', name: '本地与私有端点', nameEn: 'Local & Self-Hosted', icon: '💻' },
+];
+
 export interface ProviderConfig {
   id: ProviderId;
   label: string;
+  category?: ProviderCategory;
+  badge?: string;
+  icon?: string;
+  description?: string;
   /** OpenAI / Anthropic / Ollama wire format. Most providers below speak
    *  the OpenAI Chat Completions format. */
   apiFormat: ApiFormat;
@@ -84,69 +104,14 @@ export interface ProviderConfig {
 }
 
 export const PROVIDERS: ProviderConfig[] = [
-  // ---- US providers --------------------------------------------------
-  {
-    id: 'openai',
-    label: 'OpenAI',
-    apiFormat: 'openai',
-    defaultModel: 'gpt-5.6',
-    defaultBaseUrl: 'https://api.openai.com/v1',
-    modelHint: 'gpt-5.6 · gpt-5.6-sol · gpt-5.6-terra · gpt-5.6-luna · gpt-5.4-mini',
-    signupUrl: 'https://platform.openai.com/api-keys',
-  },
-  {
-    id: 'anthropic',
-    label: 'Anthropic Claude',
-    apiFormat: 'anthropic',
-    defaultModel: 'claude-sonnet-4-6',
-    defaultBaseUrl: 'https://api.anthropic.com',
-    modelHint: 'claude-fable-5 · claude-opus-4-8 · claude-sonnet-4-6 · claude-haiku-4-5',
-    signupUrl: 'https://console.anthropic.com/settings/keys',
-  },
-  {
-    id: 'gemini',
-    label: 'Google Gemini',
-    apiFormat: 'openai',
-    defaultModel: 'gemini-3.1-pro-preview',
-    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    modelHint:
-      'gemini-3.1-pro-preview · gemini-3.6-flash · gemini-3.5-flash · gemini-3.5-flash-lite',
-    signupUrl: 'https://aistudio.google.com/apikey',
-  },
-  {
-    id: 'xai',
-    label: 'xAI Grok',
-    apiFormat: 'openai',
-    defaultModel: 'grok-4.5',
-    defaultBaseUrl: 'https://api.x.ai/v1',
-    modelHint:
-      'grok-4.5 · grok-4.3 · grok-build-0.1 · grok-4.20-0309-reasoning · grok-4.20-0309-non-reasoning',
-    signupUrl: 'https://console.x.ai',
-  },
-  {
-    id: 'mistral',
-    label: 'Mistral',
-    apiFormat: 'openai',
-    defaultModel: 'mistral-large-3',
-    defaultBaseUrl: 'https://api.mistral.ai/v1',
-    modelHint:
-      'mistral-large-3 · mistral-medium-3.1 · mistral-small-4 · magistral-medium-1.2 · devstral-2 · codestral',
-    signupUrl: 'https://console.mistral.ai/api-keys',
-  },
-  {
-    id: 'groq',
-    label: 'Groq (fast inference)',
-    apiFormat: 'openai',
-    defaultModel: 'llama-3.3-70b-versatile',
-    defaultBaseUrl: 'https://api.groq.com/openai/v1',
-    modelHint:
-      'llama-3.3-70b-versatile · meta-llama/llama-4-scout-17b-16e-instruct · openai/gpt-oss-120b · qwen/qwen3-32b · groq/compound · groq/compound-mini',
-    signupUrl: 'https://console.groq.com/keys',
-  },
-  // ---- CN providers --------------------------------------------------
+  // ---- 国内主流大模型 (CN) -------------------------------------------
   {
     id: 'deepseek',
     label: 'DeepSeek',
+    category: 'cn',
+    badge: '热门推荐',
+    icon: '🐳',
+    description: '超高性价比 · 深度思考推理 · 官方直连',
     apiFormat: 'openai',
     defaultModel: 'deepseek-v4-flash',
     defaultBaseUrl: 'https://api.deepseek.com/v1',
@@ -157,6 +122,10 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'qwen',
     label: '通义千问 Qwen (DashScope)',
+    category: 'cn',
+    badge: '阿里百炼',
+    icon: '☁️',
+    description: '阿里云百炼 · 综合强 · 代码与多模态',
     apiFormat: 'openai',
     defaultModel: 'qwen-plus',
     defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
@@ -167,6 +136,10 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'glm',
     label: '智谱 GLM',
+    category: 'cn',
+    badge: '清华智谱',
+    icon: '🧬',
+    description: '新一代通用大模型 · GLM-4/5 官方 API',
     apiFormat: 'openai',
     defaultModel: 'glm-5.2',
     defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
@@ -177,6 +150,10 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'kimi',
     label: 'Moonshot Kimi',
+    category: 'cn',
+    badge: '长文本首选',
+    icon: '🌙',
+    description: '月之暗面 · 超长上下文窗口 · 深度解析',
     apiFormat: 'openai',
     defaultModel: 'kimi-k3',
     defaultBaseUrl: 'https://api.moonshot.cn/v1',
@@ -187,6 +164,10 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'volcengine',
     label: '火山方舟 / 豆包 (Volcengine ARK)',
+    category: 'cn',
+    badge: '字节跳动',
+    icon: '🌋',
+    description: '字节跳动云服务 · 豆包全系列模型',
     apiFormat: 'openai',
     defaultModel: 'doubao-seed-2.1-pro',
     defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
@@ -197,6 +178,10 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'siliconflow',
     label: '硅基流动 SiliconFlow',
+    category: 'cn',
+    badge: '高并发托管',
+    icon: '⚡',
+    description: '高并发云端模型托管 · DeepSeek与开源免排队',
     apiFormat: 'openai',
     defaultModel: 'deepseek-ai/DeepSeek-V3',
     defaultBaseUrl: 'https://api.siliconflow.cn/v1',
@@ -207,19 +192,109 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'minimax',
     label: 'MiniMax',
+    category: 'cn',
+    badge: '海螺 AI',
+    icon: '🌟',
+    description: 'MiniMax 文本与多模态模型',
     apiFormat: 'openai',
     defaultModel: 'MiniMax-M3',
-    // Global OpenAI-compatible endpoint. The CN region
-    // (https://api.minimaxi.com/v1) is reachable by overriding the base URL
-    // in AI Settings — the proxy honors the per-provider base_url override.
     defaultBaseUrl: 'https://api.minimax.io/v1',
     modelHint: 'MiniMax-M3 · MiniMax-M2.7',
     signupUrl: 'https://platform.minimax.io/',
   },
-  // ---- Aggregator (one key, hundreds of models) ---------------------
+
+  // ---- 国际顶级服务商 (Global) ---------------------------------------
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    category: 'global',
+    badge: '行业标杆',
+    icon: '🟢',
+    description: 'GPT-5 / GPT-4o / o1 前沿全能大模型',
+    apiFormat: 'openai',
+    defaultModel: 'gpt-5.6',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    modelHint: 'gpt-5.6 · gpt-5.6-sol · gpt-5.6-terra · gpt-5.6-luna · gpt-5.4-mini',
+    signupUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic Claude',
+    category: 'global',
+    badge: '逻辑与代码',
+    icon: '🟧',
+    description: 'Claude 3.5 / 3.7 Sonnet · 代码与写作巅峰',
+    apiFormat: 'anthropic',
+    defaultModel: 'claude-sonnet-4-6',
+    defaultBaseUrl: 'https://api.anthropic.com',
+    modelHint: 'claude-fable-5 · claude-opus-4-8 · claude-sonnet-4-6 · claude-haiku-4-5',
+    signupUrl: 'https://console.anthropic.com/settings/keys',
+  },
+  {
+    id: 'gemini',
+    label: 'Google Gemini',
+    category: 'global',
+    badge: '超长上下文',
+    icon: '✨',
+    description: '谷歌前沿多模态大模型 · 百万上下文',
+    apiFormat: 'openai',
+    defaultModel: 'gemini-3.1-pro-preview',
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    modelHint:
+      'gemini-3.1-pro-preview · gemini-3.6-flash · gemini-3.5-flash · gemini-3.5-flash-lite',
+    signupUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    id: 'xai',
+    label: 'xAI Grok',
+    category: 'global',
+    badge: '马斯克 xAI',
+    icon: '🕳️',
+    description: 'Grok 系列多模态推理模型',
+    apiFormat: 'openai',
+    defaultModel: 'grok-4.5',
+    defaultBaseUrl: 'https://api.x.ai/v1',
+    modelHint:
+      'grok-4.5 · grok-4.3 · grok-build-0.1 · grok-4.20-0309-reasoning · grok-4.20-0309-non-reasoning',
+    signupUrl: 'https://console.x.ai',
+  },
+  {
+    id: 'mistral',
+    label: 'Mistral',
+    category: 'global',
+    badge: '欧洲开源',
+    icon: '🔶',
+    description: '欧洲开源领军 · Mistral Large & Codestral',
+    apiFormat: 'openai',
+    defaultModel: 'mistral-large-3',
+    defaultBaseUrl: 'https://api.mistral.ai/v1',
+    modelHint:
+      'mistral-large-3 · mistral-medium-3.1 · mistral-small-4 · magistral-medium-1.2 · devstral-2 · codestral',
+    signupUrl: 'https://console.mistral.ai/api-keys',
+  },
+  {
+    id: 'groq',
+    label: 'Groq (fast inference)',
+    category: 'global',
+    badge: 'LPU 极速',
+    icon: '⚡',
+    description: 'LPU 硬件加速 · 数百 token/秒极限响应',
+    apiFormat: 'openai',
+    defaultModel: 'llama-3.3-70b-versatile',
+    defaultBaseUrl: 'https://api.groq.com/openai/v1',
+    modelHint:
+      'llama-3.3-70b-versatile · meta-llama/llama-4-scout-17b-16e-instruct · openai/gpt-oss-120b · qwen/qwen3-32b · groq/compound · groq/compound-mini',
+    signupUrl: 'https://console.groq.com/keys',
+  },
+
+  // ---- 聚合网关 (Aggregator) -----------------------------------------
   {
     id: 'openrouter',
     label: 'OpenRouter (聚合,400+ 模型)',
+    category: 'aggregator',
+    badge: '400+ 模型',
+    icon: '🔀',
+    description: '一个 Key 畅联全球顶尖闭源与开源模型',
     apiFormat: 'openai',
     defaultModel: 'anthropic/claude-sonnet-4-6',
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
@@ -230,22 +305,27 @@ export const PROVIDERS: ProviderConfig[] = [
   {
     id: 'opencode-go',
     label: 'OpenCode Go (订阅聚合)',
+    category: 'aggregator',
+    badge: '会员聚合',
+    icon: '🚀',
+    description: '全包订阅式中转 · 覆盖主流商业模型',
     apiFormat: 'openai',
     defaultModel: 'deepseek-v4-flash',
     defaultBaseUrl: 'https://opencode.ai/zen/go/v1',
-    // Full model list from GET /zen/go/v1/models (verified 2026-08-12).
     modelHint:
       'deepseek-v4-flash · deepseek-v4-pro · mimo-v2.5 · mimo-v2.5-pro · mimo-v2-pro · mimo-v2-omni · qwen3.8-max · qwen3.7-max · qwen3.7-plus · qwen3.6-plus · qwen3.5-plus · glm-5.2 · glm-5.1 · glm-5 · kimi-k3 · kimi-k2.7-code · kimi-k2.6 · kimi-k2.5 · minimax-m3 · minimax-m2.7 · minimax-m2.5 · gpt-5.6-luna · grok-4.5 · hy3',
     signupUrl: 'https://opencode.ai/auth',
   },
-  // ---- Local ---------------------------------------------------------
+
+  // ---- 本地与私有部署 (Local) ---------------------------------------
   {
     id: 'ollama',
     label: 'Ollama (本地 / local)',
+    category: 'local',
+    badge: '离线免Key',
+    icon: '🦙',
+    description: '本机运行 · 隐私保密 · 零成本离线使用',
     apiFormat: 'ollama',
-    // Default to the small/quick preset so a fresh install can hit "Pull
-    // recommended" and have something usable in <2 minutes on a typical
-    // laptop. Power users picking the 7b/14b presets just click the chip.
     defaultModel: 'qwen2.5:1.5b',
     defaultBaseUrl: 'http://localhost:11434',
     modelHint: 'qwen2.5 · llama3.2 · deepseek-r1 · gemma3 · mistral · phi3',
@@ -257,24 +337,15 @@ export const PROVIDERS: ProviderConfig[] = [
     keyless: true,
   },
   {
-    // v4.11.18 — anything that speaks OpenAI Chat Completions and that the
-    // user hosts themselves: llama.cpp's `llama-server`, LM Studio, vLLM,
-    // LocalAI, text-generation-webui, Ollama's own `/v1` shim, or a
-    // company-internal gateway. Before this entry existed the only way to
-    // reach such a server was to borrow another provider's slot and store
-    // a dummy key, because every non-Ollama provider demanded one.
     id: 'openai-compat',
     label: 'OpenAI 兼容 / OpenAI-compatible (llama.cpp · LM Studio · vLLM)',
+    category: 'local',
+    badge: '自定义',
+    icon: '🔌',
+    description: 'LM Studio · vLLM · llama.cpp · 局域网/自建网关',
     apiFormat: 'openai',
-    // llama-server's default port. LM Studio is 1234, vLLM 8000 — all
-    // three print their address on startup and it goes in this field.
     defaultBaseUrl: 'http://localhost:8080/v1',
-    // Deliberately blank: a self-hosted server names its own models, and
-    // the settings panel fills this from GET /v1/models.
     defaultModel: '',
-    // No modelHint: the hint renders under the *model* field, and a list of
-    // server URLs there reads as noise. The address examples live in the
-    // compat block's note + failure hint, where they're actionable.
     keyless: true,
   },
 ];

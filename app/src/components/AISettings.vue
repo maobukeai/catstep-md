@@ -16,10 +16,10 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { safeInvoke as invoke } from '../lib/tauri-bridge';
 import {
-  PROVIDERS,
   providerById,
   type ProviderId,
 } from '../lib/ai-providers';
+import ProviderSelect from './ProviderSelect.vue';
 import { useSettingsStore, type AIProviderProfile } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useTabsStore } from '../stores/tabs';
@@ -343,8 +343,8 @@ function openAddProviderModal(): void {
   showAddModal.value = true;
 }
 
-function onAddModalTemplateChange(ev: Event): void {
-  const sel = (ev.target as HTMLSelectElement).value as ProviderId;
+function onAddModalTemplateChange(evOrId: Event | ProviderId): void {
+  const sel = (typeof evOrId === 'string' ? evOrId : (evOrId.target as HTMLSelectElement).value) as ProviderId;
   newProviderTemplate.value = sel;
   const cfg = providerById(sel);
   newProviderName.value = cfg?.label || sel;
@@ -937,13 +937,10 @@ watch(
         <div class="ai-settings__modal-body">
           <div class="ai-settings__row">
             <label class="ai-settings__label">{{ t('ai.providerType') }}</label>
-            <select
-              class="ai-settings__input"
-              :value="newProviderTemplate"
-              @change="onAddModalTemplateChange"
-            >
-              <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.label }}</option>
-            </select>
+            <ProviderSelect
+              :model-value="newProviderTemplate"
+              @update:model-value="onAddModalTemplateChange"
+            />
           </div>
 
           <div class="ai-settings__row">

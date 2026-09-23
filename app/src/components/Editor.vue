@@ -25,6 +25,7 @@ import { vim, Vim } from '@replit/codemirror-vim';
 import { cmThemeFor, isDarkTheme, isValidTheme } from '../lib/themes';
 import type { Theme } from '../types';
 import { registerPlainSelectionGetter } from '../lib/plain-selection';
+import { openExternalUrl } from '../lib/open-external';
 import {
   applyCmInlineFormat,
   applyCmHeading,
@@ -716,6 +717,16 @@ async function processPlainLiveRenderedBlocks() {
   await nextTick();
   const hostEl = plainLiveHost.value;
   installSvgImageFallbacks(hostEl);
+
+  const plainLinks = hostEl.querySelectorAll('.plain-block__render a');
+  plainLinks.forEach((a) => {
+    const href = a.getAttribute('href') || '';
+    if (href) {
+      a.setAttribute('title', `Ctrl + 单击以访问链接: ${href}`);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
 
   // v4.10 #163 — PlantUML fences (opt-in), same <img> swap as the preview pane.
   if (settings.plantumlEnabled && settings.plantumlServer) {
@@ -2152,9 +2163,31 @@ function estimatePlainBlockCaretFromClick(index: number, event: MouseEvent): num
 }
 
 function activatePlainBlockFromClick(index: number, event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+
+  // Intercept Ctrl/Cmd+Click on links to open external URL in browser
+  const link = target?.closest('a');
+  if (link && (event.ctrlKey || event.metaKey)) {
+    const href = link.getAttribute('href');
+    if (href) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (/^https?:\/\//i.test(href) || /^mailto:/i.test(href)) {
+        void openExternalUrl(href);
+      } else if (link.classList.contains('md-wikilink')) {
+        const targetWiki = link.getAttribute('data-wikilink-target') || '';
+        if (targetWiki) {
+          window.dispatchEvent(new CustomEvent('solomd:wiki-open', { detail: { target: targetWiki } }));
+        }
+      } else {
+        void openExternalUrl(href);
+      }
+      return;
+    }
+  }
+
   // Clicking a rendered task checkbox toggles its source marker instead of
   // entering edit mode.
-  const target = event.target as HTMLElement | null;
   if (
     target instanceof HTMLInputElement &&
     target.type === 'checkbox' &&
@@ -2171,6 +2204,43 @@ function activatePlainBlockFromClick(index: number, event: MouseEvent) {
   }
   if (index === plainActiveBlock.value) return;
   activatePlainBlock(index, estimatePlainBlockCaretFromClick(index, event));
+}
+
+function extractUrlAtCaret(text: string, pos: number): string | null {
+  const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+  let lineEnd = text.indexOf('\n', pos);
+  if (lineEnd === -1) lineEnd = text.length;
+  const line = text.slice(lineStart, lineEnd);
+  const col = pos - lineStart;
+
+  const mdLinkRe = /\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = mdLinkRe.exec(line)) !== null) {
+    if (col >= m.index && col <= m.index + m[0].length) {
+      return m[2];
+    }
+  }
+
+  const rawUrlRe = /(https?:\/\/[^\s<>)"]+)/g;
+  while ((m = rawUrlRe.exec(line)) !== null) {
+    if (col >= m.index && col <= m.index + m[0].length) {
+      return m[1];
+    }
+  }
+
+  return null;
+}
+
+function handlePlainTextAreaClick(event: MouseEvent) {
+  if (!event.ctrlKey && !event.metaKey) return;
+  const ta = event.target as HTMLTextAreaElement;
+  if (!ta) return;
+  const pos = ta.selectionStart;
+  const url = extractUrlAtCaret(ta.value, pos);
+  if (url) {
+    event.preventDefault();
+    void openExternalUrl(url);
+  }
 }
 
 /** Flip the `ordinal`-th task checkbox marker in a block's source, in place. */
@@ -3905,9 +3975,7 @@ async function onEditorContextMenuAction(action: string, payload?: any) {
     }
     case 'linkAction': {
       if (payload === 'openLink' && info.linkInfo?.url) {
-        try {
-          window.open(info.linkInfo.url, '_blank');
-        } catch {}
+        void openExternalUrl(info.linkInfo.url);
       } else if (payload === 'copyLinkAddress' && info.linkInfo?.url) {
         await navigator.clipboard.writeText(info.linkInfo.url);
         toasts.success(t('editorCtx.copyLinkAddress') || '已复制链接地址');
@@ -5427,7 +5495,7 @@ const editorHostStyle = computed(() => ({
           @input="(event) => handlePlainBlockInput(index, event)"
           @compositionstart="handlePlainBlockCompositionStart"
           @compositionend="(event) => handlePlainBlockCompositionEnd(index, event)"
-          @click.stop
+          @click="handlePlainTextAreaClick"
           @keyup="emitPlainCursorAndSelection"
           @mouseup="emitPlainCursorAndSelection"
           @select="emitPlainCursorAndSelection"
@@ -5467,6 +5535,7 @@ const editorHostStyle = computed(() => ({
         @input="handlePlainInput"
         @scroll="onPlainScroll"
         @mousedown="clearStrayDocumentSelection($event.currentTarget as HTMLElement)"
+        @click="handlePlainTextAreaClick"
         @keyup="emitPlainCursorAndSelection"
         @mouseup="emitPlainCursorAndSelection"
         @select="emitPlainCursorAndSelection"
@@ -6088,10 +6157,13 @@ const editorHostStyle = computed(() => ({
 }
 .plain-block__render :deep(a) {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 }
 .plain-block__render :deep(a:hover) {
-  text-decoration: underline;
+  opacity: 0.82;
 }
 .plain-block__render :deep(code) {
   font-family: var(--font-mono);

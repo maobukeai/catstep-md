@@ -73,6 +73,7 @@ import {
   type LiveInlineHtmlKind,
 } from './html-live-render';
 import { copyPlainText, dedentFenced, dedentIndented } from './code-copy';
+import { openExternalUrl } from './open-external';
 
 // ---------------------------------------------------------------------------
 // Marker nodes that we hide off-line. Brackets/parens for links and
@@ -777,7 +778,50 @@ const liveRenderPlugin = ViewPlugin.fromClass(
       }
     }
   },
-  { decorations: (v) => v.decorations }
+  {
+    decorations: (v) => v.decorations,
+    eventHandlers: {
+      mousedown(e: MouseEvent) {
+        if ((e.ctrlKey || e.metaKey) && (e.target as HTMLElement)?.closest('.cm-md-link')) {
+          e.preventDefault();
+        }
+        return false;
+      },
+      click(e: MouseEvent, view: EditorView) {
+        if (!e.ctrlKey && !e.metaKey) return false;
+        const target = e.target as HTMLElement | null;
+        const linkEl = target?.closest('.cm-md-link');
+        if (!linkEl) return false;
+
+        const pos = view.posAtDOM(linkEl);
+        if (pos == null) return false;
+
+        const tree = syntaxTree(view.state);
+        let node = tree.resolveInner(pos, 1);
+        while (node && node.name !== 'Link' && node.parent) {
+          node = node.parent;
+        }
+        if (node && node.name === 'Link') {
+          let url = '';
+          const urlNode = node.getChild('URL');
+          if (urlNode) {
+            url = view.state.doc.sliceString(urlNode.from, urlNode.to);
+          } else {
+            const raw = view.state.doc.sliceString(node.from, node.to);
+            const m = raw.match(/\]\(([^)\s]+)/);
+            if (m) url = m[1];
+          }
+          if (url) {
+            e.preventDefault();
+            e.stopPropagation();
+            void openExternalUrl(url);
+            return true;
+          }
+        }
+        return false;
+      },
+    },
+  }
 );
 
 // Rich syntax highlighting — same palette as cm-live-preview.ts but kept
@@ -898,6 +942,11 @@ const liveEditTheme = EditorView.theme({
     color: 'var(--accent)',
     textDecoration: 'underline',
     textUnderlineOffset: '2px',
+    cursor: 'pointer',
+    transition: 'opacity 0.15s ease',
+  },
+  '.cm-md-link:hover': {
+    opacity: '0.82',
   },
 
   // v4.7.1 — bullet glyph that replaces a `-`/`*`/`+` list marker off-line.

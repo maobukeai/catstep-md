@@ -22,6 +22,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import BrandMark from './BrandMark.vue';
+import ProviderSelect from './ProviderSelect.vue';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
 import { PROVIDERS, providerById } from '../lib/ai-providers';
@@ -489,21 +490,12 @@ function onCloudKeyKey(e: KeyboardEvent) {
           <!-- Full Provider Selector -->
           <div class="wiz__row">
             <label class="wiz__field-label" for="wiz-provider-select">{{ t('wizard.providerLabel') }}</label>
-            <div class="wiz__select-wrap">
-              <select
-                id="wiz-provider-select"
-                v-model="cloudProvider"
-                class="wiz__sel"
-                @change="onCloudProviderChange"
-              >
-                <option v-for="p in cloudProviders" :key="p.id" :value="p.id">
-                  {{ p.label }}
-                </option>
-              </select>
-              <svg class="wiz__select-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
+            <ProviderSelect
+              id="wiz-provider-select"
+              v-model="cloudProvider"
+              :providers="cloudProviders"
+              @change="onCloudProviderChange"
+            />
           </div>
 
           <!-- 1-Click Get Key Action Box -->
