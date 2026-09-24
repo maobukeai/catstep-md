@@ -167,6 +167,10 @@ pub fn provider_caps(provider: &str) -> ProviderCaps {
             supports_tools: false,
             supports_streaming: true,
         },
+        "volcengine" | "minimax" => ProviderCaps {
+            models: ModelListStrategy::None,
+            ..openai_like
+        },
         // `openai-compat` plus anything unrecognised: plain OpenAI dialect.
         _ => openai_like,
     }
@@ -1527,26 +1531,30 @@ async fn run_openai(
                     Ok(v) => v,
                     Err(_) => continue,
                 };
-                if let Some(reason) = json
-                    .get("choices")
-                    .and_then(|c| c.get(0))
-                    .and_then(|c| c.get("finish_reason"))
-                    .and_then(|s| s.as_str())
-                {
-                    if !reason.is_empty() {
-                        finish_reason = reason.to_string();
+                let choice = json.get("choices").and_then(|c| c.get(0));
+                if let Some(c) = choice {
+                    if let Some(reason) = c.get("finish_reason").and_then(|s| s.as_str()) {
+                        if !reason.is_empty() {
+                            finish_reason = reason.to_string();
+                        }
                     }
-                }
-                if let Some(content) = json
-                    .get("choices")
-                    .and_then(|c| c.get(0))
-                    .and_then(|c| c.get("delta"))
-                    .and_then(|d| d.get("content"))
-                    .and_then(|s| s.as_str())
-                {
-                    if !content.is_empty() {
-                        full.push_str(content);
-                        emit_chunk(app, request_id, content);
+                    if let Some(d) = c.get("delta") {
+                        if let Some(reasoning) = d
+                            .get("reasoning_content")
+                            .or_else(|| d.get("reasoning"))
+                            .or_else(|| d.get("thought"))
+                            .and_then(|s| s.as_str())
+                        {
+                            if !reasoning.is_empty() {
+                                emit_thought(app, request_id, reasoning);
+                            }
+                        }
+                        if let Some(content) = d.get("content").and_then(|s| s.as_str()) {
+                            if !content.is_empty() {
+                                full.push_str(content);
+                                emit_chunk(app, request_id, content);
+                            }
+                        }
                     }
                 }
             }
@@ -1642,26 +1650,30 @@ async fn run_chat_openai(
                     Ok(v) => v,
                     Err(_) => continue,
                 };
-                if let Some(reason) = json
-                    .get("choices")
-                    .and_then(|c| c.get(0))
-                    .and_then(|c| c.get("finish_reason"))
-                    .and_then(|s| s.as_str())
-                {
-                    if !reason.is_empty() {
-                        finish_reason = reason.to_string();
+                let choice = json.get("choices").and_then(|c| c.get(0));
+                if let Some(c) = choice {
+                    if let Some(reason) = c.get("finish_reason").and_then(|s| s.as_str()) {
+                        if !reason.is_empty() {
+                            finish_reason = reason.to_string();
+                        }
                     }
-                }
-                if let Some(content) = json
-                    .get("choices")
-                    .and_then(|c| c.get(0))
-                    .and_then(|c| c.get("delta"))
-                    .and_then(|d| d.get("content"))
-                    .and_then(|s| s.as_str())
-                {
-                    if !content.is_empty() {
-                        full.push_str(content);
-                        emit_chunk(app, request_id, content);
+                    if let Some(d) = c.get("delta") {
+                        if let Some(reasoning) = d
+                            .get("reasoning_content")
+                            .or_else(|| d.get("reasoning"))
+                            .or_else(|| d.get("thought"))
+                            .and_then(|s| s.as_str())
+                        {
+                            if !reasoning.is_empty() {
+                                emit_thought(app, request_id, reasoning);
+                            }
+                        }
+                        if let Some(content) = d.get("content").and_then(|s| s.as_str()) {
+                            if !content.is_empty() {
+                                full.push_str(content);
+                                emit_chunk(app, request_id, content);
+                            }
+                        }
                     }
                 }
             }
@@ -3756,18 +3768,23 @@ mod tests {
     /// tables can be compared without shipping the file.
     const PROVIDERS_TS: &str = include_str!("../../src/lib/ai-providers.ts");
 
-    /// Top-level entries of the `PROVIDERS` array.
+    /// Top-level entries of the `PROVIDERS` and `LEGACY_PROVIDERS` arrays.
     fn ts_provider_chunks() -> Vec<&'static str> {
-        let block = &PROVIDERS_TS[PROVIDERS_TS
-            .find("export const PROVIDERS")
-            .expect("frontend provider table")..];
-        let block = &block[..block.find("\n];").expect("end of provider table")];
-        // Every provider declares `apiFormat`; the category entries that
-        // precede them do not, which is what tells the two apart.
-        block
-            .split("\n  {")
-            .filter(|c| c.contains("\n    apiFormat:"))
-            .collect()
+        let mut chunks = Vec::new();
+        for marker in ["export const PROVIDERS", "export const LEGACY_PROVIDERS"] {
+            if let Some(start) = PROVIDERS_TS.find(marker) {
+                let rest = &PROVIDERS_TS[start..];
+                if let Some(end) = rest.find("\n];") {
+                    let block = &rest[..end];
+                    for c in block.split("\n  {") {
+                        if c.contains("\n    apiFormat:") {
+                            chunks.push(c);
+                        }
+                    }
+                }
+            }
+        }
+        chunks
     }
 
     fn ts_str(chunk: &str, key: &str) -> Option<String> {

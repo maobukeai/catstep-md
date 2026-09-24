@@ -44,12 +44,10 @@ const cloudProviders = PROVIDERS.filter((p) => p.id !== 'ollama');
 
 // Popular provider quick-switch chips
 const popularProviderIds: ProviderId[] = [
+  'openai-compat',
   'deepseek',
-  'anthropic',
   'openai',
-  'gemini',
-  'kimi',
-  'glm',
+  'anthropic',
 ];
 
 const popularProviders = computed(() => {
@@ -69,6 +67,7 @@ const initialProvider = (
 
 const cloudProvider = ref<ProviderId>(initialProvider);
 const cloudKey = ref('');
+const cloudModel = ref(providerById(initialProvider)?.defaultModel ?? '');
 const cloudBaseUrl = ref(providerById(initialProvider)?.defaultBaseUrl ?? '');
 const verifying = ref(false);
 const verifyResult = ref<'ok' | 'fail' | null>(null);
@@ -91,6 +90,7 @@ const ollamaBaseUrl = computed(() => {
 
 function onCloudProviderChange(): void {
   cloudBaseUrl.value = cloudConfig.value?.defaultBaseUrl ?? '';
+  cloudModel.value = cloudConfig.value?.defaultModel ?? '';
   verifyResult.value = null;
   verifyMessage.value = '';
 }
@@ -122,15 +122,9 @@ async function saveCloudKey() {
     const cfg = cloudConfig.value;
     const baseUrl = cloudBaseUrl.value.trim() || cfg?.defaultBaseUrl || null;
     // Adopt the provider FIRST, so we have a profile — and therefore a
-    // keychain slot — to save the key under. This used to be a trio of flat
-    // setters (`setAiProvider` / `setAiModel` / `setAiBaseUrl`) applied to
-    // whichever profile happened to be active: no profile was created, no
-    // `activeProfileId` moved, and the key landed in a slot the request path
-    // never read. `adoptProvider` finds-or-creates the right profile, points
-    // `activeProfileId` at it, and returns the id every request now sends as
-    // `key_id`.
+    // keychain slot — to save the key under.
     const profile = settings.adoptProvider(cloudProvider.value, {
-      model: cfg?.defaultModel || undefined,
+      model: cloudModel.value.trim() || cfg?.defaultModel || undefined,
       // Only persist an override; leaving the default in place means a later
       // provider-side URL change still reaches the user.
       baseUrl: baseUrl && baseUrl !== cfg?.defaultBaseUrl ? baseUrl : undefined,
@@ -587,6 +581,24 @@ function onCloudKeyKey(e: KeyboardEvent) {
                 </svg>
               </button>
             </div>
+          </div>
+
+          <!-- Model Name Input -->
+          <div class="wiz__row">
+            <div class="wiz__label-row">
+              <label class="wiz__field-label" for="wiz-model-input">
+                {{ t('ai.model') || '模型名称' }}
+              </label>
+              <span class="wiz__optional-badge">选填</span>
+            </div>
+            <input
+              id="wiz-model-input"
+              v-model="cloudModel"
+              type="text"
+              class="wiz__inp"
+              :placeholder="cloudConfig?.modelHint || '例如 deepseek-chat, gpt-4o, qwen-plus'"
+              autocomplete="off"
+            />
           </div>
 
           <!-- Advanced Base URL Collapsible -->

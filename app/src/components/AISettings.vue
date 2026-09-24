@@ -310,26 +310,23 @@ function getHintModelsForProvider(providerId: ProviderId): string[] {
 // ---------------------------------------------------------------------------
 
 const showAddModal = ref(false);
-const newProviderTemplate = ref<ProviderId>('deepseek');
-const newProviderName = ref('DeepSeek 官方');
+const newProviderTemplate = ref<ProviderId>('openai-compat');
+const newProviderName = ref('自定义 (OpenAI 兼容)');
 const newProviderBaseUrl = ref('');
 const newProviderKey = ref('');
 const newProviderModels = ref<string[]>([]);
 const newProviderModelInput = ref('');
 const addingProvider = ref(false);
+const fetchingModalModels = ref(false);
 const addError = ref('');
 
 function openAddProviderModal(): void {
-  newProviderTemplate.value = 'deepseek';
-  const cfg = providerById('deepseek');
-  newProviderName.value = cfg?.label || 'DeepSeek';
+  newProviderTemplate.value = 'openai-compat';
+  const cfg = providerById('openai-compat');
+  newProviderName.value = cfg?.label || '自定义 (OpenAI 兼容)';
   newProviderBaseUrl.value = cfg?.defaultBaseUrl || '';
   newProviderKey.value = '';
-  newProviderModels.value = cfg?.defaultModel ? [cfg.defaultModel] : [];
-  const hints = getHintModelsForProvider('deepseek');
-  for (const h of hints) {
-    if (!newProviderModels.value.includes(h)) newProviderModels.value.push(h);
-  }
+  newProviderModels.value = [];
   newProviderModelInput.value = '';
   addError.value = '';
   showAddModal.value = true;
@@ -361,13 +358,43 @@ function removeModelFromNewProvider(m: string): void {
   newProviderModels.value = newProviderModels.value.filter((x) => x !== m);
 }
 
+async function fetchModelsForNewModal(): Promise<void> {
+  const cfg = providerById(newProviderTemplate.value);
+  const baseUrl = newProviderBaseUrl.value.trim() || cfg?.defaultBaseUrl || null;
+  const key = newProviderKey.value.trim();
+  fetchingModalModels.value = true;
+  addError.value = '';
+  try {
+    const probe = await invoke<ModelProbe>('ai_list_models', {
+      provider: newProviderTemplate.value,
+      baseUrl,
+      key,
+      keyId: null,
+    });
+    if (probe.ok && probe.models && probe.models.length > 0) {
+      for (const m of probe.models) {
+        if (!newProviderModels.value.includes(m)) {
+          newProviderModels.value.push(m);
+        }
+      }
+    } else {
+      addError.value = probe.error || t('ai.fetchModelsNone') || '未获取到模型列表，请手动输入模型名称';
+    }
+  } catch (e) {
+    addError.value = `${t('ai.fetchModelsFailed') || '获取失败'}: ${e}`;
+  } finally {
+    fetchingModalModels.value = false;
+  }
+}
+
 async function confirmAddProvider(): Promise<void> {
+  const pendingInput = newProviderModelInput.value.trim();
+  if (pendingInput && !newProviderModels.value.includes(pendingInput)) {
+    newProviderModels.value.push(pendingInput);
+    newProviderModelInput.value = '';
+  }
   const name = newProviderName.value.trim() || newProviderTemplate.value;
   const cfg = providerById(newProviderTemplate.value);
-  // Fall back to the provider's own default model, never to a hardcoded
-  // OpenAI one. `openai-compat` deliberately has no default: LM Studio /
-  // vLLM / llama.cpp are not serving `gpt-4o`, so pre-filling it turned the
-  // first request into an unexplainable 404.
   const fallbackModel = cfg?.defaultModel?.trim() || '';
   const models =
     newProviderModels.value.length > 0
@@ -375,9 +402,6 @@ async function confirmAddProvider(): Promise<void> {
       : fallbackModel
         ? [fallbackModel]
         : [];
-  // A provider with neither a curated default nor a user-supplied model
-  // cannot be called — say so here instead of saving a profile that is
-  // guaranteed to fail on first use.
   if (models.length === 0) {
     addError.value = t('ai.needModelBeforeSave');
     return;
@@ -991,7 +1015,7 @@ watch(
                 <input
                   v-model="newProviderModelInput"
                   class="ai-settings__input ai-settings__input--sm"
-                  :placeholder="t('ai.modelPlaceholder')"
+                  :placeholder="providerById(newProviderTemplate)?.modelHint || t('ai.modelPlaceholder')"
                   @keydown.enter.prevent="addModelToNewProvider"
                 />
                 <button
@@ -1001,6 +1025,15 @@ watch(
                   @click="addModelToNewProvider"
                 >
                   {{ t('ai.addModel') }}
+                </button>
+                <button
+                  type="button"
+                  class="ai-settings__btn ai-settings__btn--sm"
+                  :disabled="fetchingModalModels"
+                  @click="fetchModelsForNewModal"
+                  :title="t('ai.fetchModelsTooltip')"
+                >
+                  {{ fetchingModalModels ? '...' : t('ai.fetchModels') }}
                 </button>
               </div>
 

@@ -293,7 +293,7 @@ choco push solomd.0.1.8.nupkg --source https://push.chocolatey.org/ --api-key YO
 ## 联系信息
 
 **软件名称**：猫步 MD (Catstep MD)
-**版本**：1.0.5
+**版本**：1.0.6
 **官网**：https://github.com/maobukeai/catstep-md
 **GitHub**：https://github.com/maobukeai/catstep-md
 **作者**：maobukeai

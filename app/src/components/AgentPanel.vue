@@ -1550,6 +1550,15 @@ async function send() {
     ...history,
   ];
 
+  if (!model || !model.trim()) {
+    const lastMsg = agent.messages[agent.messages.length - 1];
+    if (lastMsg && lastMsg.role === 'assistant') {
+      lastMsg.content =
+        '⚠️ **未配置模型型号**：请先在顶部或“设置 → AI 大模型”中为你使用的服务商输入模型名称（例如 `deepseek-chat` 或 `gpt-4o`），或点击“获取模型列表”后选择。';
+    }
+    return;
+  }
+
   // Generate the request id on the frontend so we can wire `currentRunId`
   // BEFORE invoking the command. Closes a race where a fast backend
   // failure (ollama 404 on a missing model) emits `ai-error` before the

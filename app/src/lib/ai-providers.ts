@@ -1,8 +1,9 @@
 /**
  * Provider + action catalog for v2.0 F4 (inline AI rewrite, BYOK).
  *
- * `PROVIDERS` defines the three options the user can pick in settings; each
- * carries a sensible default model and (where relevant) a default base URL.
+ * `PROVIDERS` defines the curated options the user can pick in settings; each
+ * carries a default base URL where applicable, with NO hardcoded model presets
+ * to ensure maximum forward compatibility and flexibility.
  * Actual API keys are stored in the OS keychain (see `ai_proxy.rs`), never
  * here.
  *
@@ -36,7 +37,7 @@ export type ProviderId =
   // Aggregator
   | 'openrouter'
   | 'opencode-go'
-  // Local
+  // Local & Custom
   | 'ollama'
   | 'openai-compat';
 
@@ -61,10 +62,7 @@ export type AuthStrategy = 'bearer' | 'anthropic' | 'google' | 'none';
  */
 export type ModelListStrategy = 'openai' | 'anthropic' | 'google' | 'ollama' | 'none';
 
-/** A "preset" model surfaced as a quick-pick chip in AI Settings — one
- *  step up from the freeform `modelHint` string. v4.0 Pillar 5 introduces
- *  this for Ollama only (3 qwen2.5 variants); other providers keep the
- *  legacy `modelHint` text and may grow presets later. */
+/** A "preset" model surfaced as a quick-pick chip in AI Settings. */
 export interface ProviderPreset {
   /** Stable id used as the radio button key. */
   id: string;
@@ -74,7 +72,7 @@ export interface ProviderPreset {
   labelKey: string;
 }
 
-export type ProviderCategory = 'cn' | 'global' | 'aggregator' | 'local';
+export type ProviderCategory = 'cn' | 'global' | 'local';
 
 export interface ProviderCategoryInfo {
   id: ProviderCategory;
@@ -86,8 +84,7 @@ export interface ProviderCategoryInfo {
 export const PROVIDER_CATEGORIES: ProviderCategoryInfo[] = [
   { id: 'cn', name: '国内主流大模型', nameEn: 'China AI Models', icon: '🌟' },
   { id: 'global', name: '国际前沿服务商', nameEn: 'Global Frontier Models', icon: '🌐' },
-  { id: 'aggregator', name: '聚合与中转网关', nameEn: 'Aggregator Gateways', icon: '🔀' },
-  { id: 'local', name: '本地与私有端点', nameEn: 'Local & Self-Hosted', icon: '💻' },
+  { id: 'local', name: '本地与自定义网关', nameEn: 'Local & Custom Gateways', icon: '💻' },
 ];
 
 export interface ProviderConfig {
@@ -101,25 +98,17 @@ export interface ProviderConfig {
    *  the OpenAI Chat Completions format. */
   apiFormat: ApiFormat;
   /** Default model name shown in settings + used if user leaves the field empty.
-   *  Empty string means "this provider has no default the user could rely on"
-   *  — see `openai-compat`, where inventing one (`gpt-4o`) made first-run
-   *  requests fail against every LM Studio / vLLM / llama.cpp server. */
+   *  Default is empty string so that no rigid model version is forced. */
   defaultModel: string;
   /** Default endpoint; user may override. */
   defaultBaseUrl?: string;
-  /** Human-readable model examples shown under the model input. NEVER parsed
-   *  — it used to be split on `/`, which silently turned the legal model id
-   *  `deepseek-ai/DeepSeek-V3` into `deepseek-ai` + `DeepSeek-V3` and made
-   *  the resulting requests 404. Use `modelIds` for machine-readable ids. */
+  /** Human-readable model examples shown under the model input. */
   modelHint?: string;
-  /** Structured quick-pick model ids. This is the list the UI actually offers;
-   *  every entry is a verbatim model id, slashes and all. */
+  /** Structured quick-pick model ids. Empty by default to avoid preset model lock-in. */
   modelIds?: string[];
   /** Where to get an API key (button-link in settings). */
   signupUrl?: string;
-  /** Optional curated quick-pick list. v4.0 Pillar 5 ships these for
-   *  Ollama only; other providers' presets array (if added later) renders
-   *  the same way in AISettings.vue. */
+  /** Optional curated quick-pick list. */
   presets?: ProviderPreset[];
   /** No account behind this endpoint — a local runtime the user runs
    *  themselves. The key field becomes optional (some people front their
@@ -139,27 +128,112 @@ export interface ProviderConfig {
   supportsStreaming?: boolean;
 }
 
+/**
+ * Curated list of 5 primary providers surfaced in the UI:
+ * 1. 自定义 (OpenAI 兼容) — compatible with 99%+ of LLMs worldwide
+ * 2. DeepSeek — popular Chinese reasoning model
+ * 3. OpenAI — official GPT models
+ * 4. Anthropic — official Claude models
+ * 5. Ollama — local offline models
+ */
 export const PROVIDERS: ProviderConfig[] = [
-  // ---- 国内主流大模型 (CN) -------------------------------------------
+  {
+    id: 'openai-compat',
+    label: '自定义 (OpenAI 兼容) / Custom',
+    category: 'local',
+    badge: '万能通用',
+    icon: '🔌',
+    description: '兼容任意 OpenAI 格式接口（通义千问、Kimi、智谱、SiliconFlow、OneAPI、vLLM、LM Studio 等）',
+    apiFormat: 'openai',
+    defaultBaseUrl: '',
+    defaultModel: '',
+    modelIds: [],
+    modelHint: '例如 deepseek-chat · gpt-4o · qwen-plus · glm-4',
+    keyless: true,
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
+  },
   {
     id: 'deepseek',
     label: 'DeepSeek',
     category: 'cn',
-    badge: '热门推荐',
+    badge: '官方直连',
     icon: '🐳',
-    description: '超高性价比 · 深度思考推理 · 官方直连',
+    description: '超高性价比 · 深度思考推理 · 官方 API',
     apiFormat: 'openai',
-    defaultModel: 'deepseek-v4-flash',
     defaultBaseUrl: 'https://api.deepseek.com/v1',
-    // deepseek-chat / deepseek-reasoner were retired 2026-07-24 — V4 ids only.
-    modelHint: 'deepseek-v4-pro · deepseek-v4-flash',
-    modelIds: ['deepseek-v4-pro', 'deepseek-v4-flash'],
+    defaultModel: '',
+    modelIds: [],
+    modelHint: '例如 deepseek-chat · deepseek-reasoner',
     signupUrl: 'https://platform.deepseek.com/api_keys',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
     supportsTools: true,
     supportsStreaming: true,
   },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    category: 'global',
+    badge: '官方',
+    icon: '🟢',
+    description: 'GPT-4o · o1/o3 官方 API',
+    apiFormat: 'openai',
+    defaultBaseUrl: 'https://api.openai.com/v1',
+    defaultModel: '',
+    modelIds: [],
+    modelHint: '例如 gpt-4o · gpt-4o-mini · o1 · o3-mini',
+    signupUrl: 'https://platform.openai.com/api-keys',
+    authStrategy: 'bearer',
+    modelListStrategy: 'openai',
+    supportsTools: true,
+    supportsStreaming: true,
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic (Claude)',
+    category: 'global',
+    badge: '官方',
+    icon: '🧡',
+    description: 'Claude 3.5 / 3.7 系列官方 API',
+    apiFormat: 'anthropic',
+    defaultBaseUrl: 'https://api.anthropic.com/v1',
+    defaultModel: '',
+    modelIds: [],
+    modelHint: '例如 claude-3-7-sonnet-20250219 · claude-3-5-sonnet-latest',
+    signupUrl: 'https://console.anthropic.com/settings/keys',
+    authStrategy: 'anthropic',
+    modelListStrategy: 'anthropic',
+    supportsTools: true,
+    supportsStreaming: true,
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama (本地私有)',
+    category: 'local',
+    badge: '本地离线',
+    icon: '🦙',
+    description: '本机运行 · 隐私保密 · 零成本离线使用',
+    apiFormat: 'ollama',
+    defaultBaseUrl: 'http://localhost:11434',
+    defaultModel: '',
+    modelIds: [],
+    modelHint: '例如 qwen2.5:7b · deepseek-r1:8b · llama3.2',
+    keyless: true,
+    authStrategy: 'none',
+    modelListStrategy: 'ollama',
+    supportsTools: false,
+    supportsStreaming: true,
+  },
+];
+
+/**
+ * Legacy providers kept for backwards compatibility with existing user configs.
+ * All models cleared of hardcoded versions.
+ */
+export const LEGACY_PROVIDERS: ProviderConfig[] = [
   {
     id: 'qwen',
     label: '通义千问 Qwen (DashScope)',
@@ -168,21 +242,10 @@ export const PROVIDERS: ProviderConfig[] = [
     icon: '☁️',
     description: '阿里云百炼 · 综合强 · 代码与多模态',
     apiFormat: 'openai',
-    defaultModel: 'qwen-plus',
+    defaultModel: '',
     defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    modelHint:
-      'qwen3-max · qwen3.5-plus · qwen-plus · qwen-flash · qwen3-coder-plus · qwen3-coder-flash · qwq-plus · qvq-max · qwen3-vl-plus',
-    modelIds: [
-      'qwen3-max',
-      'qwen3.5-plus',
-      'qwen-plus',
-      'qwen-flash',
-      'qwen3-coder-plus',
-      'qwen3-coder-flash',
-      'qwq-plus',
-      'qvq-max',
-      'qwen3-vl-plus',
-    ],
+    modelHint: '例如 qwen-plus · qwen3-max · qwq-plus',
+    modelIds: [],
     signupUrl: 'https://bailian.console.aliyun.com/?apiKey=1',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
@@ -197,20 +260,10 @@ export const PROVIDERS: ProviderConfig[] = [
     icon: '🧬',
     description: '新一代通用大模型 · GLM-4/5 官方 API',
     apiFormat: 'openai',
-    defaultModel: 'glm-5.2',
+    defaultModel: '',
     defaultBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    modelHint:
-      'glm-5.2 · glm-5.1 · glm-5 · glm-5-turbo · glm-4.7 · glm-4.7-flashx · glm-4.5-air · glm-5v-turbo',
-    modelIds: [
-      'glm-5.2',
-      'glm-5.1',
-      'glm-5',
-      'glm-5-turbo',
-      'glm-4.7',
-      'glm-4.7-flashx',
-      'glm-4.5-air',
-      'glm-5v-turbo',
-    ],
+    modelHint: '例如 glm-4.7 · glm-4.5-air · glm-5',
+    modelIds: [],
     signupUrl: 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
@@ -219,17 +272,16 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'kimi',
-    label: 'Moonshot Kimi',
+    label: 'Kimi (月之暗面 Moonshot)',
     category: 'cn',
-    badge: '长文本首选',
+    badge: '长文本',
     icon: '🌙',
-    description: '月之暗面 · 超长上下文窗口 · 深度解析',
+    description: '超长上下文 · 知识检索 · 官方 API',
     apiFormat: 'openai',
-    defaultModel: 'kimi-k3',
+    defaultModel: '',
     defaultBaseUrl: 'https://api.moonshot.cn/v1',
-    modelHint:
-      'kimi-k3 · kimi-k2-thinking · kimi-k2-turbo-preview · kimi-latest',
-    modelIds: ['kimi-k3', 'kimi-k2-thinking', 'kimi-k2-turbo-preview', 'kimi-latest'],
+    modelHint: '例如 moonshot-v1-auto · moonshot-v1-128k',
+    modelIds: [],
     signupUrl: 'https://platform.moonshot.cn/console/api-keys',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
@@ -238,26 +290,19 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'volcengine',
-    label: '火山方舟 / 豆包 (Volcengine ARK)',
+    label: '火山方舟 (字节豆包 Doubao)',
     category: 'cn',
     badge: '字节跳动',
     icon: '🌋',
-    description: '字节跳动云服务 · 豆包全系列模型',
+    description: '字节跳动豆包大模型 · 高性能高并发',
     apiFormat: 'openai',
-    defaultModel: 'doubao-seed-2.1-pro',
+    defaultModel: '',
     defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
-    modelHint:
-      'doubao-seed-2.1-pro · doubao-seed-2.1-turbo · doubao-seed-2.0-lite · doubao-seed-2.0-mini · doubao-seed-1.6',
-    modelIds: [
-      'doubao-seed-2.1-pro',
-      'doubao-seed-2.1-turbo',
-      'doubao-seed-2.0-lite',
-      'doubao-seed-2.0-mini',
-      'doubao-seed-1.6',
-    ],
+    modelHint: '例如 doubao-1.5-pro-32k · doubao-1.5-lite-32k',
+    modelIds: [],
     signupUrl: 'https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey',
     authStrategy: 'bearer',
-    modelListStrategy: 'openai',
+    modelListStrategy: 'none',
     supportsTools: true,
     supportsStreaming: true,
   },
@@ -265,22 +310,14 @@ export const PROVIDERS: ProviderConfig[] = [
     id: 'siliconflow',
     label: '硅基流动 SiliconFlow',
     category: 'cn',
-    badge: '高并发托管',
+    badge: '云端中转',
     icon: '⚡',
-    description: '高并发云端模型托管 · DeepSeek与开源免排队',
+    description: '高并发模型聚合网关 · DeepSeek/Qwen 现成端点',
     apiFormat: 'openai',
-    defaultModel: 'deepseek-ai/DeepSeek-V3',
+    defaultModel: '',
     defaultBaseUrl: 'https://api.siliconflow.cn/v1',
-    modelHint:
-      'deepseek-ai/DeepSeek-V3 · Qwen/Qwen2.5-Coder-32B-Instruct · moonshotai/Kimi-K2-Instruct · meta-llama/Meta-Llama-3.1-70B-Instruct',
-    // These ids contain `/` and MUST survive intact — the old code split them
-    // on that character and offered `deepseek-ai` as a model name.
-    modelIds: [
-      'deepseek-ai/DeepSeek-V3',
-      'Qwen/Qwen2.5-Coder-32B-Instruct',
-      'moonshotai/Kimi-K2-Instruct',
-      'meta-llama/Meta-Llama-3.1-70B-Instruct',
-    ],
+    modelHint: '例如 deepseek-ai/DeepSeek-V3 · Qwen/Qwen2.5-72B-Instruct',
+    modelIds: [],
     signupUrl: 'https://cloud.siliconflow.cn/account/ak',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
@@ -291,55 +328,17 @@ export const PROVIDERS: ProviderConfig[] = [
     id: 'minimax',
     label: 'MiniMax',
     category: 'cn',
-    badge: '海螺 AI',
-    icon: '🌟',
-    description: 'MiniMax 文本与多模态模型',
+    badge: '中文特化',
+    icon: '👾',
+    description: 'MiniMax 开放平台 · 文本大模型',
     apiFormat: 'openai',
-    defaultModel: 'MiniMax-M3',
-    defaultBaseUrl: 'https://api.minimax.io/v1',
-    modelHint: 'MiniMax-M3 · MiniMax-M2.7',
-    modelIds: ['MiniMax-M3', 'MiniMax-M2.7'],
-    signupUrl: 'https://platform.minimax.io/',
+    defaultModel: '',
+    defaultBaseUrl: 'https://api.minimax.chat/v1',
+    modelHint: '例如 abab6.5s-chat · abab7-chat',
+    modelIds: [],
+    signupUrl: 'https://platform.minimaxi.com/user-center/basic-information/interface-key',
     authStrategy: 'bearer',
-    modelListStrategy: 'openai',
-    supportsTools: true,
-    supportsStreaming: true,
-  },
-
-  // ---- 国际顶级服务商 (Global) ---------------------------------------
-  {
-    id: 'openai',
-    label: 'OpenAI',
-    category: 'global',
-    badge: '行业标杆',
-    icon: '🟢',
-    description: 'GPT-5 / GPT-4o / o1 前沿全能大模型',
-    apiFormat: 'openai',
-    defaultModel: 'gpt-5.6',
-    defaultBaseUrl: 'https://api.openai.com/v1',
-    modelHint: 'gpt-5.6 · gpt-5.6-sol · gpt-5.6-terra · gpt-5.6-luna · gpt-5.4-mini',
-    modelIds: ['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4-mini'],
-    signupUrl: 'https://platform.openai.com/api-keys',
-    authStrategy: 'bearer',
-    modelListStrategy: 'openai',
-    supportsTools: true,
-    supportsStreaming: true,
-  },
-  {
-    id: 'anthropic',
-    label: 'Anthropic Claude',
-    category: 'global',
-    badge: '逻辑与代码',
-    icon: '🟧',
-    description: 'Claude 3.5 / 3.7 Sonnet · 代码与写作巅峰',
-    apiFormat: 'anthropic',
-    defaultModel: 'claude-sonnet-4-6',
-    defaultBaseUrl: 'https://api.anthropic.com',
-    modelHint: 'claude-fable-5 · claude-opus-4-8 · claude-sonnet-4-6 · claude-haiku-4-5',
-    modelIds: ['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
-    signupUrl: 'https://console.anthropic.com/settings/keys',
-    authStrategy: 'anthropic',
-    modelListStrategy: 'anthropic',
+    modelListStrategy: 'none',
     supportsTools: true,
     supportsStreaming: true,
   },
@@ -347,24 +346,15 @@ export const PROVIDERS: ProviderConfig[] = [
     id: 'gemini',
     label: 'Google Gemini',
     category: 'global',
-    badge: '超长上下文',
+    badge: '多模态',
     icon: '✨',
-    description: '谷歌前沿多模态大模型 · 百万上下文',
+    description: '谷歌多模态大模型 · 官方 API',
     apiFormat: 'openai',
-    // Chat goes through Google's OpenAI-compatibility layer …
+    defaultModel: '',
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    defaultModel: 'gemini-3.1-pro-preview',
-    modelHint:
-      'gemini-3.1-pro-preview · gemini-3.6-flash · gemini-3.5-flash · gemini-3.5-flash-lite',
-    modelIds: [
-      'gemini-3.1-pro-preview',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
-    ],
-    signupUrl: 'https://aistudio.google.com/apikey',
-    // … but the model list is the native Generative Language one, which needs
-    // `x-goog-api-key` and lives at `/v1beta/models` (see modelListStrategy).
+    modelHint: '例如 gemini-2.0-flash · gemini-2.5-flash',
+    modelIds: [],
+    signupUrl: 'https://aistudio.google.com/app/apikey',
     authStrategy: 'google',
     modelListStrategy: 'google',
     supportsTools: true,
@@ -374,22 +364,15 @@ export const PROVIDERS: ProviderConfig[] = [
     id: 'xai',
     label: 'xAI Grok',
     category: 'global',
-    badge: '马斯克 xAI',
-    icon: '🕳️',
-    description: 'Grok 系列多模态推理模型',
+    badge: '实效性强',
+    icon: '⬛',
+    description: '埃隆·马斯克 xAI · Grok 官方 API',
     apiFormat: 'openai',
-    defaultModel: 'grok-4.5',
+    defaultModel: '',
     defaultBaseUrl: 'https://api.x.ai/v1',
-    modelHint:
-      'grok-4.5 · grok-4.3 · grok-build-0.1 · grok-4.20-0309-reasoning · grok-4.20-0309-non-reasoning',
-    modelIds: [
-      'grok-4.5',
-      'grok-4.3',
-      'grok-build-0.1',
-      'grok-4.20-0309-reasoning',
-      'grok-4.20-0309-non-reasoning',
-    ],
-    signupUrl: 'https://console.x.ai',
+    modelHint: '例如 grok-2 · grok-beta',
+    modelIds: [],
+    signupUrl: 'https://console.x.ai/',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
     supportsTools: true,
@@ -397,25 +380,17 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'mistral',
-    label: 'Mistral',
+    label: 'Mistral AI',
     category: 'global',
-    badge: '欧洲开源',
-    icon: '🔶',
-    description: '欧洲开源领军 · Mistral Large & Codestral',
+    badge: '欧洲之光',
+    icon: '🌊',
+    description: 'Mistral 官方平台 · 开源商用双轨',
     apiFormat: 'openai',
-    defaultModel: 'mistral-large-3',
+    defaultModel: '',
     defaultBaseUrl: 'https://api.mistral.ai/v1',
-    modelHint:
-      'mistral-large-3 · mistral-medium-3.1 · mistral-small-4 · magistral-medium-1.2 · devstral-2 · codestral',
-    modelIds: [
-      'mistral-large-3',
-      'mistral-medium-3.1',
-      'mistral-small-4',
-      'magistral-medium-1.2',
-      'devstral-2',
-      'codestral',
-    ],
-    signupUrl: 'https://console.mistral.ai/api-keys',
+    modelHint: '例如 mistral-large-latest · mistral-small-latest',
+    modelIds: [],
+    signupUrl: 'https://console.mistral.ai/api-keys/',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
     supportsTools: true,
@@ -423,54 +398,34 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'groq',
-    label: 'Groq (fast inference)',
+    label: 'Groq',
     category: 'global',
     badge: 'LPU 极速',
     icon: '⚡',
-    description: 'LPU 硬件加速 · 数百 token/秒极限响应',
+    description: '专有 LPU 硬件推理芯片 · 极致首字延迟',
     apiFormat: 'openai',
-    defaultModel: 'llama-3.3-70b-versatile',
+    defaultModel: '',
     defaultBaseUrl: 'https://api.groq.com/openai/v1',
-    modelHint:
-      'llama-3.3-70b-versatile · meta-llama/llama-4-scout-17b-16e-instruct · openai/gpt-oss-120b · qwen/qwen3-32b · groq/compound · groq/compound-mini',
-    // Groq's model ids are namespaced with `/` — keep them verbatim.
-    modelIds: [
-      'llama-3.3-70b-versatile',
-      'meta-llama/llama-4-scout-17b-16e-instruct',
-      'openai/gpt-oss-120b',
-      'qwen/qwen3-32b',
-      'groq/compound',
-      'groq/compound-mini',
-    ],
+    modelHint: '例如 llama-3.3-70b-versatile · mixtral-8x7b-32768',
+    modelIds: [],
     signupUrl: 'https://console.groq.com/keys',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
     supportsTools: true,
     supportsStreaming: true,
   },
-
-  // ---- 聚合网关 (Aggregator) -----------------------------------------
   {
     id: 'openrouter',
-    label: 'OpenRouter (聚合,400+ 模型)',
-    category: 'aggregator',
-    badge: '400+ 模型',
-    icon: '🔀',
-    description: '一个 Key 畅联全球顶尖闭源与开源模型',
+    label: 'OpenRouter',
+    category: 'global',
+    badge: '全网聚合',
+    icon: '🌐',
+    description: '一站式聚合全球数百款主流模型',
     apiFormat: 'openai',
-    defaultModel: 'anthropic/claude-sonnet-4-6',
+    defaultModel: '',
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
-    modelHint:
-      'anthropic/claude-sonnet-4-6 · openai/gpt-5.5 · google/gemini-3.1-pro · deepseek/deepseek-v4 · x-ai/grok-4.20 · meta-llama/llama-4-scout',
-    // `vendor/model` is the wire format here, not a display convention.
-    modelIds: [
-      'anthropic/claude-sonnet-4-6',
-      'openai/gpt-5.5',
-      'google/gemini-3.1-pro',
-      'deepseek/deepseek-v4',
-      'x-ai/grok-4.20',
-      'meta-llama/llama-4-scout',
-    ],
+    modelHint: '例如 deepseek/deepseek-chat · anthropic/claude-3.5-sonnet',
+    modelIds: [],
     signupUrl: 'https://openrouter.ai/keys',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
@@ -479,93 +434,17 @@ export const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'opencode-go',
-    label: 'OpenCode Go (订阅聚合)',
-    category: 'aggregator',
-    badge: '会员聚合',
+    label: 'OpenCode Go',
+    category: 'global',
+    badge: 'AI 编程网关',
     icon: '🚀',
-    description: '全包订阅式中转 · 覆盖主流商业模型',
+    description: '高并发编程与通用模型聚合服务',
     apiFormat: 'openai',
-    defaultModel: 'deepseek-v4-flash',
-    defaultBaseUrl: 'https://opencode.ai/zen/go/v1',
-    modelHint:
-      'deepseek-v4-flash · deepseek-v4-pro · mimo-v2.5 · mimo-v2.5-pro · mimo-v2-pro · mimo-v2-omni · qwen3.8-max · qwen3.7-max · qwen3.7-plus · qwen3.6-plus · qwen3.5-plus · glm-5.2 · glm-5.1 · glm-5 · kimi-k3 · kimi-k2.7-code · kimi-k2.6 · kimi-k2.5 · minimax-m3 · minimax-m2.7 · minimax-m2.5 · gpt-5.6-luna · grok-4.5 · hy3',
-    modelIds: [
-      'deepseek-v4-flash',
-      'deepseek-v4-pro',
-      'mimo-v2.5',
-      'mimo-v2.5-pro',
-      'mimo-v2-pro',
-      'mimo-v2-omni',
-      'qwen3.8-max',
-      'qwen3.7-max',
-      'qwen3.7-plus',
-      'qwen3.6-plus',
-      'qwen3.5-plus',
-      'glm-5.2',
-      'glm-5.1',
-      'glm-5',
-      'kimi-k3',
-      'kimi-k2.7-code',
-      'kimi-k2.6',
-      'kimi-k2.5',
-      'minimax-m3',
-      'minimax-m2.7',
-      'minimax-m2.5',
-      'gpt-5.6-luna',
-      'grok-4.5',
-      'hy3',
-    ],
-    signupUrl: 'https://opencode.ai/auth',
-    authStrategy: 'bearer',
-    modelListStrategy: 'openai',
-    supportsTools: true,
-    supportsStreaming: true,
-  },
-
-  // ---- 本地与私有部署 (Local) ---------------------------------------
-  {
-    id: 'ollama',
-    label: 'Ollama (本地 / local)',
-    category: 'local',
-    badge: '离线免Key',
-    icon: '🦙',
-    description: '本机运行 · 隐私保密 · 零成本离线使用',
-    apiFormat: 'ollama',
-    defaultModel: 'qwen2.5:1.5b',
-    defaultBaseUrl: 'http://localhost:11434',
-    modelHint: 'qwen2.5 · llama3.2 · deepseek-r1 · gemma3 · mistral · phi3',
-    // Real `name:tag` ids — the hint above lists families, which are not
-    // valid model names on their own.
-    modelIds: ['qwen2.5:7b', 'qwen2.5:1.5b', 'qwen2.5:14b'],
-    presets: [
-      { id: 'rewrite', model: 'qwen2.5:7b', labelKey: 'ai.ollama.preset.rewrite' },
-      { id: 'quick', model: 'qwen2.5:1.5b', labelKey: 'ai.ollama.preset.quick' },
-      { id: 'cjk', model: 'qwen2.5:14b', labelKey: 'ai.ollama.preset.cjk' },
-    ],
-    keyless: true,
-    authStrategy: 'none',
-    modelListStrategy: 'ollama',
-    // Ollama's OpenAI shim is used only for chat; tools are not wired for it
-    // (see `ai_proxy::ai_chat`), so don't advertise them.
-    supportsTools: false,
-    supportsStreaming: true,
-  },
-  {
-    id: 'openai-compat',
-    label: 'OpenAI 兼容 / OpenAI-compatible (llama.cpp · LM Studio · vLLM)',
-    category: 'local',
-    badge: '自定义',
-    icon: '🔌',
-    description: 'LM Studio · vLLM · llama.cpp · 局域网/自建网关',
-    apiFormat: 'openai',
-    defaultBaseUrl: 'http://localhost:8080/v1',
-    // No default model on purpose. There is no model called `gpt-4o` behind
-    // LM Studio / vLLM / llama.cpp, and pre-filling one made the very first
-    // request fail with a 404 the user couldn't explain. The model comes from
-    // the server's `/models` list or from the user typing it.
     defaultModel: '',
+    defaultBaseUrl: 'https://api.opencode.cn/v1',
+    modelHint: '例如 claude-3-5-sonnet · gpt-4o',
     modelIds: [],
-    keyless: true,
+    signupUrl: 'https://opencode.cn/',
     authStrategy: 'bearer',
     modelListStrategy: 'openai',
     supportsTools: true,
@@ -580,12 +459,6 @@ export const OLLAMA_RECOMMENDED_MODEL = 'qwen2.5:1.5b';
 /**
  * Resolve a provider id to its canonical form. Mirrors the Rust
  * `ai_proxy::resolve_provider` helper so the alias rules stay in sync.
- *
- * `local` → `ollama` came first, for v4.0 Recipes (P2): YAML files written
- * by hand often say `provider: local` rather than the brand name. v4.11.18
- * adds the runtime names people type for a self-hosted OpenAI-compatible
- * server. Both `providerById` callers and the Recipe loader funnel through
- * this so the aliasing lives in exactly one place per language.
  */
 const PROVIDER_ALIASES: Record<string, string> = {
   local: 'ollama',
@@ -606,27 +479,23 @@ export function resolveProvider(id: string): string {
 
 export function providerById(id: string): ProviderConfig | undefined {
   const canonical = resolveProvider(id);
-  return PROVIDERS.find((p) => p.id === canonical);
+  return (
+    PROVIDERS.find((p) => p.id === canonical) ||
+    LEGACY_PROVIDERS.find((p) => p.id === canonical) ||
+    PROVIDERS.find((p) => p.id === 'openai-compat')
+  );
 }
 
 /**
  * The machine-readable model ids to offer for a provider, in preference
- * order. Returns the curated `modelIds` list when present, else just the
- * single `defaultModel`.
- *
- * This replaced a parser that split `modelHint` on `·` and then on `/` to
- * recover ids. Two of those steps were wrong: the `/` split corrupted every
- * vendor-namespaced id (`deepseek-ai/DeepSeek-V3`, `anthropic/claude-…`,
- * `meta-llama/…`), and the `:`-split intended to strip a "label: value"
- * prefix silently truncated Ollama tags (`qwen2.5:1.5b` → `1.5b`). Model
- * ids are opaque strings — read them from data, never re-derive them from
- * prose.
+ * order. Returns the curated `modelIds` list when present, else the
+ * `defaultModel` if non-empty, otherwise empty array `[]`.
  */
 export function providerModelIds(id: string): string[] {
   const cfg = providerById(id);
   if (!cfg) return [];
   if (cfg.modelIds && cfg.modelIds.length > 0) return [...cfg.modelIds];
-  const fallback = cfg.defaultModel.trim();
+  const fallback = cfg.defaultModel?.trim();
   return fallback ? [fallback] : [];
 }
 

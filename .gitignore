@@ -24,6 +24,7 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+.workbuddy/
 *.swp
 
 # Logs

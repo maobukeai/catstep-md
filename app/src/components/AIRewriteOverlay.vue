@@ -242,6 +242,16 @@ async function startAction(a: AIAction): Promise<void> {
     action.value = a;
     return;
   }
+  const cfg = providerById(props.provider);
+  const targetModel = (props.model || cfg?.defaultModel || '').trim();
+  if (!targetModel) {
+    streamingError.value =
+      '未配置模型型号。请在“设置 → AI 大模型”中为你使用的服务商输入模型名称（例如 deepseek-chat 或 gpt-4o）。';
+    streaming.value = true;
+    sentBanner.value = false;
+    action.value = a;
+    return;
+  }
   if (a.custom && !customPrompt.value.trim()) {
     action.value = a;
     return;
