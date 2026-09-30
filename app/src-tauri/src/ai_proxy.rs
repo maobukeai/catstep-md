@@ -3350,20 +3350,11 @@ async fn openai_one_turn(
 
     // Streamed tool_calls come back as deltas keyed by `index`; we
     // accumulate per-index id/name + a string buffer for `arguments`.
+    // Reassembly lives in module-level helpers so it stays unit-testable —
+    // this is the most error-prone parsing in the file.
     use std::collections::BTreeMap;
-    #[derive(Default)]
-    struct ToolAccum {
-        id: String,
-        name: String,
-        arguments: String,
-        /// Provider-specific passthrough fields seen on this tool_call delta
-        /// (anything outside id / type / function). Gemini's OpenAI-compat
-        /// layer puts `extra_content.google.thought_signature` here and
-        /// requires it back on the next turn.
-        extras: serde_json::Map<String, Value>,
-    }
     let mut text = String::new();
-    let mut tools_acc: BTreeMap<u64, ToolAccum> = BTreeMap::new();
+    let mut tools_acc: BTreeMap<u64, OpenAiToolAccum> = BTreeMap::new();
     let mut finish_reason = String::new();
     // Most providers send `usage` as a separate top-level field on the
     // last data chunk (the one with empty choices, or a sibling of the
@@ -3471,38 +3462,7 @@ async fn openai_one_turn(
                             emit_chunk(app, request_id, content);
                         }
                     }
-                    if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
-                        for tc in tcs {
-                            let i = tc.get("index").and_then(|v| v.as_u64()).unwrap_or(0);
-                            let entry = tools_acc.entry(i).or_default();
-                            if let Some(id) = tc.get("id").and_then(|v| v.as_str()) {
-                                if !id.is_empty() {
-                                    entry.id = id.to_string();
-                                }
-                            }
-                            if let Some(f) = tc.get("function") {
-                                if let Some(n) = f.get("name").and_then(|v| v.as_str()) {
-                                    if !n.is_empty() {
-                                        entry.name = n.to_string();
-                                    }
-                                }
-                                if let Some(a) = f.get("arguments").and_then(|v| v.as_str()) {
-                                    entry.arguments.push_str(a);
-                                }
-                            }
-                            // Capture any non-standard fields (Gemini's
-                            // extra_content with thought_signature, future
-                            // provider quirks). Last-write-wins per delta —
-                            // providers tend to send these once at end-of-call.
-                            if let Some(obj) = tc.as_object() {
-                                for (k, v) in obj {
-                                    if !matches!(k.as_str(), "index" | "id" | "type" | "function") {
-                                        entry.extras.insert(k.clone(), v.clone());
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    absorb_openai_tool_deltas(&delta, &mut tools_acc);
                 }
             }
         }
@@ -3519,6 +3479,89 @@ async fn openai_one_turn(
     outcome.finish_reason = finish_reason;
     outcome.tokens_in = tokens_in;
     outcome.tokens_out = tokens_out;
+    assemble_openai_tool_uses(tools_acc, &mut outcome);
+    Ok(outcome)
+}
+
+// ---------------------------------------------------------------------------
+// SSE helpers
+// ---------------------------------------------------------------------------
+
+/// Returns the byte index of the start of the blank-line separator that
+/// terminates an SSE event, or None if no complete event is buffered yet.
+/// Handles both `\n\n` and `\r\n\r\n` separators.
+fn find_event_boundary(buf: &str) -> Option<usize> {
+    match (buf.find("\r\n\r\n"), buf.find("\n\n")) {
+        (Some(crlf), Some(lf)) => Some(crlf.min(lf)),
+        (Some(crlf), None) => Some(crlf),
+        (None, Some(lf)) => Some(lf),
+        (None, None) => None,
+    }
+}
+
+/// Per-index accumulator for OpenAI-format streamed `tool_calls` deltas.
+/// Streamed tool calls arrive as fragments: the id/name on the first delta
+/// for an index, `arguments` appended across several more. Lifted out of
+/// `openai_one_turn` so the reassembly is unit-testable — historically the
+/// least-tested parsing in this file despite being what turns a stream
+/// into executable tool calls.
+#[derive(Default, Debug)]
+pub(crate) struct OpenAiToolAccum {
+    id: String,
+    name: String,
+    arguments: String,
+    /// Provider-specific passthrough fields seen on this tool_call delta
+    /// (anything outside id / type / function). Gemini's OpenAI-compat
+    /// layer puts `extra_content.google.thought_signature` here and
+    /// requires it back on the next turn.
+    extras: serde_json::Map<String, Value>,
+}
+
+/// Absorb one streamed `delta` object's `tool_calls` array into the
+/// per-index accumulators.
+fn absorb_openai_tool_deltas(delta: &Value, tools_acc: &mut std::collections::BTreeMap<u64, OpenAiToolAccum>) {
+    if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+        for tc in tcs {
+            let i = tc.get("index").and_then(|v| v.as_u64()).unwrap_or(0);
+            let entry = tools_acc.entry(i).or_default();
+            if let Some(id) = tc.get("id").and_then(|v| v.as_str()) {
+                if !id.is_empty() {
+                    entry.id = id.to_string();
+                }
+            }
+            if let Some(f) = tc.get("function") {
+                if let Some(n) = f.get("name").and_then(|v| v.as_str()) {
+                    if !n.is_empty() {
+                        entry.name = n.to_string();
+                    }
+                }
+                if let Some(a) = f.get("arguments").and_then(|v| v.as_str()) {
+                    entry.arguments.push_str(a);
+                }
+            }
+            // Capture any non-standard fields (Gemini's extra_content with
+            // thought_signature, future provider quirks). Last-write-wins
+            // per delta — providers tend to send these once at end-of-call.
+            if let Some(obj) = tc.as_object() {
+                for (k, v) in obj {
+                    if !matches!(k.as_str(), "index" | "id" | "type" | "function") {
+                        entry.extras.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Fold the finished accumulators into the outcome's `tool_uses` /
+/// `tool_extras`. Arguments that never assembled into valid JSON (cut
+/// stream fragments are impossible past the completeness check, but some
+/// servers emit prose in `arguments`) survive as a string value rather
+/// than silently becoming `{}`.
+fn assemble_openai_tool_uses(
+    tools_acc: std::collections::BTreeMap<u64, OpenAiToolAccum>,
+    outcome: &mut TurnOutcome,
+) {
     for (idx, t) in tools_acc {
         let call_id = if t.id.is_empty() {
             make_tool_call_id(idx)
@@ -3536,23 +3579,6 @@ async fn openai_one_turn(
                 .insert(call_id.clone(), Value::Object(t.extras));
         }
         outcome.tool_uses.push((call_id, t.name, args));
-    }
-    Ok(outcome)
-}
-
-// ---------------------------------------------------------------------------
-// SSE helpers
-// ---------------------------------------------------------------------------
-
-/// Returns the byte index of the start of the blank-line separator that
-/// terminates an SSE event, or None if no complete event is buffered yet.
-/// Handles both `\n\n` and `\r\n\r\n` separators.
-fn find_event_boundary(buf: &str) -> Option<usize> {
-    match (buf.find("\r\n\r\n"), buf.find("\n\n")) {
-        (Some(crlf), Some(lf)) => Some(crlf.min(lf)),
-        (Some(crlf), None) => Some(crlf),
-        (None, Some(lf)) => Some(lf),
-        (None, None) => None,
     }
 }
 
@@ -4260,5 +4286,117 @@ mod tests {
         );
         // It must be actionable, not just a code.
         assert!(msg.contains("retry"), "should tell the user what to do, got {msg}");
+    }
+
+    // --- SSE framing & tool-call delta reassembly ----------------------------
+
+    #[test]
+    fn find_event_boundary_handles_both_separator_styles() {
+        use super::find_event_boundary as fb;
+        assert_eq!(fb(""), None);
+        assert_eq!(fb("data: half an event"), None, "no blank line yet");
+        assert_eq!(fb("data: half\ndata: still one event\n"), None, "single newline is not a separator");
+        assert_eq!(fb("data: a\n\n"), Some(7), "LF-LF");
+        assert_eq!(fb("data: a\r\n\r\n"), Some(7), "CRLF-CRLF");
+        assert_eq!(fb("\r\n\r\ndata: a"), Some(0), "empty event at buffer start");
+        // Mixed separators: whichever terminates an event FIRST wins, or a
+        // CRLF event followed by an LF one parses as one giant event.
+        assert_eq!(fb("data: a\r\n\r\ndata: b\n\ndata: c"), Some(7));
+        assert_eq!(fb("data: a\n\ndata: b\r\n\r\ndata: c"), Some(7));
+    }
+
+    #[test]
+    fn tool_deltas_reassemble_arguments_split_across_chunks() {
+        use super::{absorb_openai_tool_deltas, OpenAiToolAccum};
+        use std::collections::BTreeMap;
+
+        let mut acc: BTreeMap<u64, OpenAiToolAccum> = BTreeMap::new();
+        // First delta carries id + name; arguments arrive in fragments.
+        let d1: Value = serde_json::json!({
+            "tool_calls": [{"index": 0, "id": "call_abc", "type": "function",
+                            "function": {"name": "read_note", "arguments": "{\"pa"}}]
+        });
+        let d2: Value = serde_json::json!({
+            "tool_calls": [{"index": 0, "function": {"arguments": "th\": \"notes/"}}]
+        });
+        let d3: Value = serde_json::json!({
+            "tool_calls": [{"index": 0, "function": {"arguments": "x.md\"}"}}]
+        });
+        absorb_openai_tool_deltas(&d1, &mut acc);
+        absorb_openai_tool_deltas(&d2, &mut acc);
+        absorb_openai_tool_deltas(&d3, &mut acc);
+
+        let entry = acc.get(&0).expect("index 0 accumulated");
+        assert_eq!(entry.id, "call_abc");
+        assert_eq!(entry.name, "read_note");
+        assert_eq!(entry.arguments, r#"{"path": "notes/x.md"}"#);
+    }
+
+    #[test]
+    fn tool_deltas_keep_indices_apart_and_capture_extras() {
+        use super::{absorb_openai_tool_deltas, OpenAiToolAccum};
+        use std::collections::BTreeMap;
+
+        let mut acc: BTreeMap<u64, OpenAiToolAccum> = BTreeMap::new();
+        let d1: Value = serde_json::json!({
+            "tool_calls": [
+                {"index": 1, "id": "call_b", "function": {"name": "search", "arguments": "{\"query\":\"x\"}"}},
+                {"index": 0, "id": "call_a", "function": {"name": "list_notes", "arguments": "{}"}},
+                {"index": 1, "extra_content": {"google": {"thought_signature": "sig"}}}
+            ]
+        });
+        absorb_openai_tool_deltas(&d1, &mut acc);
+
+        assert_eq!(acc.len(), 2);
+        assert_eq!(acc.get(&0).unwrap().name, "list_notes");
+        let b = acc.get(&1).unwrap();
+        assert_eq!(b.name, "search");
+        // index/id/type/function never leak into extras; other fields do.
+        assert!(b.extras.contains_key("extra_content"));
+        assert!(!b.extras.contains_key("index"));
+        assert!(!b.extras.contains_key("id"));
+    }
+
+    #[test]
+    fn assemble_maps_accums_to_tool_uses_with_fallbacks() {
+        use super::{assemble_openai_tool_uses, OpenAiToolAccum};
+        use std::collections::BTreeMap;
+
+        let mut acc: BTreeMap<u64, OpenAiToolAccum> = BTreeMap::new();
+        // Index 0: valid id + valid JSON args + extras.
+        let mut a = OpenAiToolAccum::default();
+        a.id = "call_a".into();
+        a.name = "read_note".into();
+        a.arguments = r#"{"path":"a.md"}"#.into();
+        a.extras.insert("extra_content".into(), serde_json::json!({"ok": true}));
+        acc.insert(0, a);
+        // Index 2: no id (server never sent one) + empty args → {} + synthetic id.
+        let mut c = OpenAiToolAccum::default();
+        c.name = "list_notes".into();
+        acc.insert(2, c);
+        // Index 3: non-JSON arguments must survive as a string, not {}.
+        let mut d = OpenAiToolAccum::default();
+        d.id = "call_d".into();
+        d.name = "write_note".into();
+        d.arguments = "the model streamed prose here".into();
+        acc.insert(3, d);
+
+        let mut outcome = super::TurnOutcome::default();
+        assemble_openai_tool_uses(acc, &mut outcome);
+
+        assert_eq!(outcome.tool_uses.len(), 3);
+        let (id0, name0, args0) = &outcome.tool_uses[0];
+        assert_eq!(id0, "call_a");
+        assert_eq!(name0, "read_note");
+        assert_eq!(args0["path"], "a.md");
+        assert!(outcome.tool_extras.contains_key("call_a"));
+
+        let (id2, _, args2) = &outcome.tool_uses[1];
+        assert_eq!(args2, &Value::Object(Default::default()));
+        assert!(id2.starts_with("call_2_"), "synthetic id encodes the index, got {id2}");
+
+        let (id3, _, args3) = &outcome.tool_uses[2];
+        assert_eq!(id3, "call_d");
+        assert_eq!(args3, &Value::String("the model streamed prose here".into()));
     }
 }
