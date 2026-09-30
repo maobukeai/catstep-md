@@ -50,7 +50,7 @@ jobs:
           pnpm run build
 
   backend:
-    name: Rust Backend Gate (cargo check)
+    name: Rust Backend Gate (cargo test)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -58,6 +58,8 @@ jobs:
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - name: Cache cargo dependencies
         uses: swatinem/rust-cache@v2
@@ -87,3 +89,48 @@ jobs:
         run: |
           cd app/src-tauri
           cargo check
+
+      # The 315-test suite was only ever run locally; CI never enforced it.
+      # Blocking from now on — this is the regression gate for path_guard,
+      # agent_tools e2e, github_sync E2EE, and the AI SSE/tool-loop code.
+      - name: Cargo Test
+        run: |
+          cd app/src-tauri
+          cargo test
+
+      # Advisory until the existing warnings are burned down, then flip to
+      # blocking (remove continue-on-error). Kept separate from the test gate
+      # so lint debt never masks a real test regression.
+      - name: Cargo Clippy (advisory)
+        continue-on-error: true
+        run: |
+          cd app/src-tauri
+          cargo clippy --all-targets -- -D warnings
+
+  mcp-server:
+    name: MCP Server Gate (cargo test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: mcp-server -> target
+
+      - name: Cargo Test
+        run: |
+          cd mcp-server
+          cargo test
+
+      - name: Cargo Clippy (advisory)
+        continue-on-error: true
+        run: |
+          cd mcp-server
+          cargo clippy --all-targets -- -D warnings
