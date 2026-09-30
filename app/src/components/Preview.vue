@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import mermaid from 'mermaid';
+import { requestMermaidTheme, getMermaid } from '../lib/mermaid-lazy';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { renderMarkdown, extractImageRoot } from '../lib/markdown';
 import { plantumlSvgUrl } from '../lib/plantuml';
@@ -147,11 +147,7 @@ function onMathKeydown(e: KeyboardEvent) {
 
 let mermaidIdSeq = 0;
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: 'strict',
-  theme: isDarkTheme(settings.theme) ? 'dark' : 'default',
-});
+requestMermaidTheme(settings.theme);
 
 const html = computed(() => {
   // #141 — establish a reactive dep on the hard-breaks toggle so flipping the
@@ -201,6 +197,9 @@ function processPlantuml() {
 async function processMermaid() {
   if (!host.value) return;
   const blocks = host.value.querySelectorAll('pre > code.language-mermaid');
+  // Mermaid loads lazily; don't trigger the chunk fetch unless a diagram is present.
+  if (blocks.length === 0) return;
+  const mermaid = await getMermaid();
   for (const block of Array.from(blocks)) {
     const pre = block.parentElement as HTMLElement | null;
     if (!pre || pre.dataset.rendered === '1') continue;
@@ -295,7 +294,7 @@ async function processWhiteboards() {
 watch(
   () => settings.theme,
   (t) => {
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDarkTheme(t) ? 'dark' : 'default' });
+    requestMermaidTheme(t);
   }
 );
 

@@ -7,7 +7,7 @@ import { searchKeymap, search, openSearchPanel, getSearchQuery, setSearchQuery, 
 import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching, syntaxTree } from '@codemirror/language';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { cjkFriendlyEmphasis } from '../lib/cm-cjk-emphasis';
-import mermaid from 'mermaid';
+import { requestMermaidTheme, getMermaid, type MermaidApi } from '../lib/mermaid-lazy';
 import { LanguageDescription } from '@codemirror/language';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
@@ -488,11 +488,7 @@ let plainComposing = false;
 let plainMermaidIdSeq = 0;
 const plainRenderCache = new Map<string, string>();
 
-mermaid.initialize({
-  startOnLoad: false,
-  securityLevel: 'strict',
-  theme: isDarkTheme(settings.theme) ? 'dark' : 'default',
-});
+requestMermaidTheme(settings.theme);
 
 const plainLiveEnabled = computed(
   () =>
@@ -753,6 +749,8 @@ async function processPlainLiveRenderedBlocks() {
   }
 
   const mermaidBlocks = hostEl.querySelectorAll('.plain-block__render pre > code.language-mermaid');
+  // Mermaid loads lazily; don't trigger the chunk fetch unless a diagram is present.
+  let mermaid: MermaidApi | null = null;
   for (const block of Array.from(mermaidBlocks)) {
     const pre = block.parentElement as HTMLElement | null;
     if (!pre || pre.dataset.rendered === '1') continue;
@@ -760,6 +758,7 @@ async function processPlainLiveRenderedBlocks() {
     const code = (block.textContent || '').trim();
     const id = `plain-mmd-${++plainMermaidIdSeq}`;
     try {
+      if (!mermaid) mermaid = await getMermaid();
       const { svg } = await mermaid.render(id, code);
       const wrap = document.createElement('div');
       wrap.className = 'plain-mermaid-block';
@@ -4628,11 +4627,7 @@ watch(plainLiveEnabled, () => {
 watch(
   () => [plainLiveEnabled.value, plainText.value, plainActiveBlock.value, settings.theme, settings.language],
   () => {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: isDarkTheme(settings.theme) ? 'dark' : 'default',
-    });
+    requestMermaidTheme(settings.theme);
     void processPlainLiveRenderedBlocks();
   },
   { flush: 'post' },

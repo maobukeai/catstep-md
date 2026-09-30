@@ -55,7 +55,7 @@ import {
   type TableModel,
 } from './markdown-table';
 import { plantumlSvgUrl } from './plantuml';
-import mermaid from 'mermaid';
+import { getMermaid, type MermaidApi } from './mermaid-lazy';
 import 'katex/contrib/mhchem';
 import katex from 'katex';
 import {
@@ -69,13 +69,40 @@ import {
 // widget toDOM() can pull a ready SVG without re-rendering. The cache is
 // keyed on source text → SVG so the same diagram across multiple panes
 // renders once.
+//
+// Both caches below are treated as LRU (recency refreshed on read, oldest
+// entry evicted past the cap) — a long session can accumulate hundreds of
+// distinct diagrams/images and the maps used to grow without bound.
+const MERMAID_CACHE_MAX = 60;
+const IMAGE_SIZE_CACHE_MAX = 400;
+
+function lruTouch<T>(map: Map<string, T>, key: string, max: number): void {
+  const hit = map.get(key);
+  if (hit !== undefined) {
+    map.delete(key);
+    map.set(key, hit);
+  }
+  while (map.size > max) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
+}
+
 const mermaidSvgCache = new Map<string, { svg: string | null; error: string | null }>();
 let mermaidIdSeq = 0;
+let mermaidPromise: Promise<MermaidApi> | null = null;
 async function ensureMermaidRendered(source: string): Promise<void> {
-  if (mermaidSvgCache.has(source)) return;
+  if (mermaidSvgCache.has(source)) {
+    lruTouch(mermaidSvgCache, source, MERMAID_CACHE_MAX);
+    return;
+  }
+  lruTouch(mermaidSvgCache, source, MERMAID_CACHE_MAX);
   // Reserve the slot first so concurrent calls don't double-render.
   mermaidSvgCache.set(source, { svg: null, error: null });
   try {
+    if (!mermaidPromise) mermaidPromise = getMermaid();
+    const mermaid = await mermaidPromise;
     const id = `cm-mmd-${++mermaidIdSeq}`;
     const { svg } = await mermaid.render(id, source);
     mermaidSvgCache.set(source, { svg, error: null });
@@ -133,6 +160,7 @@ function scheduleImageRelayout(): void {
 export function trackImageHeights(root: HTMLElement): void {
   for (const img of Array.from(root.querySelectorAll('img'))) {
     const cached = imageNaturalSizes.get(img.src);
+    if (cached) lruTouch(imageNaturalSizes, img.src, IMAGE_SIZE_CACHE_MAX);
     if (cached && !img.hasAttribute('width') && !img.hasAttribute('height')) {
       img.width = cached.w;
       img.height = cached.h;
@@ -140,6 +168,7 @@ export function trackImageHeights(root: HTMLElement): void {
     const done = () => {
       if (img.naturalWidth && img.naturalHeight) {
         imageNaturalSizes.set(img.src, { w: img.naturalWidth, h: img.naturalHeight });
+        lruTouch(imageNaturalSizes, img.src, IMAGE_SIZE_CACHE_MAX);
       }
       scheduleImageRelayout();
     };
@@ -739,6 +768,7 @@ class MermaidWidget extends WidgetType {
     const wrap = document.createElement('div');
     wrap.className = 'cm-live-block cm-live-block--mermaid';
     const cached = mermaidSvgCache.get(this.source);
+    if (cached) lruTouch(mermaidSvgCache, this.source, MERMAID_CACHE_MAX);
     if (cached?.svg) {
       wrap.innerHTML = cached.svg;
     } else if (cached?.error) {

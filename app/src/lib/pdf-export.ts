@@ -14,6 +14,7 @@
 import { renderMarkdown, extractImageRoot } from './markdown';
 import type { ResolvedPdfOptions } from './pdf-options';
 import { rewriteImageUrls, rewriteLinkUrls } from './image-resolve';
+import { getMermaidForcedTheme } from './mermaid-lazy';
 
 const EXPORT_TIMEOUT_MS = 30_000;
 
@@ -161,9 +162,9 @@ let mermaidId = 0;
 async function processMermaidBlocks(container: HTMLElement) {
   const blocks = container.querySelectorAll('pre > code.language-mermaid');
   if (blocks.length === 0) return;
-  const mermaidMod = await import('mermaid');
-  const mermaid = (mermaidMod as any).default || mermaidMod;
-  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' });
+  // Exports render on a white page regardless of app theme; the forced value
+  // is tracked so the editor re-initializes its theme on the next render.
+  const mermaid = await getMermaidForcedTheme('default');
   for (const block of Array.from(blocks)) {
     const pre = block.parentElement as HTMLElement | null;
     if (!pre) continue;

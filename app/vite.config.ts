@@ -35,6 +35,15 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Vite's __vitePreload helper is shared by every chunk that does a
+          // dynamic import. Left to Rollup's default placement it landed in
+          // the mermaid chunk, which made the whole 2.7 MB mermaid bundle a
+          // static dependency of the entry (modulepreload at boot) and
+          // defeated lazy-loading mermaid entirely. Pin it to its own tiny
+          // chunk so dynamic-import machinery stays dependency-free.
+          if (id.includes('vite/preload-helper')) {
+            return 'preload-helper';
+          }
           const normalized = id.replace(/\\/g, '/');
           if (
             normalized.includes('/node_modules/tldraw/') ||
