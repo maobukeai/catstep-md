@@ -1,6 +1,6 @@
 # Catstep MD product roadmap
 
-Last updated: 2026-04-29 · Owner: solo · Status: working draft
+Last updated: 2026-10-01 · Owner: solo · Status: working draft
 
 This document is the source of truth for what we're building, in what order, and **why**. Each version has a single theme, a small ranked feature list, an effort budget, the risk we're taking, and the metric we're trying to move. If something isn't here, it isn't on the plan — file an issue or update this file.
 
@@ -19,6 +19,12 @@ This document is the source of truth for what we're building, in what order, and
 ---
 
 ## Versioning policy
+
+> **2026-10-01 numbering note:** the version scheme below (v3.6.x / v4.0) is
+> the pre-public-release internal numbering. With the public launch the tag
+> scheme reset to **1.0.x** — "v4.0" content shipped as 1.0.5/1.0.6. Read
+> every v3.6/v4.0 mention below as historical; current state is tracked in
+> the section statuses and the decision log.
 
 - **Patch (`v3.6.Y`)** — bug fixes only, ship within hours of finding the bug.
 - **Minor (`vX.Y.0`)** — single-theme drops. **Currently skipped:** see "v4.0 quiet phase" below.
@@ -57,7 +63,15 @@ Shipped foundation (any v4.0 work assumes this is in place):
 
 ---
 
-## v4.0 — "Agent-native author" · NEXT MAJOR · target Q3 2026
+## v4.0 — "Agent-native author" · SHIPPED (as 1.0.5–1.0.6)
+
+> **Status (2026-10-01): all five pillars + the bundled extras and the
+> quality bar below are implemented and released.** The section is kept for
+> rationale. Pillars live in: Agent Panel (`AgentPanel.vue` + `ai_proxy.rs`
+> tool loops), Recipes (`recipe_runner.rs`), Trace View (`agent_trace.rs` +
+> `TraceView.vue`), Workspace Federation (`mcp-server` multi-workspace +
+> `mcp_profiles`), Ollama polish (`ollama.rs` + `AgentSetupWizard.vue`), REST
+> API (`rest_api.rs`), cost meter (`cost_meter.rs`).
 
 **Theme.** Catstep MD has the strongest agent surface of any local-first markdown editor (5 Catstep MD-only MCP tools nobody else has). v4.0 brings that capability **inside** the app and turns the workspace into a place where agents work **continuously**, not just on-demand. Brand evolves from *"the editor + the MCP endpoint"* to ***"the editor where agents live."***
 
@@ -182,6 +196,23 @@ The "save the announce" arc. New users meet v4.0 through these surfaces, not the
 
 ## v4.x and beyond — open directions (not committed)
 
+- **Real RAG — pluggable embedders.** The current `rag.rs` embedder is a
+  hashed n-gram + random-projection sketch (honest keyword-similarity, not
+  semantics, ~5k-note ceiling). The gap: an `Embedder` trait with an Ollama
+  local-model implementation (nomic-embed-text class, reusing the existing
+  Ollama detection/pull wizard) and a BYOK embeddings-API fallback, keeping
+  the hash sketch as the offline default. Pair with retrieval-augmented chat
+  ("chat with vault" that retrieves by default instead of requiring the
+  model to think of calling `semantic_search`) and answer citations linking
+  back to `[[note]]` deep links. **L**.
+- **MCP client mode.** The app serves MCP today but cannot *consume*
+  third-party MCP servers as agent tools. Letting the built-in agent mount
+  external servers is the shortest path to "agents live here" being literally
+  true, and reuses the existing tool-card / trace / allow-write rails. **M**.
+- **User-editable prompt templates / agent personas.** The panel system
+  prompt and the inline-rewrite actions are hardcoded (and partially
+  Chinese-only despite full i18n). Make them editable, per-session, i18n'd.
+  **S/M**.
 - **"Open the platform"** — sandboxed scripting API (JS in webview, capability-scoped), public REST surface evolution. Trilium-style "I want to script my workflow." Effort: L. Decision deferred until v4.0 lands and we know which extension shape users actually need.
 - **CLI v2** — extends to AI rewrite / commit / semantic search / recipe-trigger from terminal. M.
 - **Sync as paid tier** — original v3.0 question, still unanswered. Catstep MD Sync (CRDT, E2EE, $30/yr challenger to Obsidian Sync $96). **XL** — billing + ops + support + regulatory. **Pre-decision required:** *"do we want to be a business?"* Don't start engineering until that's answered.
@@ -236,6 +267,7 @@ The "save the announce" arc. New users meet v4.0 through these surfaces, not the
 - **2026-04-29** — **Trace View promoted to its own pillar.** Originally a 2-day "audit log" line item; expanded to ~1 week because without trace visibility, Recipes (pillar 2) become scary writes that users disable. Trace is what makes Recipes safe to ship.
 - **2026-04-29** — **`main` enters patch-only mode** until v4.0 tags. v3.7 / v3.8 skipped entirely. Patches as v3.6.3+ on demand. v4.0 work goes to `feat/v4-*` branches.
 - **2026-09-04** — **MarKing (markingmd.com) parity pass.** Closed-source Chinese competitor, ~10-day cadence, desktop-only. Shipped from its gap list: heading folding, print style independent of the app theme, undo-a-delete, global quick-capture hotkey, a real document-import entry point, a workspace task panel, a grid table editor, DOCX templates, equation numbering + a formula editor. Rejected: card browser, vault migration, lightweight mode (see "What we explicitly skip"). Their users are asking for three things we already have — git sync, live-preview WYSIWYG, and opening a file without importing it — which is marketing copy we are not using.
+- **2026-10-01** — **Roadmap sync.** Public versioning reset to 1.0.x made the v3.6/v4.0 numbering stale; the five v4.0 pillars had shipped without the doc saying so. Documented, and the 2026-10-01 hardening pass landed in the same window: CI now enforces `cargo test` for src-tauri + mcp-server, mermaid left the startup path (lazy chunk), image attachments reach the model end to end (they were collected by the UI but never sent), agent history gained a context-window budget with tool-result caps, and the Anthropic tool loop got the OpenAI loop's anti-loop guards.
 - **2026-04-29** — Stale `feat/v2*` and `worktree-agent-*` branches (38 visible, all features shipped to main) audited for deletion. Cleanup pending user review.
 
 ---
