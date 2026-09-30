@@ -44,6 +44,24 @@ async function bootstrap() {
   const settings = useSettingsStore(pinia);
   const currentLang = (settings.language as Lang) || 'en';
 
+  // Safety-net persistence. Settings actions call persist() explicitly for
+  // immediate durability, but any state change that bypasses them — a new
+  // action written without its persist() call, a component assigning state
+  // directly — used to be silently lost on close. The debounced
+  // subscription catches every mutation instead; persist() only reads
+  // $state, so it can't re-trigger the subscription.
+  let persistTimer: ReturnType<typeof setTimeout> | null = null;
+  settings.$subscribe(
+    () => {
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        persistTimer = null;
+        settings.persist();
+      }, 300);
+    },
+    { detached: true, deep: true },
+  );
+
   const [rootComponent] = await Promise.all([
     rootPromise,
     loadLanguage(currentLang),
