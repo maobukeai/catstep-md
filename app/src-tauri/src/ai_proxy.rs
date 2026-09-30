@@ -2406,6 +2406,30 @@ fn json_preview(v: &Value) -> String {
     }
 }
 
+/// Max characters of one tool result that enter the model-visible history
+/// (both loops). The panel UI still receives the full result via the
+/// `ai-tool-result` event; this cap only stops a `read_note` over a huge
+/// file — or `list_notes` over 5k entries — from being replayed into every
+/// subsequent turn's token bill. Sized so several results plus the system
+/// prompt still fit inside a 32k-token context on the stingiest common
+/// model.
+const TOOL_RESULT_HISTORY_CAP: usize = 12_000;
+
+/// Cap a tool-result preview before it enters model history / the trace.
+/// Keep the head (JSON keys and note heads live there), drop the tail, and
+/// state the cut explicitly so the model can issue a narrower query instead
+/// of assuming the missing tail means "nothing there".
+fn cap_for_history(preview: &str) -> String {
+    let total = preview.chars().count();
+    if total <= TOOL_RESULT_HISTORY_CAP {
+        return preview.to_string();
+    }
+    let head: String = preview.chars().take(TOOL_RESULT_HISTORY_CAP).collect();
+    format!(
+        "{head}\n…[tool result truncated: showing first {TOOL_RESULT_HISTORY_CAP} of {total} chars — re-query with narrower arguments if the tail matters]"
+    )
+}
+
 // ---- Anthropic tool-call loop --------------------------------------------
 
 pub async fn run_chat_anthropic_loop(
@@ -2570,7 +2594,7 @@ pub async fn run_chat_anthropic_loop(
                     }
                 }
             }
-            let preview = json_preview(&result_value);
+            let preview = cap_for_history(&json_preview(&result_value));
             // Emit tool-result event.
             let _ = app.emit(
                 "solomd://ai-tool-result",
@@ -3110,7 +3134,9 @@ pub async fn run_chat_openai_loop(
                     (Value::String(err.clone()), Some(err))
                 }
             };
-            let mut preview = json_preview(&result_value);
+            // Cap the payload BEFORE the system directives are appended so
+            // the directives always survive truncation.
+            let mut preview = cap_for_history(&json_preview(&result_value));
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
                     has_written_note = true;
@@ -3620,6 +3646,26 @@ mod tests {
         let out = super::normalize_anthropic_messages(&msgs);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["content"], serde_json::json!("part one\n\npart two"));
+    }
+
+    #[test]
+    fn cap_for_history_passes_short_results_through() {
+        assert_eq!(super::cap_for_history("short"), "short");
+        let boundary = "x".repeat(super::TOOL_RESULT_HISTORY_CAP);
+        assert_eq!(super::cap_for_history(&boundary), boundary);
+    }
+
+    #[test]
+    fn cap_for_history_truncates_with_an_explicit_marker() {
+        let total = super::TOOL_RESULT_HISTORY_CAP + 5_000;
+        let big = "y".repeat(total);
+        let capped = super::cap_for_history(&big);
+        assert!(capped.starts_with(&"y".repeat(super::TOOL_RESULT_HISTORY_CAP)));
+        assert!(capped.contains("tool result truncated"));
+        assert!(capped.contains(&total.to_string()));
+        // The marker tells the model the cut size, and the capped body is
+        // bounded — never larger than the cap plus the marker line.
+        assert!(capped.chars().count() < super::TOOL_RESULT_HISTORY_CAP + 200);
     }
 
     #[test]

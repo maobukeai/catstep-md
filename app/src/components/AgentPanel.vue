@@ -19,6 +19,7 @@ import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { useAgentPanelStore, type AgentReference } from '../stores/agentPanel';
 import { providerById, type ProviderId } from '../lib/ai-providers';
+import { applyHistoryBudget } from '../lib/agent-context';
 import { renderMarkdown } from '../lib/markdown';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useFiles } from '../composables/useFiles';
@@ -1545,9 +1546,11 @@ async function send() {
   // Now dismiss the badge after full prompt construction (D02)
   isSelectionDismissed.value = true;
 
+  const budgetedHistory = applyHistoryBudget(history);
+
   const messages = [
     { role: 'system', content: systemParts.join('\n\n') },
-    ...history,
+    ...budgetedHistory,
   ];
 
   // Attach this turn's pasted/picked images to the current-turn user message
