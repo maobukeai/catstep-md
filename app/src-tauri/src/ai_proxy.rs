@@ -2463,6 +2463,10 @@ pub async fn run_chat_anthropic_loop(
     let mut has_written_note = false;
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
+    // Anti-loop trackers — parity with the OpenAI loop, which had them from
+    // the start; the Anthropic loop silently spun on identical tool calls.
+    let mut last_tool_sig: Option<String> = None;
+    let mut consecutive_duplicate_count: u32 = 0;
 
     for iter in 0..cap {
         if cancel.load(Ordering::SeqCst) {
@@ -2520,6 +2524,30 @@ pub async fn run_chat_anthropic_loop(
         // Hit cap on the *previous* iteration check — safe since cap >= 1.
         if iter + 1 >= cap {
             // Treat as final turn even though the model wanted to call a tool.
+            return Ok((last_text, tokens_in_total, tokens_out_total));
+        }
+
+        // Loop detection: if the model calls the exact same tool with
+        // identical arguments repeatedly, force the run to end instead of
+        // burning the remaining iterations on the same query. Mirrors the
+        // OpenAI loop's force-break.
+        let current_sig: String = outcome
+            .tool_uses
+            .iter()
+            .map(|(_, name, args)| format!("{}:{}", name, serde_json::to_string(args).unwrap_or_default()))
+            .collect::<Vec<_>>()
+            .join(";");
+
+        if let Some(last_sig) = &last_tool_sig {
+            if *last_sig == current_sig {
+                consecutive_duplicate_count += 1;
+            } else {
+                consecutive_duplicate_count = 0;
+            }
+        }
+        last_tool_sig = Some(current_sig);
+
+        if consecutive_duplicate_count >= 2 {
             return Ok((last_text, tokens_in_total, tokens_out_total));
         }
 
@@ -2594,7 +2622,24 @@ pub async fn run_chat_anthropic_loop(
                     }
                 }
             }
-            let preview = cap_for_history(&json_preview(&result_value));
+            // Cap the payload BEFORE the directives so truncation never eats
+            // them; texts mirror the OpenAI loop's directives verbatim.
+            let mut preview = cap_for_history(&json_preview(&result_value));
+            if name == "patch_note" || name == "write_note" || name == "append_to_note" {
+                if error_str.is_none() {
+                    has_written_note = true;
+                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                } else {
+                    write_fail_count += 1;
+                    if write_fail_count >= 2 {
+                        has_written_note = true;
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
+                    }
+                }
+            }
+            if consecutive_duplicate_count == 1 {
+                preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
+            }
             // Emit tool-result event.
             let _ = app.emit(
                 "solomd://ai-tool-result",
