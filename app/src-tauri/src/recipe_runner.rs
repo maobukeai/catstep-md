@@ -1135,11 +1135,13 @@ async fn run_recipe_chat_loop(
             role: "system".to_string(),
             content: system_text,
             tool_call_id: None,
+            images: None,
         },
         ChatMessage {
             role: "user".to_string(),
             content: prompt.to_string(),
             tool_call_id: None,
+            images: None,
         },
     ];
 

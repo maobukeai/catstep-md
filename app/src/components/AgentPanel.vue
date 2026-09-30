@@ -1550,6 +1550,21 @@ async function send() {
     ...history,
   ];
 
+  // Attach this turn's pasted/picked images to the current-turn user message
+  // so vision-capable models actually receive them. The UI always collected
+  // and rendered attachments, but the payload never carried them — the model
+  // never saw a single one. Only the current turn carries images: history
+  // turns were already sent (with their images) in their own turn, and
+  // re-attaching base64 blobs every turn would multiply the payload.
+  if (imagesToSend.length > 0) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        (messages[i] as { role: string; content: string; images?: string[] }).images = imagesToSend;
+        break;
+      }
+    }
+  }
+
   if (!model || !model.trim()) {
     const lastMsg = agent.messages[agent.messages.length - 1];
     if (lastMsg && lastMsg.role === 'assistant') {

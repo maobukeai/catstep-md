@@ -418,6 +418,66 @@ pub struct ChatMessage {
     /// the tool-call loop fills it in for results it appends.
     #[serde(default)]
     pub tool_call_id: Option<String>,
+    /// Data-URL image attachments (`data:image/png;base64,…`) on user
+    /// messages, for vision-capable models. The panel always collected and
+    /// rendered attachments but historically never sent them — the model
+    /// never saw a single one. Providers without vision support surface
+    /// their own API error, which is the honest outcome.
+    #[serde(default)]
+    pub images: Option<Vec<String>>,
+}
+
+/// Split a `data:<mime>;base64,<payload>` URL into `(mime, base64 payload)`.
+/// Returns `None` for anything else — the panel only ever attaches pasted or
+/// picked files as data URLs, so an http(s) reference here is caller error.
+fn split_data_url(data_url: &str) -> Option<(String, &str)> {
+    let rest = data_url.strip_prefix("data:")?;
+    let (meta, payload) = rest.split_once(',')?;
+    let mime = meta.split(';').next().unwrap_or("");
+    if mime.is_empty() || payload.is_empty() {
+        return None;
+    }
+    Some((mime.to_string(), payload))
+}
+
+/// OpenAI wire content for a chat message. User messages carrying image
+/// attachments become multipart content (text part first, then one
+/// `image_url` part per attachment); everything else stays a plain string.
+fn openai_wire_content(m: &ChatMessage) -> Value {
+    let images = m.images.as_deref().unwrap_or(&[]);
+    if m.role != "user" || images.is_empty() {
+        return serde_json::json!(m.content);
+    }
+    let mut parts = Vec::with_capacity(images.len() + 1);
+    if !m.content.is_empty() {
+        parts.push(serde_json::json!({"type": "text", "text": m.content}));
+    }
+    for url in images {
+        parts.push(serde_json::json!({"type": "image_url", "image_url": {"url": url}}));
+    }
+    serde_json::json!(parts)
+}
+
+/// Anthropic wire content for a chat message. User messages carrying image
+/// attachments become multipart content with base64 `image` sources.
+fn anthropic_wire_content(m: &ChatMessage) -> Value {
+    let images = m.images.as_deref().unwrap_or(&[]);
+    if m.role != "user" || images.is_empty() {
+        return serde_json::json!(m.content);
+    }
+    let mut parts = Vec::with_capacity(images.len() + 1);
+    if !m.content.is_empty() {
+        parts.push(serde_json::json!({"type": "text", "text": m.content}));
+    }
+    for url in images {
+        if let Some((mime, b64)) = split_data_url(url) {
+            parts.push(serde_json::json!({
+                "type": "image",
+                "source": {"type": "base64", "media_type": mime, "data": b64},
+            }));
+        }
+    }
+    serde_json::json!(parts)
 }
 
 /// Multi-turn chat request. Same provider/model/base_url plumbing as
@@ -1825,17 +1885,40 @@ pub(crate) fn normalize_anthropic_messages(messages: &[ChatMessage]) -> Vec<Valu
                 "content": m.content.clone(),
             }])
         } else {
-            serde_json::json!(m.content)
+            anthropic_wire_content(m)
         };
 
         if let Some(last) = normalized.last_mut() {
             let last_role = last.get("role").and_then(|r| r.as_str()).unwrap_or("");
             if last_role == role && !is_tool {
-                // Merge consecutive messages with the same role
-                if let (Some(last_content), Some(new_content)) = (last.get_mut("content"), content_val.as_str()) {
-                    if let Some(last_str) = last_content.as_str() {
-                        *last_content = Value::String(format!("{last_str}\n\n{new_content}"));
-                        continue;
+                // Merge consecutive messages with the same role — Anthropic
+                // rejects same-role adjacency. With multipart content in play
+                // (image parts), normalize both sides to arrays and append;
+                // the string↔string case keeps the previous `\n\n` join.
+                if let Some(last_content) = last.get_mut("content") {
+                    match (&*last_content, &content_val) {
+                        (Value::String(last_str), Value::String(new)) => {
+                            *last_content =
+                                Value::String(format!("{last_str}\n\n{new}"));
+                            continue;
+                        }
+                        _ => {
+                            let mut parts: Vec<Value> = match &*last_content {
+                                Value::String(s) => {
+                                    vec![serde_json::json!({"type": "text", "text": s})]
+                                }
+                                Value::Array(a) => a.clone(),
+                                other => vec![other.clone()],
+                            };
+                            match &content_val {
+                                Value::String(s) => parts
+                                    .push(serde_json::json!({"type": "text", "text": s})),
+                                Value::Array(a) => parts.extend(a.iter().cloned()),
+                                other => parts.push(other.clone()),
+                            }
+                            *last_content = Value::Array(parts);
+                            continue;
+                        }
                     }
                 }
             }
@@ -2097,7 +2180,23 @@ pub async fn run_chat_ollama(
     let messages_json: Vec<serde_json::Value> = req
         .messages
         .iter()
-        .map(|m| serde_json::json!({"role": m.role, "content": m.content}))
+        .map(|m| {
+            let mut obj = serde_json::json!({"role": m.role, "content": m.content});
+            // Ollama takes raw base64 (no data: prefix) in a message-level
+            // `images` array — multimodal models (llava, qwen-vl, …) read
+            // them; text-only models surface their own API error honestly.
+            let images = m.images.as_deref().unwrap_or(&[]);
+            if m.role == "user" && !images.is_empty() {
+                let b64s: Vec<&str> = images
+                    .iter()
+                    .filter_map(|u| split_data_url(u).map(|(_, b)| b))
+                    .collect();
+                if !b64s.is_empty() {
+                    obj["images"] = serde_json::json!(b64s);
+                }
+            }
+            obj
+        })
         .collect();
 
     let body = serde_json::json!({
@@ -2836,7 +2935,8 @@ pub async fn run_chat_openai_loop(
 
     // OpenAI Chat Completions wants `messages` as flat objects with optional
     // `tool_calls` / `tool_call_id`. Build the initial array preserving any
-    // tool messages from the frontend.
+    // tool messages from the frontend. User messages with image attachments
+    // expand into multipart content (text part + image_url parts).
     let mut history: Vec<Value> = req
         .messages
         .iter()
@@ -2848,7 +2948,7 @@ pub async fn run_chat_openai_loop(
                     "tool_call_id": m.tool_call_id.clone().unwrap_or_default(),
                 })
             } else {
-                serde_json::json!({"role": m.role, "content": m.content})
+                serde_json::json!({"role": m.role, "content": openai_wire_content(m)})
             }
         })
         .collect();
@@ -3408,6 +3508,120 @@ mod tests {
         }
     }
 
+    fn user_msg(content: &str, images: Option<Vec<&str>>) -> super::ChatMessage {
+        super::ChatMessage {
+            role: "user".into(),
+            content: content.into(),
+            tool_call_id: None,
+            images: images.map(|v| v.into_iter().map(String::from).collect()),
+        }
+    }
+
+    // --- image attachments (vision) -----------------------------------------
+
+    #[test]
+    fn split_data_url_parses_mime_and_payload() {
+        assert_eq!(
+            super::split_data_url("data:image/png;base64,QUJD"),
+            Some(("image/png".to_string(), "QUJD")),
+        );
+        // Parameters before the mime are ignored for media_type purposes.
+        assert_eq!(
+            super::split_data_url("data:image/jpeg;charset=utf-8;base64,QQ"),
+            Some(("image/jpeg".to_string(), "QQ")),
+        );
+        assert_eq!(super::split_data_url("https://example.com/a.png"), None);
+        assert_eq!(super::split_data_url("data:image/png;base64"), None);
+        assert_eq!(super::split_data_url("data:;base64,"), None);
+    }
+
+    #[test]
+    fn openai_wire_content_expands_user_images_into_parts() {
+        let m = user_msg(
+            "look at this",
+            Some(vec!["data:image/png;base64,QUJD", "data:image/webp;base64,WFla"]),
+        );
+        let v = super::openai_wire_content(&m);
+        let parts = v.as_array().expect("multipart content");
+        assert_eq!(parts.len(), 3);
+        assert_eq!(parts[0]["type"], "text");
+        assert_eq!(parts[0]["text"], "look at this");
+        assert_eq!(parts[1]["type"], "image_url");
+        assert_eq!(parts[1]["image_url"]["url"], "data:image/png;base64,QUJD");
+        assert_eq!(parts[2]["image_url"]["url"], "data:image/webp;base64,WFla");
+
+        // No images → plain string content, unchanged shape.
+        let plain = super::openai_wire_content(&user_msg("hi", None));
+        assert_eq!(plain, serde_json::json!("hi"));
+
+        // Images on non-user roles are ignored (assistant echoes stay strings).
+        let mut assistant = user_msg("reply", Some(vec!["data:image/png;base64,QUJD"]));
+        assistant.role = "assistant".into();
+        assert_eq!(super::openai_wire_content(&assistant), serde_json::json!("reply"));
+    }
+
+    #[test]
+    fn anthropic_wire_content_sends_base64_sources() {
+        let m = user_msg("what is this", Some(vec!["data:image/png;base64,QUJD"]));
+        let v = super::anthropic_wire_content(&m);
+        let parts = v.as_array().expect("multipart content");
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0]["type"], "text");
+        assert_eq!(parts[1]["type"], "image");
+        assert_eq!(parts[1]["source"]["type"], "base64");
+        assert_eq!(parts[1]["source"]["media_type"], "image/png");
+        assert_eq!(parts[1]["source"]["data"], "QUJD");
+
+        assert_eq!(
+            super::anthropic_wire_content(&user_msg("hi", None)),
+            serde_json::json!("hi"),
+        );
+    }
+
+    #[test]
+    fn normalize_anthropic_keeps_image_parts_and_merges_same_role_safely() {
+        let msgs = vec![
+            user_msg(
+                "two images",
+                Some(vec!["data:image/png;base64,QUJD", "data:image/png;base64,WFla"]),
+            ),
+            // Consecutive user message (frontend normalizes, but the backend
+            // must not emit same-role adjacency with multipart content).
+            user_msg("and this one", Some(vec!["data:image/jpeg;base64,MTIz"])),
+            super::ChatMessage {
+                role: "assistant".into(),
+                content: "ok".into(),
+                tool_call_id: None,
+                images: None,
+            },
+        ];
+        let out = super::normalize_anthropic_messages(&msgs);
+        assert_eq!(out.len(), 2, "same-role users must merge into one message");
+        assert_eq!(out[0]["role"], "user");
+        let parts = out[0]["content"].as_array().expect("multipart merge");
+        assert_eq!(parts.len(), 5, "text + 2 images + text + image");
+        assert_eq!(parts[0]["type"], "text");
+        assert_eq!(parts[0]["text"], "two images");
+        assert_eq!(parts[1]["source"]["data"], "QUJD");
+        assert_eq!(parts[2]["source"]["data"], "WFla");
+        assert_eq!(parts[3]["type"], "text");
+        assert_eq!(parts[3]["text"], "and this one");
+        assert_eq!(parts[4]["source"]["data"], "MTIz");
+        assert_eq!(out[1]["role"], "assistant");
+        assert_eq!(out[1]["content"], serde_json::json!("ok"));
+    }
+
+    #[test]
+    fn normalize_anthropic_string_merge_unchanged_without_images() {
+        let msgs = vec![
+            user_msg("part one", None),
+            user_msg("part two", None),
+        ];
+        let out = super::normalize_anthropic_messages(&msgs);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0]["content"], serde_json::json!("part one\n\npart two"));
+    }
+
     #[test]
     fn normalize_openai_base_appends_the_version_path_only_when_missing() {
         // The address llama.cpp / LM Studio / vLLM print on startup.
@@ -3679,9 +3893,9 @@ mod tests {
     fn test_normalize_anthropic_messages_merges_consecutive_user() {
         use super::ChatMessage;
         let msgs = vec![
-            ChatMessage { role: "system".into(), content: "sys".into(), tool_call_id: None },
-            ChatMessage { role: "user".into(), content: "hello".into(), tool_call_id: None },
-            ChatMessage { role: "user".into(), content: "world".into(), tool_call_id: None },
+            ChatMessage { role: "system".into(), content: "sys".into(), tool_call_id: None, images: None },
+            ChatMessage { role: "user".into(), content: "hello".into(), tool_call_id: None, images: None },
+            ChatMessage { role: "user".into(), content: "world".into(), tool_call_id: None, images: None },
         ];
         let norm = super::normalize_anthropic_messages(&msgs);
         assert_eq!(norm.len(), 1);
@@ -3693,8 +3907,8 @@ mod tests {
     fn test_normalize_anthropic_messages_prepends_user_if_starts_with_assistant() {
         use super::ChatMessage;
         let msgs = vec![
-            ChatMessage { role: "assistant".into(), content: "I am ready".into(), tool_call_id: None },
-            ChatMessage { role: "user".into(), content: "hi".into(), tool_call_id: None },
+            ChatMessage { role: "assistant".into(), content: "I am ready".into(), tool_call_id: None, images: None },
+            ChatMessage { role: "user".into(), content: "hi".into(), tool_call_id: None, images: None },
         ];
         let norm = super::normalize_anthropic_messages(&msgs);
         assert_eq!(norm.len(), 3);
