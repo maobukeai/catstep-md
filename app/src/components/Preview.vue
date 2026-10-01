@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { requestMermaidTheme, getMermaid } from '../lib/mermaid-lazy';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { renderMarkdown, extractImageRoot } from '../lib/markdown';
@@ -149,19 +149,52 @@ let mermaidIdSeq = 0;
 
 requestMermaidTheme(settings.theme);
 
-const html = computed(() => {
-  // #141 — establish a reactive dep on the hard-breaks toggle so flipping the
-  // setting re-renders immediately (renderMarkdown reads the md singleton's
-  // option, which isn't reactive by itself).
-  void settings.markdownHardBreaks;
-  // Same reactive-dep trick for the numbered-heading toggle (preprocessMarkdown
-  // reads a module-level flag that isn't reactive on its own).
-  void settings.markdownAutoNumberHeadings;
-  // #216 — and for the smart-quotes toggle (md singleton rule state).
-  void settings.smartQuotes;
+const html = ref('');
+
+// Preview render throttle. markdown-it + the post-processing passes run on
+// the main thread, and the editor syncs content into the store every 350ms
+// while typing — the full-document render used to block inside the same
+// reactive tick that renders the editor itself, so large documents janked
+// typing in split view. A short trailing debounce coalesces bursts (rapid
+// typing, agent tool-writes hitting the file watcher) and moves the render
+// off the editor's update beat; switching tabs renders synchronously so a
+// stale document never flashes.
+const PREVIEW_RENDER_DEBOUNCE = 150;
+let renderTimer: ReturnType<typeof setTimeout> | null = null;
+
+function renderPreviewNow(): void {
+  // #141 — the hard-breaks toggle needs re-render on flip (renderMarkdown
+  // reads the md singleton's option, which isn't reactive by itself); same
+  // for #216's numbered-headings and smart-quotes module flags. All three
+  // are in the watch source below.
   const source = props.source || '';
-  return rewriteImageUrls(renderMarkdown(source), extractImageRoot(source), props.filePath);
-});
+  html.value = rewriteImageUrls(renderMarkdown(source), extractImageRoot(source), props.filePath);
+}
+
+function schedulePreviewRender(): void {
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => {
+    renderTimer = null;
+    renderPreviewNow();
+  }, PREVIEW_RENDER_DEBOUNCE);
+}
+
+watch(
+  () => [props.source, props.filePath, settings.markdownHardBreaks, settings.markdownAutoNumberHeadings, settings.smartQuotes],
+  (_newVal, oldVal) => {
+    const switchedFile = oldVal !== undefined && oldVal[1] !== _newVal[1];
+    if (switchedFile) {
+      if (renderTimer) {
+        clearTimeout(renderTimer);
+        renderTimer = null;
+      }
+      renderPreviewNow();
+    } else {
+      schedulePreviewRender();
+    }
+  },
+  { immediate: true },
+);
 
 // v4.10 issue #163 — render ```plantuml fences through the configured
 // PlantUML server. Opt-in (`plantumlEnabled`); when off the fence stays a
@@ -646,6 +679,10 @@ onBeforeUnmount(() => {
   host.value?.removeEventListener('dblclick', onPreviewDblClick);
   host.value?.parentElement?.removeEventListener('scroll', onPreviewScroll);
   previewTableState.value.visible = false;
+  if (renderTimer) {
+    clearTimeout(renderTimer);
+    renderTimer = null;
+  }
 });
 
 function openSearch() {
