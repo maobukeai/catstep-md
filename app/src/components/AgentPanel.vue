@@ -1383,7 +1383,10 @@ async function send() {
   const model = activeProfile?.selectedModel || settings.aiModel || cfg?.defaultModel || '';
   const baseUrl = activeProfile?.baseUrl || settings.aiBaseUrl || cfg?.defaultBaseUrl || null;
   const isOllama = apiFormat === 'ollama';
-  const isToolAllowed = settings.agentAllowWrite && !isOllama;
+  // Ollama runs the same tool loop as every other backend now (modern
+  // servers take OpenAI-style tools; models without a tool template error
+  // honestly), so a local model can be a full agent too.
+  const isToolAllowed = settings.agentAllowWrite;
 
   // Compose conversation: system + history with physical tool actions for context memory.
   const rawTurnHistory: { role: string; content: string }[] = [];

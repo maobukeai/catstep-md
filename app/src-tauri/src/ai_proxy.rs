@@ -162,9 +162,11 @@ pub fn provider_caps(provider: &str) -> ProviderCaps {
         "ollama" => ProviderCaps {
             auth: AuthStrategy::None,
             models: ModelListStrategy::Ollama,
-            // The panel never wires tools for Ollama (the open models we ship
-            // don't emit reliable tool_use blocks), so don't offer them.
-            supports_tools: false,
+            // Modern Ollama servers accept OpenAI-style tools on /api/chat
+            // and current open models (qwen3, llama3.1+, ...) emit reliable
+            // whole-chunk tool_calls. Models without tool templates make
+            // the server error honestly, which is the right outcome.
+            supports_tools: true,
             supports_streaming: true,
         },
         "volcengine" | "minimax" => ProviderCaps {
@@ -1304,7 +1306,14 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
                 .await
             }
             "ollama" => {
-                run_chat_ollama(&app_clone, &id_for_task, &request, cancel.clone()).await
+                run_chat_ollama(
+                    &app_clone,
+                    &id_for_task,
+                    &request,
+                    cancel.clone(),
+                    run_handle.clone(),
+                )
+                .await
             }
             other => Err(format!("unknown api_format: {other}")),
         };
@@ -1481,7 +1490,7 @@ fn stream_ended_early(provider: &str) -> String {
     )
 }
 
-fn emit_chunk(app: &AppHandle, request_id: &str, chunk: &str) {
+fn emit_chunk<R: tauri::Runtime>(app: &tauri::AppHandle<R>, request_id: &str, chunk: &str) {
     if chunk.is_empty() {
         return;
     }
@@ -2179,23 +2188,25 @@ async fn run_ollama(
     Ok(full)
 }
 
-pub async fn run_chat_ollama(
-    app: &AppHandle,
+pub async fn run_chat_ollama<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
     request_id: &str,
     req: &ChatRequest,
     cancel: Arc<AtomicBool>,
+    run_handle: Option<Arc<RunHandle>>,
 ) -> Result<(String, u64, u64), String> {
-    let base = ollama_addr::base_url(req.base_url.as_deref());
-    let url = format!("{base}/api/chat");
+    let cap = req.tool_loop_cap.unwrap_or(8).clamp(1, 20);
+    let workspace = workspace_from_req(req);
+    let mut tokens_in_total: u64 = 0;
+    let mut tokens_out_total: u64 = 0;
 
-    let messages_json: Vec<serde_json::Value> = req
+    // Ollama /api/chat takes the OpenAI-style messages plus a message-level
+    // `images` array for multimodal models (llava, qwen-vl, …).
+    let mut history: Vec<Value> = req
         .messages
         .iter()
         .map(|m| {
             let mut obj = serde_json::json!({"role": m.role, "content": m.content});
-            // Ollama takes raw base64 (no data: prefix) in a message-level
-            // `images` array — multimodal models (llava, qwen-vl, …) read
-            // them; text-only models surface their own API error honestly.
             let images = m.images.as_deref().unwrap_or(&[]);
             if m.role == "user" && !images.is_empty() {
                 let b64s: Vec<&str> = images
@@ -2210,11 +2221,312 @@ pub async fn run_chat_ollama(
         })
         .collect();
 
-    let body = serde_json::json!({
+    // Ollama accepts the OpenAI tool schema (type/function/parameters) on
+    // /api/chat; the arguments come back as a complete JSON object per
+    // tool_call, not fragmented deltas.
+    let mut tools = build_openai_tools(req);
+    merge_mcp_tools(&mut tools, req, false).await;
+    let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
+    let empty_tools = serde_json::json!([]);
+    let mut has_written_note = false;
+    let mut write_fail_count: u32 = 0;
+    let mut last_text = String::new();
+    // Anti-loop trackers — parity with the OpenAI/Anthropic loops.
+    let mut last_tool_sig: Option<String> = None;
+    let mut consecutive_duplicate_count: u32 = 0;
+
+    for iter in 0..cap {
+        if cancel.load(Ordering::SeqCst) {
+            return Err(cancelled());
+        }
+        let current_tools = if has_written_note {
+            &empty_tools
+        } else {
+            &tools
+        };
+        if let Some(rh) = &run_handle {
+            let _ = rh.append_trace(TraceStep {
+                kind: "model_call".to_string(),
+                provider: Some("ollama".to_string()),
+                model: Some(req.model.clone()),
+                messages_n: Some(history.len() as u64),
+                tools_n: Some(if has_written_note { 0 } else { tools_n }),
+                ..Default::default()
+            });
+        }
+        let outcome = ollama_one_turn(
+            app,
+            request_id,
+            req,
+            &history,
+            current_tools,
+            cancel.clone(),
+        )
+        .await?;
+        tokens_in_total = tokens_in_total.saturating_add(outcome.tokens_in);
+        tokens_out_total = tokens_out_total.saturating_add(outcome.tokens_out);
+        if let Some(rh) = &run_handle {
+            let _ = rh.append_trace(TraceStep {
+                kind: "model_done".to_string(),
+                provider: Some("ollama".to_string()),
+                model: Some(req.model.clone()),
+                text: Some(outcome.text.clone()),
+                finish_reason: Some(outcome.finish_reason.clone()),
+                tokens_in: Some(outcome.tokens_in),
+                tokens_out: Some(outcome.tokens_out),
+                ..Default::default()
+            });
+        }
+        last_text = outcome.text.clone();
+
+        if outcome.tool_uses.is_empty() {
+            return Ok((last_text, tokens_in_total, tokens_out_total));
+        }
+        if iter + 1 >= cap {
+            return Ok((last_text, tokens_in_total, tokens_out_total));
+        }
+
+        // Loop detection — identical to the OpenAI/Anthropic loops.
+        let current_sig: String = outcome
+            .tool_uses
+            .iter()
+            .map(|(_, name, args)| {
+                format!("{}:{}", name, serde_json::to_string(args).unwrap_or_default())
+            })
+            .collect::<Vec<_>>()
+            .join(";");
+        if let Some(last_sig) = &last_tool_sig {
+            if *last_sig == current_sig {
+                consecutive_duplicate_count += 1;
+            } else {
+                consecutive_duplicate_count = 0;
+            }
+        }
+        last_tool_sig = Some(current_sig);
+        if consecutive_duplicate_count >= 2 {
+            return Ok((last_text, tokens_in_total, tokens_out_total));
+        }
+
+        // Echo the assistant turn with its tool_calls so Ollama can pair
+        // the following tool messages. Arguments stay a JSON object — that
+        // is the shape Ollama itself produced and expects back.
+        let mut assistant_msg = serde_json::json!({"role": "assistant", "content": outcome.text});
+        let calls: Vec<Value> = outcome
+            .tool_uses
+            .iter()
+            .map(|(_, name, args)| {
+                serde_json::json!({"function": {"name": name, "arguments": args}})
+            })
+            .collect();
+        assistant_msg["tool_calls"] = serde_json::json!(calls);
+        history.push(assistant_msg);
+
+        // Dispatch + tool messages. Ollama's tool role wants the plain
+        // result string; `tool_name` is included for newer server versions
+        // that require the pairing.
+        for (id, name, args) in outcome.tool_uses.iter() {
+            let _ = app.emit(
+                "solomd://ai-tool-call",
+                ToolCallEvent {
+                    request_id: request_id.to_string(),
+                    run_id: run_handle
+                        .as_ref()
+                        .map(|h| h.run_id.clone())
+                        .unwrap_or_default(),
+                    tool_call_id: id.clone(),
+                    tool: name.clone(),
+                    args: args.clone(),
+                },
+            );
+            if let Some(rh) = &run_handle {
+                let _ = rh.append_trace(TraceStep {
+                    kind: "tool_call".to_string(),
+                    tool: Some(name.clone()),
+                    args: Some(args.clone()),
+                    tool_call_id: Some(id.clone()),
+                    ..Default::default()
+                });
+                let _ = rh.append_run_md(&format!(
+                    "### Tool: {} {}\n\n",
+                    name,
+                    serde_json::to_string(args).unwrap_or_default()
+                ));
+            }
+
+            let (result_value, error_str) = if super::mcp_client::is_mcp_name(name) {
+                match super::mcp_client::dispatch(name, args.clone()).await {
+                    Ok(v) => (v, None),
+                    Err(e) => (Value::String(e.clone()), Some(e)),
+                }
+            } else {
+                match &workspace {
+                    Some(ws) => {
+                        let ws = ws.to_path_buf();
+                        let tool = name.clone();
+                        let call_args = args.clone();
+                        match tauri::async_runtime::spawn_blocking(move || {
+                            agent_tools::dispatch_tool_inner(&ws, &tool, call_args)
+                        })
+                        .await
+                        {
+                            Ok(Ok(v)) => (v, None),
+                            Ok(Err(e)) => (Value::String(e.clone()), Some(e)),
+                            Err(e) => (
+                                Value::String(format!("dispatch join: {e}")),
+                                Some(format!("dispatch join: {e}")),
+                            ),
+                        }
+                    }
+                    None => {
+                        let err = "no workspace provided".to_string();
+                        (Value::String(err.clone()), Some(err))
+                    }
+                }
+            };
+            if name == "patch_note" || name == "write_note" || name == "append_to_note" {
+                if error_str.is_none() {
+                    has_written_note = true;
+                } else {
+                    write_fail_count += 1;
+                    if write_fail_count >= 2 {
+                        has_written_note = true;
+                    }
+                }
+            }
+            // Cap before the directives so truncation never eats them;
+            // texts mirror the OpenAI loop's directives verbatim.
+            let mut preview = cap_for_history(&json_preview(&result_value));
+            if name == "patch_note" || name == "write_note" || name == "append_to_note" {
+                if error_str.is_none() {
+                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                } else if write_fail_count >= 2 {
+                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
+                }
+            }
+            if consecutive_duplicate_count == 1 {
+                preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
+            }
+            let _ = app.emit(
+                "solomd://ai-tool-result",
+                ToolResultEvent {
+                    request_id: request_id.to_string(),
+                    run_id: run_handle
+                        .as_ref()
+                        .map(|h| h.run_id.clone())
+                        .unwrap_or_default(),
+                    tool_call_id: id.clone(),
+                    result: result_value.clone(),
+                    error: error_str.clone(),
+                },
+            );
+            if let Some(rh) = &run_handle {
+                let _ = rh.append_trace(TraceStep {
+                    kind: "tool_result".to_string(),
+                    tool_call_id: Some(id.clone()),
+                    result: Some(preview.clone()),
+                    error: error_str.clone(),
+                    ..Default::default()
+                });
+                let body_preview: String = preview.chars().take(2048).collect();
+                let _ = rh.append_run_md(&format!("```\n{}\n```\n\n", body_preview));
+            }
+            history.push(serde_json::json!({
+                "role": "tool",
+                "tool_name": name,
+                "content": preview,
+            }));
+        }
+    }
+
+    Ok((last_text, tokens_in_total, tokens_out_total))
+}
+
+/// Absorb one NDJSON chat chunk into the turn outcome. Pure (emitting is
+/// the caller's job) so the Ollama wire format is unit-testable without a
+/// server. Returns the text to stream to the panel, if any.
+fn absorb_ollama_chunk(
+    json: &Value,
+    outcome: &mut TurnOutcome,
+    tool_idx: &mut u64,
+) -> Option<String> {
+    let mut emit: Option<String> = None;
+    if let Some(content) = json
+        .get("message")
+        .and_then(|m| m.get("content"))
+        .and_then(|s| s.as_str())
+    {
+        if !content.is_empty() {
+            outcome.text.push_str(content);
+            emit = Some(content.to_string());
+        }
+    }
+    // Tool calls arrive whole inside a chunk — no deltas to merge.
+    if let Some(tcs) = json
+        .pointer("/message/tool_calls")
+        .and_then(|v| v.as_array())
+    {
+        for tc in tcs {
+            let name = tc
+                .pointer("/function/name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let args = tc
+                .pointer("/function/arguments")
+                .cloned()
+                .unwrap_or_else(|| Value::Object(Default::default()));
+            let id = make_tool_call_id(*tool_idx);
+            *tool_idx += 1;
+            outcome.tool_uses.push((id, name, args));
+        }
+    }
+    // `prompt_eval_count` / `eval_count` typically ride the final
+    // `done: true` chunk; keep the latest non-zero values.
+    if let Some(n) = json.get("prompt_eval_count").and_then(|v| v.as_u64()) {
+        if n > outcome.tokens_in {
+            outcome.tokens_in = n;
+        }
+    }
+    if let Some(n) = json.get("eval_count").and_then(|v| v.as_u64()) {
+        if n > outcome.tokens_out {
+            outcome.tokens_out = n;
+        }
+    }
+    if let Some(reason) = json.get("done_reason").and_then(|v| v.as_str()) {
+        if !reason.is_empty() {
+            outcome.finish_reason = reason.to_string();
+        }
+    }
+    emit
+}
+
+/// One streamed /api/chat turn. Tool calls arrive whole inside a chunk's
+/// `message.tool_calls` (no OpenAI-style argument deltas), so a small
+/// collector suffices.
+async fn ollama_one_turn<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request_id: &str,
+    req: &ChatRequest,
+    history: &[Value],
+    tools: &Value,
+    cancel: Arc<AtomicBool>,
+) -> Result<TurnOutcome, String> {
+    let base = ollama_addr::base_url(req.base_url.as_deref());
+    let url = format!("{base}/api/chat");
+
+    let mut body = serde_json::json!({
         "model": req.model,
         "stream": true,
-        "messages": messages_json,
+        "messages": history,
     });
+    let tools_offered = provider_caps(&req.provider).supports_tools
+        && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false);
+    if tools_offered {
+        body["tools"] = tools.clone();
+    }
 
     let client = http_client()?;
     let resp = client
@@ -2231,17 +2543,12 @@ pub async fn run_chat_ollama(
         return Err(format!("ollama {status}: {txt}"));
     }
 
-    let mut full = String::new();
+    let mut outcome = TurnOutcome::default();
     let mut buf = String::new();
-    // Ollama's final `done: true` chunk carries `prompt_eval_count` (input
-    // tokens consumed by the prompt + system) and `eval_count` (output
-    // tokens generated). Cost lookup is 0 for ollama anyway, but we still
-    // surface the counts for the trace footer + Recent Runs list.
-    let mut tokens_in: u64 = 0;
-    let mut tokens_out: u64 = 0;
-    let mut stream = resp.bytes_stream();
+    let mut tool_idx: u64 = 0;
     let mut saw_done = false;
     let mut eof = false;
+    let mut stream = resp.bytes_stream();
     'stream: while !eof {
         match stream.next().await {
             Some(chunk) => {
@@ -2259,33 +2566,12 @@ pub async fn run_chat_ollama(
             if line.is_empty() {
                 continue;
             }
-            let json: serde_json::Value = match serde_json::from_str(&line) {
+            let json: Value = match serde_json::from_str(&line) {
                 Ok(v) => v,
                 Err(_) => continue,
             };
-            if let Some(content) = json
-                .get("message")
-                .and_then(|m| m.get("content"))
-                .and_then(|s| s.as_str())
-            {
-                if !content.is_empty() {
-                    full.push_str(content);
-                    emit_chunk(app, request_id, content);
-                }
-            }
-            // `prompt_eval_count` / `eval_count` are typically only present
-            // on the final `done: true` chunk, but read them every chunk
-            // and keep the latest non-zero values just in case a build
-            // backports them earlier.
-            if let Some(n) = json.get("prompt_eval_count").and_then(|v| v.as_u64()) {
-                if n > tokens_in {
-                    tokens_in = n;
-                }
-            }
-            if let Some(n) = json.get("eval_count").and_then(|v| v.as_u64()) {
-                if n > tokens_out {
-                    tokens_out = n;
-                }
+            if let Some(content) = absorb_ollama_chunk(&json, &mut outcome, &mut tool_idx) {
+                emit_chunk(app, request_id, &content);
             }
             if json.get("done").and_then(|b| b.as_bool()).unwrap_or(false) {
                 saw_done = true;
@@ -2299,8 +2585,9 @@ pub async fn run_chat_ollama(
     if !saw_done {
         return Err(stream_ended_early("ollama"));
     }
-    Ok((full, tokens_in, tokens_out))
+    Ok(outcome)
 }
+
 
 // ---------------------------------------------------------------------------
 // v4.0 — tool-call loops (Anthropic + OpenAI)
@@ -4129,7 +4416,7 @@ mod tests {
         let ollama = super::provider_caps("ollama");
         assert_eq!(ollama.auth, super::AuthStrategy::None);
         assert_eq!(ollama.models, super::ModelListStrategy::Ollama);
-        assert!(!ollama.supports_tools, "tools are not wired for ollama");
+        assert!(ollama.supports_tools, "ollama runs the same tool loop now");
 
         // Aliases resolve first, and unknown ids land on the plain OpenAI
         // dialect — which is exactly what a self-hosted compatible server is.
@@ -4486,5 +4773,48 @@ mod tests {
         let (id3, _, args3) = &outcome.tool_uses[2];
         assert_eq!(id3, "call_d");
         assert_eq!(args3, &Value::String("the model streamed prose here".into()));
+    }
+
+    // --- Ollama wire format --------------------------------------------------
+
+    #[test]
+    fn absorb_ollama_chunk_handles_text_tools_and_usage() {
+        use super::absorb_ollama_chunk;
+        let mut outcome = super::TurnOutcome::default();
+        let mut idx = 0u64;
+
+        // Text chunk streams through.
+        let c1: Value = serde_json::json!({"message": {"role": "assistant", "content": "Let me check. "}, "done": false});
+        assert_eq!(
+            absorb_ollama_chunk(&c1, &mut outcome, &mut idx).as_deref(),
+            Some("Let me check. ")
+        );
+
+        // A tool_call chunk: whole arguments object, synthetic id.
+        let c2: Value = serde_json::json!({"message": {"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "list_notes", "arguments": {"limit": 5}}}
+        ]}, "done": false});
+        assert_eq!(absorb_ollama_chunk(&c2, &mut outcome, &mut idx), None);
+        assert_eq!(outcome.tool_uses.len(), 1);
+        assert_eq!(outcome.tool_uses[0].1, "list_notes");
+        assert_eq!(outcome.tool_uses[0].2["limit"], serde_json::json!(5));
+        assert!(outcome.tool_uses[0].0.starts_with("call_0_"));
+
+        // Usage counts keep the latest non-zero values; done_reason lands.
+        let c3: Value = serde_json::json!({"message": {"role": "assistant", "content": ""}, "done": true,
+                                           "done_reason": "stop", "prompt_eval_count": 12, "eval_count": 9});
+        assert_eq!(absorb_ollama_chunk(&c3, &mut outcome, &mut idx), None);
+        assert_eq!(outcome.tokens_in, 12);
+        assert_eq!(outcome.tokens_out, 9);
+        assert_eq!(outcome.finish_reason, "stop");
+
+        // Broken entries are skipped without poisoning the outcome.
+        let c4: Value = serde_json::json!({"message": {"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "", "arguments": {}}},
+            {"function": {"name": "search", "arguments": {}}}
+        ]}, "done": false});
+        absorb_ollama_chunk(&c4, &mut outcome, &mut idx);
+        assert_eq!(outcome.tool_uses.len(), 2);
+        assert_eq!(outcome.tool_uses[1].1, "search");
     }
 }

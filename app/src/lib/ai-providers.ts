@@ -224,7 +224,10 @@ export const PROVIDERS: ProviderConfig[] = [
     keyless: true,
     authStrategy: 'none',
     modelListStrategy: 'ollama',
-    supportsTools: false,
+    // Modern Ollama servers accept OpenAI-style tools and current open
+    // models (qwen3, llama3.1+, ...) emit reliable whole-chunk tool_calls.
+    // Models without a tool template make the server error honestly.
+    supportsTools: true,
     supportsStreaming: true,
   },
 ];

@@ -1214,7 +1214,7 @@ async fn run_recipe_chat_loop(
             let _ = handle.append_markdown(
                 "> note: ollama path is text-only — tool calls are not dispatched.\n\n",
             );
-            run_chat_ollama(app, &request_id, &req, cancel.clone()).await
+            run_chat_ollama(app, &request_id, &req, cancel.clone(), None).await
         }
         other => Err(format!("unknown api_format: {other}")),
     };
