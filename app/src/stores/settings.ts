@@ -21,6 +21,9 @@ export interface AgentMcpServer {
   enabled: boolean;
   /** Per-call timeout in seconds; omit for the backend default (30s). */
   timeout_secs?: number;
+  /** Streamable HTTP endpoint. When set the server is remote (HTTP
+   *  transport) and command/args are ignored. */
+  url?: string | null;
 }
 
 export interface AIProviderProfile {

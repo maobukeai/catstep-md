@@ -13,11 +13,12 @@
 //! server config, newline-delimited JSON-RPC 2.0 over the child's
 //! stdin/stdout (the MCP stdio framing). Sessions live in a global registry
 //! keyed by server id so several tool calls in one run share the process;
-//! a session found dead is transparently respawned. The lifetime unit is
-//! the chat run: `ai_chat` calls `shutdown_all()` when its run finishes
-//! (success, error, or cancel), because a static registry never drops and
-//! the children would otherwise leak. stderr is discarded so a chatty
-//! server can't block on a full pipe.
+//! a session found dead is transparently respawned. A background reaper
+//! kills connections idle for more than a couple of minutes — the static
+//! registry never drops, so without the sweep the children would outlive
+//! their usefulness. Runs, the connection test, and recipes can overlap,
+//! so nothing ever shuts the whole registry down mid-flight. stderr is
+//! discarded so a chatty server can't block on a full pipe.
 //!
 //! On Windows, `.cmd`/`.bat` shims (npx, uvx) cannot be spawned directly —
 //! configure `cmd` with `["/c", "npx", …]` (the settings hint says so).
@@ -70,6 +71,16 @@ pub struct McpServerConfig {
     /// Per-call timeout override (seconds).
     #[serde(default)]
     pub timeout_secs: Option<u64>,
+    /// Streamable HTTP endpoint (e.g. `https://host/mcp`). When set, this
+    /// server is reached over HTTP and `command`/`args` are ignored.
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+impl McpServerConfig {
+    fn is_http(&self) -> bool {
+        self.url.as_deref().map(|u| !u.trim().is_empty()).unwrap_or(false)
+    }
 }
 
 fn default_true() -> bool {
@@ -406,46 +417,350 @@ fn tool_result_to_text(result: &Value) -> Result<Value, String> {
 }
 
 // ---------------------------------------------------------------------------
-// Registry — sessions keyed by server config id
+// HTTP transport (Streamable HTTP)
 // ---------------------------------------------------------------------------
 
-static REGISTRY: Lazy<AsyncMutex<HashMap<String, Arc<AsyncMutex<McpSession>>>>> =
+/// One Streamable HTTP server endpoint. No child process: the server may
+/// hand us an `Mcp-Session-Id` at initialize time which rides along on
+/// every later call. Responses are either a single JSON document or an
+/// SSE stream — both are handled.
+struct HttpMcpSession {
+    endpoint: String,
+    client: reqwest::Client,
+    session_id: Option<String>,
+    next_id: u64,
+    initialized: bool,
+}
+
+impl HttpMcpSession {
+    fn new(endpoint: &str) -> Result<Self, String> {
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(10))
+            .build()
+            .map_err(|e| format!("http client: {e}"))?;
+        Ok(Self {
+            endpoint: endpoint.trim().trim_end_matches('/').to_string(),
+            client,
+            session_id: None,
+            next_id: 0,
+            initialized: false,
+        })
+    }
+
+    /// POST one JSON-RPC message. Returns `Ok(None)` for 202-style
+    /// notification acks, `Ok(Some(v))` for a single JSON response,
+    /// extracted from an SSE stream when the server chose
+    /// `text/event-stream`, and captures the `Mcp-Session-Id` header when
+    /// the server mints one (initialize).
+    async fn post(&mut self, msg: &Value) -> Result<Option<Value>, String> {
+        let mut req = self
+            .client
+            .post(&self.endpoint)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
+            .json(msg);
+        if let Some(sid) = &self.session_id {
+            req = req.header("Mcp-Session-Id", sid);
+        }
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| format!("MCP HTTP request failed ({}): {e}", self.endpoint))?;
+        let status = resp.status();
+        if status == reqwest::StatusCode::ACCEPTED {
+            return Ok(None);
+        }
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            if status == reqwest::StatusCode::NOT_FOUND && self.session_id.is_some() {
+                return Err("MCP HTTP session expired (404) — reconnect needed".into());
+            }
+            return Err(format!("MCP HTTP {status}: {body}"));
+        }
+        if let Some(sid) = resp
+            .headers()
+            .get("mcp-session-id")
+            .and_then(|v| v.to_str().ok())
+        {
+            self.session_id = Some(sid.to_string());
+        }
+        let content_type = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if content_type.contains("text/event-stream") {
+            let body = resp.text().await.unwrap_or_default();
+            let id = msg.get("id").and_then(|x| x.as_u64()).unwrap_or(0);
+            match sse_response_for(&body, id) {
+                Some(r) => r.map(Some),
+                None => Err("MCP HTTP SSE stream ended without a matching response".into()),
+            }
+        } else {
+            let body = resp.text().await.unwrap_or_default();
+            let v: Value = serde_json::from_str(&body)
+                .map_err(|e| format!("MCP HTTP response not JSON: {e}"))?;
+            Ok(Some(v))
+        }
+    }
+
+    async fn request(&mut self, method: &str, params: Value) -> Result<Value, String> {
+        self.next_id += 1;
+        let id = self.next_id;
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params,
+        });
+        let resp = self.post(&msg).await?;
+        let v = resp.ok_or_else(|| format!("MCP HTTP server sent no response to `{method}`"))?;
+        if let Some(err) = v.get("error") {
+            let m = err
+                .get("message")
+                .and_then(|x| x.as_str())
+                .unwrap_or("MCP server error");
+            return Err(m.to_string());
+        }
+        Ok(v.get("result").cloned().unwrap_or(Value::Null))
+    }
+
+    async fn notify(&mut self, method: &str) -> Result<(), String> {
+        let msg = serde_json::json!({ "jsonrpc": "2.0", "method": method });
+        self.post(&msg).await.map(|_| ())
+    }
+
+    async fn initialize(&mut self) -> Result<(), String> {
+        self.next_id += 1;
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": self.next_id,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": { "name": "catstep-md", "version": env!("CARGO_PKG_VERSION") },
+            },
+        });
+        let resp = self.post(&msg).await?;
+        if resp.is_none() {
+            return Err("MCP HTTP initialize got no response".into());
+        }
+        self.initialized = true;
+        self.notify("notifications/initialized").await
+    }
+}
+
+/// Scan an SSE body for the `data:` payload whose JSON `id` matches `id`
+/// (or that carries a JSON-RPC error). Pure — unit-tested.
+fn sse_response_for(body: &str, id: u64) -> Option<Result<Value, String>> {
+    for line in body.lines() {
+        let Some(payload) = line.strip_prefix("data:") else {
+            continue;
+        };
+        let payload = payload.trim();
+        if payload.is_empty() {
+            continue;
+        }
+        let Ok(v) = serde_json::from_str::<Value>(payload) else {
+            continue;
+        };
+        let msg_id = v.get("id").and_then(|x| x.as_u64());
+        if msg_id == Some(id) {
+            if let Some(err) = v.get("error") {
+                let m = err
+                    .get("message")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("MCP server error");
+                return Some(Err(m.to_string()));
+            }
+            return Some(Ok(v.get("result").cloned().unwrap_or(Value::Null)));
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// Connection enum — one live remote or local server
+// ---------------------------------------------------------------------------
+
+enum McpConn {
+    // Boxed: the stdio session is much larger than the HTTP one, and the
+    // enum lives behind a registry Arc where indirection costs nothing.
+    Stdio(Box<McpSession>),
+    Http(HttpMcpSession),
+}
+
+impl McpConn {
+    async fn ensure_initialized(&mut self) -> Result<(), String> {
+        match self {
+            McpConn::Stdio(s) => s.ensure_initialized().await,
+            McpConn::Http(h) => {
+                if !h.initialized {
+                    h.initialize().await?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    async fn list_tools(&mut self) -> Result<Vec<McpToolDef>, String> {
+        self.ensure_initialized().await?;
+        match self {
+            McpConn::Stdio(s) => s.list_tools().await,
+            McpConn::Http(h) => {
+                let result = h.request("tools/list", serde_json::json!({})).await?;
+                parse_tools_list(&result)
+            }
+        }
+    }
+
+    async fn call_tool(
+        &mut self,
+        tool: &str,
+        args: Value,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        self.ensure_initialized().await?;
+        match self {
+            McpConn::Stdio(s) => s.call_tool(tool, args, timeout).await,
+            McpConn::Http(h) => {
+                let fut = h.request(
+                    "tools/call",
+                    serde_json::json!({ "name": tool, "arguments": args }),
+                );
+                let result = tokio::time::timeout(timeout, fut)
+                    .await
+                    .map_err(|_| format!("MCP tool `{tool}` timed out"))??;
+                tool_result_to_text(&result)
+            }
+        }
+    }
+
+    /// Kill/terminate. Stdio kills the child; HTTP sends the session
+    /// DELETE (best-effort) and resets handshake state.
+    async fn kill(&mut self) {
+        match self {
+            McpConn::Stdio(s) => s.kill().await,
+            McpConn::Http(h) => {
+                if let Some(sid) = h.session_id.clone() {
+                    let _ = h
+                        .client
+                        .delete(&h.endpoint)
+                        .header("Mcp-Session-Id", sid)
+                        .send()
+                        .await;
+                }
+                h.initialized = false;
+                h.session_id = None;
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Registry — connections keyed by server config id
+// ---------------------------------------------------------------------------
+
+type RegistryEntry = (Arc<AsyncMutex<McpConn>>, std::time::Instant);
+
+static REGISTRY: Lazy<AsyncMutex<HashMap<String, RegistryEntry>>> =
     Lazy::new(|| AsyncMutex::new(HashMap::new()));
 
-async fn get_or_spawn_session(config: &McpServerConfig) -> Result<Arc<AsyncMutex<McpSession>>, String> {
+/// Kill a connection after this long without a call. The chat run is NOT
+/// the lifetime unit — panel chats, recipes and the connection test can
+/// overlap, so a global shutdown at run end would yank servers out from
+/// under concurrent runs (the e2e suite caught exactly this race).
+const IDLE_TTL: Duration = Duration::from_secs(120);
+/// How often the reaper sweeps.
+const REAPER_INTERVAL: Duration = Duration::from_secs(30);
+
+fn start_idle_reaper() {
+    static STARTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if STARTED.swap(true, std::sync::atomic::Ordering::AcqRel) {
+        return;
+    }
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(REAPER_INTERVAL);
+        tick.tick().await; // first tick fires immediately — nothing to reap yet
+        loop {
+            tick.tick().await;
+            let mut reg = REGISTRY.lock().await;
+            let expired: Vec<String> = reg
+                .iter()
+                .filter(|(_, (_, used))| used.elapsed() > IDLE_TTL)
+                .map(|(id, _)| id.clone())
+                .collect();
+            for id in expired {
+                if let Some((conn, _)) = reg.remove(&id) {
+                    conn.lock().await.kill().await;
+                }
+                TOOL_ROUTES.lock().await.retain(|_, (sid, _)| sid != &id);
+                TIMEOUTS.lock().await.remove(&id);
+            }
+        }
+    });
+}
+
+async fn get_or_spawn_session(config: &McpServerConfig) -> Result<Arc<AsyncMutex<McpConn>>, String> {
+    start_idle_reaper();
     let mut reg = REGISTRY.lock().await;
-    if let Some(existing) = reg.get(&config.id) {
-        // Reuse unless the process died underneath us.
+    if let Some((existing, used)) = reg.get_mut(&config.id) {
+        // Reuse unless the process died underneath us (HTTP connections
+        // are always considered alive — a dead server errors on call and
+        // is dropped there).
         let dead = {
-            let mut session = existing.lock().await;
-            !session.is_alive()
+            let mut conn = existing.lock().await;
+            match &mut *conn {
+                McpConn::Stdio(s) => !s.is_alive(),
+                McpConn::Http(_) => false,
+            }
         };
         if !dead {
+            *used = std::time::Instant::now();
             return Ok(Arc::clone(existing));
         }
         reg.remove(&config.id);
     }
-    let session = Arc::new(AsyncMutex::new(
-        McpSession::spawn(config)
-            .map_err(|e| format!("server `{}`: {e}", config.id))?,
-    ));
-    // Fresh process → fresh handshake state.
-    reg.insert(config.id.clone(), Arc::clone(&session));
-    Ok(session)
+    let conn = if config.is_http() {
+        let url = config.url.as_deref().unwrap_or_default();
+        McpConn::Http(HttpMcpSession::new(url).map_err(|e| format!("server `{}`: {e}", config.id))?)
+    } else {
+        McpConn::Stdio(Box::new(
+            McpSession::spawn(config).map_err(|e| format!("server `{}`: {e}", config.id))?,
+        ))
+    };
+    let conn = Arc::new(AsyncMutex::new(conn));
+    reg.insert(config.id.clone(), (Arc::clone(&conn), std::time::Instant::now()));
+    Ok(conn)
 }
 
 async fn drop_session(server_id: &str) {
     REGISTRY.lock().await.remove(server_id);
 }
 
+fn touch_session(server_id: &str) {
+    if let Ok(mut reg) = REGISTRY.try_lock() {
+        if let Some((_, used)) = reg.get_mut(server_id) {
+            *used = std::time::Instant::now();
+        }
+    }
+}
+
 /// Kill every live session and clear the routing tables. Called when a
 /// chat run (or connection test) that used MCP finishes — sessions are
 /// deliberately not kept warm across runs, because a static registry
 /// never drops and the children would outlive the app's usefulness.
+/// Kill every connection and clear the routing tables. Not used on the
+/// normal path (the idle reaper owns the lifecycle, and concurrent runs
+/// share the registry) — this is the e2e suite's cleanup and the reserved
+/// hook for an app-exit handler.
+#[allow(dead_code)]
 pub async fn shutdown_all() {
     let mut reg = REGISTRY.lock().await;
-    for (_, session) in reg.drain() {
-        session.lock().await.kill().await;
+    for (_, (conn, _)) in reg.drain() {
+        conn.lock().await.kill().await;
     }
     TOOL_ROUTES.lock().await.clear();
     TIMEOUTS.lock().await.clear();
@@ -454,10 +769,11 @@ pub async fn shutdown_all() {
 /// List a server's tools (spawning + handshaking if needed), registering the
 /// model-facing route for each. Called by the tool loop once per run.
 pub async fn list_server_tools(config: &McpServerConfig) -> Result<Vec<(String, McpToolDef)>, String> {
-    let session = get_or_spawn_session(config).await?;
+    let conn = get_or_spawn_session(config).await?;
+    touch_session(&config.id);
     let listed = {
-        let s = session.lock().await;
-        s.list_tools().await
+        let mut c = conn.lock().await;
+        c.list_tools().await
     };
     if let Err(e) = listed {
         // A broken/handshake-failing server poisons the session — drop it so
@@ -491,16 +807,17 @@ pub async fn dispatch(model_name: &str, args: Value) -> Result<Value, String> {
         .get(&server_id)
         .copied()
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_CALL_TIMEOUT_SECS));
-    let session = {
+    let conn = {
         let reg = REGISTRY.lock().await;
-        reg.get(&server_id).cloned()
+        reg.get(&server_id).map(|(c, _)| Arc::clone(c))
     };
-    let Some(session) = session else {
+    let Some(conn) = conn else {
         return Err(format!("MCP server `{server_id}` is not connected"));
     };
+    touch_session(&server_id);
     let call = {
-        let s = session.lock().await;
-        s.call_tool(&tool, args, timeout).await
+        let mut c = conn.lock().await;
+        c.call_tool(&tool, args, timeout).await
     };
     if call.is_err() {
         // Process-level failures (write failed / dropped response) poison the
@@ -524,10 +841,9 @@ pub async fn mcp_test_server(config: McpServerConfig) -> Result<Vec<String>, Str
     if config.command.trim().is_empty() {
         return Err("command is required".into());
     }
-    let tools = list_server_tools(&config).await;
-    // A connection test must not leave a server process behind.
-    shutdown_all().await;
-    let tools = tools?;
+    let tools = list_server_tools(&config).await?;
+    // The connection test's session is reaped by the idle reaper like any
+    // other — a global shutdown here would hit concurrent chat runs.
     Ok(tools.into_iter().map(|(name, _)| name).collect())
 }
 
@@ -605,6 +921,28 @@ mod tests {
         // Content-less result still yields a string, not an object.
         let empty = tool_result_to_text(&serde_json::json!({})).expect("empty ok");
         assert_eq!(empty, Value::String(String::new()));
+    }
+
+    #[test]
+    fn sse_response_picks_the_matching_id() {
+        let body = concat!(
+            "event: message
+",
+            r#"data: {"jsonrpc":"2.0","id":7,"result":{"ok":true}}"#,
+            "
+
+",
+            "data: not json
+
+",
+        );
+        let out = sse_response_for(body, 7).expect("found").expect("ok result");
+        assert_eq!(out["ok"], serde_json::json!(true));
+        // No matching id -> None.
+        assert!(sse_response_for(body, 9).is_none());
+        // Error payload surfaces as Err.
+        let err_body = r#"data: {"jsonrpc":"2.0","id":3,"error":{"code":-32601,"message":"nope"}}"#;
+        assert_eq!(sse_response_for(err_body, 3).unwrap().unwrap_err(), "nope");
     }
 
     #[test]

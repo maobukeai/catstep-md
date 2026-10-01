@@ -1739,6 +1739,7 @@ export const de: I18n = {
     "mcpName": "Name",
     "mcpCommand": "Befehl",
     "mcpArgs": "Argumente (durch Leerzeichen getrennt)",
+    "mcpUrl": "URL (für entfernte HTTP-Server)",
     "mcpTest": "Testen",
     "mcpTestOk": "{count} Tools",
     "mcpRemove": "Server entfernen",

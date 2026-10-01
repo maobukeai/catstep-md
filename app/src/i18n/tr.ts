@@ -1739,6 +1739,7 @@ export const tr: I18n = {
     "mcpName": "ad",
     "mcpCommand": "komut",
     "mcpArgs": "bağımsız değişkenler (boşlukla ayrılmış)",
+    "mcpUrl": "URL (uzak HTTP sunucuları için)",
     "mcpTest": "Sına",
     "mcpTestOk": "{count} araç",
     "mcpRemove": "Sunucuyu kaldır",

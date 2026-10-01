@@ -1739,6 +1739,7 @@ export const ko: I18n = {
     "mcpName": "이름",
     "mcpCommand": "명령",
     "mcpArgs": "인수 (공백 구분)",
+    "mcpUrl": "URL (원격 HTTP 서버용)",
     "mcpTest": "테스트",
     "mcpTestOk": "도구 {count}개",
     "mcpRemove": "서버 삭제",

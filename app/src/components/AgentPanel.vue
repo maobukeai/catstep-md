@@ -1655,6 +1655,7 @@ async function send() {
                 env: {},
                 enabled: true,
                 timeout_secs: s.timeout_secs ?? null,
+                url: s.url ?? null,
               }))
           : null,
         workspace: workspace.currentFolder,

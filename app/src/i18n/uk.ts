@@ -1739,6 +1739,7 @@ export const uk: I18n = {
     "mcpName": "ім’я",
     "mcpCommand": "команда",
     "mcpArgs": "аргументи (розділені пробілами)",
+    "mcpUrl": "URL (для віддалених HTTP-серверів)",
     "mcpTest": "Тест",
     "mcpTestOk": "{count} інструментів",
     "mcpRemove": "Видалити сервер",

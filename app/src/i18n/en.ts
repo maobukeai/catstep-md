@@ -1827,6 +1827,7 @@ export const en = {
     mcpName: 'name',
     mcpCommand: 'command',
     mcpArgs: 'arguments (space-separated)',
+    mcpUrl: 'URL (for remote HTTP servers)',
     mcpTest: 'Test',
     mcpTestOk: '{count} tools',
     mcpRemove: 'Remove server',

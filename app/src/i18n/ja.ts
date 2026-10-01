@@ -1739,6 +1739,7 @@ export const ja: I18n = {
     "mcpName": "名前",
     "mcpCommand": "コマンド",
     "mcpArgs": "引数（空白区切り）",
+    "mcpUrl": "URL（リモートHTTPサーバー用）",
     "mcpTest": "テスト",
     "mcpTestOk": "{count} 個のツール",
     "mcpRemove": "サーバーを削除",

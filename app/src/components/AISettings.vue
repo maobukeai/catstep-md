@@ -1281,6 +1281,13 @@ async function testMcpServer(s: AgentMcpServer) {
           @change="onArgsInput(s.id, ($event.target as HTMLInputElement).value)"
         />
         <input
+          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--url"
+          :value="s.url ?? ''"
+          :placeholder="t('agentSettings.mcpUrl')"
+          spellcheck="false"
+          @change="settingsStore.updateAgentMcpServer(s.id, { url: ($event.target as HTMLInputElement).value.trim() || null })"
+        />
+        <input
           type="checkbox"
           :checked="s.enabled"
           :aria-label="t('agentSettings.mcpEnable')"
@@ -1344,6 +1351,7 @@ async function testMcpServer(s: AgentMcpServer) {
 .ai-settings__mcp-field--name { width: 110px; flex: 0 1 auto; }
 .ai-settings__mcp-field--cmd { width: 200px; flex: 1 1 160px; }
 .ai-settings__mcp-field--args { width: 160px; flex: 1 1 120px; }
+.ai-settings__mcp-field--url { width: 180px; flex: 1 1 140px; }
 .ai-settings__mcp-test {
   font-size: 11px;
   word-break: break-all;
