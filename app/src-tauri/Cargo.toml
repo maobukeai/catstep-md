@@ -69,7 +69,7 @@ walkdir = "2.5.0"
 # don't add measurable bytes to the release binary, while letting us keep
 # the bridge code in a single conditional module rather than juggling a
 # whole separate crate.
-tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "sync", "time", "macros", "process"] }
 
 # File-to-Markdown conversion (built-in, no Python needed)
 htmd = "0.5"

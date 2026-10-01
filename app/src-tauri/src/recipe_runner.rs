@@ -1164,6 +1164,8 @@ async fn run_recipe_chat_loop(
         // mint one. The Agent Panel (frontend) is the consumer of this
         // field; recipes invoke ai_chat in-process and don't race events.
         request_id: None,
+        // Recipes never mount third-party MCP servers — vault tools only.
+        mcp_servers: None,
     };
 
     // ----- 3. Pre-checkout agent branch + install write-cap -----

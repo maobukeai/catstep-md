@@ -21,7 +21,7 @@ import {
   type ProviderId,
 } from '../lib/ai-providers';
 import ProviderSelect from './ProviderSelect.vue';
-import { useSettingsStore, type AIProviderProfile } from '../stores/settings';
+import { useSettingsStore, type AIProviderProfile, type AgentMcpServer } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useTabsStore } from '../stores/tabs';
 import { useI18n } from '../i18n';
@@ -621,6 +621,64 @@ watch(
   },
   { deep: true },
 );
+// --- Agent MCP servers (v1.x MCP client) -------------------------------------
+// The Rust side (mcp_client.rs) spawns one stdio process per registered
+// server, lists its tools under namespaced names, and routes calls back.
+// args render as one space-separated input; argv items with spaces are not
+// supported in this minimal editor.
+interface McpTestState { ok: boolean; message: string; testing: boolean }
+const mcpTestState = ref<Record<string, McpTestState>>({});
+const mcpArgsText = ref<Record<string, string>>({});
+
+watch(
+  () => settingsStore.agentMcpServers,
+  (servers) => {
+    for (const s of servers) {
+      if (!(s.id in mcpArgsText.value)) {
+        mcpArgsText.value[s.id] = s.args.join(' ');
+      }
+    }
+  },
+  { immediate: true },
+);
+
+function argsTextFor(id: string): string {
+  return mcpArgsText.value[id] ?? '';
+}
+
+function onArgsInput(id: string, value: string) {
+  mcpArgsText.value[id] = value;
+  settingsStore.updateAgentMcpServer(id, { args: value.split(/\s+/).filter(Boolean) });
+}
+
+function slugifyMcpId(v: string): string {
+  return v
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24);
+}
+
+async function testMcpServer(s: AgentMcpServer) {
+  mcpTestState.value[s.id] = { ok: false, message: '', testing: true };
+  try {
+    const tools = await invoke<string[]>('mcp_test_server', {
+      config: {
+        id: s.id,
+        command: s.command.trim(),
+        args: s.args,
+        env: {},
+        enabled: true,
+        timeout_secs: s.timeout_secs ?? null,
+      },
+    });
+    mcpTestState.value[s.id] = { ok: true, message: String(tools.length), testing: false };
+  } catch (e) {
+    mcpTestState.value[s.id] = { ok: false, message: String(e), testing: false };
+  }
+}
+
 </script>
 
 <template>
@@ -1173,6 +1231,87 @@ watch(
         </span>
       </li>
     </ul>
+
+    <!-- Row 3: Agent MCP servers (v1.x MCP client) -->
+    <div class="ai-settings__row-line">
+      <div class="ai-settings__card-info">
+        <label class="ai-settings__label font-medium">{{ t('agentSettings.mcpHeading') }}</label>
+        <p class="ai-settings__desc">{{ t('agentSettings.mcpHint') }}</p>
+      </div>
+      <div class="ai-settings__header-actions">
+        <label class="ai-settings__switch-combo" :title="t('agentSettings.mcpHint')">
+          <span class="ai-settings__switch-text">{{ t('agentSettings.mcpEnable') }}</span>
+          <input
+            type="checkbox"
+            :checked="settingsStore.agentMcpEnabled"
+            @change="settingsStore.toggleAgentMcpEnabled()"
+          />
+        </label>
+        <span class="ai-settings__v-divider" />
+        <button
+          type="button"
+          class="ai-settings__btn ai-settings__btn--small"
+          @click="settingsStore.addAgentMcpServer()"
+        >
+          + {{ t('agentSettings.mcpAdd') }}
+        </button>
+      </div>
+    </div>
+    <ul v-if="settingsStore.agentMcpEnabled && settingsStore.agentMcpServers.length" class="ai-settings__runs-list">
+      <li v-for="s in settingsStore.agentMcpServers" :key="s.id" class="ai-settings__run ai-settings__mcp-row">
+        <input
+          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--name"
+          :value="s.id"
+          :placeholder="t('agentSettings.mcpName')"
+          spellcheck="false"
+          @change="settingsStore.updateAgentMcpServer(s.id, { id: slugifyMcpId(($event.target as HTMLInputElement).value) || s.id })"
+        />
+        <input
+          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--cmd"
+          :value="s.command"
+          :placeholder="t('agentSettings.mcpCommand')"
+          spellcheck="false"
+          @change="settingsStore.updateAgentMcpServer(s.id, { command: ($event.target as HTMLInputElement).value.trim() })"
+        />
+        <input
+          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--args"
+          :value="argsTextFor(s.id)"
+          :placeholder="t('agentSettings.mcpArgs')"
+          spellcheck="false"
+          @change="onArgsInput(s.id, ($event.target as HTMLInputElement).value)"
+        />
+        <input
+          type="checkbox"
+          :checked="s.enabled"
+          :aria-label="t('agentSettings.mcpEnable')"
+          @change="settingsStore.updateAgentMcpServer(s.id, { enabled: ($event.target as HTMLInputElement).checked })"
+        />
+        <button
+          type="button"
+          class="ai-settings__btn ai-settings__btn--small"
+          :disabled="!s.command.trim() || mcpTestState[s.id]?.testing"
+          @click="testMcpServer(s)"
+        >
+          {{ mcpTestState[s.id]?.testing ? '…' : t('agentSettings.mcpTest') }}
+        </button>
+        <button
+          type="button"
+          class="ai-settings__btn ai-settings__btn--small"
+          :aria-label="t('agentSettings.mcpRemove')"
+          @click="settingsStore.removeAgentMcpServer(s.id)"
+        >
+          ×
+        </button>
+      </li>
+      <template v-for="s in settingsStore.agentMcpServers" :key="'t' + s.id">
+        <li v-if="mcpTestState[s.id]?.message" class="ai-settings__run">
+          <span :class="['ai-settings__mcp-test', mcpTestState[s.id]?.ok ? 'ai-settings__mcp-test--ok' : 'ai-settings__mcp-test--fail']">
+            {{ s.id }}:
+            {{ mcpTestState[s.id]?.ok ? t('agentSettings.mcpTestOk', { count: mcpTestState[s.id]!.message }) : mcpTestState[s.id]!.message }}
+          </span>
+        </li>
+      </template>
+    </ul>
   </div>
   </section>
 </template>
@@ -1193,6 +1332,24 @@ watch(
   border: 1px solid var(--border);
   border-radius: 8px;
 }
+.ai-settings__mcp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ai-settings__mcp-field {
+  min-width: 0;
+}
+.ai-settings__mcp-field--name { width: 110px; flex: 0 1 auto; }
+.ai-settings__mcp-field--cmd { width: 200px; flex: 1 1 160px; }
+.ai-settings__mcp-field--args { width: 160px; flex: 1 1 120px; }
+.ai-settings__mcp-test {
+  font-size: 11px;
+  word-break: break-all;
+}
+.ai-settings__mcp-test--ok { color: var(--accent, #2ea043); }
+.ai-settings__mcp-test--fail { color: var(--danger, #d33); }
 .ai-settings__card--row {
   flex-direction: row;
   align-items: center;

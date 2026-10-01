@@ -1642,6 +1642,21 @@ async function send() {
         tools: null,
         allow_write: settings.agentAllowWrite,
         tool_loop_cap: settings.agentToolLoopCap,
+        // v1.x MCP client — enabled servers ride along with every chat so
+        // the backend tool loop can list and route their tools. The master
+        // toggle gates the whole surface (default off).
+        mcp_servers: settings.agentMcpEnabled
+          ? settings.agentMcpServers
+              .filter((s) => s.enabled && s.command.trim())
+              .map((s) => ({
+                id: s.id,
+                command: s.command,
+                args: s.args,
+                env: {},
+                enabled: true,
+                timeout_secs: s.timeout_secs ?? null,
+              }))
+          : null,
         workspace: workspace.currentFolder,
         request_id: requestId,
       },

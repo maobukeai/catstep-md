@@ -1730,6 +1730,16 @@ export const uk: I18n = {
     "dateBefore": "До (включно)"
   },
   "agentSettings": {
+    "mcpHeading": "MCP-сервери агента",
+    "mcpHint": "Агент може викликати інструменти локальних MCP-серверів (stdio), напр. `npx some-mcp-server`. У Windows використовуйте `cmd` з аргументами `/c npx some-mcp-server`. Запуск сервера надає виконання коду — реєструйте лише довірені сервери.",
+    "mcpEnable": "Увімкнути в агенті",
+    "mcpAdd": "Додати сервер",
+    "mcpName": "ім’я",
+    "mcpCommand": "команда",
+    "mcpArgs": "аргументи (розділені пробілами)",
+    "mcpTest": "Тест",
+    "mcpTestOk": "{count} інструментів",
+    "mcpRemove": "Видалити сервер",
     "heading": "Агент (інструменти чату + доступ запису)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Дозволити агенту писати у сховище",

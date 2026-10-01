@@ -30,6 +30,8 @@ mod ai_keystore;
 
 #[path = "ai_proxy.rs"]
 mod ai_proxy;
+#[path = "mcp_client.rs"]
+mod mcp_client;
 
 #[path = "pandoc.rs"]
 mod pandoc;
@@ -994,6 +996,7 @@ pub fn run_with(initial_file: Option<String>) {
             rag::rag_set_embedder,
             rag::rag_search,
             rag::rag_reindex_file,
+            mcp_client::mcp_test_server,
             // about-dialog build info (was lib.rs-only too).
             app_build::app_build_info,
             recipe_runner::recipes_list,

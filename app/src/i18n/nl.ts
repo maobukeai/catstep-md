@@ -1730,6 +1730,16 @@ export const nl: I18n = {
     "dateBefore": "Voor (inclusief)"
   },
   "agentSettings": {
+    "mcpHeading": "Agent MCP-servers",
+    "mcpHint": "Laat de agent tools aanroepen van lokale MCP-servers (stdio), bijv. `npx some-mcp-server`. Gebruik op Windows `cmd` met argumenten `/c npx some-mcp-server`. Een server uitvoeren verleent code-uitvoering — registreer alleen vertrouwde servers.",
+    "mcpEnable": "In agent inschakelen",
+    "mcpAdd": "Server toevoegen",
+    "mcpName": "naam",
+    "mcpCommand": "opdracht",
+    "mcpArgs": "argumenten (spatie-gescheiden)",
+    "mcpTest": "Testen",
+    "mcpTestOk": "{count} tools",
+    "mcpRemove": "Server verwijderen",
     "heading": "Agent (chat-tools + schrijftoegang)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Agent toestaan naar vault te schrijven",

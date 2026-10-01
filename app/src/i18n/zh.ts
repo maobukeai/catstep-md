@@ -1800,6 +1800,16 @@ export const zh: I18n = {
 
   // v4.0 Pillar 1：智能体相关设置
   agentSettings: {
+    mcpHeading: '智能体 MCP 服务器',
+    mcpHint: '让智能体调用本地 MCP 服务器（stdio）提供的工具，例如 `npx some-mcp-server`；Windows 下请用 `cmd` + 参数 `/c npx some-mcp-server`。运行服务器即授予其代码执行权限——只注册你信任的服务器。',
+    mcpEnable: '在智能体中启用',
+    mcpAdd: '添加服务器',
+    mcpName: '名称',
+    mcpCommand: '命令',
+    mcpArgs: '参数（空格分隔）',
+    mcpTest: '测试',
+    mcpTestOk: '{count} 个工具',
+    mcpRemove: '删除服务器',
     heading: '智能体（工具调用 + 写入权限）',
     desc: '配置侧边栏智能体对话在当前工作区的安全边界、工具调用轮次与写入权限。',
     allowWrite: '允许智能体写入工作区',

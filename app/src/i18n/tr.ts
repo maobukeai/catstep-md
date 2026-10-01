@@ -1730,6 +1730,16 @@ export const tr: I18n = {
     "dateBefore": "Önce (dahil)"
   },
   "agentSettings": {
+    "mcpHeading": "Ajan MCP sunucuları",
+    "mcpHint": "Ajan, yerel MCP sunucularının (stdio) araçlarını çağırabilir, örn. `npx some-mcp-server`. Windows’ta `cmd` komutunu `/c npx some-mcp-server` bağımsız değişkenleriyle kullanın. Sunucu çalıştırmak kod yürütme yetkisi verir — yalnızca güvendiğiniz sunucuları kaydedin.",
+    "mcpEnable": "Ajanda etkinleştir",
+    "mcpAdd": "Sunucu ekle",
+    "mcpName": "ad",
+    "mcpCommand": "komut",
+    "mcpArgs": "bağımsız değişkenler (boşlukla ayrılmış)",
+    "mcpTest": "Sına",
+    "mcpTestOk": "{count} araç",
+    "mcpRemove": "Sunucuyu kaldır",
     "heading": "Aracı (sohbet araçları + yazma erişimi)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Aracının vault'a yazmasına izin ver",

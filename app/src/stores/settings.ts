@@ -9,6 +9,20 @@ import {
   type ProviderId,
 } from '../lib/ai-providers';
 
+/** One user-registered third-party MCP server (stdio transport). Mirrors
+ *  the Rust `mcp_client::McpServerConfig` — the object travels with each
+ *  ai_chat request. `args` entries are separate argv items, not one
+ *  space-joined string. */
+export interface AgentMcpServer {
+  /** Stable slug used in tool namespacing (mcp_<id>_<tool>). */
+  id: string;
+  command: string;
+  args: string[];
+  enabled: boolean;
+  /** Per-call timeout in seconds; omit for the backend default (30s). */
+  timeout_secs?: number;
+}
+
 export interface AIProviderProfile {
   id: string;
   provider: ProviderId;
@@ -208,6 +222,12 @@ interface Settings {
   // v4.0 pillar 1: max number of LLM ↔ tool round-trips per chat turn.
   // Cap protects against a runaway tool loop. C3.2 default is 8.
   agentToolLoopCap: number;
+  // v1.x MCP client: when true, the agent may call tools served by the
+  // registered third-party MCP servers below. Default off — running
+  // user-configured server commands is arbitrary code execution by design
+  // (same trust model as Claude Desktop's MCP config), so it stays opt-in.
+  agentMcpEnabled: boolean;
+  agentMcpServers: AgentMcpServer[];
   // Width (in px) of the right/left side sidebar that hosts Outline /
   // Backlinks / Tags / History / Agent Panel. The agent panel needs more
   // room than read-only browsing; user-resizable via the drag handle.
@@ -631,6 +651,8 @@ function defaults(): Settings {
     v4AgentPanelMigrated: true,
     agentAllowWrite: false,
     agentToolLoopCap: 8,
+    agentMcpEnabled: false,
+    agentMcpServers: [],
     sideSidebarWidth: 260,
     fileTreeWidth: 240,
     aiEnabled: false,
@@ -1353,6 +1375,34 @@ export const useSettingsStore = defineStore('settings', {
     setAgentToolLoopCap(n: number) {
       const clean = Math.max(1, Math.min(20, Math.round(n) || 8));
       this.agentToolLoopCap = clean;
+      this.persist();
+    },
+    toggleAgentMcpEnabled() {
+      this.agentMcpEnabled = !this.agentMcpEnabled;
+      this.persist();
+    },
+    addAgentMcpServer() {
+      // Ids must be slug-safe: they become part of model-facing tool names.
+      const base = 'server';
+      let i = this.agentMcpServers.length + 1;
+      let id = `${base}${i}`;
+      while (this.agentMcpServers.some((s) => s.id === id)) {
+        i += 1;
+        id = `${base}${i}`;
+      }
+      this.agentMcpServers.push({ id, command: '', args: [], enabled: true });
+      this.persist();
+    },
+    removeAgentMcpServer(id: string) {
+      this.agentMcpServers = this.agentMcpServers.filter((s) => s.id !== id);
+      this.persist();
+    },
+    /** Patch one server in place. `newId` renames the namespacing slug. */
+    updateAgentMcpServer(id: string, patch: Partial<AgentMcpServer>) {
+      const server = this.agentMcpServers.find((s) => s.id === id);
+      if (!server) return;
+      Object.assign(server, patch);
+      // Keep the settings mirrors coherent if the id changed.
       this.persist();
     },
     setSideSidebarWidth(w: number) {

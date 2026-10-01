@@ -523,6 +523,12 @@ pub struct ChatRequest {
     /// "streaming…" with no visible feedback.
     #[serde(default)]
     pub request_id: Option<String>,
+    /// Third-party MCP servers (stdio) the model may call this run, under
+    /// namespaced names `mcp_<server>_<tool>`. None = no MCP surface. The
+    /// frontend gates this behind the settings toggle; config lives in the
+    /// settings store and travels with each request.
+    #[serde(default)]
+    pub mcp_servers: Option<Vec<super::mcp_client::McpServerConfig>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2388,6 +2394,44 @@ fn build_openai_tools(req: &ChatRequest) -> Value {
     Value::Array(arr)
 }
 
+/// Fetch tool definitions from the request's MCP servers and merge them
+/// into the list offered to the model. Per-server failures are logged and
+/// skipped — one dead server must not take down the whole tool surface.
+async fn merge_mcp_tools(tools: &mut Value, req: &ChatRequest, anthropic_shape: bool) {
+    let Some(servers) = req.mcp_servers.as_ref() else {
+        return;
+    };
+    for cfg in servers.iter().filter(|s| s.enabled) {
+        match super::mcp_client::list_server_tools(cfg).await {
+            Ok(defs) => {
+                if let Some(arr) = tools.as_array_mut() {
+                    for (model_name, def) in defs {
+                        if anthropic_shape {
+                            arr.push(serde_json::json!({
+                                "name": model_name,
+                                "description": def.description,
+                                "input_schema": def.input_schema,
+                            }));
+                        } else {
+                            arr.push(serde_json::json!({
+                                "type": "function",
+                                "function": {
+                                    "name": model_name,
+                                    "description": def.description,
+                                    "parameters": def.input_schema,
+                                }
+                            }));
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("[mcp] server `{}` unavailable, skipped: {e}", cfg.id);
+            }
+        }
+    }
+}
+
 /// Resolve the workspace path the loop should pass to `dispatch_tool`. We
 /// need it for every tool. If the request didn't carry one, tools that
 /// require workspace access fail loudly — better than silently using $CWD.
@@ -2458,7 +2502,8 @@ pub async fn run_chat_anthropic_loop(
         .join("\n\n");
     let mut history: Vec<Value> = normalize_anthropic_messages(&req.messages);
 
-    let tools = build_anthropic_tools(req);
+    let mut tools = build_anthropic_tools(req);
+    merge_mcp_tools(&mut tools, req, true).await;
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
     let mut has_written_note = false;
@@ -2603,14 +2648,22 @@ pub async fn run_chat_anthropic_loop(
                 ));
             }
 
-            let (result_value, error_str) = match &workspace {
-                Some(ws) => match agent_tools::dispatch_tool(app, ws, name, args.clone()).await {
+            let (result_value, error_str) = if super::mcp_client::is_mcp_name(name) {
+                // Third-party MCP tool — route to its server process.
+                match super::mcp_client::dispatch(name, args.clone()).await {
                     Ok(v) => (v, None),
                     Err(e) => (Value::String(e.clone()), Some(e)),
-                },
-                None => {
-                    let err = "no workspace provided".to_string();
-                    (Value::String(err.clone()), Some(err))
+                }
+            } else {
+                match &workspace {
+                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, args.clone()).await {
+                        Ok(v) => (v, None),
+                        Err(e) => (Value::String(e.clone()), Some(e)),
+                    },
+                    None => {
+                        let err = "no workspace provided".to_string();
+                        (Value::String(err.clone()), Some(err))
+                    }
                 }
             };
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
@@ -3028,7 +3081,8 @@ pub async fn run_chat_openai_loop(
         })
         .collect();
 
-    let tools = build_openai_tools(req);
+    let mut tools = build_openai_tools(req);
+    merge_mcp_tools(&mut tools, req, false).await;
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
     let mut has_written_note = false;
@@ -3175,14 +3229,22 @@ pub async fn run_chat_openai_loop(
                 ));
             }
 
-            let (result_value, error_str) = match &workspace {
-                Some(ws) => match agent_tools::dispatch_tool(app, ws, name, args.clone()).await {
+            let (result_value, error_str) = if super::mcp_client::is_mcp_name(name) {
+                // Third-party MCP tool — route to its server process.
+                match super::mcp_client::dispatch(name, args.clone()).await {
                     Ok(v) => (v, None),
                     Err(e) => (Value::String(e.clone()), Some(e)),
-                },
-                None => {
-                    let err = "no workspace provided".to_string();
-                    (Value::String(err.clone()), Some(err))
+                }
+            } else {
+                match &workspace {
+                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, args.clone()).await {
+                        Ok(v) => (v, None),
+                        Err(e) => (Value::String(e.clone()), Some(e)),
+                    },
+                    None => {
+                        let err = "no workspace provided".to_string();
+                        (Value::String(err.clone()), Some(err))
+                    }
                 }
             };
             // Cap the payload BEFORE the system directives are appended so
@@ -3610,6 +3672,7 @@ mod tests {
             tool_loop_cap: None,
             key_id: None,
             request_id: None,
+            mcp_servers: None,
         }
     }
 

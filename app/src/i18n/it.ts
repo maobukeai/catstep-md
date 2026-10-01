@@ -1730,6 +1730,16 @@ export const it: I18n = {
     "dateBefore": "Prima (incluso)"
   },
   "agentSettings": {
+    "mcpHeading": "Server MCP dell’agente",
+    "mcpHint": "Consente all’agente di chiamare strumenti dei server MCP locali (stdio), es. `npx some-mcp-server`. Su Windows usa `cmd` con gli argomenti `/c npx some-mcp-server`. Eseguire un server concede l’esecuzione di codice: registra solo server attendibili.",
+    "mcpEnable": "Abilita nell’agente",
+    "mcpAdd": "Aggiungi server",
+    "mcpName": "nome",
+    "mcpCommand": "comando",
+    "mcpArgs": "argomenti (separati da spazi)",
+    "mcpTest": "Prova",
+    "mcpTestOk": "{count} strumenti",
+    "mcpRemove": "Rimuovi server",
     "heading": "Agent (strumenti chat + accesso scrittura)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Consenti all'agent di scrivere nel vault",

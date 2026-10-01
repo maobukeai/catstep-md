@@ -1730,6 +1730,16 @@ export const ja: I18n = {
     "dateBefore": "以前（含む）"
   },
   "agentSettings": {
+    "mcpHeading": "エージェントMCPサーバー",
+    "mcpHint": "ローカルMCPサーバー（stdio）のツールをエージェントから呼び出せます。例：`npx some-mcp-server`。Windowsでは `cmd` + 引数 `/c npx some-mcp-server` を使用。サーバーの実行はコード実行を許可することを意味します — 信頼できるサーバーのみ登録してください。",
+    "mcpEnable": "エージェントで有効化",
+    "mcpAdd": "サーバーを追加",
+    "mcpName": "名前",
+    "mcpCommand": "コマンド",
+    "mcpArgs": "引数（空白区切り）",
+    "mcpTest": "テスト",
+    "mcpTestOk": "{count} 個のツール",
+    "mcpRemove": "サーバーを削除",
     "heading": "Agent（チャットツール + 書き込みアクセス）",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Agent に vault への書き込みを許可",

@@ -1730,6 +1730,16 @@ export const sv: I18n = {
     "dateBefore": "Före (inklusive)"
   },
   "agentSettings": {
+    "mcpHeading": "Agent-MCP-servrar",
+    "mcpHint": "Låt agenten anropa verktyg från lokala MCP-servrar (stdio), t.ex. `npx some-mcp-server`. På Windows, använd `cmd` med argumenten `/c npx some-mcp-server`. Att köra en server ger kodexekvering — registrera bara servrar du litar på.",
+    "mcpEnable": "Aktivera i agenten",
+    "mcpAdd": "Lägg till server",
+    "mcpName": "namn",
+    "mcpCommand": "kommando",
+    "mcpArgs": "argument (mellanslagsseparerade)",
+    "mcpTest": "Testa",
+    "mcpTestOk": "{count} verktyg",
+    "mcpRemove": "Ta bort server",
     "heading": "Agent (chattverktyg + skrivbehörighet)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Tillåt agent att skriva till valvet",

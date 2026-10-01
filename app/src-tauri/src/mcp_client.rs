@@ -1,0 +1,591 @@
+//! MCP client — lets the built-in agent mount third-party MCP servers as
+//! agent tools, alongside the ~20 built-in vault tools.
+//!
+//! The app has *served* MCP since v2.4 (`mcp-server/` sidecar). This module
+//! is the consuming side: the user registers local MCP servers (typically
+//! `npx some-mcp-server`), the tool loop lists their tools at run start,
+//! offers them to the model under namespaced names, and routes calls back
+//! to the owning server.
+//!
+//! ## Transport & lifecycle (v1)
+//!
+//! **stdio only** — the dominant pattern for local servers. One session per
+//! server config, newline-delimited JSON-RPC 2.0 over the child's
+//! stdin/stdout (the MCP stdio framing). Sessions live in a global registry
+//! keyed by server id and are reused across chat runs; a session found
+//! dead is transparently respawned on next use. Child processes are
+//! spawned with `kill_on_drop`, and stderr is discarded so a chatty server
+//! can't block on a full pipe.
+//!
+//! On Windows, `.cmd`/`.bat` shims (npx, uvx) cannot be spawned directly —
+//! configure `cmd` with `["/c", "npx", …]` (the settings hint says so).
+//!
+//! ## Security model
+//!
+//! Running a user-configured command is arbitrary code execution *by
+//! design* — the same trust model as Claude Desktop's MCP config. The
+//! whole surface is gated by the settings toggle `agentMcpEnabled`
+//! (default off) plus a per-server enabled flag, and the config travels
+//! with each `ai_chat` request, so nothing persists outside the settings
+//! store. Tool results are untrusted content and flow through the same
+//! history cap (`cap_for_history`) as built-in tool results.
+
+use std::collections::HashMap;
+use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::{oneshot, Mutex as AsyncMutex};
+
+/// Default per-call timeout when the server config doesn't override it.
+const DEFAULT_CALL_TIMEOUT_SECS: u64 = 30;
+
+/// MCP protocol version we announce. Servers negotiate their own back.
+const PROTOCOL_VERSION: &str = "2024-11-05";
+
+// ---------------------------------------------------------------------------
+// Config types
+// ---------------------------------------------------------------------------
+
+/// One user-registered MCP server. Persisted in the frontend settings store
+/// and carried per-request in `ChatRequest::mcp_servers`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    /// Stable slug used in tool namespacing (`mcp_<id>_<tool>`).
+    pub id: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Per-call timeout override (seconds).
+    #[serde(default)]
+    pub timeout_secs: Option<u64>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// A tool advertised by an MCP server (`tools/list` result shape).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpToolDef {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// JSON Schema for the arguments, verbatim from the server.
+    #[serde(default)]
+    pub input_schema: Value,
+}
+
+// ---------------------------------------------------------------------------
+// Model-facing name mapping
+// ---------------------------------------------------------------------------
+
+/// OpenAI caps tool names at 64 chars of `[a-zA-Z0-9_-]`; Anthropic allows
+/// more but we stay inside the stricter bound. Everything outside the set
+/// (dots, slashes, CJK — server tool names are arbitrary) collapses to `_`.
+pub fn sanitize_tool_name(server_id: &str, tool_name: &str) -> String {
+    let raw = format!("mcp_{server_id}_{tool_name}");
+    let sanitized: String = raw
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .collect();
+    sanitized.chars().take(64).collect()
+}
+
+pub fn is_mcp_name(name: &str) -> bool {
+    name.starts_with("mcp_")
+}
+
+/// server config id → per-call timeout. Filled when tools are listed.
+static TIMEOUTS: Lazy<AsyncMutex<HashMap<String, Duration>>> =
+    Lazy::new(|| AsyncMutex::new(HashMap::new()));
+
+/// model-facing name → (server config id, original tool name). Filled when
+/// tools are listed (once per run) so dispatch needs no parsing of the
+/// sanitized name — sanitization is lossy and a parsed id could be wrong.
+static TOOL_ROUTES: Lazy<AsyncMutex<HashMap<String, (String, String)>>> =
+    Lazy::new(|| AsyncMutex::new(HashMap::new()));
+
+async fn register_route(model_name: &str, server_id: &str, tool_name: &str) {
+    TOOL_ROUTES
+        .lock()
+        .await
+        .insert(model_name.to_string(), (server_id.to_string(), tool_name.to_string()));
+}
+
+async fn lookup_route(model_name: &str) -> Option<(String, String)> {
+    TOOL_ROUTES.lock().await.get(model_name).cloned()
+}
+
+// ---------------------------------------------------------------------------
+// Session — one stdio MCP server process
+// ---------------------------------------------------------------------------
+
+type PendingMap = Arc<AsyncMutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>;
+
+struct McpSession {
+    child: tokio::process::Child,
+    stdin: Arc<AsyncMutex<tokio::process::ChildStdin>>,
+    pending: PendingMap,
+    next_id: AtomicU64,
+    initialized: AtomicBool,
+}
+
+impl McpSession {
+    fn spawn(config: &McpServerConfig) -> Result<Self, String> {
+        let mut cmd = tokio::process::Command::new(&config.command);
+        cmd.args(&config.args)
+            .envs(&config.env)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true);
+        // The Windows CREATE_NO_WINDOW dance matters for visible console
+        // flashes; a long-lived server process must not open one either.
+        #[cfg(target_os = "windows")]
+        {
+            // tokio::process::Command carries creation_flags natively.
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("spawn MCP server `{}` failed: {e}", config.command))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| "MCP server stdin unavailable".to_string())?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| "MCP server stdout unavailable".to_string())?;
+
+        let pending: PendingMap = Arc::new(AsyncMutex::new(HashMap::new()));
+        spawn_reader(stdout, Arc::clone(&pending));
+
+        Ok(Self {
+            child,
+            stdin: Arc::new(AsyncMutex::new(stdin)),
+            pending,
+            next_id: AtomicU64::new(0),
+            initialized: AtomicBool::new(false),
+        })
+    }
+
+    /// True once the handshake has completed in this session.
+    fn is_initialized(&self) -> bool {
+        self.initialized.load(Ordering::Acquire)
+    }
+
+    async fn send_raw(&self, msg: &Value) -> Result<(), String> {
+        let line = format!("{msg}\n");
+        let mut stdin = self.stdin.lock().await;
+        stdin
+            .write_all(line.as_bytes())
+            .await
+            .map_err(|e| format!("MCP server write failed (process exited?): {e}"))?;
+        stdin
+            .flush()
+            .await
+            .map_err(|e| format!("MCP server flush failed: {e}"))?;
+        Ok(())
+    }
+
+    /// JSON-RPC request/response over the pending map.
+    async fn request(&self, method: &str, params: Value) -> Result<Value, String> {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
+        let (tx, rx) = oneshot::channel();
+        self.pending.lock().await.insert(id, tx);
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": method,
+            "params": params,
+        });
+        self.send_raw(&msg).await?;
+        match rx.await {
+            Ok(Ok(v)) => Ok(v),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(format!("MCP server dropped the response to `{method}`")),
+        }
+    }
+
+    /// MCP initialize handshake + the `notifications/initialized` ack.
+    async fn initialize(&self) -> Result<(), String> {
+        let result = self
+            .request(
+                "initialize",
+                serde_json::json!({
+                    "protocolVersion": PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "catstep-md",
+                        "version": env!("CARGO_PKG_VERSION"),
+                    },
+                }),
+            )
+            .await?;
+        // A malformed handshake result is still a talking server; we only
+        // need it to not have errored. Record and ack.
+        let _ = result;
+        // Notification — no id, no response expected.
+        self.send_raw(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+        }))
+        .await?;
+        self.initialized.store(true, Ordering::Release);
+        Ok(())
+    }
+
+    async fn ensure_initialized(&self) -> Result<(), String> {
+        if !self.is_initialized() {
+            self.initialize().await?;
+        }
+        Ok(())
+    }
+
+    async fn list_tools(&self) -> Result<Vec<McpToolDef>, String> {
+        self.ensure_initialized().await?;
+        let result = self
+            .request("tools/list", serde_json::json!({}))
+            .await?;
+        parse_tools_list(&result)
+    }
+
+    async fn call_tool(
+        &self,
+        tool: &str,
+        args: Value,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        self.ensure_initialized().await?;
+        let fut = self.request(
+            "tools/call",
+            serde_json::json!({ "name": tool, "arguments": args }),
+        );
+        let result = tokio::time::timeout(timeout, fut)
+            .await
+            .map_err(|_| format!("MCP tool `{tool}` timed out"))??;
+        tool_result_to_text(&result)
+    }
+
+    /// Best-effort liveness probe.
+    fn is_alive(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
+    }
+}
+
+fn spawn_reader(stdout: tokio::process::ChildStdout, pending: PendingMap) {
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let Ok(v) = serde_json::from_str::<Value>(&line) else {
+                continue; // stray stdout noise (banners etc.) — ignore
+            };
+            // Requests from the server are out of scope (v1 client only).
+            let Some(id) = v.get("id").and_then(|x| x.as_u64()) else {
+                continue; // notification
+            };
+            if let Some(tx) = pending.lock().await.remove(&id) {
+                if let Some(err) = v.get("error") {
+                    let msg = err
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("MCP server error")
+                        .to_string();
+                    let _ = tx.send(Err(msg));
+                } else {
+                    let _ = tx.send(Ok(v.get("result").cloned().unwrap_or(Value::Null)));
+                }
+            }
+        }
+        // EOF — the server died; fail everything in flight.
+        let mut map = pending.lock().await;
+        for (_, tx) in map.drain() {
+            let _ = tx.send(Err("MCP server process exited".to_string()));
+        }
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Pure response parsing (unit-tested without a live server)
+// ---------------------------------------------------------------------------
+
+/// Parse a `tools/list` result into tool definitions.
+fn parse_tools_list(result: &Value) -> Result<Vec<McpToolDef>, String> {
+    let arr = result
+        .get("tools")
+        .and_then(|t| t.as_array())
+        .ok_or_else(|| "MCP tools/list response missing `tools` array".to_string())?;
+    let mut out = Vec::with_capacity(arr.len());
+    for t in arr {
+        let name = t
+            .get("name")
+            .and_then(|n| n.as_str())
+            .ok_or_else(|| "MCP tool entry missing `name`".to_string())?;
+        out.push(McpToolDef {
+            name: name.to_string(),
+            description: t
+                .get("description")
+                .and_then(|d| d.as_str())
+                .unwrap_or("")
+                .to_string(),
+            input_schema: t.get("inputSchema").cloned().unwrap_or_else(|| {
+                serde_json::json!({"type": "object", "properties": {}})
+            }),
+        });
+    }
+    Ok(out)
+}
+
+/// Convert a `tools/call` result into the Value that enters model history.
+/// `isError: true` becomes an Err so it flows down the existing error path
+/// (and gets the `is_error` trace flag). Text content parts are joined;
+/// non-text parts are noted as placeholders.
+fn tool_result_to_text(result: &Value) -> Result<Value, String> {
+    if result.get("isError").and_then(|b| b.as_bool()).unwrap_or(false) {
+        let msg = result
+            .get("content")
+            .and_then(|c| c.as_array())
+            .map(|parts| {
+                parts
+                    .iter()
+                    .filter_map(|p| p.get("text").and_then(|t| t.as_str()))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .unwrap_or_else(|| "MCP tool reported an error".to_string());
+        return Err(msg);
+    }
+    let mut text = String::new();
+    if let Some(parts) = result.get("content").and_then(|c| c.as_array()) {
+        for p in parts {
+            match p.get("type").and_then(|t| t.as_str()) {
+                Some("text") => {
+                    if let Some(t) = p.get("text").and_then(|t| t.as_str()) {
+                        if !text.is_empty() {
+                            text.push('\n');
+                        }
+                        text.push_str(t);
+                    }
+                }
+                Some(other) => {
+                    if !text.is_empty() {
+                        text.push('\n');
+                    }
+                    text.push_str(&format!("[non-text content part: {other}]"));
+                }
+                None => {}
+            }
+        }
+    }
+    Ok(Value::String(text))
+}
+
+// ---------------------------------------------------------------------------
+// Registry — sessions keyed by server config id
+// ---------------------------------------------------------------------------
+
+static REGISTRY: Lazy<AsyncMutex<HashMap<String, Arc<AsyncMutex<McpSession>>>>> =
+    Lazy::new(|| AsyncMutex::new(HashMap::new()));
+
+async fn get_or_spawn_session(config: &McpServerConfig) -> Result<Arc<AsyncMutex<McpSession>>, String> {
+    let mut reg = REGISTRY.lock().await;
+    if let Some(existing) = reg.get(&config.id) {
+        // Reuse unless the process died underneath us.
+        let dead = {
+            let mut session = existing.lock().await;
+            !session.is_alive()
+        };
+        if !dead {
+            return Ok(Arc::clone(existing));
+        }
+        reg.remove(&config.id);
+    }
+    let session = Arc::new(AsyncMutex::new(
+        McpSession::spawn(config)
+            .map_err(|e| format!("server `{}`: {e}", config.id))?,
+    ));
+    // Fresh process → fresh handshake state.
+    reg.insert(config.id.clone(), Arc::clone(&session));
+    Ok(session)
+}
+
+async fn drop_session(server_id: &str) {
+    REGISTRY.lock().await.remove(server_id);
+}
+
+/// List a server's tools (spawning + handshaking if needed), registering the
+/// model-facing route for each. Called by the tool loop once per run.
+pub async fn list_server_tools(config: &McpServerConfig) -> Result<Vec<(String, McpToolDef)>, String> {
+    let session = get_or_spawn_session(config).await?;
+    let listed = {
+        let s = session.lock().await;
+        s.list_tools().await
+    };
+    if let Err(e) = listed {
+        // A broken/handshake-failing server poisons the session — drop it so
+        // the next attempt starts from a fresh process.
+        drop_session(&config.id).await;
+        return Err(e);
+    }
+    let listed = listed.unwrap();
+    TIMEOUTS.lock().await.insert(
+        config.id.clone(),
+        Duration::from_secs(config.timeout_secs.unwrap_or(DEFAULT_CALL_TIMEOUT_SECS)),
+    );
+    let mut out = Vec::with_capacity(listed.len());
+    for def in listed {
+        let model_name = sanitize_tool_name(&config.id, &def.name);
+        register_route(&model_name, &config.id, &def.name).await;
+        out.push((model_name, def));
+    }
+    Ok(out)
+}
+
+/// Route a model tool call to its server. `model_name` must have been
+/// registered by `list_server_tools` earlier in the same run.
+pub async fn dispatch(model_name: &str, args: Value) -> Result<Value, String> {
+    let Some((server_id, tool)) = lookup_route(model_name).await else {
+        return Err(format!("unknown MCP tool `{model_name}`"));
+    };
+    let timeout = TIMEOUTS
+        .lock()
+        .await
+        .get(&server_id)
+        .copied()
+        .unwrap_or_else(|| Duration::from_secs(DEFAULT_CALL_TIMEOUT_SECS));
+    let session = {
+        let reg = REGISTRY.lock().await;
+        reg.get(&server_id).cloned()
+    };
+    let Some(session) = session else {
+        return Err(format!("MCP server `{server_id}` is not connected"));
+    };
+    let call = {
+        let s = session.lock().await;
+        s.call_tool(&tool, args, timeout).await
+    };
+    if call.is_err() {
+        // Process-level failures (write failed / dropped response) poison the
+        // session; drop it so the next call respawns. Tool-level errors
+        // (isError=true) keep the session.
+        let err = call.clone().err().unwrap();
+        if err.contains("process exited") || err.contains("write failed") {
+            drop_session(&server_id).await;
+        }
+    }
+    call
+}
+
+/// Test command for the settings UI: connect + list, return model-facing
+/// tool names. Also warms the session.
+#[tauri::command]
+pub async fn mcp_test_server(config: McpServerConfig) -> Result<Vec<String>, String> {
+    if config.id.trim().is_empty() {
+        return Err("server id is required".into());
+    }
+    if config.command.trim().is_empty() {
+        return Err("command is required".into());
+    }
+    let tools = list_server_tools(&config).await?;
+    Ok(tools.into_iter().map(|(name, _)| name).collect())
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_produces_openai_safe_names() {
+        // Allowed charset passes through with the mcp_ prefix.
+        assert_eq!(
+            sanitize_tool_name("fetch", "get_page"),
+            "mcp_fetch_get_page"
+        );
+        // Dots, slashes, colons and non-ASCII collapse to underscores.
+        assert_eq!(
+            sanitize_tool_name("my.server", "docs/read"),
+            "mcp_my_server_docs_read"
+        );
+        // 9 chars (mcp_ + 2 + _ + 2), every non-ASCII one becomes an underscore.
+        assert_eq!(sanitize_tool_name("笔记", "搜索"), "mcp______");
+        // OpenAI's 64-char cap is enforced.
+        let long = sanitize_tool_name(
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        );
+        assert!(long.chars().count() <= 64);
+        assert!(long.starts_with("mcp_"));
+    }
+
+    #[test]
+    fn parse_tools_list_reads_and_defaults() {
+        let v: Value = serde_json::json!({
+            "tools": [
+                {"name": "search", "description": "Search the web",
+                 "inputSchema": {"type": "object", "properties": {"q": {"type": "string"}}}},
+                {"name": "no_schema"}
+            ]
+        });
+        let tools = parse_tools_list(&v).expect("valid");
+        assert_eq!(tools.len(), 2);
+        assert_eq!(tools[0].name, "search");
+        assert_eq!(tools[0].description, "Search the web");
+        assert_eq!(tools[1].input_schema["type"], "object", "missing schema defaults to empty object");
+
+        assert!(parse_tools_list(&serde_json::json!({})).is_err());
+    }
+
+    #[test]
+    fn tool_results_become_text_and_errors() {
+        // Text parts join; isError routes to Err.
+        let ok: Value = serde_json::json!({
+            "content": [
+                {"type": "text", "text": "line one"},
+                {"type": "text", "text": "line two"},
+                {"type": "image", "data": "..."}
+            ]
+        });
+        let out = tool_result_to_text(&ok).expect("ok result");
+        assert_eq!(
+            out,
+            Value::String("line one\nline two\n[non-text content part: image]".into())
+        );
+
+        let err: Value = serde_json::json!({
+            "isError": true,
+            "content": [{"type": "text", "text": "boom"}]
+        });
+        assert_eq!(tool_result_to_text(&err).unwrap_err(), "boom");
+
+        // Content-less result still yields a string, not an object.
+        let empty = tool_result_to_text(&serde_json::json!({})).expect("empty ok");
+        assert_eq!(empty, Value::String(String::new()));
+    }
+
+    #[test]
+    fn mcp_names_are_recognized_by_prefix() {
+        assert!(is_mcp_name("mcp_fetch_get_page"));
+        assert!(!is_mcp_name("read_note"));
+        assert!(!is_mcp_name("mcp")); // exact "mcp" is not a namespaced tool
+    }
+}

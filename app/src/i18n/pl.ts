@@ -1730,6 +1730,16 @@ export const pl: I18n = {
     "dateBefore": "Przed (włącznie)"
   },
   "agentSettings": {
+    "mcpHeading": "Serwery MCP agenta",
+    "mcpHint": "Agent może wywoływać narzędzia lokalnych serwerów MCP (stdio), np. `npx some-mcp-server`. W systemie Windows użyj `cmd` z argumentami `/c npx some-mcp-server`. Uruchomienie serwera przyznaje wykonywanie kodu — rejestruj tylko zaufane serwery.",
+    "mcpEnable": "Włącz u agenta",
+    "mcpAdd": "Dodaj serwer",
+    "mcpName": "nazwa",
+    "mcpCommand": "polecenie",
+    "mcpArgs": "argumenty (rozdzielone spacjami)",
+    "mcpTest": "Testuj",
+    "mcpTestOk": "{count} narzędzi",
+    "mcpRemove": "Usuń serwer",
     "heading": "Agent (narzędzia czatu + dostęp do zapisu)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Zezwól agentowi na zapis do skarbca",

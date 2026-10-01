@@ -1818,6 +1818,16 @@ export const en = {
 
   // v4.0 pillar 1: Agent settings (under AI settings)
   agentSettings: {
+    mcpHeading: 'Agent MCP servers',
+    mcpHint: 'Let the agent call tools from local MCP servers (stdio), e.g. `npx some-mcp-server`. On Windows use `cmd` with args `/c npx some-mcp-server`. Running a server grants it code execution — register only servers you trust.',
+    mcpEnable: 'Enable in agent',
+    mcpAdd: 'Add server',
+    mcpName: 'name',
+    mcpCommand: 'command',
+    mcpArgs: 'arguments (space-separated)',
+    mcpTest: 'Test',
+    mcpTestOk: '{count} tools',
+    mcpRemove: 'Remove server',
     heading: 'Agent (Tool Calling + Write Permissions)',
     desc: 'Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.',
     allowWrite: 'Allow agent to write to vault',

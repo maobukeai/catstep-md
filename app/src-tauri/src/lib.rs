@@ -13,6 +13,7 @@ pub mod spellcheck;
 // fallback). Declared before ai_proxy, which delegates to it.
 pub mod ai_keystore;
 pub mod ai_proxy;
+pub mod mcp_client;
 // v4.0 Pillar 5: Ollama polish — detect / pull / install-page commands on
 // top of the existing chat runner in ai_proxy. Pure additive.
 pub mod ollama;
@@ -263,6 +264,7 @@ pub fn run() {
             rag::rag_set_embedder,
             rag::rag_search,
             rag::rag_reindex_file,
+            mcp_client::mcp_test_server,
             capture_endpoint::capture_get_state,
             capture_endpoint::capture_set_enabled,
             capture_endpoint::capture_regenerate_token,

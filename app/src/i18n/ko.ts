@@ -1730,6 +1730,16 @@ export const ko: I18n = {
     "dateBefore": "이전(포함)"
   },
   "agentSettings": {
+    "mcpHeading": "에이전트 MCP 서버",
+    "mcpHint": "로컬 MCP 서버(stdio)의 도구를 에이전트에서 호출합니다. 예: `npx some-mcp-server`. Windows에서는 `cmd` + 인수 `/c npx some-mcp-server`를 사용하세요. 서버 실행은 코드 실행 권한을 부여하는 것입니다 — 신뢰하는 서버만 등록하세요.",
+    "mcpEnable": "에이전트에서 사용",
+    "mcpAdd": "서버 추가",
+    "mcpName": "이름",
+    "mcpCommand": "명령",
+    "mcpArgs": "인수 (공백 구분)",
+    "mcpTest": "테스트",
+    "mcpTestOk": "도구 {count}개",
+    "mcpRemove": "서버 삭제",
     "heading": "Agent(채팅 도구 + 쓰기 액세스)",
     "desc": "Configure tool calling permissions, max loop iterations, and write boundaries for the sidebar Agent.",
     "allowWrite": "Agent의 vault 쓰기 허용",
