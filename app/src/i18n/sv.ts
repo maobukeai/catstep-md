@@ -1189,6 +1189,11 @@ export const sv: I18n = {
     "diffUnavailable": "Ingen diff tillgänglig."
   },
   "rag": {
+    "embedder": "Inbäddningsmotor",
+    "embedderHash": "Inbyggd (offline)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "t.ex. nomic-embed-text",
+    "embedderApply": "Använd & bygg om",
     "settingsHeading": "Semantisk sökning",
     "enable": "Aktivera semantisk sökning (lokal RAG, {key})",
     "enableHint": "Av som standard. När påslagen bäddas dina anteckningar in lokalt i <workspace>/.solomd/embeddings.sqlite — inget nätverk, ingen modellnedladdning behövs för den medföljande hashed-trigram-backenden. {key} öppnar panelen.",

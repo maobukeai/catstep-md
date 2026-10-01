@@ -1517,6 +1517,40 @@ async function send() {
   if (ctx) systemParts.push(ctx);
   if (noteCtx) systemParts.push(noteCtx);
 
+  // Automatic semantic retrieval over the vault (RAG). When the index is on
+  // and ready, the prompt is embedded and the top matches are injected as
+  // grounded context with source paths — the model answers from the vault
+  // (and cites [[path]] links) instead of either guessing or having to
+  // think of calling the semantic_search tool itself. Best-effort: any
+  // failure (index off, not built, embedder down) just skips the block.
+  if (settings.ragEnabled && workspace.currentFolder) {
+    try {
+      const ragHits = await invoke<{ path: string; name: string; score: number; snippet: string }[]>(
+        'rag_search',
+        { args: { folder: workspace.currentFolder, query: prompt, limit: 4 } },
+      );
+      // Floor drops pure-noise matches; no per-backend tuning exists, so it
+      // is deliberately loose — the prompt below tells the model to say so
+      // when the snippets don't actually answer the question.
+      const usable = ragHits.filter((h) => h.score >= 0.25);
+      if (usable.length > 0) {
+        const parts = usable.map((h) => {
+          const snippet = (h.snippet.length > 300 ? h.snippet.slice(0, 300) + '…' : h.snippet)
+            .split('\n')
+            .map((l) => `> ${l}`)
+            .join('\n');
+          return `### ${h.name} (${h.path}) 相似度 ${h.score.toFixed(2)}\n${snippet}`;
+        });
+        systemParts.push(
+          '【自动检索的笔记片段】以下是与用户问题语义最相关的笔记片段（系统自动检索，非用户显式引用）。回答时优先依据这些内容，并在引用处用 [[相对路径]] 链接标注来源；若片段不足以回答问题，请明确说明而不是编造。\n\n' +
+            parts.join('\n\n'),
+        );
+      }
+    } catch {
+      // No index / backend unreachable — answer ungrounded.
+    }
+  }
+
   // Stage 1: Explicitly referenced notes
   if (refsToSend.length > 0) {
     const refTexts: string[] = [];

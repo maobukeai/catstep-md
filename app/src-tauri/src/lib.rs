@@ -260,6 +260,7 @@ pub fn run() {
             rag::rag_set_enabled,
             rag::rag_index_status,
             rag::rag_reindex,
+            rag::rag_set_embedder,
             rag::rag_search,
             rag::rag_reindex_file,
             capture_endpoint::capture_get_state,

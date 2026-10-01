@@ -1189,6 +1189,11 @@ export const ko: I18n = {
     "diffUnavailable": "차이를 가져올 수 없습니다."
   },
   "rag": {
+    "embedder": "임베딩 백엔드",
+    "embedderHash": "내장 (오프라인)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "예: nomic-embed-text",
+    "embedderApply": "적용 후 재구축",
     "settingsHeading": "시맨틱 검색",
     "enable": "시맨틱 검색 활성화(로컬 RAG, {key})",
     "enableHint": "기본 꺼짐. 켜면 노트가 <workspace>/.solomd/embeddings.sqlite에 로컬로 임베딩됩니다 — 네트워크 불필요, 번들된 hashed-trigram 백엔드는 모델 다운로드도 필요 없습니다. {key}로 패널을 엽니다.",

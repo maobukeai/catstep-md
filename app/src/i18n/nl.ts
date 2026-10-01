@@ -1189,6 +1189,11 @@ export const nl: I18n = {
     "diffUnavailable": "Geen diff beschikbaar."
   },
   "rag": {
+    "embedder": "Embedding-backend",
+    "embedderHash": "Ingebouwd (offline)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "bijv. nomic-embed-text",
+    "embedderApply": "Toepassen & herbouwen",
     "settingsHeading": "Semantisch zoeken",
     "enable": "Semantisch zoeken inschakelen (lokale RAG, {key})",
     "enableHint": "Standaard uit. Indien aan worden je notities lokaal ingebed in <workspace>/.solomd/embeddings.sqlite — geen netwerk, geen modeldownload nodig voor de meegeleverde hashed-trigram backend. {key} opent het paneel.",

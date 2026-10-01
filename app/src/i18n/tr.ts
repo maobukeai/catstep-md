@@ -1189,6 +1189,11 @@ export const tr: I18n = {
     "diffUnavailable": "Fark mevcut değil."
   },
   "rag": {
+    "embedder": "Gömme motoru",
+    "embedderHash": "Yerleşik (çevrimdışı)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "örn. nomic-embed-text",
+    "embedderApply": "Uygula ve yeniden oluştur",
     "settingsHeading": "Anlamsal arama",
     "enable": "Anlamsal aramayı etkinleştir (yerel RAG, {key})",
     "enableHint": "Varsayılan olarak kapalı. Açıkken notlarınız <workspace>/.solomd/embeddings.sqlite içine yerel olarak gömülür — ağ yok, dahili hashed-trigram arka ucu için model indirme gerekmez. {key} paneli açar.",

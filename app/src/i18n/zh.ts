@@ -1214,6 +1214,11 @@ export const zh: I18n = {
     diffUnavailable: '此版本无差异内容。',
   },
   rag: {
+    embedder: '向量后端',
+    embedderHash: '内置（离线）',
+    embedderOllama: 'Ollama',
+    embedderModelPlaceholder: '例如 nomic-embed-text',
+    embedderApply: '应用并重建索引',
     settingsHeading: '语义搜索',
     enable: '启用语义搜索（本地 RAG，{key}）',
     enableHint:

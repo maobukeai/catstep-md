@@ -1189,6 +1189,11 @@ export const uk: I18n = {
     "diffUnavailable": "Різниця недоступна."
   },
   "rag": {
+    "embedder": "Модуль ембедингів",
+    "embedderHash": "Вбудований (офлайн)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "напр. nomic-embed-text",
+    "embedderApply": "Застосувати та перебудувати",
     "settingsHeading": "Семантичний пошук",
     "enable": "Увімкнути семантичний пошук (локальний RAG, {key})",
     "enableHint": "Вимкнено за замовчуванням. Коли ввімкнено, ваші нотатки локально вбудовуються у <workspace>/.solomd/embeddings.sqlite — без мережі, без завантаження моделі для вбудованого hashed-trigram бекенду. {key} відкриває панель.",

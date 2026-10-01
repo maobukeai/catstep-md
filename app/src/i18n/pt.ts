@@ -1189,6 +1189,11 @@ export const pt: I18n = {
     "diffUnavailable": "Sem diff disponível."
   },
   "rag": {
+    "embedder": "Motor de embeddings",
+    "embedderHash": "Integrado (offline)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "ex.: nomic-embed-text",
+    "embedderApply": "Aplicar e reconstruir",
     "settingsHeading": "Busca semântica",
     "enable": "Ativar busca semântica (RAG local, {key})",
     "enableHint": "Desativada por padrão. Quando ativa, suas notas são incorporadas localmente em <workspace>/.solomd/embeddings.sqlite — sem rede, sem download de modelo para o backend hashed-trigram empacotado. {key} abre o painel.",

@@ -8,6 +8,7 @@
  * substring match.
  */
 import { computed, nextTick, ref, watch } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 import { useRagStore, type RagHit } from '../stores/rag';
 import { useFiles } from '../composables/useFiles';
 import { useWorkspaceStore } from '../stores/workspace';
@@ -126,6 +127,49 @@ async function onReindex() {
   if (query.value) doSearch();
 }
 
+// --- Embedding backend switch ------------------------------------------------
+// The index DB persists its backend; switching rebuilds everything on the
+// Rust side (probe first, so a dead Ollama or unpulled model fails before
+// any vector is wiped). Choice initializes from the reported backend id:
+// "hash-trigram-256" or "ollama:<model>".
+const embedderChoice = ref<'hash' | 'ollama'>('hash');
+const embedderModel = ref('');
+const switchingEmbedder = ref(false);
+const embedderError = ref('');
+
+watch(
+  () => rag.status?.backend,
+  (backend) => {
+    if (!backend) return;
+    if (backend.startsWith('ollama:')) {
+      embedderChoice.value = 'ollama';
+      embedderModel.value = backend.slice('ollama:'.length);
+    } else {
+      embedderChoice.value = 'hash';
+    }
+  },
+  { immediate: true },
+);
+
+async function applyEmbedder() {
+  if (!workspace.currentFolder || switchingEmbedder.value) return;
+  switchingEmbedder.value = true;
+  embedderError.value = '';
+  try {
+    const config =
+      embedderChoice.value === 'hash'
+        ? { kind: 'hash' }
+        : { kind: 'ollama', model: embedderModel.value.trim(), base_url: null };
+    await invoke('rag_set_embedder', { folder: workspace.currentFolder, config });
+    await rag.refreshStatus(workspace.currentFolder);
+    if (query.value) doSearch();
+  } catch (e) {
+    embedderError.value = String(e);
+  } finally {
+    switchingEmbedder.value = false;
+  }
+}
+
 function switchToGlobal() {
   emit('switch-to-global', query.value);
 }
@@ -166,8 +210,7 @@ const indexLine = computed(() => {
   if (st.indexed_files === 0) return t('rag.notIndexed');
   return t('rag.indexedCounter', {
     indexed: String(st.indexed_files),
-    total: String(st.total_files),
-    chunks: String(st.total_chunks),
+    total: String(st.total_files),    chunks: String(st.total_chunks),
   });
 });
 
@@ -270,6 +313,33 @@ const scoreColor = (score: number) => {
           <div class="rag__hit-snippet" v-html="escapeHtml(hit.snippet)"></div>
         </div>
       </div>
+
+      <div v-if="workspace.currentFolder" class="rag__embedder">
+        <label class="rag__embedder-label" for="rag-embedder-select">{{ t('rag.embedder') }}</label>
+        <select
+          id="rag-embedder-select"
+          v-model="embedderChoice"
+          class="rag__embedder-select"
+        >
+          <option value="hash">{{ t('rag.embedderHash') }}</option>
+          <option value="ollama">{{ t('rag.embedderOllama') }}</option>
+        </select>
+        <input
+          v-if="embedderChoice === 'ollama'"
+          v-model="embedderModel"
+          class="rag__embedder-model"
+          :placeholder="t('rag.embedderModelPlaceholder')"
+          spellcheck="false"
+        />
+        <button
+          class="rag__btn rag__btn--small"
+          :disabled="switchingEmbedder || (embedderChoice === 'ollama' && !embedderModel.trim())"
+          @click="applyEmbedder"
+        >
+          {{ switchingEmbedder ? '…' : t('rag.embedderApply') }}
+        </button>
+      </div>
+      <div v-if="embedderError" class="rag__embedder-error">{{ embedderError }}</div>
 
       <div class="rag__footer">
         <span v-if="rag.status?.ready">{{ indexLine }}</span>
@@ -410,6 +480,36 @@ const scoreColor = (score: number) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.rag__embedder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.rag__embedder-label {
+  flex-shrink: 0;
+}
+.rag__embedder-select,
+.rag__embedder-model {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev, var(--bg));
+  color: var(--text);
+  min-width: 0;
+}
+.rag__embedder-model {
+  flex: 1;
+}
+.rag__embedder-error {
+  padding: 4px 14px 0;
+  font-size: 11px;
+  color: var(--danger, #d33);
+  word-break: break-all;
 }
 .rag__footer {
   display: flex;

@@ -1189,6 +1189,11 @@ export const de: I18n = {
     "diffUnavailable": "Kein Diff verfügbar."
   },
   "rag": {
+    "embedder": "Embedding-Backend",
+    "embedderHash": "Eingebaut (offline)",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "z. B. nomic-embed-text",
+    "embedderApply": "Anwenden & neu aufbauen",
     "settingsHeading": "Semantische Suche",
     "enable": "Semantische Suche aktivieren (lokales RAG, {key})",
     "enableHint": "Standardmäßig aus. Wenn aktiv, werden Ihre Notizen lokal in <workspace>/.solomd/embeddings.sqlite eingebettet — keine Netzwerkverbindung, kein Modell-Download für das gebündelte Hashed-Trigram-Backend nötig. {key} öffnet das Panel.",

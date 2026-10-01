@@ -1189,6 +1189,11 @@ export const ja: I18n = {
     "diffUnavailable": "差分を取得できません。"
   },
   "rag": {
+    "embedder": "埋め込みバックエンド",
+    "embedderHash": "内蔵（オフライン）",
+    "embedderOllama": "Ollama",
+    "embedderModelPlaceholder": "例: nomic-embed-text",
+    "embedderApply": "適用して再構築",
     "settingsHeading": "セマンティック検索",
     "enable": "セマンティック検索を有効化（ローカル RAG、{key}）",
     "enableHint": "デフォルトはオフ。オンにするとノートが <workspace>/.solomd/embeddings.sqlite にローカルで埋め込まれます — ネットワーク不要、同梱の hashed-trigram バックエンドはモデルダウンロードも不要。{key} でパネルを開きます。",

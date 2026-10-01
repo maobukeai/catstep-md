@@ -59,6 +59,7 @@ use std::time::SystemTime;
 use once_cell::sync::Lazy;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use walkdir::WalkDir;
 
 // ---------------------------------------------------------------------------
@@ -265,6 +266,199 @@ fn bytes_to_vec(b: &[u8]) -> Vec<f32> {
 }
 
 // ---------------------------------------------------------------------------
+// Embedder backends (pluggable)
+// ---------------------------------------------------------------------------
+
+/// Which embedding backend the index uses. Persisted in the index DB's
+/// `rag_meta` table — the DB is the single source of truth, so a backend
+/// switch always triggers a full reindex and stale vectors can never mix
+/// with fresh ones (dimensions differ per backend).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EmbedderConfig {
+    /// Built-in hashed n-gram + random-projection sketch. Offline default;
+    /// 256-dim; honest keyword-similarity, not transformer semantics.
+    Hash,
+    /// Transformer embeddings served by a local Ollama instance
+    /// (`/api/embed`, batched). Dimension comes from the model
+    /// (nomic-embed-text: 768, mxbai-embed-large: 1024, …).
+    Ollama {
+        model: String,
+        #[serde(default)]
+        base_url: Option<String>,
+    },
+}
+
+impl EmbedderConfig {
+    /// Stable identity written to `rag_meta.backend`. Bumping this string
+    /// (model change included) is what forces the reindex.
+    pub fn id(&self) -> String {
+        match self {
+            EmbedderConfig::Hash => "hash-trigram-256".to_string(),
+            EmbedderConfig::Ollama { model, .. } => format!("ollama:{model}"),
+        }
+    }
+}
+
+/// A ready-to-use embedding backend. `embed_batch` preserves input order;
+/// every returned vector is L2-normalized so dot == cosine. Implementations
+/// run under `spawn_blocking`, so blocking I/O is fine here.
+trait Embedder: Send {
+    fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String>;
+}
+
+struct HashEmbedder;
+
+impl Embedder for HashEmbedder {
+    fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+        Ok(texts.iter().map(|t| embed(t)).collect())
+    }
+}
+
+struct OllamaEmbedder {
+    base: String,
+    model: String,
+}
+
+/// How many texts per `/api/embed` call. Bounds both request size and the
+/// blast radius of a transient failure.
+const OLLAMA_EMBED_BATCH: usize = 16;
+
+impl OllamaEmbedder {
+    fn client(&self) -> Result<reqwest::Client, String> {
+        reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .map_err(|e| format!("http client: {e}"))
+    }
+
+    /// One `/api/embed` call. Older Ollama (pre-0.3) only has the
+    /// single-input `/api/embeddings`; we fall back to it per text when the
+    /// batch endpoint 404s, so the backend works across install ages.
+    async fn embed_one_call(&self, client: &reqwest::Client, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+        let url = format!("{}/api/embed", self.base);
+        let resp = client
+            .post(&url)
+            .json(&serde_json::json!({ "model": self.model, "input": texts }))
+            .send()
+            .await
+            .map_err(|e| {
+                format!(
+                    "ollama embed failed at {url} — is Ollama running and is the model pulled? ({e})"
+                )
+            })?;
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            // Legacy endpoint, one call per text.
+            return self.embed_one_by_one_legacy(client, texts).await;
+        }
+        if !status.is_success() {
+            return Err(format!("ollama embed {status}: {body}"));
+        }
+        let v: Value = serde_json::from_str(&body)
+            .map_err(|e| format!("ollama embed response not JSON: {e}"))?;
+        parse_ollama_embeddings(&v)
+    }
+
+    async fn embed_one_by_one_legacy(&self, client: &reqwest::Client, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+        let url = format!("{}/api/embeddings", self.base);
+        let mut out = Vec::with_capacity(texts.len());
+        for t in texts {
+            let resp = client
+                .post(&url)
+                .json(&serde_json::json!({ "model": self.model, "prompt": t }))
+                .send()
+                .await
+                .map_err(|e| format!("ollama embed failed at {url}: {e}"))?;
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            if !status.is_success() {
+                return Err(format!("ollama embeddings {status}: {body}"));
+            }
+            let v: Value = serde_json::from_str(&body)
+                .map_err(|e| format!("ollama embeddings response not JSON: {e}"))?;
+            out.push(parse_single_embedding(&v)?);
+        }
+        Ok(out)
+    }
+}
+
+impl Embedder for OllamaEmbedder {
+    fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+        if texts.is_empty() {
+            return Ok(vec![]);
+        }
+        // The trait is sync because indexing/search run under
+        // `spawn_blocking` (which is not an async context) — bridge to the
+        // async reqwest calls with the ambient runtime handle.
+        let handle = tokio::runtime::Handle::try_current()
+            .map_err(|_| "ollama embedder requires a tokio runtime".to_string())?;
+        handle.block_on(async {
+            let client = self.client()?;
+            let mut out = Vec::with_capacity(texts.len());
+            for chunk in texts.chunks(OLLAMA_EMBED_BATCH) {
+                out.extend(self.embed_one_call(&client, chunk).await?);
+            }
+            Ok(out)
+        })
+    }
+}
+
+/// Extract `embeddings: [[…], …]` from a `/api/embed` response, validating
+/// shape and normalizing each vector.
+fn parse_ollama_embeddings(v: &Value) -> Result<Vec<Vec<f32>>, String> {
+    let arr = v
+        .get("embeddings")
+        .and_then(|e| e.as_array())
+        .ok_or_else(|| "ollama embed response missing `embeddings` array".to_string())?;
+    let mut out = Vec::with_capacity(arr.len());
+    for e in arr {
+        let mut vec: Vec<f32> = e
+            .as_array()
+            .ok_or_else(|| "ollama embed row is not an array".to_string())?
+            .iter()
+            .map(|x| x.as_f64().unwrap_or(0.0) as f32)
+            .collect();
+        if vec.is_empty() {
+            return Err("ollama returned an empty embedding".to_string());
+        }
+        // Enforce the Embedder contract (dot == cosine) regardless of what
+        // the model emits.
+        l2_normalize_in_place(&mut vec);
+        out.push(vec);
+    }
+    Ok(out)
+}
+
+/// Extract a single `embedding: […]` from a legacy `/api/embeddings` response.
+fn parse_single_embedding(v: &Value) -> Result<Vec<f32>, String> {
+    let mut vec: Vec<f32> = v
+        .get("embedding")
+        .and_then(|e| e.as_array())
+        .ok_or_else(|| "ollama embeddings response missing `embedding`".to_string())?
+        .iter()
+        .map(|x| x.as_f64().unwrap_or(0.0) as f32)
+        .collect();
+    if vec.is_empty() {
+        return Err("ollama returned an empty embedding".to_string());
+    }
+    l2_normalize_in_place(&mut vec);
+    Ok(vec)
+}
+
+fn build_embedder(cfg: &EmbedderConfig) -> Box<dyn Embedder> {
+    match cfg {
+        EmbedderConfig::Hash => Box::new(HashEmbedder),
+        EmbedderConfig::Ollama { model, base_url } => Box::new(OllamaEmbedder {
+            base: super::ollama::base_url(base_url.as_deref()),
+            model: model.clone(),
+        }),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Chunking
 // ---------------------------------------------------------------------------
 
@@ -430,6 +624,37 @@ fn db_path_for(folder: &Path) -> PathBuf {
     folder.join(".solomd").join("embeddings.sqlite")
 }
 
+/// Read the persisted embedder config. Missing rows (pre-pluggable indexes)
+/// mean the original hash backend. Malformed rows fall back to Hash rather
+/// than bricking the index — the user can re-select the backend, which
+/// rewrites the row and rebuilds.
+fn read_embedder_config(conn: &Connection) -> EmbedderConfig {
+    let raw: Option<String> = conn
+        .query_row(
+            "SELECT value FROM rag_meta WHERE key='backend_config'",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    raw.and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or(EmbedderConfig::Hash)
+}
+
+fn write_embedder_config(conn: &Connection, cfg: &EmbedderConfig) -> Result<(), String> {
+    let json = serde_json::to_string(cfg).map_err(|e| format!("serialize config: {e}"))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO rag_meta(key, value) VALUES('backend_config', ?1)",
+        params![json],
+    )
+    .map_err(|e| format!("write backend_config: {e}"))?;
+    conn.execute(
+        "INSERT OR REPLACE INTO rag_meta(key, value) VALUES('backend', ?1)",
+        params![cfg.id()],
+    )
+    .map_err(|e| format!("write backend id: {e}"))?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Indexing
 // ---------------------------------------------------------------------------
@@ -474,7 +699,7 @@ fn size_of(p: &Path) -> u64 {
     fs::metadata(p).map(|m| m.len()).unwrap_or(0)
 }
 
-fn index_one_file(conn: &Connection, path: &Path) -> Result<usize, String> {
+fn index_one_file(conn: &Connection, embedder: &dyn Embedder, path: &Path) -> Result<usize, String> {
     let raw = match fs::read_to_string(path) {
         Ok(s) => s,
         // Binary or unreadable file — drop existing rows, skip.
@@ -490,14 +715,19 @@ fn index_one_file(conn: &Connection, path: &Path) -> Result<usize, String> {
     conn.execute("DELETE FROM rag_chunks WHERE path = ?1", params![&p])
         .map_err(|e| format!("delete chunks: {e}"))?;
 
+    // One batched embed call per file — the Ollama backend turns this into
+    // a single HTTP round-trip instead of one per chunk.
+    let vectors = embedder.embed_batch(
+        &chunks.iter().map(|c| c.text.clone()).collect::<Vec<_>>(),
+    )?;
+
     let mut stmt = conn
         .prepare(
             "INSERT INTO rag_chunks(path, chunk_idx, char_start, char_end, snippet, embedding)
              VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
         )
         .map_err(|e| format!("prepare insert: {e}"))?;
-    for (i, ch) in chunks.iter().enumerate() {
-        let v = embed(&ch.text);
+    for (i, (ch, v)) in chunks.iter().zip(vectors).enumerate() {
         let bytes = vec_to_bytes(&v);
         let snippet: String = ch.text.chars().take(240).collect();
         stmt.execute(params![
@@ -527,6 +757,7 @@ fn run_indexer(folder: &Path, full: bool) -> Result<(), String> {
         .map_err(|e| format!("index lock poisoned: {e}"))?;
     let db_path = db_path_for(folder);
     let conn = open_db(&db_path)?;
+    let embedder = build_embedder(&read_embedder_config(&conn));
     if full {
         conn.execute("DELETE FROM rag_chunks", [])
             .map_err(|e| format!("wipe chunks: {e}"))?;
@@ -574,7 +805,7 @@ fn run_indexer(folder: &Path, full: bool) -> Result<(), String> {
                 continue; // unchanged
             }
         }
-        index_one_file(&conn, path)?;
+        index_one_file(&conn, embedder.as_ref(), path)?;
     }
 
     if let Ok(mut state) = STATE.write() {
@@ -607,7 +838,20 @@ pub fn rag_set_enabled_inner(folder: String, enabled: bool) -> Result<RagStatus,
 
 pub fn rag_index_status_inner(folder: String) -> Result<RagStatus, String> {
     let enabled = STATE.read().map(|s| s.enabled).unwrap_or(false);
-    let backend = "hash-trigram-256".to_string();
+    // The persisted config decides the reported backend — an index built
+    // with Ollama still reports so even before this process touched it.
+    let backend = if folder.is_empty() {
+        EmbedderConfig::Hash.id()
+    } else {
+        let db_p = db_path_for(&PathBuf::from(&folder));
+        if db_p.exists() {
+            open_db(&db_p)
+                .map(|conn| read_embedder_config(&conn).id())
+                .unwrap_or_else(|_| EmbedderConfig::Hash.id())
+        } else {
+            EmbedderConfig::Hash.id()
+        }
+    };
 
     if folder.is_empty() {
         return Ok(RagStatus {
@@ -656,6 +900,48 @@ pub fn rag_index_status_inner(folder: String) -> Result<RagStatus, String> {
     })
 }
 
+/// Switch the embedding backend and rebuild the index from scratch. The
+/// Ollama variant is probed up front (one real embed call) so a missing
+/// server or unpulled model fails here with an actionable message instead
+/// of poisoning the index with a half-finished reindex.
+pub fn rag_set_embedder_inner(folder: String, config: EmbedderConfig) -> Result<RagStatus, String> {
+    if folder.is_empty() {
+        return Err("workspace folder not set".into());
+    }
+    if let EmbedderConfig::Ollama { model, .. } = &config {
+        if model.trim().is_empty() {
+            return Err("ollama embedder requires a model name".into());
+        }
+    }
+    let f = PathBuf::from(&folder);
+    if !f.is_dir() {
+        return Err(format!("not a directory: {folder}"));
+    }
+    // Probe before touching anything on disk.
+    let embedder = build_embedder(&config);
+    embedder
+        .embed_batch(&["catstep embedder probe".to_string()])
+        .map_err(|e| format!("embedder probe failed — index left unchanged: {e}"))?;
+
+    let db_path = db_path_for(&f);
+    {
+        let conn = open_db(&db_path)?;
+        // Backend change invalidates every stored vector (dimensions and
+        // semantics differ) — wipe and record the new config before the
+        // reindex below repopulates.
+        conn.execute("DELETE FROM rag_chunks", [])
+            .map_err(|e| format!("wipe chunks: {e}"))?;
+        conn.execute("DELETE FROM rag_files", [])
+            .map_err(|e| format!("wipe files: {e}"))?;
+        write_embedder_config(&conn, &config)?;
+    }
+    let enabled = STATE.read().map(|s| s.enabled).unwrap_or(false);
+    if enabled {
+        run_indexer(&f, false)?;
+    }
+    rag_index_status_inner(folder)
+}
+
 pub fn rag_reindex_inner(folder: String) -> Result<RagStatus, String> {
     if folder.is_empty() {
         return Err("workspace folder not set".into());
@@ -688,7 +974,12 @@ pub fn rag_search_inner(
         return Err("index not built yet — call rag_reindex first".into());
     }
     let conn = open_db(&db_p)?;
-    let qv = embed(q);
+    let embedder = build_embedder(&read_embedder_config(&conn));
+    let qv = embedder
+        .embed_batch(&[q.to_string()])?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "embedding backend returned no vector".to_string())?;
 
     let mut stmt = conn
         .prepare(
@@ -762,7 +1053,8 @@ pub fn rag_reindex_file_inner(folder: String, file_path: String) -> Result<(), S
         let _ = conn.execute("DELETE FROM rag_files WHERE path = ?1", params![file_path]);
         return Ok(());
     }
-    index_one_file(&conn, p).map(|_| ())
+    let embedder = build_embedder(&read_embedder_config(&conn));
+    index_one_file(&conn, embedder.as_ref(), p).map(|_| ())
 }
 
 // ---------------------------------------------------------------------------
@@ -821,6 +1113,18 @@ pub async fn rag_reindex(folder: String) -> Result<RagStatus, String> {
         super::commands::authorize(&folder)?;
     }
     tauri::async_runtime::spawn_blocking(move || rag_reindex_inner(folder))
+        .await
+        .map_err(|e| format!("join: {e}"))?
+}
+
+#[tauri::command]
+pub async fn rag_set_embedder(folder: String, config: EmbedderConfig) -> Result<RagStatus, String> {
+    // Caller-supplied workspace path — prove it is inside an authorized
+    // root. Empty is left to the inner, which reports it as an error.
+    if !folder.trim().is_empty() {
+        super::commands::authorize(&folder)?;
+    }
+    tauri::async_runtime::spawn_blocking(move || rag_set_embedder_inner(folder, config))
         .await
         .map_err(|e| format!("join: {e}"))?
 }
@@ -893,5 +1197,62 @@ mod tests {
         assert!(chunks.iter().all(|c| !c.text.contains("title:")));
         assert!(chunks.iter().any(|c| c.text.contains("first para")));
         assert!(chunks.iter().any(|c| c.text.contains("second para")));
+    }
+
+    // --- pluggable embedders -------------------------------------------------
+
+    #[test]
+    fn parse_ollama_embeddings_normalizes_rows() {
+        let v: Value = serde_json::json!({ "embeddings": [[3.0, 4.0], [1.0, 0.0]] });
+        let out = parse_ollama_embeddings(&v).expect("valid");
+        assert_eq!(out.len(), 2);
+        let mag: f32 = out[0].iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((mag - 1.0).abs() < 1e-4, "row must be L2-normalized, mag={mag}");
+
+        assert!(parse_ollama_embeddings(&serde_json::json!({})).is_err());
+        assert!(parse_ollama_embeddings(&serde_json::json!({ "embeddings": [[]] })).is_err());
+    }
+
+    #[test]
+    fn parse_single_embedding_shape() {
+        let out =
+            parse_single_embedding(&serde_json::json!({ "embedding": [3.0, 4.0] })).expect("valid");
+        assert!((out[0] - 0.6).abs() < 1e-4 && (out[1] - 0.8).abs() < 1e-4, "normalized: {out:?}");
+        assert!(parse_single_embedding(&serde_json::json!({ "nope": [] })).is_err());
+    }
+
+    #[test]
+    fn embedder_config_ids_and_serde_roundtrip() {
+        assert_eq!(EmbedderConfig::Hash.id(), "hash-trigram-256");
+        let cfg = EmbedderConfig::Ollama {
+            model: "nomic-embed-text".into(),
+            base_url: None,
+        };
+        assert_eq!(cfg.id(), "ollama:nomic-embed-text");
+        // A model change must change the id — that is what forces the rebuild.
+        let cfg2 = EmbedderConfig::Ollama {
+            model: "mxbai-embed-large".into(),
+            base_url: None,
+        };
+        assert_ne!(cfg.id(), cfg2.id());
+
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: EmbedderConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
+    }
+
+    #[test]
+    fn embedder_config_persists_through_meta_table() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        // Missing rows mean the original hash backend (pre-pluggable indexes).
+        assert_eq!(read_embedder_config(&conn), EmbedderConfig::Hash);
+
+        let cfg = EmbedderConfig::Ollama {
+            model: "nomic-embed-text".into(),
+            base_url: Some("http://192.168.1.20:11434".into()),
+        };
+        write_embedder_config(&conn, &cfg).unwrap();
+        assert_eq!(read_embedder_config(&conn), cfg);
     }
 }

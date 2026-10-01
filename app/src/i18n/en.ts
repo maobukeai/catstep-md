@@ -1219,6 +1219,11 @@ export const en = {
     diffUnavailable: 'No diff available.',
   },
   rag: {
+    embedder: 'Embedding backend',
+    embedderHash: 'Built-in (offline)',
+    embedderOllama: 'Ollama',
+    embedderModelPlaceholder: 'e.g. nomic-embed-text',
+    embedderApply: 'Apply & rebuild',
     settingsHeading: 'Semantic search',
     enable: 'Enable semantic search (local RAG, {key})',
     enableHint:
