@@ -134,10 +134,7 @@ pub mod path_guard {
         }
         let mut missing: Vec<OsString> = Vec::new();
         let mut cur = path.to_path_buf();
-        loop {
-            let Some(parent) = cur.parent().map(Path::to_path_buf) else {
-                break;
-            };
+        while let Some(parent) = cur.parent().map(Path::to_path_buf) {
             match cur.file_name() {
                 Some(name) => missing.push(name.to_os_string()),
                 None => break,

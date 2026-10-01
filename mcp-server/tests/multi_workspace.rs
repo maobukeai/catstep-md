@@ -143,7 +143,7 @@ fn multi_workspace_default_to_first() {
     });
     let resps = drive(
         &["--workspace", &arg_a, "--workspace", &arg_b],
-        &[req.clone()],
+        std::slice::from_ref(&req),
     );
     let text = extract_text_payload(&resps[0]);
     eprintln!("default frame: {text}");

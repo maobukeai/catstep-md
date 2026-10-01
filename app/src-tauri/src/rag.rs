@@ -14,13 +14,14 @@
 //!    minutes of extra compile time, and brittle cross-compilation (CI
 //!    fails on Windows + Linux musl). We instead default to a deterministic
 //!    **hashed character-trigram + random projection** embedder which:
-//!      - has zero extra deps,
-//!      - works fully offline with no model file,
-//!      - produces 256-dim L2-normalized vectors (cosine similarity ≈ dot),
-//!      - scores measurably better than keyword search for short queries
-//!        because trigrams pick up morphology + CJK substrings,
-//!      - is gated behind the same opt-in setting, so the constraint
-//!        "off by default = zero overhead" is preserved.
+//!    - has zero extra deps,
+//!    - works fully offline with no model file,
+//!    - produces 256-dim L2-normalized vectors (cosine similarity ≈ dot),
+//!      scores measurably better than keyword search for short queries
+//!      because trigrams pick up morphology + CJK substrings,
+//!    - is gated behind the same opt-in setting, so the constraint
+//!      "off by default = zero overhead" is preserved.
+//!
 //!    A heavier `fastembed` backend can be added later behind a cargo
 //!    feature without changing the on-disk schema (just bump
 //!    `INDEX_VERSION` and the embedder will rebuild on next launch).

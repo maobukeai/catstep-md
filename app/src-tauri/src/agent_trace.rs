@@ -98,7 +98,7 @@ pub async fn agent_trace_list(workspace: String) -> Result<Vec<RunSummary>, Stri
     // it sorts lexicographically too — but we use `started_at` from
     // meta.json when present in case a future run_id format breaks lex
     // ordering.
-    out.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    out.sort_by_key(|x| std::cmp::Reverse(x.started_at));
     Ok(out)
 }
 

@@ -458,9 +458,10 @@ pub fn workspace_index_resolve(name: String) -> Result<Option<String>, String> {
         for entry in s.entries.values() {
             let path_norm = entry.path.replace('\\', "/").to_lowercase();
             // try with and without extension
+            let needle_md = format!("{}.md", needle_no_ext);
             if path_norm.ends_with(&format!("/{}", needle_norm))
                 || path_norm.ends_with(&format!("/{}", needle_no_ext))
-                || path_norm.ends_with(&format!("/{}", format!("{}.md", needle_no_ext)))
+                || path_norm.ends_with(&format!("/{}", needle_md))
             {
                 return Ok(Some(entry.path.clone()));
             }

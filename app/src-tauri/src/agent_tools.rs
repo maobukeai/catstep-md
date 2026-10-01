@@ -1568,7 +1568,7 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
             }
 
             if match_candidates.len() > 1 && !allow_multiple {
-                match_candidates.sort_by(|a, b| b.2.cmp(&a.2));
+                match_candidates.sort_by_key(|c| std::cmp::Reverse(c.2));
                 if match_candidates[0].2 > match_candidates[1].2 {
                     match_candidates.truncate(1);
                 } else {

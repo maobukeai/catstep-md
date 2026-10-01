@@ -17,10 +17,11 @@
 //! maximize` on the button, the runtime maps that region to HTMAXBUTTON and
 //! forwards the resulting non-client messages to this top-level window,
 //! where the subclass:
-//!   * emits `solomd://maxbtn-hover` (bool) on hover changes so the HTML
-//!     button can style itself (DOM hover no longer fires there), and
-//!   * turns the click into `WM_SYSCOMMAND` maximize/restore (posted, not
-//!     sent, to avoid re-entering the window proc).
+//! - emits `solomd://maxbtn-hover` (bool) on hover changes so the HTML
+//!   button can style itself (DOM hover no longer fires there), and
+//! - turns the click into `WM_SYSCOMMAND` maximize/restore (posted, not
+//!   sent, to avoid re-entering the window proc).
+//!
 //! The `set_max_button_rect` NCHITTEST override stays as a harmless backup
 //! for points the webview doesn't cover.
 //!

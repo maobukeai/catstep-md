@@ -86,8 +86,7 @@ impl SoloMdServer {
     /// 4. Otherwise → `Err`.
     pub fn resolve_workspace(&self, opt: Option<&str>) -> Result<&Path, String> {
         let s = match opt {
-            None => return Ok(self.default_workspace()),
-            Some(s) if s.is_empty() => return Ok(self.default_workspace()),
+            None | Some("") => return Ok(self.default_workspace()),
             Some(s) => s,
         };
 
@@ -397,7 +396,7 @@ impl SoloMdServer {
                 break;
             }
         }
-        metas.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+        metas.sort_by_key(|m| std::cmp::Reverse(m.mtime));
         let json = serde_json::json!({ "notes": metas, "count": metas.len() });
         Ok(CallToolResult::success(vec![
             Content::json(json).map_err(|e| McpError::internal_error(e.to_string(), None))?
@@ -1179,8 +1178,8 @@ fn autogit_log_inner(
     // Sort newest-first by author time. Doing it in Rust dodges git2's
     // sorting modes — Sort::TIME is ascending, REVERSE is non-obvious,
     // and the resulting filter+visit order is fragile across history
-    // shapes. A plain sort_by here is unambiguous.
-    out.sort_by(|a, b| b.time.cmp(&a.time));
+    // shapes. A plain sort_by_key(newest-first) here is unambiguous.
+    out.sort_by_key(|x| std::cmp::Reverse(x.time));
     out.truncate(limit);
     Ok(out)
 }
@@ -1252,7 +1251,7 @@ fn autogit_diff_inner(
                     }
                 }
             }
-            candidates.sort_by(|a, b| b.1.cmp(&a.1));
+            candidates.sort_by_key(|c| std::cmp::Reverse(c.1));
             candidates
                 .into_iter()
                 .next()

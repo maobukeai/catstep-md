@@ -17,7 +17,7 @@ pub fn set_as_default_markdown_editor(lang: Option<String>) -> Result<String, St
     }
     #[cfg(target_os = "windows")]
     {
-        return windows::set_default(is_zh);
+        windows::set_default(is_zh)
     }
     #[cfg(target_os = "linux")]
     {
@@ -288,6 +288,7 @@ mod windows {
         }
     }
 
+    #[allow(clippy::too_many_arguments)] // Win32 registry API shape, not our design
     fn register_progid(
         hkcu: &RegKey,
         progid_root: &str,

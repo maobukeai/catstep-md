@@ -364,11 +364,12 @@ pub struct RewriteRequest {
     /// users can keep multiple keys at once.
     pub provider: String,
     /// API wire format. Maps to the streaming implementation used:
-    ///   - "openai"     — OpenAI Chat Completions (also DeepSeek, Qwen,
-    ///                    GLM, Kimi, Doubao, xAI, Mistral, Groq, Gemini's
-    ///                    OpenAI-compat endpoint, etc.)
-    ///   - "anthropic"  — Anthropic Messages API
-    ///   - "ollama"     — local Ollama (no API key required)
+    /// - "openai" — OpenAI Chat Completions (also DeepSeek, Qwen, GLM,
+    ///   Kimi, Doubao, xAI, Mistral, Groq, Gemini's OpenAI-compat endpoint,
+    ///   etc.)
+    /// - "anthropic" — Anthropic Messages API
+    /// - "ollama" — local Ollama (no API key required)
+    ///
     /// Defaults to `provider` when missing for backwards compatibility.
     #[serde(default)]
     pub api_format: Option<String>,
@@ -2440,7 +2441,7 @@ pub async fn run_chat_anthropic_loop(
     cancel: Arc<AtomicBool>,
     run_handle: Option<Arc<RunHandle>>,
 ) -> Result<(String, u64, u64), String> {
-    let cap = req.tool_loop_cap.unwrap_or(8).max(1).min(20);
+    let cap = req.tool_loop_cap.unwrap_or(8).clamp(1, 20);
     let workspace = workspace_from_req(req);
     // Accumulate run-level token totals across each turn. Anthropic
     // resets `usage` per request, so summing per-turn is the right move.
@@ -2679,6 +2680,7 @@ pub async fn run_chat_anthropic_loop(
     Ok((last_text, tokens_in_total, tokens_out_total))
 }
 
+#[allow(clippy::too_many_arguments)] // mirrors openai_one_turn's parameter set
 async fn anthropic_one_turn(
     app: &AppHandle,
     request_id: &str,
@@ -2872,8 +2874,10 @@ async fn anthropic_one_turn(
                         let i = json.get("index").and_then(|v| v.as_u64()).unwrap_or(0);
                         let block_v = json.get("content_block").cloned().unwrap_or(Value::Null);
                         let btype = block_v.get("type").and_then(|t| t.as_str()).unwrap_or("");
-                        let mut b = Block::default();
-                        b.kind = btype.to_string();
+                        let mut b = Block {
+                            kind: btype.to_string(),
+                            ..Default::default()
+                        };
                         if btype == "tool_use" {
                             b.tool_id = block_v
                                 .get("id")
@@ -2963,10 +2967,12 @@ async fn anthropic_one_turn(
         return Err(stream_ended_early("anthropic"));
     }
 
-    let mut outcome = TurnOutcome::default();
-    outcome.finish_reason = stop_reason;
-    outcome.tokens_in = tokens_in;
-    outcome.tokens_out = tokens_out;
+    let mut outcome = TurnOutcome {
+        finish_reason: stop_reason,
+        tokens_in,
+        tokens_out,
+        ..Default::default()
+    };
     for (_, b) in blocks {
         match b.kind.as_str() {
             "text" => outcome.text.push_str(&b.text),
@@ -2995,7 +3001,7 @@ pub async fn run_chat_openai_loop(
     cancel: Arc<AtomicBool>,
     run_handle: Option<Arc<RunHandle>>,
 ) -> Result<(String, u64, u64), String> {
-    let cap = req.tool_loop_cap.unwrap_or(8).max(1).min(20);
+    let cap = req.tool_loop_cap.unwrap_or(8).clamp(1, 20);
     let workspace = workspace_from_req(req);
     // Run-level token totals — OpenAI Chat Completions resets `usage`
     // per request, so a per-turn sum is the right accounting.
@@ -3474,11 +3480,13 @@ async fn openai_one_turn(
     if !saw_done && finish_reason.is_empty() {
         return Err(stream_ended_early("openai"));
     }
-    let mut outcome = TurnOutcome::default();
-    outcome.text = text;
-    outcome.finish_reason = finish_reason;
-    outcome.tokens_in = tokens_in;
-    outcome.tokens_out = tokens_out;
+    let mut outcome = TurnOutcome {
+        text,
+        finish_reason,
+        tokens_in,
+        tokens_out,
+        ..Default::default()
+    };
     assemble_openai_tool_uses(tools_acc, &mut outcome);
     Ok(outcome)
 }
@@ -4364,22 +4372,35 @@ mod tests {
 
         let mut acc: BTreeMap<u64, OpenAiToolAccum> = BTreeMap::new();
         // Index 0: valid id + valid JSON args + extras.
-        let mut a = OpenAiToolAccum::default();
-        a.id = "call_a".into();
-        a.name = "read_note".into();
-        a.arguments = r#"{"path":"a.md"}"#.into();
-        a.extras.insert("extra_content".into(), serde_json::json!({"ok": true}));
-        acc.insert(0, a);
+        acc.insert(
+            0,
+            OpenAiToolAccum {
+                id: "call_a".into(),
+                name: "read_note".into(),
+                arguments: r#"{"path":"a.md"}"#.into(),
+                extras: [("extra_content".to_string(), serde_json::json!({"ok": true}))]
+                    .into_iter()
+                    .collect(),
+            },
+        );
         // Index 2: no id (server never sent one) + empty args → {} + synthetic id.
-        let mut c = OpenAiToolAccum::default();
-        c.name = "list_notes".into();
-        acc.insert(2, c);
+        acc.insert(
+            2,
+            OpenAiToolAccum {
+                name: "list_notes".into(),
+                ..Default::default()
+            },
+        );
         // Index 3: non-JSON arguments must survive as a string, not {}.
-        let mut d = OpenAiToolAccum::default();
-        d.id = "call_d".into();
-        d.name = "write_note".into();
-        d.arguments = "the model streamed prose here".into();
-        acc.insert(3, d);
+        acc.insert(
+            3,
+            OpenAiToolAccum {
+                id: "call_d".into(),
+                name: "write_note".into(),
+                arguments: "the model streamed prose here".into(),
+                ..Default::default()
+            },
+        );
 
         let mut outcome = super::TurnOutcome::default();
         assemble_openai_tool_uses(acc, &mut outcome);

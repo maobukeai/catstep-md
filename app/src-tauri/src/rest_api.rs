@@ -672,7 +672,7 @@ mod tests {
     /// allow_write). Without serialization they trample each other's setup
     /// and 401 randomly, so we hold a real `Mutex` for the duration of every
     /// test. Test functions just take this lock as their first line.
-    static TEST_LOCK: Lazy<std::sync::Mutex<()>> = Lazy::new(|| std::sync::Mutex::new(()));
+    static TEST_LOCK: Lazy<tokio::sync::Mutex<()>> = Lazy::new(|| tokio::sync::Mutex::new(()));
 
     /// Spin a serve-loop up on an ephemeral port, return (port, token).
     /// Caller is responsible for tearing down via `_test_clear_state` if
@@ -834,7 +834,7 @@ mod tests {
 
     #[tokio::test]
     async fn banner_no_auth_required() {
-        let _g = TEST_LOCK.lock().unwrap();
+        let _g = TEST_LOCK.lock().await;
         _test_set("tok", false, None);
         let port = _test_bind().await.unwrap();
         let (code, body) = http(port, "GET", "/", None, None).await;
@@ -846,7 +846,7 @@ mod tests {
 
     #[tokio::test]
     async fn missing_token_rejected() {
-        let _g = TEST_LOCK.lock().unwrap();
+        let _g = TEST_LOCK.lock().await;
         _test_set("tok-A", false, None);
         let port = _test_bind().await.unwrap();
         let (code, _) = http(port, "GET", "/health", None, None).await;
@@ -857,7 +857,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_tools_returns_full_registry() {
-        let _g = TEST_LOCK.lock().unwrap();
+        let _g = TEST_LOCK.lock().await;
         _test_set("tok-B", false, None);
         let port = _test_bind().await.unwrap();
         let (code, body) = http(port, "GET", "/tools", Some("tok-B"), None).await;
@@ -882,7 +882,7 @@ mod tests {
 
     #[tokio::test]
     async fn write_tool_403_when_allow_write_false() {
-        let _g = TEST_LOCK.lock().unwrap();
+        let _g = TEST_LOCK.lock().await;
         // Spin a temp workspace so we don't 503 on missing workspace.
         let tmp = std::env::temp_dir().join(format!("solomd-rest-test-{}", super::super::agent_run::mint_run_id()));
         fs::create_dir_all(&tmp).unwrap();
@@ -902,7 +902,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_tool_round_trips_via_http() {
-        let _g = TEST_LOCK.lock().unwrap();
+        let _g = TEST_LOCK.lock().await;
         // Seed a tiny workspace with one markdown file so list_notes returns it.
         let tmp = std::env::temp_dir().join(format!("solomd-rest-rt-{}", super::super::agent_run::mint_run_id()));
         fs::create_dir_all(&tmp).unwrap();
@@ -928,7 +928,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_tool_returns_404() {
-        let _g = TEST_LOCK.lock().unwrap();
+        let _g = TEST_LOCK.lock().await;
         _test_set("tok-E", false, None);
         let port = _test_bind().await.unwrap();
         let (code, _) = http(port, "POST", "/tools/no_such", Some("tok-E"), Some("{}")).await;

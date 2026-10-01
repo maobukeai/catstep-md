@@ -2,25 +2,22 @@
 //!
 //! Two surfaces:
 //!
-//!   * `cli_status()` — `which solomd` + `solomd --version` so the panel
-//!     can render "Installed at /usr/local/bin/solomd" (green) or
-//!     "Not installed" (faint) without the JS layer having to spawn
-//!     processes itself. Mirrors the spawn_blocking pattern from
-//!     `git_history.rs` so a slow `which` (e.g. cold NFS PATH) can't
-//!     freeze the UI thread.
-//!
-//!   * `mcp_path()` — absolute path to the bundled `solomd-mcp` sidecar.
-//!     Resolved via Tauri's path API rather than hardcoded:
-//!     - macOS: `<App>.app/Contents/MacOS/solomd-mcp`
-//!     - Windows: `<install dir>\solomd-mcp.exe`
-//!     - Linux: alongside the executable
-//!     Returns `None` when the sidecar isn't found (e.g. dev builds where
-//!     `pnpm tauri dev` skips bundle-time externalBin staging).
-//!
-//!   * `mcp_claude_desktop_config_path()` — the conventional location of
-//!     `claude_desktop_config.json` per OS. The frontend uses this to
-//!     wire up the "Open Claude Desktop config file" button without
-//!     dragging path glue into TS.
+//! - `cli_status()` — `which solomd` + `solomd --version` so the panel
+//!   can render "Installed at /usr/local/bin/solomd" (green) or
+//!   "Not installed" (faint) without the JS layer having to spawn
+//!   processes itself. Mirrors the spawn_blocking pattern from
+//!   `git_history.rs` so a slow `which` (e.g. cold NFS PATH) can't
+//!   freeze the UI thread.
+//! - `mcp_path()` — absolute path to the bundled `solomd-mcp` sidecar.
+//!   Resolved via Tauri's path API rather than hardcoded. Per platform:
+//!   macOS `<App>.app/Contents/MacOS/solomd-mcp`, Windows
+//!   `<install dir>\solomd-mcp.exe`, Linux alongside the executable.
+//!   Returns `None` when the sidecar isn't found (e.g. dev builds where
+//!   `pnpm tauri dev` skips bundle-time externalBin staging).
+//! - `mcp_claude_desktop_config_path()` — the conventional location of
+//!   `claude_desktop_config.json` per OS. The frontend uses this to
+//!   wire up the "Open Claude Desktop config file" button without
+//!   dragging path glue into TS.
 
 use std::path::PathBuf;
 use std::process::Command;

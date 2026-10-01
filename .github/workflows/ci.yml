@@ -98,11 +98,7 @@ jobs:
           cd app/src-tauri
           cargo test
 
-      # Advisory until the existing warnings are burned down, then flip to
-      # blocking (remove continue-on-error). Kept separate from the test gate
-      # so lint debt never masks a real test regression.
-      - name: Cargo Clippy (advisory)
-        continue-on-error: true
+      - name: Cargo Clippy
         run: |
           cd app/src-tauri
           cargo clippy --all-targets -- -D warnings
@@ -129,8 +125,7 @@ jobs:
           cd mcp-server
           cargo test
 
-      - name: Cargo Clippy (advisory)
-        continue-on-error: true
+      - name: Cargo Clippy
         run: |
           cd mcp-server
           cargo clippy --all-targets -- -D warnings

@@ -373,7 +373,7 @@ impl RunHandle {
 
     /// Close the run: drop file handles, write `run_ended` trace step, and
     /// rewrite `meta.json` with final status + token totals + cost estimate
-    /// + (optional) error. `cost_usd` is computed by the caller via
+    /// and (optional) error. `cost_usd` is computed by the caller via
     /// `pricing::estimate_cost_usd` (provider+model aware) — we just persist
     /// whatever number is passed in. Pass `0.0` if you don't have one.
     pub fn finish(
@@ -912,7 +912,7 @@ pub fn list_runs(workspace: &Path) -> Vec<RunMeta> {
             out.push(m);
         }
     }
-    out.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    out.sort_by_key(|x| std::cmp::Reverse(x.started_at));
     out
 }
 

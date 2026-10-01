@@ -9,7 +9,7 @@ use app_lib::rag::{
     rag_set_enabled_inner,
 };
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn fresh_workspace(label: &str) -> PathBuf {
@@ -23,7 +23,7 @@ fn fresh_workspace(label: &str) -> PathBuf {
     dir
 }
 
-fn write(dir: &PathBuf, name: &str, content: &str) -> PathBuf {
+fn write(dir: &Path, name: &str, content: &str) -> PathBuf {
     let p = dir.join(name);
     fs::write(&p, content).unwrap();
     p

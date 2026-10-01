@@ -607,8 +607,8 @@ pub fn theme_list_installed(app: AppHandle) -> Result<Vec<InstalledTheme>, Strin
 
         let author_opt = if !author_name.is_empty() {
             Some(author_name)
-        } else if stem.starts_with("gh-") {
-            let parts: Vec<&str> = stem[3..].split(['-', '_']).collect();
+        } else if let Some(rest) = stem.strip_prefix("gh-") {
+            let parts: Vec<&str> = rest.split(['-', '_']).collect();
             if !parts.is_empty() {
                 Some(prettify_word(parts[0]))
             } else {

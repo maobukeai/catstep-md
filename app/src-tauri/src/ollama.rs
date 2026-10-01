@@ -100,11 +100,11 @@ pub const DEFAULT_BASE_URL: &str = "http://localhost:11434";
 /// URL `http://nas:11434/v1` out of another tool's docs — all three of
 /// which used to produce a request that could never succeed.
 ///
-///   * empty / whitespace-only  → `None` (caller falls back to the default)
-///   * no scheme                → `http://` is prepended
-///   * trailing `/`             → dropped
-///   * trailing `/v1`           → dropped (that's the OpenAI-compat prefix;
-///                                the native API lives at the root)
+/// - empty / whitespace-only → `None` (caller falls back to the default)
+/// - no scheme → `http://` is prepended
+/// - trailing `/` → dropped
+/// - trailing `/v1` → dropped (that's the OpenAI-compat prefix; the native
+///   API lives at the root)
 pub fn normalize_base_url(raw: &str) -> Option<String> {
     let trimmed = raw.trim().trim_end_matches('/');
     if trimmed.is_empty() {

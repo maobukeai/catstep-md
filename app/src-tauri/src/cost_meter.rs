@@ -110,7 +110,6 @@ fn set_config_dir(p: PathBuf) {
         TEST_CONFIG_DIR.with(|d| {
             *d.borrow_mut() = Some(p);
         });
-        return;
     }
     #[cfg(not(test))]
     {
@@ -301,7 +300,7 @@ mod tests {
         // default = disabled
         record("openai", 100, 200, 0.001);
         let m = read_meter();
-        assert!(m.providers.get("openai").is_none());
+        assert!(!m.providers.contains_key("openai"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

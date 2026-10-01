@@ -1185,11 +1185,10 @@ pub fn run_with(initial_file: Option<String>) {
                 event: tauri::WindowEvent::Destroyed,
                 label,
                 ..
-            } => {
-                if label != "main" {
+            }
+                if label != "main" => {
                     let _ = app_handle.emit("solomd://window-destroyed", label.clone());
                 }
-            }
 
             // ---- macOS file open via double-click / Finder ----
             #[cfg(target_os = "macos")]

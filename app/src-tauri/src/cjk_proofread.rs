@@ -3,7 +3,7 @@
 //!
 //! Detection is **regex-/char-based, not LLM-based** by design: zero
 //! network, zero per-char cost, deterministic, and works on traditional
-//! + simplified Han identically (via `char::is_*` + explicit Unicode
+//! and simplified Han identically (via `char::is_*` + explicit Unicode
 //! ranges).
 //!
 //! We deliberately use a hand-rolled scanner instead of `regex` with
