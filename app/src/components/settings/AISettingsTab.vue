@@ -70,6 +70,21 @@ async function onReindexNow() {
           </div>
         </label>
 
+        <!-- Agent grounding toggle (when RAG is on) -->
+        <label v-if="settings.ragEnabled" class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('rag.grounding') }}</span>
+            <p class="setting-row__hint">{{ t('rag.groundingHint') }}</p>
+          </div>
+          <div class="setting-row__control" @click.stop>
+            <input
+              type="checkbox"
+              :checked="settings.agentRagGrounding"
+              @change="settings.setAgentRagGrounding(($event.target as HTMLInputElement).checked)"
+            />
+          </div>
+        </label>
+
         <!-- Sub-row when RAG is enabled -->
         <div
           v-if="settings.ragEnabled && workspace.currentFolder"

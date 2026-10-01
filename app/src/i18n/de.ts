@@ -1189,6 +1189,8 @@ export const de: I18n = {
     "diffUnavailable": "Kein Diff verfügbar."
   },
   "rag": {
+    "grounding": "Agent-Chats mit Suche anreichern",
+    "groundingHint": "Wenn aktiv, bettet der Agent-Chat die Frage automatisch ein, holt die relevantesten Notiz-Ausschnitte und injiziert sie mit [[Pfad]]-Zitaten als Kontext. Aus = das ⌘⇧F-Panel funktioniert weiter, aber Chats erhalten keinen automatischen Kontext.",
     "embedder": "Embedding-Backend",
     "embedderHash": "Eingebaut (offline)",
     "embedderOllama": "Ollama",

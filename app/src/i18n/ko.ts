@@ -1189,6 +1189,8 @@ export const ko: I18n = {
     "diffUnavailable": "차이를 가져올 수 없습니다."
   },
   "rag": {
+    "grounding": "에이전트 채팅 검색 그라운딩",
+    "groundingHint": "켜면 에이전트 채팅이 질문을 자동 임베딩하여 가장 관련 높은 노트 조각을 [[경로]] 인용과 함께 컨텍스트로 주입합니다. 꺼도 ⌘⇧F 패널은 동작하지만 자동 주입은 없습니다.",
     "embedder": "임베딩 백엔드",
     "embedderHash": "내장 (오프라인)",
     "embedderOllama": "Ollama",

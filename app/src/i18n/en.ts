@@ -1219,6 +1219,8 @@ export const en = {
     diffUnavailable: 'No diff available.',
   },
   rag: {
+    grounding: 'Ground agent chats with retrieval',
+    groundingHint: 'When on, agent panel chats automatically embed your prompt, retrieve the most relevant note snippets, and inject them as context with [[path]] citations. Off = the ⌘⇧F panel still works, but chats get no automatic context.',
     embedder: 'Embedding backend',
     embedderHash: 'Built-in (offline)',
     embedderOllama: 'Ollama',

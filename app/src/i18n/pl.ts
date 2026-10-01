@@ -1189,6 +1189,8 @@ export const pl: I18n = {
     "diffUnavailable": "Diff niedostępny."
   },
   "rag": {
+    "grounding": "Ugruntuj czaty agenta wyszukiwaniem",
+    "groundingHint": "Gdy włączone, czat agenta automatycznie osadza pytanie, pobiera najbardziej trafne fragmenty notatek i wstrzykuje je z cytatami [[ścieżka]]. Wyłączone = panel ⌘⇧F dalej działa, ale czaty nie dostają automatycznego kontekstu.",
     "embedder": "Silnik embeddingu",
     "embedderHash": "Wbudowany (offline)",
     "embedderOllama": "Ollama",

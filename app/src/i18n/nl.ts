@@ -1189,6 +1189,8 @@ export const nl: I18n = {
     "diffUnavailable": "Geen diff beschikbaar."
   },
   "rag": {
+    "grounding": "Agent-chats verankeren met zoekopdracht",
+    "groundingHint": "Aan: de agent-chat berekent automatisch de embedding van je vraag, haalt de relevantste notitiefragmenten op en injecteert ze met [[pad]]-citaten. Uit = het ⌘⇧F-paneel werkt nog, maar chats krijgen geen automatische context.",
     "embedder": "Embedding-backend",
     "embedderHash": "Ingebouwd (offline)",
     "embedderOllama": "Ollama",

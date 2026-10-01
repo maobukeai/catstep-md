@@ -1523,7 +1523,7 @@ async function send() {
   // (and cites [[path]] links) instead of either guessing or having to
   // think of calling the semantic_search tool itself. Best-effort: any
   // failure (index off, not built, embedder down) just skips the block.
-  if (settings.ragEnabled && workspace.currentFolder) {
+  if (settings.ragEnabled && settings.agentRagGrounding && workspace.currentFolder) {
     try {
       const ragHits = await invoke<{ path: string; name: string; score: number; snippet: string }[]>(
         'rag_search',

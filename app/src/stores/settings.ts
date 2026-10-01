@@ -268,6 +268,11 @@ interface Settings {
   // v2.3: Local RAG / semantic search. Off by default — when on, the
   // workspace is scanned + embedded into <workspace>/.solomd/embeddings.sqlite.
   ragEnabled: boolean;
+  // v1.x — when true (default), agent panel chats automatically embed the
+  // prompt and inject the top semantic-search hits as grounded context with
+  // [[path]] citations. Turning it off keeps the ⌘⇧F search panel working
+  // but stops the silent context injection.
+  agentRagGrounding: boolean;
   // v2.4: when on, opening any tab on iPad / iPhone snaps view mode to
   // `reading` (no editor chrome — just the rendered prose). Defaults to
   // `true` on iOS, `false` everywhere else. Esc / Cmd+Shift+R still
@@ -653,6 +658,7 @@ function defaults(): Settings {
     agentToolLoopCap: 8,
     agentMcpEnabled: false,
     agentMcpServers: [],
+    agentRagGrounding: true,
     sideSidebarWidth: 260,
     fileTreeWidth: 240,
     aiEnabled: false,
@@ -1790,6 +1796,10 @@ export const useSettingsStore = defineStore('settings', {
     },
     toggleRagEnabled() {
       this.ragEnabled = !this.ragEnabled;
+      this.persist();
+    },
+    setAgentRagGrounding(val: boolean) {
+      this.agentRagGrounding = !!val;
       this.persist();
     },
     toggleWritingStats() {

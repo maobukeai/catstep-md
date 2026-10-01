@@ -1189,6 +1189,8 @@ export const fr: I18n = {
     "diffUnavailable": "Aucun diff disponible."
   },
   "rag": {
+    "grounding": "Ancrer les discussions de l’agent par recherche",
+    "groundingHint": "Activé, la discussion de l’agent calcule automatiquement les embeddings de la question, récupère les extraits de notes les plus pertinents et les injecte avec des citations [[chemin]]. Désactivé = le panneau ⌘⇧F fonctionne toujours, mais aucun contexte n’est injecté.",
     "embedder": "Moteur d’embeddings",
     "embedderHash": "Intégré (hors ligne)",
     "embedderOllama": "Ollama",

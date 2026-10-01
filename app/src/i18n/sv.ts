@@ -1189,6 +1189,8 @@ export const sv: I18n = {
     "diffUnavailable": "Ingen diff tillgänglig."
   },
   "rag": {
+    "grounding": "Förankra agentchattar med sökning",
+    "groundingHint": "På: agentchatten bäddar automatiskt in din fråga, hämtar de mest relevanta notisnuttarna och injicerar dem med [[sökväg]]scitat. Av = ⌘⇧F-panelen fungerar fortfarande, men chattar får ingen automatisk kontext.",
     "embedder": "Inbäddningsmotor",
     "embedderHash": "Inbyggd (offline)",
     "embedderOllama": "Ollama",

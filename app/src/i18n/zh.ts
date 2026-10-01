@@ -1214,6 +1214,8 @@ export const zh: I18n = {
     diffUnavailable: '此版本无差异内容。',
   },
   rag: {
+    grounding: '智能体对话自动接地检索',
+    groundingHint: '开启后，智能体对话会自动对提问做语义检索，把最相关的笔记片段连同 [[路径]] 引用注入上下文。关闭后 ⌘⇧F 检索面板仍可用，但对话不再自动注入上下文。',
     embedder: '向量后端',
     embedderHash: '内置（离线）',
     embedderOllama: 'Ollama',

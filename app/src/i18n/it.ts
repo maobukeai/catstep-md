@@ -1189,6 +1189,8 @@ export const it: I18n = {
     "diffUnavailable": "Nessun diff disponibile."
   },
   "rag": {
+    "grounding": "Ancorare le chat dell’agente con la ricerca",
+    "groundingHint": "Attivo, la chat dell’agente incorpora automaticamente la domanda, recupera gli estratti di note più rilevanti e li inietta con citazioni [[percorso]]. Disattivo = il pannello ⌘⇧F continua a funzionare, ma le chat non ricevono contesto automatico.",
     "embedder": "Motore di embedding",
     "embedderHash": "Integrato (offline)",
     "embedderOllama": "Ollama",

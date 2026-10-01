@@ -1189,6 +1189,8 @@ export const ja: I18n = {
     "diffUnavailable": "差分を取得できません。"
   },
   "rag": {
+    "grounding": "エージェントチャットの検索接地",
+    "groundingHint": "オンにすると、エージェントのチャットで質問を自動埋め込みし、最も関連するノート断片を [[パス]] 付きでコンテキストに注入します。オフでも ⌘⇧F パネルは使えますが、自動注入は行われません。",
     "embedder": "埋め込みバックエンド",
     "embedderHash": "内蔵（オフライン）",
     "embedderOllama": "Ollama",

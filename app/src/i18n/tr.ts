@@ -1189,6 +1189,8 @@ export const tr: I18n = {
     "diffUnavailable": "Fark mevcut değil."
   },
   "rag": {
+    "grounding": "Ajan sohbetlerini aramayla temellendir",
+    "groundingHint": "Açıkken ajan sohbeti soruyu otomatik gömer, en alakalı not parçalarını alır ve [[yol]] atıflarıyla bağlama ekler. Kapalı = ⌘⇧F paneli çalışmaya devam eder ama sohbetler otomatik bağlam almaz.",
     "embedder": "Gömme motoru",
     "embedderHash": "Yerleşik (çevrimdışı)",
     "embedderOllama": "Ollama",
