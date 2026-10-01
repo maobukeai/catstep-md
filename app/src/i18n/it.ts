@@ -1803,6 +1803,7 @@ export const it: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "Connessione bloccata: nessun evento del modello per 5 minuti, richiesta scollegata. Riprova o controlla lo stato del provider.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

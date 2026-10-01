@@ -1894,6 +1894,7 @@ export const en = {
     modeSuggest: 'Read-only',
     revertModification: 'Revert Modification',
     revertSuccess: 'Reverted modification',
+    watchdogTimeout: 'Connection stalled: no model events for 5 minutes, so this request was detached. Try again or check the provider status.',
     msgSaveAsNote: 'Save as Note',
     msgSaveAsNoteTitle: 'Save this response as a new Markdown note in the vault',
     msgSavedAsNote: 'Saved as new note',

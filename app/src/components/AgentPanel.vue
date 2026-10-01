@@ -1575,6 +1575,7 @@ async function send() {
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   agent.currentRunId = requestId;
   agent.isStreaming = true;
+  touchAgentEvent();
   try {
     await invoke<string>('ai_chat', {
       request: {
@@ -1711,6 +1712,34 @@ declare global {
 
 let agentMountToken = 0;
 let activeUnlistens: UnlistenFn[] = [];
+
+// --- Stream watchdog ---------------------------------------------------------
+// The backend streams via fire-and-forget events; if its spawned task dies
+// without emitting ai-done/ai-error (a panic, a lost event, a hung tool
+// dispatch with no turn timeout), the panel would sit on "generating…"
+// forever. Every relevant event refreshes this timestamp; a 10s interval
+// aborts the UI state after 5 minutes of total silence (multi-turn tool
+// loops legitimately pause the stream, hence the generous ceiling).
+let lastAgentEventAt = Date.now();
+let agentWatchdogTimer: ReturnType<typeof setInterval> | null = null;
+const AGENT_WATCHDOG_MS = 300_000;
+
+function touchAgentEvent(): void {
+  lastAgentEventAt = Date.now();
+}
+
+function checkAgentWatchdog(): void {
+  if (!agent.isStreaming || !agent.currentRunId) return;
+  if (Date.now() - lastAgentEventAt <= AGENT_WATCHDOG_MS) return;
+  const id = agent.currentRunId;
+  agent.isStreaming = false;
+  agent.currentRunId = null;
+  resetThinkingState();
+  errorMsg.value = t('agent.watchdogTimeout');
+  void invoke('ai_cancel', { requestId: id }).catch(() => {
+    /* best-effort — the backend may already be gone */
+  });
+}
 let isInsideThinkTag = false;
 let thoughtStartTime: number | null = null;
 let thinkBuffer = '';
@@ -2183,6 +2212,7 @@ onMounted(async () => {
   }
   void checkOllama();
   ollamaTimer = setInterval(checkOllama, 30_000);
+  agentWatchdogTimer = setInterval(checkAgentWatchdog, 10_000);
 
   window.__solomd_agent_cleanup = cleanupListeners;
 
@@ -2190,6 +2220,7 @@ onMounted(async () => {
     const unlistenResults = await Promise.all([
       listen<{ request_id: string; chunk: string }>('solomd://ai-thought', (e) => {
         if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        touchAgentEvent();
         if (thoughtStartTime === null) {
           thoughtStartTime = Date.now();
         }
@@ -2198,11 +2229,13 @@ onMounted(async () => {
       }),
       listen<{ request_id: string; chunk: string }>('solomd://ai-chunk', (e) => {
         if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        touchAgentEvent();
         processChunkForThinking(e.payload.chunk);
         autoscroll();
       }),
       listen<{ request_id: string; full_text: string }>('solomd://ai-done', (e) => {
         if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        touchAgentEvent();
         const last = agent.messages[agent.messages.length - 1];
         if (last && last.role === 'assistant') {
           if (thinkBuffer) {
@@ -2244,6 +2277,7 @@ onMounted(async () => {
       }),
       listen<{ request_id: string; error: string }>('solomd://ai-error', (e) => {
         if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        touchAgentEvent();
         agent.isStreaming = false;
         agent.currentRunId = null;
         resetThinkingState();
@@ -2263,6 +2297,7 @@ onMounted(async () => {
         args: Record<string, unknown>;
       }>('solomd://ai-tool-call', (e) => {
         if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        touchAgentEvent();
         agent.insertToolCall({
           toolCallId: e.payload.tool_call_id,
           name: e.payload.tool,
@@ -2279,6 +2314,7 @@ onMounted(async () => {
         error?: string;
       }>('solomd://ai-tool-result', async (e) => {
         if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
+        touchAgentEvent();
         let resultStr: string;
         try {
           resultStr =
@@ -2353,6 +2389,7 @@ onMounted(async () => {
       }),
       listen<{ request_id: string; run_id: string }>('solomd://ai-run-started', (e) => {
         if (e.payload.request_id === agent.currentRunId) {
+          touchAgentEvent();
           agent.currentPersistRunId = e.payload.run_id;
         }
       }),
@@ -2429,6 +2466,10 @@ onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('click', onWindowClick);
     document.removeEventListener('selectionchange', checkSelection);
+  }
+  if (agentWatchdogTimer) {
+    clearInterval(agentWatchdogTimer);
+    agentWatchdogTimer = null;
   }
   if (ollamaTimer) {
     clearInterval(ollamaTimer);

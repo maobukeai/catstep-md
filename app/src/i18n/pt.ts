@@ -1803,6 +1803,7 @@ export const pt: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "Conexão parada: sem eventos do modelo por 5 minutos; a solicitação foi desanexada. Tente novamente ou verifique o status do provedor.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

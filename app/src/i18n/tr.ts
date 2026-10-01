@@ -1803,6 +1803,7 @@ export const tr: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "Bağlantı takıldı: 5 dakika boyunca model olayı alınamadı, bu istek ayrıldı. Yeniden deneyin veya sağlayıcı durumunu kontrol edin.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

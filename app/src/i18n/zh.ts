@@ -1876,6 +1876,7 @@ export const zh: I18n = {
     modeSuggest: '只读',
     revertModification: '撤销修改',
     revertSuccess: '已撤销修改',
+    watchdogTimeout: '连接停滞：超过 5 分钟未收到任何模型事件，已自动脱离本次请求。请重试或检查服务商状态。',
     msgSaveAsNote: '沉淀为笔记',
     msgSaveAsNoteTitle: '将此回复作为新 Markdown 笔记保存到知识库',
     msgSavedAsNote: '已成功沉淀为新笔记',

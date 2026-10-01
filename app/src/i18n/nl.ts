@@ -1803,6 +1803,7 @@ export const nl: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "Verbinding vastgelopen: 5 minuten geen modelgebeurtenissen, dit verzoek is losgekoppeld. Probeer opnieuw of controleer de providerstatus.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

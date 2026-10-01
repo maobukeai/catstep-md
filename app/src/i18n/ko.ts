@@ -1803,6 +1803,7 @@ export const ko: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "연결 정체: 5분 동안 모델 이벤트가 없어 이 요청을 분리했습니다. 다시 시도하거나 공급자 상태를 확인하세요.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

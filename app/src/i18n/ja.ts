@@ -1803,6 +1803,7 @@ export const ja: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "接続が停止しました：5分間モデルイベントがないため、このリクエストを切断しました。再試行するかプロバイダの状態を確認してください。",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

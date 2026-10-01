@@ -1803,6 +1803,7 @@ export const de: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "Verbindung blockiert: 5 Minuten keine Modell-Events, daher wurde diese Anfrage abgekoppelt. Erneut versuchen oder Anbieterstatus prüfen.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",

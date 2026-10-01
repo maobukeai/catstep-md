@@ -1803,6 +1803,7 @@ export const sv: I18n = {
     "modeSuggest": "Read-only",
     "revertModification": "Revert Modification",
     "revertSuccess": "Reverted modification",
+    "watchdogTimeout": "Anslutning fastnat: inga modellhändelser på 5 minuter, begäran frikopplades. Försök igen eller kontrollera leverantörens status.",
     "msgSaveAsNote": "Save as Note",
     "msgSaveAsNoteTitle": "Save this response as a new Markdown note in the vault",
     "msgSavedAsNote": "Saved as new note",
