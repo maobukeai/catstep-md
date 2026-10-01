@@ -1740,6 +1740,7 @@ export const pt: I18n = {
     "mcpCommand": "comando",
     "mcpArgs": "argumentos (separados por espaço)",
     "mcpUrl": "URL (para servidores HTTP remotos)",
+    "mcpHeaders": "Cabeçalhos (chave: valor; ...)",
     "mcpTest": "Testar",
     "mcpTestOk": "{count} ferramentas",
     "mcpRemove": "Remover servidor",

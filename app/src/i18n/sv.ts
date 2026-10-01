@@ -1740,6 +1740,7 @@ export const sv: I18n = {
     "mcpCommand": "kommando",
     "mcpArgs": "argument (mellanslagsseparerade)",
     "mcpUrl": "URL (för fjärr-HTTP-servrar)",
+    "mcpHeaders": "Headers (nyckel: värde; ...)",
     "mcpTest": "Testa",
     "mcpTestOk": "{count} verktyg",
     "mcpRemove": "Ta bort server",

@@ -651,6 +651,30 @@ function onArgsInput(id: string, value: string) {
   settingsStore.updateAgentMcpServer(id, { args: value.split(/\s+/).filter(Boolean) });
 }
 
+/** Serialize the header record to the one-line `Key: Value; Key2: Value2`
+ *  editor format (order preserved). */
+function headersTextFor(id: string): string {
+  const h = settingsStore.agentMcpServers.find((s) => s.id === id)?.headers;
+  if (!h) return '';
+  return Object.entries(h)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('; ');
+}
+
+/** Parse the one-line header editor format back into a record. Entries
+ *  without a colon (or with an empty key/value) are dropped. */
+function parseHeadersText(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of text.split(';')) {
+    const idx = part.indexOf(':');
+    if (idx <= 0) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k && v) out[k] = v;
+  }
+  return out;
+}
+
 function slugifyMcpId(v: string): string {
   return v
     .trim()
@@ -1288,6 +1312,13 @@ async function testMcpServer(s: AgentMcpServer) {
           @change="settingsStore.updateAgentMcpServer(s.id, { url: ($event.target as HTMLInputElement).value.trim() || null })"
         />
         <input
+          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--headers"
+          :value="headersTextFor(s.id)"
+          :placeholder="t('agentSettings.mcpHeaders')"
+          spellcheck="false"
+          @change="settingsStore.updateAgentMcpServer(s.id, { headers: parseHeadersText(($event.target as HTMLInputElement).value) })"
+        />
+        <input
           type="checkbox"
           :checked="s.enabled"
           :aria-label="t('agentSettings.mcpEnable')"
@@ -1352,6 +1383,7 @@ async function testMcpServer(s: AgentMcpServer) {
 .ai-settings__mcp-field--cmd { width: 200px; flex: 1 1 160px; }
 .ai-settings__mcp-field--args { width: 160px; flex: 1 1 120px; }
 .ai-settings__mcp-field--url { width: 180px; flex: 1 1 140px; }
+.ai-settings__mcp-field--headers { width: 170px; flex: 1 1 130px; }
 .ai-settings__mcp-test {
   font-size: 11px;
   word-break: break-all;

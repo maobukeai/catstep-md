@@ -1740,6 +1740,7 @@ export const tr: I18n = {
     "mcpCommand": "komut",
     "mcpArgs": "bağımsız değişkenler (boşlukla ayrılmış)",
     "mcpUrl": "URL (uzak HTTP sunucuları için)",
+    "mcpHeaders": "Başlıklar (anahtar: değer; ...)",
     "mcpTest": "Sına",
     "mcpTestOk": "{count} araç",
     "mcpRemove": "Sunucuyu kaldır",

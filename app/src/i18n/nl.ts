@@ -1740,6 +1740,7 @@ export const nl: I18n = {
     "mcpCommand": "opdracht",
     "mcpArgs": "argumenten (spatie-gescheiden)",
     "mcpUrl": "URL (voor externe HTTP-servers)",
+    "mcpHeaders": "Headers (sleutel: waarde; ...)",
     "mcpTest": "Testen",
     "mcpTestOk": "{count} tools",
     "mcpRemove": "Server verwijderen",

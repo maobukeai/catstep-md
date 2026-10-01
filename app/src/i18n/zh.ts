@@ -1810,6 +1810,7 @@ export const zh: I18n = {
     mcpCommand: '命令',
     mcpArgs: '参数（空格分隔）',
     mcpUrl: 'URL（远程 HTTP 服务器）',
+    mcpHeaders: '请求头（键: 值; ...）',
     mcpTest: '测试',
     mcpTestOk: '{count} 个工具',
     mcpRemove: '删除服务器',

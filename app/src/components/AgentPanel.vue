@@ -1608,6 +1608,7 @@ async function send() {
                 enabled: true,
                 timeout_secs: s.timeout_secs ?? null,
                 url: s.url ?? null,
+                headers: s.headers ?? {},
               }))
           : null,
         workspace: workspace.currentFolder,

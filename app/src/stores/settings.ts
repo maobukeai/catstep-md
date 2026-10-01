@@ -24,6 +24,8 @@ export interface AgentMcpServer {
   /** Streamable HTTP endpoint. When set the server is remote (HTTP
    *  transport) and command/args are ignored. */
   url?: string | null;
+  /** Static headers sent with every HTTP request (bearer keys etc.). */
+  headers?: Record<string, string>;
 }
 
 export interface AIProviderProfile {

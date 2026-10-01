@@ -1740,6 +1740,7 @@ export const uk: I18n = {
     "mcpCommand": "команда",
     "mcpArgs": "аргументи (розділені пробілами)",
     "mcpUrl": "URL (для віддалених HTTP-серверів)",
+    "mcpHeaders": "Заголовки (ключ: значення; ...)",
     "mcpTest": "Тест",
     "mcpTestOk": "{count} інструментів",
     "mcpRemove": "Видалити сервер",

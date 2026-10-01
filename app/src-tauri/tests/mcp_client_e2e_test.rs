@@ -56,6 +56,7 @@ fn test_config(script_path: &std::path::Path) -> McpServerConfig {
         enabled: true,
         timeout_secs: Some(15),
         url: None,
+        headers: Default::default(),
     }
 }
 
@@ -131,6 +132,7 @@ const server = http.createServer((req, res) => {
     }
     if (sid !== 'sess-e2e-1') { res.writeHead(404); res.end('no session'); return; }
     if (msg.method === 'notifications/initialized') { res.writeHead(202); res.end(); return; }
+    if (req.headers['x-api-key'] !== 'secret123') { res.writeHead(401); res.end('bad key'); return; }
     if (msg.method === 'tools/list') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { tools: [
@@ -200,6 +202,9 @@ async fn http_flow() {
         enabled: true,
         timeout_secs: Some(10),
         url: Some(format!("http://127.0.0.1:{port}/mcp")),
+        headers: [("x-api-key".to_string(), "secret123".to_string())]
+            .into_iter()
+            .collect(),
     };
 
     // list → initialize (captures Mcp-Session-Id) + tools/list.

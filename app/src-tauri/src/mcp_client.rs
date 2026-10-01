@@ -75,6 +75,10 @@ pub struct McpServerConfig {
     /// server is reached over HTTP and `command`/`args` are ignored.
     #[serde(default)]
     pub url: Option<String>,
+    /// Static headers sent with every HTTP request (bearer keys for hosted
+    /// endpoints etc.). Stdio transport ignores them.
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
 }
 
 impl McpServerConfig {
@@ -427,13 +431,15 @@ fn tool_result_to_text(result: &Value) -> Result<Value, String> {
 struct HttpMcpSession {
     endpoint: String,
     client: reqwest::Client,
+    /// Static config headers (auth keys), applied to every request.
+    headers: HashMap<String, String>,
     session_id: Option<String>,
     next_id: u64,
     initialized: bool,
 }
 
 impl HttpMcpSession {
-    fn new(endpoint: &str) -> Result<Self, String> {
+    fn new(endpoint: &str, headers: &HashMap<String, String>) -> Result<Self, String> {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .build()
@@ -441,6 +447,7 @@ impl HttpMcpSession {
         Ok(Self {
             endpoint: endpoint.trim().trim_end_matches('/').to_string(),
             client,
+            headers: headers.clone(),
             session_id: None,
             next_id: 0,
             initialized: false,
@@ -461,6 +468,9 @@ impl HttpMcpSession {
             .json(msg);
         if let Some(sid) = &self.session_id {
             req = req.header("Mcp-Session-Id", sid);
+        }
+        for (k, v) in &self.headers {
+            req = req.header(k, v);
         }
         let resp = req
             .send()
@@ -725,7 +735,10 @@ async fn get_or_spawn_session(config: &McpServerConfig) -> Result<Arc<AsyncMutex
     }
     let conn = if config.is_http() {
         let url = config.url.as_deref().unwrap_or_default();
-        McpConn::Http(HttpMcpSession::new(url).map_err(|e| format!("server `{}`: {e}", config.id))?)
+        McpConn::Http(
+            HttpMcpSession::new(url, &config.headers)
+                .map_err(|e| format!("server `{}`: {e}", config.id))?,
+        )
     } else {
         McpConn::Stdio(Box::new(
             McpSession::spawn(config).map_err(|e| format!("server `{}`: {e}", config.id))?,
