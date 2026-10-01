@@ -75,7 +75,9 @@ const MIN_CHUNK_TOKENS: usize = 8;
 const MAX_CHUNK_CHARS: usize = 1500;
 /// Bumped whenever the embedder semantics change. The DB schema is keyed
 /// to this, so old rows are wiped on first launch after a bump.
-const INDEX_VERSION: u32 = 2;
+/// v3: chunk full text is stored alongside the vector to power the
+/// two-stage hybrid re-ranker (vector cosine prefilter + lexical overlap).
+const INDEX_VERSION: u32 = 3;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -459,6 +461,75 @@ fn build_embedder(cfg: &EmbedderConfig) -> Box<dyn Embedder> {
 }
 
 // ---------------------------------------------------------------------------
+// Two-stage ranking (vector prefilter + lexical re-rank)
+// ---------------------------------------------------------------------------
+
+/// How many cosine-prefiltered candidates get the (point-queried, exact)
+/// lexical re-rank. Bounds the pass-2 point queries; the final answer is
+/// `limit` hits, so 40 leaves plenty of headroom.
+const REORDER_CANDIDATES: usize = 40;
+
+/// Weight of the vector cosine vs the lexical overlap in the final score.
+/// The lexical term exists to rescue exact-name/exact-term matches that a
+/// transformer cosine can bury a few ranks deep. At 0.8 a perfect overlap
+/// (max bonus 0.2) can never outrank a 0.3-point cosine gap — the vector
+/// signal stays dominant.
+const HYBRID_COSINE_WEIGHT: f32 = 0.8;
+
+/// Tokenize a query for the lexical term: lowercase alphanumeric words plus
+/// adjacent CJK character pairs (a two-char CJK query yields no word tokens
+/// but one bigram — the common Chinese search shape).
+fn query_tokens(q: &str) -> Vec<String> {
+    let lower: String = q.chars().map(|c| c.to_ascii_lowercase()).collect();
+    let mut out: Vec<String> = Vec::new();
+    let is_cjk = |c: char| {
+        // Hiragana/katakana live inside the CJK ideograph range bound, so
+        // no separate arm for them here.
+        matches!(c as u32, 0x2E80..=0x9FFF | 0xF900..=0xFAFF | 0xAC00..=0xD7AF)
+    };
+    let chars: Vec<char> = lower.chars().collect();
+    let mut word = String::new();
+    let flush = |word: &mut String, out: &mut Vec<String>| {
+        if !word.is_empty() {
+            out.push(std::mem::take(word));
+        }
+    };
+    for i in 0..chars.len() {
+        let c = chars[i];
+        // CJK is covered by the bigrams below (and `char::is_alphanumeric`
+        // is true for CJK, which would double-count it as a whole-run
+        // "word"), so only ASCII alphanumerics form words.
+        if c.is_ascii_alphanumeric() {
+            word.push(c);
+        } else {
+            flush(&mut word, &mut out);
+        }
+        if is_cjk(c) && i + 1 < chars.len() && is_cjk(chars[i + 1]) {
+            out.push(format!("{}{}", c, chars[i + 1]));
+        }
+    }
+    flush(&mut word, &mut out);
+    out
+}
+
+/// Fraction of query tokens (words + CJK bigrams) present in `text`, [0, 1].
+fn lexical_overlap(q: &str, text: &str) -> f32 {
+    let tokens = query_tokens(q);
+    if tokens.is_empty() {
+        return 0.0;
+    }
+    let lower: String = text.chars().map(|c| c.to_ascii_lowercase()).collect();
+    let hits = tokens.iter().filter(|t| lower.contains(t.as_str())).count();
+    hits as f32 / tokens.len() as f32
+}
+
+/// Final ranking score: cosine still dominates, exact-term overlap breaks
+/// near-ties in favor of literally-matching notes.
+fn combined_score(cos: f32, overlap: f32) -> f32 {
+    HYBRID_COSINE_WEIGHT * cos + (1.0 - HYBRID_COSINE_WEIGHT) * overlap
+}
+
+// ---------------------------------------------------------------------------
 // Chunking
 // ---------------------------------------------------------------------------
 
@@ -577,6 +648,7 @@ CREATE TABLE IF NOT EXISTS rag_chunks (
     char_start INTEGER NOT NULL,
     char_end INTEGER NOT NULL,
     snippet TEXT NOT NULL,
+    text TEXT NOT NULL,
     embedding BLOB NOT NULL,
     PRIMARY KEY (path, chunk_idx)
 );
@@ -723,8 +795,8 @@ fn index_one_file(conn: &Connection, embedder: &dyn Embedder, path: &Path) -> Re
 
     let mut stmt = conn
         .prepare(
-            "INSERT INTO rag_chunks(path, chunk_idx, char_start, char_end, snippet, embedding)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO rag_chunks(path, chunk_idx, char_start, char_end, snippet, text, embedding)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         )
         .map_err(|e| format!("prepare insert: {e}"))?;
     for (i, (ch, v)) in chunks.iter().zip(vectors).enumerate() {
@@ -736,6 +808,7 @@ fn index_one_file(conn: &Connection, embedder: &dyn Embedder, path: &Path) -> Re
             ch.char_start as i64,
             ch.char_end as i64,
             &snippet,
+            &ch.text,
             &bytes
         ])
         .map_err(|e| format!("insert chunk: {e}"))?;
@@ -999,7 +1072,8 @@ pub fn rag_search_inner(
         })
         .map_err(|e| format!("scan: {e}"))?;
 
-    // Per-file best chunk only — shows one hit per note in the UI.
+    // Stage 1 (vector prefilter): per-file best chunk by cosine — one hit
+    // per note, full-index scan, no text loaded (memory-bounded).
     let mut best: HashMap<String, RagHit> = HashMap::new();
     for row in rows.flatten() {
         let (path, idx, cs, ce, snippet, blob) = row;
@@ -1028,8 +1102,30 @@ pub fn rag_search_inner(
     }
     let mut hits: Vec<RagHit> = best.into_values().collect();
     hits.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-    hits.truncate(cap);
-    Ok(hits)
+    hits.truncate(REORDER_CANDIDATES);
+
+    // Stage 2 (lexical re-rank): point-query the full chunk text for just
+    // the candidates and blend an exact-term overlap into the ranking.
+    // `score` stays the cosine (the UI labels it as such); only the ORDER
+    // is hybrid.
+    let mut ranked: Vec<(f32, RagHit)> = Vec::with_capacity(hits.len());
+    {
+        let mut stmt = conn
+            .prepare("SELECT text FROM rag_chunks WHERE path = ?1 AND chunk_idx = ?2")
+            .map_err(|e| format!("prepare text lookup: {e}"))?;
+        for hit in hits {
+            let text: Option<String> = stmt
+                .query_row(params![&hit.path, hit.chunk_idx as i64], |r| r.get(0))
+                .ok();
+            let overlap = text
+                .as_deref()
+                .map(|t| lexical_overlap(q, t))
+                .unwrap_or(0.0);
+            ranked.push((combined_score(hit.score, overlap), hit));
+        }
+    }
+    ranked.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(ranked.into_iter().map(|(_, h)| h).take(cap).collect())
 }
 
 /// Re-embed a single file (used by the watcher hook in `lib.rs`).
@@ -1239,6 +1335,42 @@ mod tests {
         let json = serde_json::to_string(&cfg).unwrap();
         let back: EmbedderConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(back, cfg);
+    }
+
+    #[test]
+    fn query_tokens_cover_words_and_cjk_pairs() {
+        // Latin words split on non-alphanumerics, lowercased.
+        assert_eq!(query_tokens("RAG Search!"), vec!["rag", "search"]);
+        // A 2-char CJK query yields one bigram and no empty-word noise.
+        assert_eq!(query_tokens("翻译"), vec!["翻译"]);
+        // A 3-char CJK query yields two overlapping bigrams.
+        assert_eq!(query_tokens("语义搜索"), vec!["语义", "义搜", "搜索"]);
+        // Mixed text produces both shapes.
+        assert_eq!(query_tokens("use RAG 翻译"), vec!["use", "rag", "翻译"]);
+        assert!(query_tokens("!!!").is_empty());
+    }
+
+    #[test]
+    fn lexical_overlap_is_fraction_of_present_tokens() {
+        let text = "We use AES encryption to secure files. 翻译支持内置。";
+        assert_eq!(lexical_overlap("encryption aes", text), 1.0);
+        assert!((lexical_overlap("encryption calendar", text) - 0.5).abs() < 1e-6);
+        assert_eq!(lexical_overlap("翻译", text), 1.0);
+        assert_eq!(lexical_overlap("absent", text), 0.0);
+        assert_eq!(lexical_overlap("!!!", text), 0.0, "empty token list scores 0");
+    }
+
+    #[test]
+    fn combined_score_blends_in_lexical_tiebreak() {
+        // Identical cosines: the lexically-matching note ranks higher.
+        let a = combined_score(0.60, 0.0);
+        let b = combined_score(0.60, 1.0);
+        assert!(b > a);
+        // Cosine still dominates: a big cosine gap beats a perfect overlap.
+        assert!(combined_score(0.90, 0.0) > combined_score(0.60, 1.0));
+        // Weighted blend is a convex combination.
+        let c = combined_score(0.8, 0.4);
+        assert!((c - (0.8 * 0.8 + 0.2 * 0.4)).abs() < 1e-6);
     }
 
     #[test]
