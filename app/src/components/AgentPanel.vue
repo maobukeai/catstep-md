@@ -20,6 +20,20 @@ import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { useAgentPanelStore, type AgentReference } from '../stores/agentPanel';
 import { providerById, type ProviderId } from '../lib/ai-providers';
 import { applyHistoryBudget } from '../lib/agent-context';
+import {
+  promptLang,
+  systemPrompt,
+  toolActionSummary,
+  toolLogBlock,
+  fallbackAssistantTurn,
+  selectionWriteDirective,
+  writeDirective,
+  readonlySelectionDirective,
+  readonlyDirective,
+  ragContextBlock,
+  refsBlock,
+  selectionBlock,
+} from '../lib/agent-prompts';
 import { renderMarkdown } from '../lib/markdown';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useFiles } from '../composables/useFiles';
@@ -877,21 +891,6 @@ watch(includeActiveNote, (v) => {
  *  keeps the prompt reasonable on small-context models. */
 const ACTIVE_NOTE_CHAR_LIMIT = 8192;
 
-/**
- * Default system prompt the panel injects before each chat. Kept generic
- * here; the next commit on `feat/v4-panel` adds vault-aware context (RAG
- * snippets + active note path) before the user's message.
- */
-const SYSTEM_PROMPT =
-  'You are a helpful, professional assistant inside Catstep MD (猫步 MD), a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses.\n\n' +
-  '【思考与推演规范】\n' +
-  '在思考或调用工具前，可在 <think> 与 </think> 标签中输出 1~2 句精炼的意图与推演规划（如理解需求、梳理步骤），便于用户实时了解进展。思考推演请保持简明。\n\n' +
-  '【文件与目录整理规范】\n' +
-  '当用户要求整理、归类、移动或重命名笔记时：\n' +
-  '1. 先使用 list_notes 或 search 定位目标笔记；\n' +
-  '2. 如目标文件夹不存在，使用 create_folder 创建目标文件夹；\n' +
-  '3. 使用 move_note（指定 source_path 和 target_path）移动笔记。切勿使用 read_note + write_note 重复创建副本！\n' +
-  '4. 完成后向用户汇总移动结果。';
 
 function normalizePath(p?: string | null): string {
   if (!p) return '';
@@ -1332,6 +1331,10 @@ async function send() {
     }
   }
 
+  // Prompt language follows the app language: zh users get zh prompts,
+  // every other locale gets English (AI-facing text, not UI copy).
+  // Declared before the history-rebuild loop, which summarizes tool calls.
+  const plang = promptLang(settings.language);
   const refsToSend = [...activeReferences.value];
   const imagesToSend = [...activeImages.value];
 
@@ -1397,11 +1400,11 @@ async function send() {
         rawTurnHistory.push(currentTurnUser);
         let assistantContent = currentTurnAssistantParts.filter(Boolean).join('\n\n').trim();
         if (currentTurnToolSummaries.length > 0) {
-          const toolLog = `【本轮执行的操作记录】\n` + currentTurnToolSummaries.join('\n');
+          const toolLog = toolLogBlock(currentTurnToolSummaries, plang);
           assistantContent = assistantContent ? `${assistantContent}\n\n${toolLog}` : toolLog;
         }
         if (!assistantContent) {
-          assistantContent = '（已完成相关操作）';
+          assistantContent = fallbackAssistantTurn(plang);
         }
         rawTurnHistory.push({ role: 'assistant', content: assistantContent });
       }
@@ -1413,29 +1416,7 @@ async function send() {
         currentTurnAssistantParts.push(m.content.trim());
       }
     } else if (m.role === 'tool' && m.tool) {
-      const tool = m.tool;
-      const tName = tool.name;
-      const tPath = (tool.args?.target_path || tool.args?.path || tool.args?.source_path || '') as string;
-      const tFileName = tPath ? tPath.replace(/\\/g, '/').split('/').pop() : '';
-      if (tName === 'write_note') {
-        currentTurnToolSummaries.push(`- 新建/写入笔记: ${tPath} (${tFileName})`);
-      } else if (tName === 'patch_note') {
-        currentTurnToolSummaries.push(`- 局部修改笔记: ${tPath} (${tFileName})`);
-      } else if (tName === 'append_to_note') {
-        currentTurnToolSummaries.push(`- 追加内容至笔记: ${tPath} (${tFileName})`);
-      } else if (tName === 'delete_note') {
-        currentTurnToolSummaries.push(`- 删除笔记: ${tPath} (${tFileName})`);
-      } else if (tName === 'move_note') {
-        currentTurnToolSummaries.push(`- 移动笔记: 从 ${tool.args?.source_path} 移动至 ${tool.args?.target_path}`);
-      } else if (tName === 'create_folder') {
-        currentTurnToolSummaries.push(`- 创建文件夹: ${tool.args?.path}`);
-      } else if (tName === 'delete_folder') {
-        currentTurnToolSummaries.push(`- 删除文件夹: ${tool.args?.path}`);
-      } else if (tName === 'copy_note') {
-        currentTurnToolSummaries.push(`- 复制笔记: 从 ${tool.args?.source_path} 复制到 ${tool.args?.target_path}`);
-      } else {
-        currentTurnToolSummaries.push(`- 执行了工具: ${tName}`);
-      }
+      currentTurnToolSummaries.push(toolActionSummary(m.tool.name, m.tool.args, plang));
     }
   }
 
@@ -1443,7 +1424,7 @@ async function send() {
     rawTurnHistory.push(currentTurnUser);
     let assistantContent = currentTurnAssistantParts.filter(Boolean).join('\n\n').trim();
     if (currentTurnToolSummaries.length > 0) {
-      const toolLog = `【本轮执行的操作记录】\n` + currentTurnToolSummaries.join('\n');
+      const toolLog = toolLogBlock(currentTurnToolSummaries, plang);
       assistantContent = assistantContent ? `${assistantContent}\n\n${toolLog}` : toolLog;
     }
     if (assistantContent) {
@@ -1471,47 +1452,21 @@ async function send() {
 
   const ctx = buildVaultContext();
   const noteCtx = buildActiveNoteContext(activeSel);
-  const systemParts = [SYSTEM_PROMPT];
+  const systemParts = [systemPrompt(plang)];
 
   if (isToolAllowed) {
     const activeRel = getActiveNoteRelativePath();
-    if (hasActiveSel) {
-      systemParts.push(
-        "【核心指令：直接局部修改所选片段】\n" +
-        `当前用户正在编辑的文件是：\`${activeRel}\`。\n` +
-        `用户已明确划选了该文件中的如下文本片段（共 ${activeSel.length} 字）：\n` +
-        `\`\`\`markdown\n${activeSel}\n\`\`\`\n\n` +
-        "当用户的请求是润色、改写、修正、精简或优化这段文字时：\n" +
-        "1. 【必须且仅调用一次 patch_note】：必须直接调用 `patch_note` 自动替换文档中的选区内容！\n" +
-        `   - \`path\`: 必须精确填写当前文件的相对路径 \`"${activeRel}"\`（严禁省略子目录，严禁使用纯文件名或绝对路径！）；\n` +
-        "   - `target_content`: 必须完全填写上面用户划选的原文本片段（包含原样格式与换行）；\n" +
-        "   - `replacement_content`: 填入你润色精简优化后的优质正文（严禁包含客套寒暄、修改列表或说明）。\n" +
-        "2. 【严禁多余工具调用】：你已经拥有用户划选的确切完整文本，严禁调用 search 检索，严禁调用 read_note 重复读取文件，严禁调用 write_note 覆盖全文件！\n" +
-        "3. 【单次修改铁律】：一旦 `patch_note` 执行成功，编辑器已自动同步完成。严禁再次调用 patch_note、write_note 或 read_note！必须立即向用户输出针对修改亮点的文字总结并结束本轮回复。"
-      );
-    } else {
-      systemParts.push(
-        "你具备修改笔记库的物理权限。\n" +
-        (activeRel ? `当前活动的笔记相对路径为: \`${activeRel}\`。\n` : "") +
-        "1. 当用户要求修改、优化当前已有笔记的局部内容时，使用 `patch_note`。严禁在修改已有文件时使用 `write_note` 覆盖全文件！\n" +
-        "2. 只有当用户明确要求创建新笔记、新建文件时，才调用 `write_note`。\n" +
-        "3. 一旦文件修改或创建成功，切勿重复调用工具，立即向用户总结结果并结束回复。"
-      );
-    }
+    systemParts.push(
+      hasActiveSel
+        ? selectionWriteDirective(activeRel, activeSel, plang)
+        : writeDirective(activeRel, plang),
+    );
   } else {
-    if (hasActiveSel) {
-      systemParts.push(
-        "【只读建议模式重要须知】\n" +
-        "当前处于【只读建议模式】" + (isOllama ? "（本地 Ollama 模型）" : "") + "，你没有直接写盘修改文件的权限，因此绝对严禁在回答中声称“已为你自动修改文件”或“已自动同步到工作区”。\n" +
-        "当用户要求润色或修改所选文本片段时：\n" +
-        "1. 请在回复中用单个 markdown 代码块（```markdown ... ```）完整输出润色后的纯正文，严禁夹杂任何客套寒暄或修改列表在正文里；\n" +
-        "2. 代码块外面可以附带简要的修改亮点；用户可以直接点击面板上的【替换选区】一键应用到当前选区。"
-      );
-    } else {
-      systemParts.push(
-        "【只读建议模式】当前处于只读建议模式" + (isOllama ? "（本地 Ollama 模型）" : "") + "，你没有直接修改笔记库的物理权限。请在回复中给出修改建议或完整代码块，绝对严禁虚假声称“已自动同步到工作区”。"
-      );
-    }
+    systemParts.push(
+      hasActiveSel
+        ? readonlySelectionDirective(isOllama, plang)
+        : readonlyDirective(isOllama, plang),
+    );
   }
 
   if (ctx) systemParts.push(ctx);
@@ -1541,10 +1496,7 @@ async function send() {
             .join('\n');
           return `### ${h.name} (${h.path}) 相似度 ${h.score.toFixed(2)}\n${snippet}`;
         });
-        systemParts.push(
-          '【自动检索的笔记片段】以下是与用户问题语义最相关的笔记片段（系统自动检索，非用户显式引用）。回答时优先依据这些内容，并在引用处用 [[相对路径]] 链接标注来源；若片段不足以回答问题，请明确说明而不是编造。\n\n' +
-            parts.join('\n\n'),
-        );
+        systemParts.push(ragContextBlock(parts, plang));
       }
     } catch {
       // No index / backend unreachable — answer ungrounded.
@@ -1567,14 +1519,14 @@ async function send() {
       }
     }
     if (refTexts.length > 0) {
-      systemParts.push(`【用户通过 @ 语法显式引用的参考笔记】\n以下是用户明确指定的背景参考笔记内容，请重点基于这些内容进行分析解答：\n\n${refTexts.join('\n\n')}`);
+      systemParts.push(refsBlock(refTexts, plang));
     }
   }
 
   // Stage 1: Explicit selection context
   if (hasActiveSel && !includeActiveNote.value) {
     const truncatedSel = activeSel.length > 8192 ? activeSel.slice(0, 8192) + '\n…(截断)' : activeSel;
-    systemParts.push(`【用户当前划选的高亮文本片段】\n\`\`\`markdown\n${truncatedSel}\n\`\`\``);
+    systemParts.push(selectionBlock(truncatedSel, plang));
   }
 
   // Now dismiss the badge after full prompt construction (D02)
