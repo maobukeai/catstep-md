@@ -1272,6 +1272,11 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
         }
     }
 
+    let had_mcp_servers = request
+        .mcp_servers
+        .as_ref()
+        .map(|v| v.iter().any(|s| s.enabled))
+        .unwrap_or(false);
     let id_for_task = request_id.clone();
     let app_clone = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -1348,8 +1353,16 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
                 );
             }
         }
+        // Chat runs are the session lifetime unit: kill the MCP children
+        // once this run is done (success, error, or cancel). The registry
+        // is static and never drops, so without this the spawned servers
+        // would leak on every run.
+        if had_mcp_servers {
+            super::mcp_client::shutdown_all().await;
+        }
         drop_cancel_flag(&id_for_task);
     });
+
 
     Ok(request_id)
 }

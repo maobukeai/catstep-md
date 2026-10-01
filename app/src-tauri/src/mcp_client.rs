@@ -12,10 +12,12 @@
 //! **stdio only** — the dominant pattern for local servers. One session per
 //! server config, newline-delimited JSON-RPC 2.0 over the child's
 //! stdin/stdout (the MCP stdio framing). Sessions live in a global registry
-//! keyed by server id and are reused across chat runs; a session found
-//! dead is transparently respawned on next use. Child processes are
-//! spawned with `kill_on_drop`, and stderr is discarded so a chatty server
-//! can't block on a full pipe.
+//! keyed by server id so several tool calls in one run share the process;
+//! a session found dead is transparently respawned. The lifetime unit is
+//! the chat run: `ai_chat` calls `shutdown_all()` when its run finishes
+//! (success, error, or cancel), because a static registry never drops and
+//! the children would otherwise leak. stderr is discarded so a chatty
+//! server can't block on a full pipe.
 //!
 //! On Windows, `.cmd`/`.bat` shims (npx, uvx) cannot be spawned directly —
 //! configure `cmd` with `["/c", "npx", …]` (the settings hint says so).
@@ -284,6 +286,13 @@ impl McpSession {
     fn is_alive(&mut self) -> bool {
         matches!(self.child.try_wait(), Ok(None))
     }
+
+    /// Kill the child process. Sessions live in a static registry that
+    /// never drops, so `kill_on_drop` alone never fires — explicit shutdown
+    /// is the only way children get reaped.
+    async fn kill(&mut self) {
+        let _ = self.child.kill().await;
+    }
 }
 
 fn spawn_reader(stdout: tokio::process::ChildStdout, pending: PendingMap) {
@@ -429,6 +438,19 @@ async fn drop_session(server_id: &str) {
     REGISTRY.lock().await.remove(server_id);
 }
 
+/// Kill every live session and clear the routing tables. Called when a
+/// chat run (or connection test) that used MCP finishes — sessions are
+/// deliberately not kept warm across runs, because a static registry
+/// never drops and the children would outlive the app's usefulness.
+pub async fn shutdown_all() {
+    let mut reg = REGISTRY.lock().await;
+    for (_, session) in reg.drain() {
+        session.lock().await.kill().await;
+    }
+    TOOL_ROUTES.lock().await.clear();
+    TIMEOUTS.lock().await.clear();
+}
+
 /// List a server's tools (spawning + handshaking if needed), registering the
 /// model-facing route for each. Called by the tool loop once per run.
 pub async fn list_server_tools(config: &McpServerConfig) -> Result<Vec<(String, McpToolDef)>, String> {
@@ -502,7 +524,10 @@ pub async fn mcp_test_server(config: McpServerConfig) -> Result<Vec<String>, Str
     if config.command.trim().is_empty() {
         return Err("command is required".into());
     }
-    let tools = list_server_tools(&config).await?;
+    let tools = list_server_tools(&config).await;
+    // A connection test must not leave a server process behind.
+    shutdown_all().await;
+    let tools = tools?;
     Ok(tools.into_iter().map(|(name, _)| name).collect())
 }
 
