@@ -995,7 +995,8 @@ pub fn agent_write_note(
     if let Some(parent) = abs.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
-    std::fs::write(&abs, content).map_err(|e| format!("write: {e}"))?;
+    // Atomic write — a crash mid-write must not truncate the note on disk.
+    super::commands::atomic_write(&abs, content.as_bytes()).map_err(|e| format!("write: {e}"))?;
     let sha = commit_on_branch(workspace, branch, rel_path, &format!("agent: write_note {rel_path}"))?;
     let _ = handle.append_step(serde_json::json!({
         "kind": "git_commit",

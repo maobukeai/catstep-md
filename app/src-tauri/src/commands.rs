@@ -457,6 +457,116 @@ pub fn authorize(path: &str) -> Result<(), String> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// atomic_write — crash/power-loss-safe overwrite for user-facing files.
+//
+// Why: a plain `fs::write` truncates the target first, then fills it. A crash,
+// power loss, or ENOSPC *between* those steps leaves the note as a 0-byte or
+// half-written file — permanent data loss (roadmap P0 "data loss → same-day
+// patch"). Every overwrite of a user note or attachment goes through here
+// instead: write a sibling temp file → fsync it → rename over the target.
+//
+// Platform notes (the details that make this correct, not just "temp+rename"):
+//   * The temp file lives in the TARGET'S directory on purpose: rename is only
+//     atomic within one filesystem/volume. Same-dir guarantees that; a cross-
+//     volume `fs::rename` would fail outright.
+//   * `fs::rename` replaces an existing target on all our platforms — on
+//     Windows it maps to `MoveFileExW(MOVEFILE_REPLACE_EXISTING)`, on Unix to
+//     `rename(2)` — but NOT if the target is a directory or (on Windows) has
+//     open handles without FILE_SHARE_DELETE. Those cases surface as a normal
+//     error and the original file is untouched, which is exactly the old
+//     `fs::write` failure mode minus the truncation risk.
+//   * fsync: `sync_all()` flushes file data + metadata BEFORE the rename.
+//     Without it, a power cut can persist the rename while the data blocks are
+//     still in flight — the exact empty-file corruption this helper exists to
+//     prevent. After the rename we do NOT fsync the parent directory: Unix
+//     would allow it (open dir + fsync) but Windows exposes no directory
+//     flush API at all, so the common denominator is to skip it. Worst case
+//     under a power cut is that the rename itself is lost — i.e. the user
+//     keeps the *previous* file intact — never a truncated note.
+//   * The temp name is unique per process (`.{filename}.{pid}-{seq}.tmp`) so
+//     two concurrent saves of the same note (or of sibling notes) can never
+//     interleave their temp files. Files that fail mid-flight are removed
+//     best-effort so the vault does not accumulate litter; a leftover temp is
+//     harmless anyway — `list_dir_inner` filters dotfiles and the file watcher
+//     only surfaces paths in its `watched_files` set.
+// ---------------------------------------------------------------------------
+pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = SEQ.fetch_add(1, Ordering::Relaxed);
+    let file_name = path
+        .file_name()
+        .map(|f| f.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "file".to_string());
+    let tmp = path.with_file_name(format!(
+        ".{file_name}.{}.{}.tmp",
+        std::process::id(),
+        seq
+    ));
+
+    let write_tmp = || -> std::io::Result<()> {
+        let mut f = fs::File::create(&tmp)?;
+        f.write_all(bytes)?;
+        // fsync BEFORE rename — see the platform notes above.
+        f.sync_all()?;
+        Ok(())
+        // `f` drops here, releasing the handle before the rename.
+    };
+    if let Err(e) = write_tmp() {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("atomic write failed (temp): {e}"));
+    }
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("atomic write failed (rename): {e}"));
+    }
+    Ok(())
+}
+
+/// Overwrite `path` with `content` re-encoded to `encoding_label`, keeping
+/// the BOM the original file carried. Companion to `read_text_detected`:
+/// callers that read with detection (frontmatter editor, agent patch) must
+/// write back in the SAME encoding — writing plain UTF-8 here used to
+/// silently transcode a GBK / Big5 archive note the moment one property
+/// changed. Goes through `atomic_write` (temp + fsync + rename) like every
+/// other user-facing overwrite.
+///
+/// Fails loudly when `content` holds characters the target encoding cannot
+/// represent — the caller surfaces that instead of writing U+FFFD litter
+/// into a legacy file.
+pub(crate) fn atomic_write_encoded(
+    path: &Path,
+    content: &str,
+    encoding_label: &str,
+    had_bom: bool,
+) -> Result<(), String> {
+    let enc = Encoding::for_label(encoding_label.as_bytes()).unwrap_or(UTF_8);
+    let (cow, _, had_errors) = enc.encode(content);
+    if had_errors {
+        return Err(format!(
+            "Some characters cannot be represented in {}",
+            enc.name()
+        ));
+    }
+    // `encode()` never emits a BOM; re-add the one the original had.
+    // `had_bom` only ever comes from `sniff_bom`, so the encoding here is
+    // always one of these three; anything else just gets no BOM.
+    let mut bytes = Vec::with_capacity(cow.len() + 3);
+    if had_bom {
+        match enc.name() {
+            "UTF-8" => bytes.extend_from_slice(&[0xEF, 0xBB, 0xBF]),
+            "UTF-16LE" => bytes.extend_from_slice(&[0xFF, 0xFE]),
+            "UTF-16BE" => bytes.extend_from_slice(&[0xFE, 0xFF]),
+            _ => {}
+        }
+    }
+    bytes.extend_from_slice(cow.as_ref());
+    atomic_write(path, &bytes)
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileReadResult {
     pub content: String,
@@ -531,41 +641,107 @@ pub fn read_file_inner(path: String) -> Result<FileReadResult, String> {
         Err(e) => return Err(format!("read failed: {e}")),
     };
 
+    let det = decode_text_detected(&bytes);
+    Ok(FileReadResult {
+        content: det.content,
+        encoding: det.encoding,
+        language: detect_language(&path),
+        had_bom: det.had_bom,
+    })
+}
+
+/// Decoded text plus the metadata needed to write it back faithfully.
+///
+/// This is the shared decoding pipeline behind the editor (`read_file`) and
+/// every "read the whole vault" path (global search, the workspace index,
+/// the RAG indexer, the agent tools, the frontmatter editor) — so a note
+/// saved in GBK / Big5 / Shift-JIS is first-class everywhere instead of only
+/// in the editor.
+#[derive(Debug, Clone)]
+pub struct DetectedText {
+    /// Decoded content. When the bytes could not be decoded cleanly this is
+    /// the lossy UTF-8 rendering (U+FFFD for bad bytes) and `had_errors` is
+    /// set — callers that would PERSIST the text back to disk (frontmatter
+    /// editor, agent patch) must refuse rather than enshrine mojibake.
+    pub content: String,
+    /// Encoding label as reported by `encoding_rs` (`"UTF-8"`, `"GBK"`,
+    /// `"Big5"`, `"UTF-16LE"`, ...). Feed it to `atomic_write_encoded` (or
+    /// `Encoding::for_label`) to re-encode in the same encoding.
+    pub encoding: String,
+    /// The file carried a BOM; it is stripped from `content`.
+    pub had_bom: bool,
+    /// Malformed bytes were hit and `content` came from the lossy fallback.
+    pub had_errors: bool,
+}
+
+/// Decode raw bytes: BOM sniff first, then a cheap UTF-8 validation fast
+/// path, and only when that fails chardetng — the exact pipeline
+/// `read_file_inner` has always used. Pure function (no I/O) so callers
+/// holding a buffer — e.g. `agent_tools::tool_list_notes` with its 8 KB
+/// prefix read — can run the same detection without re-reading the file.
+pub fn decode_text_detected(bytes: &[u8]) -> DetectedText {
     // Try BOM first.
-    let (encoding, had_bom, body) = if let Some((enc, bom_len)) = sniff_bom(&bytes) {
+    let (encoding, had_bom, body) = if let Some((enc, bom_len)) = sniff_bom(bytes) {
         (enc, true, &bytes[bom_len..])
+    } else if let Ok(s) = std::str::from_utf8(bytes) {
+        // Fast path: the file is already valid UTF-8 — skip the chardetng
+        // scan entirely. This is virtually every note in a modern vault, so
+        // the vault-wide readers pay no detection cost over `read_to_string`.
+        return DetectedText {
+            content: s.to_owned(),
+            encoding: "UTF-8".to_string(),
+            had_bom: false,
+            had_errors: false,
+        };
     } else {
         // chardetng for everything else.
         let mut detector = EncodingDetector::new(Iso2022JpDetection::Allow);
-        detector.feed(&bytes, true);
+        detector.feed(bytes, true);
         let enc = detector.guess(None, Utf8Detection::Allow);
-        (enc, false, bytes.as_slice())
+        (enc, false, bytes)
     };
 
-    let (cow, _used_enc, had_errors) = encoding.decode_without_bom_handling_and_without_replacement(body)
+    let (cow, _used_enc, had_errors) = encoding
+        .decode_without_bom_handling_and_without_replacement(body)
         .map(|c| (c, encoding, false))
         .unwrap_or_else(|| {
-            let (c, used, errs) = encoding.decode(body);
-            (c, used, errs)
+            let (c, _used, errs) = encoding.decode(body);
+            (c, _used, errs)
         });
 
     if had_errors {
-        // Fall back to lossy UTF-8 so the user sees something rather than an error.
-        let lossy = String::from_utf8_lossy(body).into_owned();
-        return Ok(FileReadResult {
-            content: lossy,
+        // Fall back to lossy UTF-8 so the user sees something rather than an
+        // error — the long-standing `read_file` behavior.
+        return DetectedText {
+            content: String::from_utf8_lossy(body).into_owned(),
             encoding: encoding.name().to_string(),
-            language: detect_language(&path),
             had_bom,
-        });
+            had_errors: true,
+        };
     }
 
-    Ok(FileReadResult {
+    DetectedText {
         content: cow.into_owned(),
         encoding: encoding.name().to_string(),
-        language: detect_language(&path),
         had_bom,
-    })
+        had_errors: false,
+    }
+}
+
+/// Read a whole file from disk and decode it through `decode_text_detected`.
+///
+/// The entry point for every whole-vault reader — global search
+/// (`search::search_in_dir_inner`), the workspace index
+/// (`workspace_index::scan_file`), the RAG indexer (`rag::index_one_file`)
+/// and the agent tools. These used to call `fs::read_to_string` directly,
+/// which hard-fails on legacy-encoded notes: a GBK note opened fine in the
+/// editor but was invisible to search, backlinks, tags and RAG. Decoding
+/// failures surface as the lossy rendering with `had_errors` set, so
+/// vault-wide scanners can skip junk the same way they used to skip
+/// unreadable files.
+pub fn read_text_detected(path: &Path) -> Result<DetectedText, String> {
+    let bytes = fs::read(path).map_err(|e| format!("read failed: {e}"))?;
+    Ok(decode_text_detected(&bytes))
 }
 
 /// Write a UTF-8 string back to disk in the requested encoding.
@@ -677,7 +853,7 @@ pub fn write_file_inner(path: String, content: String, encoding: String) -> Resu
             enc.name()
         ));
     }
-    fs::write(&path, cow.as_ref()).map_err(|e| format!("write failed: {e}"))?;
+    atomic_write(Path::new(&path), cow.as_ref())?;
 
     super::watcher::mark_self_write(&path);
 
@@ -717,7 +893,7 @@ pub fn write_binary_file_inner(path: String, data: Vec<u8>) -> Result<(), String
                 .map_err(|e| format!("mkdir failed: {e}"))?;
         }
     }
-    fs::write(&path, &data).map_err(|e| format!("write failed: {e}"))?;
+    atomic_write(Path::new(&path), &data)?;
     // #148 follow-up — binary writes (content:// imports, pasted images) are
     // our own writes too; without the mark, a late watcher event for them
     // pops the "File Changed on Disk" dialog on the file the user just opened.
@@ -786,8 +962,7 @@ pub fn fs_create_file(path: String, content: Option<String>) -> Result<(), Strin
             fs::create_dir_all(parent).map_err(|e| format!("mkdir failed: {e}"))?;
         }
     }
-    fs::write(p, content.unwrap_or_default().as_bytes())
-        .map_err(|e| format!("create failed: {e}"))
+    atomic_write(p, content.unwrap_or_default().as_bytes())
 }
 
 #[tauri::command]
@@ -939,7 +1114,7 @@ fn rewrite_assets_refs(file: &Path, old_assets: &Path, new_assets: &Path) -> Res
         return Ok(());
     }
     let rewritten = body.replace(&old_pat, &new_pat);
-    fs::write(file, rewritten).map_err(|e| format!("write back: {e}"))
+    atomic_write(file, rewritten.as_bytes())
 }
 
 fn sniff_bom(bytes: &[u8]) -> Option<(&'static Encoding, usize)> {
@@ -1412,13 +1587,34 @@ pub async fn update_frontmatter_property(
 ) -> Result<String, String> {
     authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let next = set_frontmatter_property_str(&raw, &key, &value)?;
-        fs::write(&path, &next).map_err(|e| e.to_string())?;
-        Ok(next)
+        update_frontmatter_property_inner(path, key, value)
     })
     .await
     .map_err(|e| format!("join: {e}"))?
+}
+
+/// Inner of `update_frontmatter_property`, exposed for tests.
+///
+/// Reads through `read_text_detected`, so the command now works on
+/// legacy-encoded (GBK / Big5 / ...) notes instead of failing outright on
+/// `read_to_string`, and writes back through `atomic_write_encoded` in the
+/// encoding the file was FOUND in — the old `atomic_write(.., next.as_bytes())`
+/// silently transcoded such notes to UTF-8 on the first property edit.
+pub fn update_frontmatter_property_inner(
+    path: String,
+    key: String,
+    value: serde_json::Value,
+) -> Result<String, String> {
+    let det = read_text_detected(Path::new(&path))?;
+    if det.had_errors {
+        return Err(format!(
+            "file is not decodable as {} text; refusing to edit frontmatter to avoid corrupting it",
+            det.encoding
+        ));
+    }
+    let next = set_frontmatter_property_str(&det.content, &key, &value)?;
+    atomic_write_encoded(Path::new(&path), &next, &det.encoding, det.had_bom)?;
+    Ok(next)
 }
 
 /// Tauri command: surgically delete a frontmatter property on `path` and
@@ -1431,11 +1627,91 @@ pub async fn delete_frontmatter_property(
 ) -> Result<String, String> {
     authorize(&path)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let raw = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let next = delete_frontmatter_property_str(&raw, &key)?;
-        fs::write(&path, &next).map_err(|e| e.to_string())?;
-        Ok(next)
+        delete_frontmatter_property_inner(path, key)
     })
     .await
     .map_err(|e| format!("join: {e}"))?
+}
+
+/// Inner of `delete_frontmatter_property`, exposed for tests. Same
+/// detected-read / same-encoding-write contract as the update twin.
+pub fn delete_frontmatter_property_inner(path: String, key: String) -> Result<String, String> {
+    let det = read_text_detected(Path::new(&path))?;
+    if det.had_errors {
+        return Err(format!(
+            "file is not decodable as {} text; refusing to edit frontmatter to avoid corrupting it",
+            det.encoding
+        ));
+    }
+    let next = delete_frontmatter_property_str(&det.content, &key)?;
+    atomic_write_encoded(Path::new(&path), &next, &det.encoding, det.had_bom)?;
+    Ok(next)
+}
+
+#[cfg(test)]
+mod atomic_write_tests {
+    use super::atomic_write;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    fn scratch_dir(tag: &str) -> PathBuf {
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let id = format!(
+            "solomd-atomic-write-{}-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed),
+            tag
+        );
+        let dir = std::env::temp_dir().join(id);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// The whole point of the helper: the old content is fully replaced and
+    /// no temp litter survives the call.
+    #[test]
+    fn overwrite_replaces_content_and_leaves_no_temp_files() {
+        let dir = scratch_dir("overwrite");
+        let p = dir.join("note.md");
+        fs::write(&p, "old content that is longer\n".repeat(64)).unwrap();
+
+        atomic_write(&p, b"new bytes").unwrap();
+
+        assert_eq!(fs::read(&p).unwrap(), b"new bytes");
+        let litter: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(litter.is_empty(), "temp files left behind: {litter:?}");
+    }
+
+    #[test]
+    fn creates_file_when_target_missing() {
+        let dir = scratch_dir("create");
+        let p = dir.join("fresh.md");
+        atomic_write(&p, b"first save").unwrap();
+        assert_eq!(fs::read(&p).unwrap(), b"first save");
+    }
+
+    #[test]
+    fn consecutive_writes_to_the_same_file_all_land() {
+        // Two saves in a row exercise the unique-temp-name path: a colliding
+        // temp name would make the second rename fail or interleave.
+        let dir = scratch_dir("repeat");
+        let p = dir.join("note.md");
+        for i in 0..5 {
+            atomic_write(&p, format!("save {i}").as_bytes()).unwrap();
+            assert_eq!(fs::read(&p).unwrap(), format!("save {i}").as_bytes());
+        }
+    }
+
+    #[test]
+    fn non_ascii_file_name_is_preserved() {
+        let dir = scratch_dir("cjk-name");
+        let p = dir.join("中文笔记.md");
+        atomic_write(&p, "内容".as_bytes()).unwrap();
+        assert_eq!(fs::read(&p).unwrap(), "内容".as_bytes());
+    }
 }

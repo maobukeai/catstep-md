@@ -522,7 +522,10 @@ pub struct AiClient {
 
 /// Resolve a client's MCP config path. Returns `None` when we can't infer
 /// it (eg. Linux + Claude Desktop, which doesn't ship for Linux).
-fn ai_client_config_path(client_id: &str, app: &AppHandle) -> Option<PathBuf> {
+/// `pub(crate)` so `open_external.rs` can re-derive the same path in Rust
+/// (never trusting a path string the WebView holds) for its
+/// `open_ai_client_config` command.
+pub(crate) fn ai_client_config_path(client_id: &str, app: &AppHandle) -> Option<PathBuf> {
     let home = app.path().home_dir().ok();
 
     match client_id {

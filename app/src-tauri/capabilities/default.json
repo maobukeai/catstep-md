@@ -33,7 +33,6 @@
     "core:webview:allow-create-webview-window",
     "core:webview:allow-set-webview-zoom",
     "opener:default",
-    "opener:allow-open-path",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
@@ -59,14 +58,5 @@
         }
       ]
     }
-  ],
-  "scope": {
-    "opener": {
-      "allow": [
-        {
-          "path": "$HOME/**"
-        }
-      ]
-    }
-  }
+  ]
 }

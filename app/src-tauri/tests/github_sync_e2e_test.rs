@@ -226,6 +226,82 @@ fn github_sync_surfaces_conflicts_on_concurrent_edit() {
     assert!(r.conflicts[0].ends_with("note.md"));
 }
 
+/// Regression test (S02): a pull — auto or manual — must never let the
+/// fast-forward's `checkout_head(force())` discard uncommitted local
+/// edits. Before the fix the FF path ran force checkout straight over
+/// the working tree, and for a plaintext vault that IS the user's
+/// workspace, so a background pull could silently wipe unsaved writing.
+/// Now the pull entry commits pending tracked work first, the same
+/// semantics push uses, so the local edit survives AND the remote
+/// change still arrives (via merge, since the safety commit diverges
+/// the histories).
+#[test]
+fn github_pull_preserves_uncommitted_local_edits() {
+    let bare_dir = fresh_dir("bare-dirty");
+    Repository::init_bare(&bare_dir).unwrap();
+    let bare_url = file_url(&bare_dir);
+
+    // Device A: two-file baseline, pushed.
+    let dev_a = init_workspace_with_remote("dirtyA", &bare_url);
+    write(&dev_a.join("note.md"), "baseline note\n");
+    write(&dev_a.join("other.md"), "other baseline\n");
+    {
+        let repo_a = Repository::open(&dev_a).unwrap();
+        commit_all(&repo_a, "baseline");
+    }
+    github_push_inner(dev_a.to_string_lossy().into_owned(), "ignored".into(), None)
+        .expect("baseline push");
+
+    // Device B pulls the baseline down.
+    let dev_b = init_workspace_with_remote("dirtyB", &bare_url);
+    {
+        let repo_b = Repository::open(&dev_b).unwrap();
+        commit_all(&repo_b, "init: B");
+    }
+    github_pull_inner(dev_b.to_string_lossy().into_owned(), "ignored".into())
+        .expect("B pulls baseline");
+    assert_eq!(
+        fs::read_to_string(dev_b.join("note.md")).unwrap().replace("\r\n", "\n"),
+        "baseline note\n"
+    );
+
+    // A moves note.md forward and pushes.
+    write(&dev_a.join("note.md"), "remote v2\n");
+    {
+        let repo_a = Repository::open(&dev_a).unwrap();
+        commit_all(&repo_a, "A edit");
+    }
+    github_push_inner(dev_a.to_string_lossy().into_owned(), "ignored".into(), None)
+        .expect("A pushes v2");
+
+    // B edits other.md but does NOT commit — exactly the state the old
+    // FF path would have flattened with checkout_head(force()).
+    write(&dev_b.join("other.md"), "other edited locally, uncommitted\n");
+
+    let r = github_pull_inner(dev_b.to_string_lossy().into_owned(), "ignored".into())
+        .expect("pull with uncommitted local edits must not fail");
+    assert!(
+        r.kind == "merged" || r.kind == "fast_forward",
+        "expected merged/fast_forward, got {} (conflicts: {:?})",
+        r.kind,
+        r.conflicts
+    );
+    // The remote change still arrived...
+    assert_eq!(
+        fs::read_to_string(dev_b.join("note.md")).unwrap().replace("\r\n", "\n"),
+        "remote v2\n",
+        "remote edit should arrive despite the local dirty state"
+    );
+    // ...and the uncommitted local edit survived the pull.
+    assert_eq!(
+        fs::read_to_string(dev_b.join("other.md"))
+            .unwrap()
+            .replace("\r\n", "\n"),
+        "other edited locally, uncommitted\n",
+        "uncommitted local edit was clobbered by the pull"
+    );
+}
+
 /// Regression test for the v3.0.x audit fix: sync.json that fails to
 /// parse must NOT degrade silently to a default Config (which would
 /// have encrypted=false and could push plaintext from a workspace

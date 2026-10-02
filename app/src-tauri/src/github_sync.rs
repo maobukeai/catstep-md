@@ -581,7 +581,9 @@ pub async fn github_enable_encryption(
 
         // 1. Set passphrase (also writes shadow salt + workspace metadata
         //    + keychain entry + marker file via crypto.rs side effects).
-        super::crypto::crypto_set_passphrase(folder.clone(), passphrase)?;
+        //    The guard-free `_inner` — this command shell already authorized
+        //    `folder` above, and the shell would only re-run the same check.
+        super::crypto::crypto_set_passphrase_inner(folder.clone(), passphrase)?;
 
         // 2. Initialise the shadow as a fresh git repo with the same
         //    origin URL. The previous workspace .git/ keeps its origin
@@ -1045,9 +1047,28 @@ pub async fn gitea_create_vault_repo(
     gitea_api_post(&base, "/api/v1/user/repos", &token, &req).await
 }
 
+/// Live re-check of "does the working tree hold uncommitted changes to
+/// tracked files?" — the same statuses-based predicate `github_sync_status`
+/// reports to the UI, minus untracked files: force checkout leaves files
+/// HEAD doesn't know about alone, and link-time artifacts like a
+/// not-yet-committed `.gitignore` must not turn every fresh pull into a
+/// merge. This is what lets the pull entry point commit pending work
+/// before `checkout_head(force())` can flatten it.
+fn workdir_has_uncommitted_tracked_changes(repo: &Repository) -> bool {
+    match repo.statuses(None) {
+        Ok(statuses) => statuses.iter().any(|entry| {
+            let s = entry.status();
+            !s.is_ignored() && !s.is_empty() && !s.contains(git2::Status::WT_NEW)
+        }),
+        Err(_) => false,
+    }
+}
+
 /// In a repo, stage every change in the working tree and commit. No-op
 /// if there's nothing to commit. Used by E2EE push/pull to keep the
-/// shadow's git history advancing as the user edits the workspace.
+/// shadow's git history advancing as the user edits the workspace, and
+/// by the plaintext pull entry point to save uncommitted edits before
+/// the fast-forward checkout runs.
 fn commit_shadow_if_dirty(repo_dir: &Path, message: &str) -> Result<(), String> {
     let repo = Repository::open(repo_dir).map_err(|e| e.to_string())?;
     let mut index = repo.index().map_err(|e| e.to_string())?;
@@ -1191,6 +1212,11 @@ pub struct PullResult {
 
 /// Sync core for pull — exposed for integration tests.
 ///
+/// Before anything is fetched or checked out, uncommitted changes to
+/// tracked files are committed (`workspace state at pull`) so the
+/// fast-forward's force checkout can never discard them — one guard here
+/// covers both the auto-pull timer and the manual pull button.
+///
 /// When E2EE is enabled, this fetches/merges into the shadow dir as
 /// usual and then runs `crypto_decrypt_after_pull` so the user's
 /// plaintext working tree picks up remote edits.
@@ -1214,6 +1240,27 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
         if super::crypto::crypto_encrypt_for_push_inner(folder.clone()).is_ok() {
             commit_shadow_if_dirty(&path, "encrypted: workspace state at pull")?;
         }
+    }
+    // Safety net for the fast-forward below: `checkout_head(force())`
+    // flattens uncommitted edits, and for a plaintext vault the repo IS
+    // the workspace — a background auto-pull could silently erase unsaved
+    // writing. The frontend guards (a cached `status.dirty` check on
+    // auto-pull, nothing at all on manual pull) race the timer, so decide
+    // here on live libgit2 statuses: commit pending tracked work first,
+    // the same semantics the push path uses. Untracked files are excluded
+    // on purpose (see `workdir_has_uncommitted_tracked_changes`), and an
+    // index with unresolved conflicts stays the conflict panel's job —
+    // committing it would bake conflict markers into history.
+    let needs_safety_commit = {
+        let repo = Repository::open(&path).map_err(|e| e.to_string())?;
+        let conflicted = repo
+            .index()
+            .map(|index| index.has_conflicts())
+            .unwrap_or(false);
+        !conflicted && workdir_has_uncommitted_tracked_changes(&repo)
+    };
+    if needs_safety_commit {
+        commit_shadow_if_dirty(&path, "workspace state at pull")?;
     }
         let repo = Repository::open(&path).map_err(|e| e.to_string())?;
         // #147 — normalize the same way push does, or a device whose local
@@ -1465,13 +1512,14 @@ pub async fn github_resolve_conflict(
             "local" => {
                 if let Some(ours) = found_ours {
                     let blob = repo.find_blob(ours.id).map_err(|e| e.to_string())?;
-                    fs::write(&abs, blob.content()).map_err(|e| e.to_string())?;
+                    // Atomic write — a crash mid-resolve must not truncate the note.
+                    super::commands::atomic_write(&abs, blob.content()).map_err(|e| e.to_string())?;
                 }
             }
             "remote" => {
                 if let Some(theirs) = found_theirs {
                     let blob = repo.find_blob(theirs.id).map_err(|e| e.to_string())?;
-                    fs::write(&abs, blob.content()).map_err(|e| e.to_string())?;
+                    super::commands::atomic_write(&abs, blob.content()).map_err(|e| e.to_string())?;
                 }
             }
             "both" => {
@@ -1486,7 +1534,8 @@ pub async fn github_resolve_conflict(
                         .unwrap_or_default();
                     let now = chrono_like_date();
                     let neighbor = abs.with_file_name(format!("{}.remote-{}{}", stem, now, ext));
-                    fs::write(&neighbor, blob.content()).map_err(|e| e.to_string())?;
+                    super::commands::atomic_write(&neighbor, blob.content())
+                        .map_err(|e| e.to_string())?;
                 }
             }
             _ => return Err(format!("unknown choice: {}", choice)),

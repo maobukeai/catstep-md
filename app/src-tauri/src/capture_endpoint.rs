@@ -716,7 +716,8 @@ pub fn capture_write_inner(
     }
 
     let body = render_note(&derived_title, content, url, tags, inbox, &captured_at);
-    std::fs::write(&target, body)
+    // Atomic write — a crash mid-save must not leave a half-written clip.
+    super::commands::atomic_write(&target, body.as_bytes())
         .map_err(|e| CaptureError::Io(format!("write {}: {e}", target.display())))?;
 
     Ok(target.to_string_lossy().to_string())

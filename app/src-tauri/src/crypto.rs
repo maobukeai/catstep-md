@@ -358,6 +358,16 @@ pub fn crypto_status(folder: String) -> Result<CryptoStatus, String> {
 /// silently rotate).
 #[tauri::command]
 pub fn crypto_set_passphrase(folder: String, passphrase: String) -> Result<(), String> {
+    // Caller-supplied vault path — prove it is inside an authorized root.
+    super::commands::authorize(&folder)?;
+    crypto_set_passphrase_inner(folder, passphrase)
+}
+
+/// Guard-free body of `crypto_set_passphrase` — like the other crypto
+/// `_inner` helpers it stays callable from tests (and from Rust-internal
+/// callers such as `github_enable_encryption`, which authorizes its own
+/// input) without pre-registering path-guard roots.
+pub fn crypto_set_passphrase_inner(folder: String, passphrase: String) -> Result<(), String> {
     if passphrase.is_empty() {
         return Err("passphrase cannot be empty".into());
     }
@@ -481,7 +491,9 @@ pub fn crypto_encrypt_for_push_inner(folder: String) -> Result<String, String> {
             if let Some(parent) = enc_target.parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
-            fs::write(&enc_target, blob).map_err(|e| e.to_string())?;
+            // Atomic write — a truncated .enc mirror would be an
+            // unfixable (ciphertext) loss after the plaintext is removed.
+            super::commands::atomic_write(&enc_target, &blob).map_err(|e| e.to_string())?;
             // Remove a stale plaintext mirror if the user disabled then
             // re-enabled encryption between syncs.
             let _ = fs::remove_file(&target);
@@ -578,7 +590,8 @@ pub fn crypto_decrypt_after_pull_inner(folder: String) -> Result<(), String> {
             if let Some(parent) = plain_target.parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
-            fs::write(&plain_target, plaintext).map_err(|e| e.to_string())?;
+            // Atomic write — a crash mid-decrypt must not truncate the note.
+            super::commands::atomic_write(&plain_target, &plaintext).map_err(|e| e.to_string())?;
         } else {
             // Mirrored binary — copy back.
             if let Some(parent) = target.parent() {
@@ -690,7 +703,7 @@ mod tests {
         fs::write(ws.join(".solomd/sync.json"), b"{}").unwrap();
 
         let folder = ws.to_string_lossy().to_string();
-        crypto_set_passphrase(folder.clone(), "hunter2".into()).unwrap();
+        crypto_set_passphrase_inner(folder.clone(), "hunter2".into()).unwrap();
         let shadow = crypto_encrypt_for_push_inner(folder.clone()).unwrap();
         let shadow_dir = PathBuf::from(&shadow);
         assert!(shadow_dir.join("notes/a.md.enc").exists());
@@ -709,10 +722,32 @@ mod tests {
     fn second_set_passphrase_with_wrong_word_fails() {
         let ws = fresh("ws-pp");
         let folder = ws.to_string_lossy().to_string();
-        crypto_set_passphrase(folder.clone(), "correct".into()).unwrap();
-        let bad = crypto_set_passphrase(folder, "guess".into());
+        crypto_set_passphrase_inner(folder.clone(), "correct".into()).unwrap();
+        let bad = crypto_set_passphrase_inner(folder, "guess".into());
         assert!(bad.is_err());
         let _ = crypto_clear_passphrase(ws.to_string_lossy().to_string());
+    }
+
+    /// S20 — `crypto_set_passphrase` is a guarded shell: a vault path the
+    /// path_guard never authorized must be refused before any file / keyring
+    /// side effect. Unit tests run with no primed roots (they are only added
+    /// by `prime_app_roots` at app startup), so a fresh temp dir is by
+    /// construction outside every authorized root.
+    #[test]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn set_passphrase_rejects_path_outside_roots() {
+        let ws = fresh("ws-guard");
+        let folder = ws.to_string_lossy().to_string();
+        let res = crypto_set_passphrase(folder, "hunter2".into());
+        assert!(res.is_err(), "unauthorized vault path must be refused");
+        assert!(
+            res.unwrap_err().contains("path outside authorized roots"),
+            "refusal must come from the path guard"
+        );
+        // Nothing may have been written for the rejected vault.
+        assert!(!config_path(&ws).exists());
+        assert!(!shadow_salt_path(&ws).exists());
+        assert!(!key_marker_path(&ws).exists());
     }
 
     #[test]

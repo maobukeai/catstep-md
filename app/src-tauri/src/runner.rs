@@ -80,6 +80,15 @@ mod cloud_folder;
 #[path = "crypto.rs"]
 mod crypto;
 
+// S20 — authorized external open. Replaces the WebView's direct
+// plugin-opener openPath (opener:allow-open-path was removed from the
+// capabilities) with commands that either authorize the path first or
+// re-derive it in Rust. Declared here in addition to lib.rs so the
+// desktop binary picks it up — see the command_registration_test drift
+// guard.
+#[path = "open_external.rs"]
+mod open_external;
+
 // v2.3 dev WebDriver bridge — debug builds only. Module file itself is
 // `#[cfg(debug_assertions)]`-gated, so this `mod` line is too.
 #[cfg(debug_assertions)]
@@ -836,6 +845,7 @@ pub fn run_with(initial_file: Option<String>) {
             commands::fs_dir_exists,
             commands::fs_rename,
             search::search_in_dir,
+            search::search_replace,
             drain_pending_opens,
             force_close_window,
             set_menu_language,
@@ -947,6 +957,8 @@ pub fn run_with(initial_file: Option<String>) {
             crypto::crypto_clear_passphrase,
             crypto::crypto_encrypt_for_push,
             crypto::crypto_decrypt_after_pull,
+            open_external::open_path_external,
+            open_external::open_ai_client_config,
             watcher::watch_file,
             watcher::unwatch_file,
             agent_tools::agent_tool_list_notes,

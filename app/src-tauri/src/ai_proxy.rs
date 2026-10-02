@@ -1463,9 +1463,16 @@ fn build_user_message(req: &RewriteRequest) -> String {
 }
 
 fn http_client() -> Result<reqwest::Client, String> {
+    // No whole-request timeout: every caller here streams, and the old 180 s
+    // deadline ran from connect to end-of-body — a local CPU inference (7B/14B,
+    // reasoning models) routinely outgrew it and had its stream killed
+    // mid-generation even while chunks kept flowing. Stall protection now
+    // happens per chunk in the runners via `STREAM_IDLE_TIMEOUT`; there is no
+    // total cap. What still bounds this client: `connect_timeout` for the
+    // dial, and the per-chunk idle timeout once the body starts. A future
+    // non-streaming caller should set its own budget per request
+    // (`RequestBuilder::timeout`) — 180 s was the old whole-request value.
     reqwest::Client::builder()
-        // Generous timeout per request; streaming connections can be long.
-        .timeout(Duration::from_secs(180))
         .connect_timeout(Duration::from_secs(20))
         .build()
         .map_err(|e| format!("http client init failed: {e}"))
@@ -1487,6 +1494,35 @@ fn stream_ended_early(provider: &str) -> String {
     format!(
         "{provider} stream ended before the completion marker — the connection closed \
          early and the partial output was discarded. Check your network and retry."
+    )
+}
+
+/// Maximum silence inside a streamed response: between response headers and
+/// the first chunk, and between any two consecutive chunks. Every runner wraps
+/// its `stream.next()` in a `tokio::time::timeout` of this length.
+///
+/// This replaces the old whole-request 180 s deadline, which also cut off
+/// perfectly healthy long generations (the stream is only required to *keep
+/// moving*, not to finish quickly). The value sits well under the frontend's
+/// 5-minute silence watchdog (AgentPanel `AGENT_WATCHDOG_MS`), so a stalled
+/// stream is always reported by the backend with a precise provider error
+/// before the panel detaches with the generic watchdog message.
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Error for the per-chunk idle timeout (`STREAM_IDLE_TIMEOUT`) firing.
+///
+/// A stop click only lands as a cancel flag that is polled on chunk arrival,
+/// so a cancel pressed during a stall surfaces here: report `cancelled` in
+/// that case rather than a stall the user cannot act on — they asked for the
+/// stop themselves.
+fn stream_stalled(provider: &str, cancel: &AtomicBool) -> String {
+    if cancel.load(Ordering::SeqCst) {
+        return cancelled();
+    }
+    format!(
+        "{provider} stream stalled: no data for {}s — the connection dropped or \
+         the server hung. Check your network or model server and retry.",
+        STREAM_IDLE_TIMEOUT.as_secs()
     )
 }
 
@@ -1567,15 +1603,15 @@ async fn run_openai(
     let mut finish_reason = String::new();
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => {
+            Ok(None) => {
                 eof = true;
                 // A final event can still be sitting in the buffer without its
                 // terminating blank line — the server closed right after the
@@ -1585,6 +1621,7 @@ async fn run_openai(
                     buf.push_str("\n\n");
                 }
             }
+            Err(_) => return Err(stream_stalled("openai", &cancel)),
         }
         // Process complete SSE events terminated by blank line.
         while let Some(idx) = find_event_boundary(&buf) {
@@ -1692,20 +1729,21 @@ async fn run_chat_openai(
     let mut finish_reason = String::new();
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => {
+            Ok(None) => {
                 eof = true;
                 if !buf.trim().is_empty() {
                     buf.push_str("\n\n");
                 }
             }
+            Err(_) => return Err(stream_stalled("openai", &cancel)),
         }
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
@@ -1814,15 +1852,15 @@ async fn run_anthropic(
     let mut saw_message_stop = false;
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => {
+            Ok(None) => {
                 eof = true;
                 // Parse a trailing event that arrived without its blank-line
                 // separator before the connection closed.
@@ -1830,6 +1868,7 @@ async fn run_anthropic(
                     buf.push_str("\n\n");
                 }
             }
+            Err(_) => return Err(stream_stalled("anthropic", &cancel)),
         }
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
@@ -2024,20 +2063,21 @@ async fn run_chat_anthropic(
     let mut saw_message_stop = false;
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => {
+            Ok(None) => {
                 eof = true;
                 if !buf.trim().is_empty() {
                     buf.push_str("\n\n");
                 }
             }
+            Err(_) => return Err(stream_stalled("anthropic", &cancel)),
         }
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
@@ -2142,15 +2182,16 @@ async fn run_ollama(
     let mut saw_done = false;
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("ollama stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => eof = true,
+            Ok(None) => eof = true,
+            Err(_) => return Err(stream_stalled("ollama", &cancel)),
         }
         // Ollama emits one JSON object per line.
         while let Some(nl) = buf.find('\n') {
@@ -2550,15 +2591,16 @@ async fn ollama_one_turn<R: tauri::Runtime>(
     let mut eof = false;
     let mut stream = resp.bytes_stream();
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("ollama stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => eof = true,
+            Ok(None) => eof = true,
+            Err(_) => return Err(stream_stalled("ollama", &cancel)),
         }
         while let Some(nl) = buf.find('\n') {
             let line = buf[..nl].trim().to_string();
@@ -3147,15 +3189,15 @@ async fn anthropic_one_turn(
     let mut saw_message_stop = false;
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("anthropic stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => {
+            Ok(None) => {
                 eof = true;
                 // Parse a trailing event that arrived without its blank-line
                 // separator before the connection closed.
@@ -3163,6 +3205,7 @@ async fn anthropic_one_turn(
                     buf.push_str("\n\n");
                 }
             }
+            Err(_) => return Err(stream_stalled("anthropic", &cancel)),
         }
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();
@@ -3729,15 +3772,15 @@ async fn openai_one_turn(
     let mut saw_done = false;
     let mut eof = false;
     'stream: while !eof {
-        match stream.next().await {
-            Some(chunk) => {
+        match tokio::time::timeout(STREAM_IDLE_TIMEOUT, stream.next()).await {
+            Ok(Some(chunk)) => {
                 if cancel.load(Ordering::SeqCst) {
                     return Err(cancelled());
                 }
                 let bytes = chunk.map_err(|e| format!("openai stream error: {e}"))?;
                 buf.push_str(&String::from_utf8_lossy(&bytes));
             }
-            None => {
+            Ok(None) => {
                 eof = true;
                 // Parse a trailing event that arrived without its blank-line
                 // separator before the connection closed.
@@ -3745,6 +3788,7 @@ async fn openai_one_turn(
                     buf.push_str("\n\n");
                 }
             }
+            Err(_) => return Err(stream_stalled("openai", &cancel)),
         }
         while let Some(idx) = find_event_boundary(&buf) {
             let event = buf[..idx].to_string();

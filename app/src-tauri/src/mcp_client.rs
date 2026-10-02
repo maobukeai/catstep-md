@@ -851,7 +851,9 @@ pub async fn mcp_test_server(config: McpServerConfig) -> Result<Vec<String>, Str
     if config.id.trim().is_empty() {
         return Err("server id is required".into());
     }
-    if config.command.trim().is_empty() {
+    // Streamable-HTTP servers carry no command — the url identifies them
+    // (`is_http` guarantees it is non-empty). Stdio servers still need one.
+    if !config.is_http() && config.command.trim().is_empty() {
         return Err("command is required".into());
     }
     let tools = list_server_tools(&config).await?;

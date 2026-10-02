@@ -819,6 +819,13 @@ fn js_string(s: &str) -> String {
 // Tool router
 // ---------------------------------------------------------------------------
 
+/// WebView LocalStorage key of the app's persisted settings blob. Renamed
+/// from `solomd.settings.v1` to `catstep.settings.v1` when the app
+/// rebranded; the app's settings store migrates the legacy blob over and
+/// deletes it on first launch, so tools MUST touch the NEW key — reading or
+/// writing the legacy name operates on orphan data the app never sees again.
+const SETTINGS_LS_KEY: &str = "catstep.settings.v1";
+
 #[tool_router]
 impl DevServer {
     #[tool(description = "Read Catstep MD's persisted settings (settings.v1) from WebKit LocalStorage. Args: { bundle?: 'dev'|'prod' = 'dev' }.")]
@@ -826,7 +833,7 @@ impl DevServer {
         &self,
         Parameters(args): Parameters<BundleArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let v = ls_get(&args.bundle, "solomd.settings.v1")
+        let v = ls_get(&args.bundle, SETTINGS_LS_KEY)
             .map_err(|e| err(format!("get_settings failed: {e}")))?;
         Ok(json_result(v))
     }
@@ -836,13 +843,13 @@ impl DevServer {
         &self,
         Parameters(args): Parameters<SetSettingArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let mut current = ls_get(&args.bundle, "solomd.settings.v1")
+        let mut current = ls_get(&args.bundle, SETTINGS_LS_KEY)
             .map_err(|e| err(format!("read settings: {e}")))?;
         if !current.is_object() { current = JsonValue::Object(Default::default()); }
         if let Some(obj) = current.as_object_mut() {
             obj.insert(args.key.clone(), args.value.clone());
         }
-        ls_put(&args.bundle, "solomd.settings.v1", &current)
+        ls_put(&args.bundle, SETTINGS_LS_KEY, &current)
             .map_err(|e| err(format!("write settings: {e}")))?;
         Ok(text_result(format!("set {} = {}", args.key, args.value)))
     }
@@ -1127,7 +1134,7 @@ impl DevServer {
             "cm-md-fenced-line",
         ];
 
-        let settings = ls_get(&args.bundle, "solomd.settings.v1")
+        let settings = ls_get(&args.bundle, SETTINGS_LS_KEY)
             .unwrap_or(JsonValue::Null);
         let view_mode = settings
             .get("viewMode")

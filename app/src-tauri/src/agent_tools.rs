@@ -849,10 +849,13 @@ fn tool_list_notes(workspace: &Path, args: &Value) -> Result<Value, String> {
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
-        // Read first 8KB for summary / title.
+        // Read first 8KB for summary / title. Decode the prefix through the
+        // shared detection pipeline so a GBK note lists with a readable
+        // title/summary instead of lossy mojibake (the prefix alone is enough
+        // for chardetng to lock on).
         let mut buf = vec![0u8; 8 * 1024];
         let n = read_prefix(&path, &mut buf).unwrap_or(0);
-        let raw = String::from_utf8_lossy(&buf[..n]).to_string();
+        let raw = super::commands::decode_text_detected(&buf[..n]).content;
         let (fm, body) = split_front_matter(&raw);
         let mut fm_error: Option<String> = None;
         let fm_v: Value = match fm {
@@ -916,7 +919,12 @@ fn tool_read_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
     let path = resolve_in_workspace(workspace, path_arg)?;
-    let raw = fs::read_to_string(&path).map_err(|e| format!("read: {e}"))?;
+    // Detection read — a GBK / Big5 note must be readable by the agent, not
+    // only by the editor. Undecodable junk still yields the lossy rendering
+    // (same text the editor would show).
+    let raw = super::commands::read_text_detected(&path)
+        .map_err(|e| format!("read: {e}"))?
+        .content;
     let (fm, body) = split_front_matter(&raw);
     // Bug N: surface YAML front-matter parse errors as `frontmatter_error`
     // instead of silently coercing to Null. The note content still loads
@@ -983,10 +991,15 @@ fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
             if hits.len() >= limit {
                 break;
             }
-            let raw = match fs::read_to_string(&path) {
-                Ok(r) => r,
+            // Detection read — skip undecodable junk like the literal path.
+            let det = match super::commands::read_text_detected(&path) {
+                Ok(d) => d,
                 Err(_) => continue,
             };
+            if det.had_errors {
+                continue;
+            }
+            let raw = det.content;
             for (i, line) in raw.lines().enumerate() {
                 if hits.len() >= limit {
                     break;
@@ -1106,10 +1119,15 @@ fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
         .to_lowercase();
     let mut out: Vec<Value> = Vec::new();
     for path in walk_md_files(workspace) {
-        let raw = match fs::read_to_string(&path) {
-            Ok(r) => r,
+        // Detection read — legacy-encoded notes link too; skip junk.
+        let det = match super::commands::read_text_detected(&path) {
+            Ok(d) => d,
             Err(_) => continue,
         };
+        if det.had_errors {
+            continue;
+        }
+        let raw = det.content;
         let (_, body) = split_front_matter(&raw);
         let links = extract_wikilinks(body);
         for link in links {
@@ -1149,10 +1167,15 @@ fn tool_list_tags(workspace: &Path, _args: &Value) -> Result<Value, String> {
     // front-matter `tags:` arrays were silently dropped.
     let mut frontmatter_errors: Vec<Value> = Vec::new();
     for path in walk_md_files(workspace) {
-        let raw = match fs::read_to_string(&path) {
-            Ok(r) => r,
+        // Detection read — legacy-encoded notes carry tags too; skip junk.
+        let det = match super::commands::read_text_detected(&path) {
+            Ok(d) => d,
             Err(_) => continue,
         };
+        if det.had_errors {
+            continue;
+        }
+        let raw = det.content;
         let (fm, body) = split_front_matter(&raw);
         let fm_v: Value = match fm {
             Some(s) => match serde_yaml::from_str::<Value>(&s) {
@@ -1202,7 +1225,9 @@ fn tool_get_outline(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
     let path = resolve_in_workspace(workspace, path_arg)?;
-    let raw = fs::read_to_string(&path).map_err(|e| format!("read: {e}"))?;
+    let raw = super::commands::read_text_detected(&path)
+        .map_err(|e| format!("read: {e}"))?
+        .content;
     let (_, body) = split_front_matter(&raw);
     let outline = extract_headings(body);
     Ok(json!({"outline": outline}))
@@ -1307,7 +1332,8 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
-    fs::write(&abs, content).map_err(|e| format!("write: {e}"))?;
+    // Atomic write — a crash mid-write must not truncate the note on disk.
+    super::commands::atomic_write(&abs, content.as_bytes()).map_err(|e| format!("write: {e}"))?;
     let lines_count = content.lines().count();
     Ok(json!({
         "ok": true,
@@ -1411,8 +1437,18 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     if !abs.exists() {
         return Err(format!("file not found: {}", abs.to_string_lossy()));
     }
-    
-    let original = fs::read_to_string(&abs).map_err(|e| format!("read: {e}"))?;
+
+    // Detection read — the agent can now patch a GBK / Big5 note instead of
+    // failing on `read_to_string`. `had_errors` means the bytes never decoded
+    // cleanly: refuse rather than persist the lossy rendering over the file.
+    let det = super::commands::read_text_detected(&abs).map_err(|e| format!("read: {e}"))?;
+    if det.had_errors {
+        return Err(format!(
+            "file is not decodable as {} text; refusing to patch to avoid corrupting it",
+            det.encoding
+        ));
+    }
+    let original = det.content;
     
     let has_crlf = original.contains("\r\n");
     let mut modified = original.clone();
@@ -1624,8 +1660,14 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     let backup_path = backup_dir.join(&backup_name);
     let _ = fs::write(&backup_path, &original);
     
-    fs::write(&abs, &modified).map_err(|e| format!("write: {e}"))?;
-    
+    // Atomic write — a crash mid-write must not truncate the note on disk.
+    // Write back in the encoding the file was found in: the plain-UTF-8
+    // `atomic_write` used here would silently transcode a legacy-encoded
+    // note on the first agent patch. Unrepresentable replacement characters
+    // fail loudly in `atomic_write_encoded`.
+    super::commands::atomic_write_encoded(&abs, &modified, &det.encoding, det.had_bom)
+        .map_err(|e| format!("write: {e}"))?;
+
     Ok(json!({
         "ok": true,
         "matches_replaced": matches,
@@ -1715,7 +1757,8 @@ fn tool_restore_note_backup(workspace: &Path, args: &Value) -> Result<Value, Str
         return Err(format!("backup file not found: {}", backup.to_string_lossy()));
     }
     let original = fs::read_to_string(&backup).map_err(|e| format!("read backup: {e}"))?;
-    fs::write(&abs, original).map_err(|e| format!("write: {e}"))?;
+    // Atomic write — a crash mid-restore must not truncate the note on disk.
+    super::commands::atomic_write(&abs, original.as_bytes()).map_err(|e| format!("write: {e}"))?;
 
     Ok(json!({
         "ok": true,

@@ -725,7 +725,9 @@ pub fn git_rollback_file_inner(
     sha: String,
 ) -> Result<(), String> {
     let content = git_file_at_version_inner(folder.clone(), file_path.clone(), sha)?;
-    fs::write(Path::new(&file_path), content).map_err(|e| format!("write: {}", e))?;
+    // Atomic write — a crash mid-rollback must not truncate the file on disk.
+    super::commands::atomic_write(Path::new(&file_path), content.as_bytes())
+        .map_err(|e| format!("write: {e}"))?;
     Ok(())
 }
 

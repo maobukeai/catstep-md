@@ -772,16 +772,24 @@ fn size_of(p: &Path) -> u64 {
 }
 
 fn index_one_file(conn: &Connection, embedder: &dyn Embedder, path: &Path) -> Result<usize, String> {
-    let raw = match fs::read_to_string(path) {
-        Ok(s) => s,
-        // Binary or unreadable file — drop existing rows, skip.
-        Err(_) => {
-            let p = path.to_string_lossy().to_string();
-            let _ = conn.execute("DELETE FROM rag_chunks WHERE path = ?1", params![&p]);
-            let _ = conn.execute("DELETE FROM rag_files WHERE path = ?1", params![&p]);
-            return Ok(0);
-        }
+    // Binary or unreadable file — drop existing rows, skip.
+    let drop_rows = |p: &str| -> Result<usize, String> {
+        let _ = conn.execute("DELETE FROM rag_chunks WHERE path = ?1", params![p]);
+        let _ = conn.execute("DELETE FROM rag_files WHERE path = ?1", params![p]);
+        Ok(0)
     };
+    // Detection read: legacy-encoded (GBK / Big5 / ...) notes used to fail
+    // `read_to_string` and silently vanish from semantic retrieval.
+    let det = match super::commands::read_text_detected(path) {
+        Ok(d) => d,
+        Err(_) => return drop_rows(&path.to_string_lossy()),
+    };
+    if det.had_errors {
+        // Undecodable junk (came back lossy) — same treatment as unreadable,
+        // so stale chunks never resurface.
+        return drop_rows(&path.to_string_lossy());
+    }
+    let raw = det.content;
     let chunks = chunk_text(&raw);
     let p = path.to_string_lossy().to_string();
     conn.execute("DELETE FROM rag_chunks WHERE path = ?1", params![&p])

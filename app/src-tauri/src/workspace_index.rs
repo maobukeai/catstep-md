@@ -536,8 +536,14 @@ fn scan_into(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Files larger than this are not full-text indexed: the scan keeps a stub
+/// entry (filename-derived title) so the note still lists and wikilink-
+/// resolves by stem, but the body is never read. A 100 MB log or dump in the
+/// vault would otherwise be pulled into memory twice — during the rescan
+/// walk AND again on every watcher change — stalling both.
+const MAX_SCAN_FILE_BYTES: u64 = 4 * 1024 * 1024;
+
 fn scan_file(path: &Path) -> Result<IndexEntry, String> {
-    let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
     let meta = fs::metadata(path).map_err(|e| e.to_string())?;
     let mtime = meta
         .modified()
@@ -555,6 +561,39 @@ fn scan_file(path: &Path) -> Result<IndexEntry, String> {
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_string();
+
+    if meta.len() > MAX_SCAN_FILE_BYTES {
+        // Oversized: skip the full-text pass, keep only the title (the file
+        // stem — frontmatter/first-heading would require reading the body).
+        return Ok(IndexEntry {
+            path: path.to_string_lossy().to_string(),
+            name,
+            stem: stem.clone(),
+            mtime,
+            size: meta.len(),
+            frontmatter: serde_json::Value::Null,
+            wikilinks: Vec::new(),
+            tags: Vec::new(),
+            headings: Vec::new(),
+            tasks: Vec::new(),
+            summary: String::new(),
+            title: Some(stem.clone()),
+            relationships: HashMap::new(),
+        });
+    }
+
+    // Detection read: `fs::read_to_string` used to hard-fail on legacy
+    // (GBK / Big5 / ...) encodings, which dropped those notes out of
+    // backlinks / tags / properties entirely. Undecodable junk still comes
+    // back lossy — treat it like the old read failure (not indexed).
+    let det = super::commands::read_text_detected(path).map_err(|e| e.to_string())?;
+    if det.had_errors {
+        return Err(format!(
+            "not decodable as {} text",
+            det.encoding
+        ));
+    }
+    let raw = det.content;
 
     let (frontmatter, body) = split_front_matter(&raw);
     let frontmatter_json: serde_json::Value = match frontmatter {
@@ -1419,8 +1458,8 @@ fn load_cache(app: &AppHandle, root: &Path) -> Option<Vec<IndexEntry>> {
 
 // Helper for backlink context.
 fn read_context(path: &Path, line_no: u32) -> Vec<String> {
-    let raw = match fs::read_to_string(path) {
-        Ok(r) => r,
+    let raw = match super::commands::read_text_detected(path) {
+        Ok(d) => d.content,
         Err(_) => return Vec::new(),
     };
     let lines: Vec<&str> = raw.lines().collect();
