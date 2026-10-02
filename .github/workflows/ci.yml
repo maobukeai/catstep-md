@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   frontend:
-    name: Frontend Quality Gate (i18n, Tests, Build)
+    name: Frontend Quality Gate (i18n, Types, Tests, Build)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -34,10 +34,19 @@ jobs:
           cd app
           pnpm install --frozen-lockfile
 
-      - name: Verify 14-Language i18n Parity (100% Coverage)
+      # Graded i18n gate: en/zh missing keys fail the build; the 12 community
+      # locales only produce a debt report (they fall back to en at runtime).
+      # Also runs the CJK-literal gate — hardcoded CJK outside t() must be
+      # allowlisted (scripts/i18n-cjk-allowlist.json), new literals are blocked.
+      - name: i18n Gate (en/zh parity + CJK literal scan)
         run: |
           cd app
           pnpm run i18n:check
+
+      - name: Type Check Unit Tests (vue-tsc + tsconfig.test.json)
+        run: |
+          cd app
+          pnpm run test:type
 
       - name: Run Unit Test Suite
         run: |
@@ -129,3 +138,45 @@ jobs:
         run: |
           cd mcp-server
           cargo clippy --all-targets -- -D warnings
+
+  # ---------------------------------------------------------------------------
+  # Satellite version drift guard. The website download card and the AUR
+  # PKGBUILD each carry their own copy of the release version, and both have
+  # silently drifted before (the site advertised 4.12.0 and the PKGBUILD
+  # pointed at a v4.11.13 release whose assets had been deleted, while the
+  # app itself was at 1.0.6). app/package.json is the single source of truth;
+  # this job fails when a satellite pin falls behind it.
+  # ---------------------------------------------------------------------------
+  satellite-versions:
+    name: Satellite Version Drift (Download.astro / PKGBUILD vs app/package.json)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Compare satellite version pins against app/package.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(node -p "require('./app/package.json').version")"
+          download="$(sed -n "s/^const VERSION = '\([^']*\)';$/\1/p" web/src/components/Download.astro | head -1)"
+          aur="$(sed -n 's/^pkgver=\([0-9A-Za-z.]*\)$/\1/p' aur-solomd-bin/PKGBUILD)"
+
+          status=0
+          check() {
+            local file="$1" got="$2"
+            if [ "$got" = "$expected" ]; then
+              echo "ok: $file pins $got"
+            else
+              echo "::error file=$file::$file pins '${got:-<unreadable>}' but app/package.json is '${expected}' — update the satellite pin to the release version"
+              status=1
+            fi
+          }
+          check web/src/components/Download.astro "$download"
+          check aur-solomd-bin/PKGBUILD "$aur"
+          exit $status

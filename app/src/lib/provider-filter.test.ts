@@ -14,7 +14,9 @@ import {
 } from './provider-filter.ts';
 import { PROVIDERS, PROVIDER_CATEGORIES, type ProviderConfig } from './ai-providers.ts';
 
-function provider(partial: Partial<ProviderConfig> & { id: string }): ProviderConfig {
+// `id` is widened to plain string on purpose: some tests feed catalog-foreign
+// ids (e.g. 'mystery') to exercise uncategorised-group handling.
+function provider(partial: Omit<Partial<ProviderConfig>, 'id'> & { id: string }): ProviderConfig {
   return {
     label: partial.id,
     apiFormat: 'openai',
