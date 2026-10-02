@@ -1,10 +1,9 @@
 import { watch, onMounted, onBeforeUnmount } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { readNote, unwatchFile, watchFile, writeNote } from '../lib/commands';
 import { isTauri } from '../lib/platform';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
-import type { FileReadResult } from '../types';
 
 type FileChangedAction = 'reload' | 'overwrite' | 'cancel';
 type ShowDialog = (fileName: string) => Promise<FileChangedAction>;
@@ -30,7 +29,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
 
     for (const path of toWatch) {
       try {
-        await invoke('watch_file', { path });
+        await watchFile(path);
         watchedPaths.add(path);
       } catch (e) {
         console.warn('watch_file failed:', e);
@@ -39,7 +38,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
 
     for (const path of toUnwatch) {
       try {
-        await invoke('unwatch_file', { path });
+        await unwatchFile(path);
       } catch (e) {
         console.warn('unwatch_file failed:', e);
       }
@@ -48,7 +47,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
   }
 
   async function reloadTab(tabId: string, filePath: string) {
-    const result = await invoke<FileReadResult>('read_file', { path: filePath });
+    const result = await readNote(filePath);
     // Normalize CRLF→LF so reloads behave like fresh opens (CodeMirror
     // does the same normalization internally, otherwise a re-read of a
     // CRLF file leaves savedContent=CRLF but the editor's doc=LF and
@@ -101,11 +100,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
         } else if (action === 'overwrite') {
           const payload =
             tab.lineEnding === 'crlf' ? tab.content.replace(/\n/g, '\r\n') : tab.content;
-          await invoke('write_file', {
-            path: tab.filePath,
-            content: payload,
-            encoding: tab.encoding || 'UTF-8',
-          });
+          await writeNote(tab.filePath!, payload, { encoding: tab.encoding });
           tabs.markSaved(tab.id, tab.filePath!);
         }
       } catch (e) {
@@ -144,7 +139,7 @@ export function useFileWatcher(showDialog: ShowDialog) {
     }
     for (const path of watchedPaths) {
       try {
-        await invoke('unwatch_file', { path });
+        await unwatchFile(path);
       } catch {}
     }
     watchedPaths.clear();

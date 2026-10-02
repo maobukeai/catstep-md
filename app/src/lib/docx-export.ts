@@ -29,7 +29,7 @@ import {
   TableOfContents,
   LineRuleType,
 } from 'docx';
-import { invoke } from '@tauri-apps/api/core';
+import { readBinaryFile } from './commands';
 import { md, extractImageRoot, preprocessMarkdown } from './markdown';
 import {
   resolveDocxTemplate,
@@ -81,7 +81,7 @@ async function fetchImageBytes(absPath: string): Promise<ImageCache | null> {
   if (cached) return cached;
 
   try {
-    const data = await invoke<number[]>('read_binary_file', { path: absPath });
+    const data = await readBinaryFile(absPath);
     const bytes = new Uint8Array(data);
 
     const { width, height } = readImageDimensions(bytes) ?? { width: 400, height: 300 };

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { openPath } from '@tauri-apps/plugin-opener';
+import { openPathExternal, spellcheckDictsDir, spellcheckListDicts } from '../../lib/commands';
 import { useSettingsStore } from '../../stores/settings';
 import { useTabsStore } from '../../stores/tabs';
 import { useToastsStore } from '../../stores/toasts';
@@ -36,7 +35,7 @@ const spellDicts = ref<string[]>(['en_US']);
 
 async function refreshSpellDicts() {
   try {
-    spellDicts.value = await invoke<string[]>('spellcheck_list_dicts');
+    spellDicts.value = await spellcheckListDicts();
   } catch {
     spellDicts.value = ['en_US'];
   }
@@ -44,8 +43,10 @@ async function refreshSpellDicts() {
 
 async function openDictsFolder() {
   try {
-    const dir = await invoke<string>('spellcheck_dicts_dir');
-    await openPath(dir);
+    const dir = await spellcheckDictsDir();
+    // S20 — opener:allow-open-path is gone; the dictionaries folder lives
+    // in the app config dir (an authorized root), so this passes the guard.
+    await openPathExternal(dir);
     setTimeout(refreshSpellDicts, 1500);
   } catch (e) {
     toasts.error(`${e}`);
@@ -183,6 +184,21 @@ void refreshSpellDicts();
               type="checkbox"
               :checked="settings.slashCommandsEnabled"
               @change="settings.toggleSlashCommandsEnabled()"
+            />
+          </div>
+        </label>
+
+        <!-- Row: 富文本粘贴转 Markdown -->
+        <label class="setting-row setting-row--clickable">
+          <div class="setting-row__info">
+            <span class="setting-row__title">{{ t('settings.pasteRichTextAsMarkdown') }}</span>
+            <p class="setting-row__hint">{{ isZh ? '从网页、飞书、Notion、Word 等复制时，将剪贴板富文本（加粗、链接、列表、表格等）转换为 Markdown' : 'Convert clipboard rich text (bold, links, lists, tables…) to Markdown when pasting from browsers, Feishu, Notion, Word, etc.' }}</p>
+          </div>
+          <div class="setting-row__control">
+            <input
+              type="checkbox"
+              :checked="settings.pasteRichTextAsMarkdown"
+              @change="settings.togglePasteRichTextAsMarkdown()"
             />
           </div>
         </label>

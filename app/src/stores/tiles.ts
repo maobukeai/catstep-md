@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import type { SplitDirection, TileBranch, TileLeaf, TileNode } from '../types';
 import { useTabsStore } from './tabs';
+import { readPersistedSettings } from '../lib/settings-storage';
 
 const LS_KEY = 'solomd.tiles.v1';
 
@@ -24,14 +25,13 @@ interface DragState {
   dragSplit: { paneId: string; direction: SplitDirection } | null;
 }
 
+/** Read through the shared pre-hydration helper so it works before the
+ *  settings store hydrates and never disagrees with what the store loaded
+ *  (the inline read here used to hit the renamed legacy key and miss
+ *  changed toggles). */
 function restoreSessionEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem('solomd.settings.v1');
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && typeof s.restoreSession === 'boolean') return s.restoreSession;
-    }
-  } catch {}
+  const s = readPersistedSettings();
+  if (s && typeof s.restoreSession === 'boolean') return s.restoreSession;
   return true;
 }
 

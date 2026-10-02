@@ -24,8 +24,14 @@
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
+import { aiCancel, aiHasKey } from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { ACTIONS, providerById, type AIAction, type ProviderId } from '../lib/ai-providers';
+import {
+  promptLang,
+  resolveActionPrompt,
+  type PromptOverrides,
+} from '../lib/prompt-templates';
 import {
   AI_REWRITE_OPEN_EVENT,
   AI_REWRITE_ACCEPT_EVENT,
@@ -35,7 +41,7 @@ import {
 } from '../lib/cm-ai-rewrite';
 import { useI18n } from '../i18n';
 
-const { t } = useI18n();
+const { t, lang } = useI18n();
 
 const props = defineProps<{
   /** Whether AI rewrite is enabled in settings. If false, we silently ignore opens. */
@@ -55,6 +61,12 @@ const props = defineProps<{
   profileId?: string;
   /** Whether the user has stored a key for the current provider. */
   hasKey: boolean;
+  /**
+   * S21 — per-language user overrides for the rewrite-action prompts, passed
+   * down from the settings store by the parent (this component deliberately
+   * does not reach into the store itself). Missing / null = built-in defaults.
+   */
+  promptOverrides?: PromptOverrides | null;
 }>();
 
 const emit = defineEmits<{
@@ -108,14 +120,10 @@ const needsKey = computed(
 
 async function refreshLiveHasKey(): Promise<void> {
   try {
-    liveHasKey.value = await invoke<boolean>('ai_has_key', {
-      provider: keySlot.value,
-    });
+    liveHasKey.value = await aiHasKey(keySlot.value);
     if (!liveHasKey.value && keySlot.value !== props.provider) {
       // Legacy slot, pre-profile-scoped keys.
-      liveHasKey.value = await invoke<boolean>('ai_has_key', {
-        provider: props.provider,
-      });
+      liveHasKey.value = await aiHasKey(props.provider);
     }
   } catch {
     liveHasKey.value = false;
@@ -273,7 +281,13 @@ async function startAction(a: AIAction): Promise<void> {
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   requestId.value = newRequestId;
   try {
-    const userPrompt = a.custom ? customPrompt.value.trim() : a.user;
+    // S21 — the action instruction resolves per call: built-in zh/en default
+    // from prompt-templates.ts unless the user overrode it for this language.
+    // Prompt language follows the UI language (zh UI → zh, everything else → en).
+    const plang = promptLang(lang.value);
+    const userPrompt = a.custom
+      ? customPrompt.value.trim()
+      : resolveActionPrompt(a.id, plang, props.promptOverrides);
     const cfg = providerById(props.provider);
     const payload = {
       provider: props.provider,
@@ -301,7 +315,7 @@ async function cancelStream(): Promise<void> {
   const id = requestId.value;
   if (id) {
     try {
-      await invoke('ai_cancel', { requestId: id });
+      await aiCancel(id);
     } catch {
       /* best-effort */
     }

@@ -160,8 +160,10 @@ return { pass: opened && n1>0 && labels.length===1 && el.value==='- [ ] ' && !do
 '@ }
 )
 
-# Force liveEdit once.
-try { Invoke-Eval "const s=JSON.parse(localStorage.getItem('solomd.settings.v1')||'{}'); s.viewMode='liveEdit'; s.wordWrap=true; s.spellCheck=true; localStorage.setItem('solomd.settings.v1',JSON.stringify(s)); return 1;" 5000 | Out-Null } catch {}
+# Force liveEdit once. Writes the CURRENT settings key (`catstep.settings.v1`)
+# — the pre-rename `solomd.settings.v1` blob is migrated + deleted by the app
+# on load, so writing the legacy name here would be silently ignored on reload.
+try { Invoke-Eval "const s=JSON.parse(localStorage.getItem('catstep.settings.v1')||'{}'); s.viewMode='liveEdit'; s.wordWrap=true; s.spellCheck=true; localStorage.setItem('catstep.settings.v1',JSON.stringify(s)); return 1;" 5000 | Out-Null } catch {}
 
 $results = @()
 foreach ($t in $tests) {

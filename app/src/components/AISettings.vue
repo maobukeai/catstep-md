@@ -16,16 +16,25 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { safeInvoke as invoke } from '../lib/tauri-bridge';
 import {
+  ACTIONS,
   providerById,
   providerModelIds,
   type ProviderId,
 } from '../lib/ai-providers';
+import {
+  AGENT_SYSTEM_TEMPLATE_ID,
+  defaultPromptText,
+  isPromptCustomized,
+  promptLang,
+  type PromptLang,
+} from '../lib/prompt-templates';
 import ProviderSelect from './ProviderSelect.vue';
 import { useSettingsStore, type AIProviderProfile, type AgentMcpServer } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useTabsStore } from '../stores/tabs';
 import { useI18n } from '../i18n';
 import { isMacOS } from '../lib/platform';
+import { formatEnvText, parseEnvText } from '../lib/mcp-env';
 
 const settingsStore = useSettingsStore();
 const workspaceStore = useWorkspaceStore();
@@ -675,6 +684,12 @@ function parseHeadersText(text: string): Record<string, string> {
   return out;
 }
 
+/** Serialize the env record to the one `KEY=value` per line textarea
+ *  format. Parsing back lives in lib/mcp-env.ts (unit-tested). */
+function envTextFor(id: string): string {
+  return formatEnvText(settingsStore.agentMcpServers.find((s) => s.id === id)?.env);
+}
+
 function slugifyMcpId(v: string): string {
   return v
     .trim()
@@ -692,15 +707,55 @@ async function testMcpServer(s: AgentMcpServer) {
         id: s.id,
         command: s.command.trim(),
         args: s.args,
-        env: {},
+        env: s.env ?? {},
         enabled: true,
         timeout_secs: s.timeout_secs ?? null,
+        url: s.url ?? null,
+        headers: s.headers ?? {},
       },
     });
     mcpTestState.value[s.id] = { ok: true, message: String(tools.length), testing: false };
   } catch (e) {
     mcpTestState.value[s.id] = { ok: false, message: String(e), testing: false };
   }
+}
+
+// ---------------------------------------------------------------------------
+// S21 — Agent prompt templates (user-overridable)
+// ---------------------------------------------------------------------------
+
+/** Non-custom rewrite actions — each has an overridable instruction in
+ *  prompt-templates.ts; the custom action takes free-form input at use time. */
+const rewriteActions = ACTIONS.filter((a) => !a.custom);
+
+/** Which template the editor is showing. */
+const selectedPromptId = ref<string>(AGENT_SYSTEM_TEMPLATE_ID);
+/** Which language slot is being edited. Starts on the slot the UI language
+ *  maps to; the toggle lets a user edit the other slot without switching UI. */
+const promptLangSlot = ref<PromptLang>(promptLang(settingsStore.language));
+
+const promptDefaultPreview = computed(() =>
+  defaultPromptText(selectedPromptId.value, promptLangSlot.value),
+);
+const currentPromptOverride = computed(
+  () => settingsStore.agentPromptOverrides[selectedPromptId.value]?.[promptLangSlot.value] ?? '',
+);
+const promptIsCustomized = computed(() =>
+  isPromptCustomized(settingsStore.agentPromptOverrides, selectedPromptId.value),
+);
+
+function onPromptOverrideInput(e: Event): void {
+  settingsStore.setAgentPromptOverride(
+    selectedPromptId.value,
+    promptLangSlot.value,
+    (e.target as HTMLTextAreaElement).value,
+  );
+}
+function resetPromptTemplate(): void {
+  settingsStore.resetAgentPromptOverride(selectedPromptId.value);
+}
+function resetAllPromptTemplates(): void {
+  settingsStore.resetAllAgentPromptOverrides();
 }
 
 </script>
@@ -1318,6 +1373,14 @@ async function testMcpServer(s: AgentMcpServer) {
           spellcheck="false"
           @change="settingsStore.updateAgentMcpServer(s.id, { headers: parseHeadersText(($event.target as HTMLInputElement).value) })"
         />
+        <textarea
+          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--env"
+          :value="envTextFor(s.id)"
+          :placeholder="t('agentSettings.mcpEnv')"
+          spellcheck="false"
+          rows="2"
+          @change="settingsStore.updateAgentMcpServer(s.id, { env: parseEnvText(($event.target as HTMLTextAreaElement).value) })"
+        />
         <input
           type="checkbox"
           :checked="s.enabled"
@@ -1327,7 +1390,7 @@ async function testMcpServer(s: AgentMcpServer) {
         <button
           type="button"
           class="ai-settings__btn ai-settings__btn--small"
-          :disabled="!s.command.trim() || mcpTestState[s.id]?.testing"
+          :disabled="!(s.command.trim() || s.url?.trim()) || mcpTestState[s.id]?.testing"
           @click="testMcpServer(s)"
         >
           {{ mcpTestState[s.id]?.testing ? '…' : t('agentSettings.mcpTest') }}
@@ -1350,6 +1413,79 @@ async function testMcpServer(s: AgentMcpServer) {
         </li>
       </template>
     </ul>
+  </div>
+
+  <!-- ④ Agent 提示词模板（可覆盖，S21） -->
+  <div class="ai-settings__card">
+    <div class="ai-settings__card-info">
+      <div class="ai-settings__title-line">
+        <h3 class="ai-settings__heading ai-settings__heading--sub">{{ t('agentSettings.promptsHeading') }}</h3>
+        <span v-if="promptIsCustomized" class="ai-settings__prompt-badge">{{ t('agentSettings.promptsCustomized') }}</span>
+      </div>
+      <p class="ai-settings__desc">{{ t('agentSettings.promptsDesc') }}</p>
+    </div>
+
+    <div class="ai-settings__row-line">
+      <div class="ai-settings__card-info">
+        <label class="ai-settings__label font-medium" for="agent-prompt-select">{{ t('agentSettings.promptsSelectLabel') }}</label>
+      </div>
+      <div class="ai-settings__header-actions">
+        <div class="ai-settings__prompt-lang-toggle" role="group" :aria-label="t('agentSettings.promptsSelectLabel')">
+          <button
+            type="button"
+            class="ai-settings__prompt-lang-btn"
+            :class="{ 'ai-settings__prompt-lang-btn--active': promptLangSlot === 'zh' }"
+            @click="promptLangSlot = 'zh'"
+          >
+            {{ t('agentSettings.promptsLangZh') }}
+          </button>
+          <button
+            type="button"
+            class="ai-settings__prompt-lang-btn"
+            :class="{ 'ai-settings__prompt-lang-btn--active': promptLangSlot === 'en' }"
+            @click="promptLangSlot = 'en'"
+          >
+            {{ t('agentSettings.promptsLangEn') }}
+          </button>
+        </div>
+        <select id="agent-prompt-select" v-model="selectedPromptId" class="ai-settings__input ai-settings__prompt-select">
+          <optgroup :label="t('agentSettings.promptsGroupAgent')">
+            <option :value="AGENT_SYSTEM_TEMPLATE_ID">{{ t('agentSettings.promptsTemplateSystem') }}</option>
+          </optgroup>
+          <optgroup :label="t('agentSettings.promptsGroupRewrite')">
+            <option v-for="a in rewriteActions" :key="a.id" :value="a.id">{{ t(a.labelKey) }}</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <details class="ai-settings__prompt-default">
+      <summary>{{ t('agentSettings.promptsViewDefault') }}</summary>
+      <pre>{{ promptDefaultPreview }}</pre>
+    </details>
+
+    <textarea
+      class="ai-settings__input ai-settings__prompt-editor"
+      rows="7"
+      :value="currentPromptOverride"
+      :placeholder="t('agentSettings.promptsOverridePlaceholder')"
+      spellcheck="false"
+      @change="onPromptOverrideInput"
+    />
+
+    <div class="ai-settings__header-actions ai-settings__prompt-actions">
+      <button type="button" class="ai-settings__btn ai-settings__btn--small" @click="resetPromptTemplate">
+        {{ t('agentSettings.promptsReset') }}
+      </button>
+      <button
+        type="button"
+        class="ai-settings__btn ai-settings__btn--small"
+        :disabled="!Object.keys(settingsStore.agentPromptOverrides || {}).length"
+        @click="resetAllPromptTemplates"
+      >
+        {{ t('agentSettings.promptsResetAll') }}
+      </button>
+    </div>
   </div>
   </section>
 </template>
@@ -1384,6 +1520,12 @@ async function testMcpServer(s: AgentMcpServer) {
 .ai-settings__mcp-field--args { width: 160px; flex: 1 1 120px; }
 .ai-settings__mcp-field--url { width: 180px; flex: 1 1 140px; }
 .ai-settings__mcp-field--headers { width: 170px; flex: 1 1 130px; }
+.ai-settings__mcp-field--env {
+  width: 170px;
+  flex: 1 1 130px;
+  resize: vertical;
+  font-family: var(--font-mono, monospace);
+}
 .ai-settings__mcp-test {
   font-size: 11px;
   word-break: break-all;
@@ -1601,6 +1743,70 @@ input[type='checkbox']:focus-visible,
   border-radius: 6px;
   padding: 6px 8px;
   font-size: 12px;
+}
+/* S21 — Agent prompt templates card */
+.ai-settings__prompt-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.ai-settings__prompt-lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ai-settings__prompt-lang-btn {
+  padding: 4px 10px;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ai-settings__prompt-lang-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+.ai-settings__prompt-select {
+  flex: 0 1 auto;
+  min-width: 180px;
+}
+.ai-settings__prompt-default {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.ai-settings__prompt-default summary {
+  cursor: pointer;
+  color: var(--text-muted, var(--text));
+  user-select: none;
+}
+.ai-settings__prompt-default pre {
+  margin: 8px 0 2px;
+  padding: 8px;
+  max-height: 200px;
+  overflow: auto;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ai-settings__prompt-editor {
+  width: 100%;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  line-height: 1.5;
+  resize: vertical;
+}
+.ai-settings__prompt-actions {
+  justify-content: flex-end;
 }
 .ai-settings__keybox {
   display: flex;

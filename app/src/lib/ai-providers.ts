@@ -8,8 +8,11 @@
  * here.
  *
  * `ACTIONS` defines the prompt presets shown in the AI Rewrite overlay. Each
- * action ships a system + user prompt; the user's selected text is appended
- * by the Rust side as `Text:\n<selection>`.
+ * action ships a system role here; the localized user instruction lives in
+ * the overridable template layer (`prompt-templates.ts` →
+ * `DEFAULT_ACTION_PROMPTS`, zh/en + user overrides) and is resolved per call
+ * by the overlay. The user's selected text is appended by the Rust side as
+ * `Text:\n<selection>`.
  */
 
 /**
@@ -511,8 +514,6 @@ export interface AIAction {
   label?: string;
   /** System prompt — sets the assistant's role / output rules. */
   system: string;
-  /** User instruction — selection is appended as `\n\nText:\n<selection>`. */
-  user: string;
   /** Whether the action needs a free-form prompt the user types in. */
   custom?: boolean;
 }
@@ -532,78 +533,67 @@ export const ACTIONS: AIAction[] = [
     labelKey: 'ai.catstepPolish',
     label: '✨ 猫步润色',
     system: EDITOR_ROLE,
-    user: '请对以下文本进行猫步风格的精修润色，优化文采辞藻与节奏韵律，使其典雅生动、行文优美流畅，保留原有事实。只回复润色后的文本，不带任何解释。',
   },
   {
     id: 'catstepExpand',
     labelKey: 'ai.catstepExpand',
     label: '📝 扩展内容',
     system: EDITOR_ROLE,
-    user: '请对以下文本进行深度扩展与充实，丰富论据、细节描写与阐述，保持自然连贯的文风。只回复扩展后的文本，不带任何解释。',
   },
   {
     id: 'catstepFix',
     labelKey: 'ai.catstepFix',
     label: '🔍 语法纠错',
     system: EDITOR_ROLE,
-    user: '请检查并修正以下文本中的错别字、语病、标点符号及格式错误，使其严谨规范。只回复修正后的文本，不带任何解释。',
   },
   {
     id: 'catstepDeAI',
     labelKey: 'ai.catstepDeAI',
     label: '🍃 一键去AI味',
     system: EDITOR_ROLE,
-    user: '请对以下内容进行“去AI味”重写：去除刻板的排比句、机械套话、“总而言之”、“综上所述”等AI常用词，改为真诚自然、有呼吸感、富有人类真实思考与温度的高质语言风格。只回复重写后的文本，不带任何解释。',
   },
   {
     id: 'rewrite',
     labelKey: 'ai.rewrite',
     label: '改写',
     system: EDITOR_ROLE,
-    user: 'Rewrite the following text to improve clarity and flow while keeping the meaning and tone. Reply with only the rewritten text.',
   },
   {
     id: 'shorten',
     labelKey: 'ai.shorten',
     label: '精简',
     system: EDITOR_ROLE,
-    user: 'Rewrite the following text in fewer words while keeping the meaning. Reply with only the rewritten text, no preamble.',
   },
   {
     id: 'expand',
     labelKey: 'ai.expand',
     label: '扩写',
     system: EDITOR_ROLE,
-    user: 'Expand the following text with more detail and context while keeping the original tone. Reply with only the expanded text.',
   },
   {
     id: 'translateEn',
     labelKey: 'ai.translateEn',
     label: '翻译为英文',
     system: TRANSLATOR_ROLE,
-    user: 'Translate the following text to natural, idiomatic English. Reply with only the translation.',
   },
   {
     id: 'translateZh',
     labelKey: 'ai.translateZh',
     label: '翻译为中文',
     system: TRANSLATOR_ROLE,
-    user: '把下面这段文字翻译成自然、流畅的中文。只回复译文,不要其他说明。',
   },
   {
     id: 'explain',
     labelKey: 'ai.explain',
     label: '解释',
     system: EXPLAINER_ROLE,
-    user: 'Explain the following text in plain language for a general reader. Reply with only the explanation.',
   },
   {
     id: 'custom',
     labelKey: 'ai.custom',
     label: '自定义…',
     system: EDITOR_ROLE,
-    // For custom prompts the overlay replaces this with whatever the user typed.
-    user: '',
+    // For custom prompts the overlay sends whatever the user typed.
     custom: true,
   },
 ];

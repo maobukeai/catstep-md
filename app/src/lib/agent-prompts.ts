@@ -8,44 +8,29 @@
  * every provider handles well). Keeping them in one tested module also
  * stops the panel from accreting prompt edits inline.
  *
+ * The system prompt lives in the user-overridable template layer
+ * (`prompt-templates.ts`) — `systemPrompt()` resolves the user's override
+ * when one is set and falls back to the built-in default otherwise.
+ *
  * When editing a prompt: keep the hard rules (no repeated tool calls, no
  * fake "already synced" claims, exact-path patch_note) — they exist
  * because each one was added after a real failure mode.
  */
 
-export type PromptLang = 'zh' | 'en';
+import {
+  AGENT_SYSTEM_TEMPLATE_ID,
+  DEFAULT_AGENT_SYSTEM_PROMPT,
+  effectivePromptText,
+  type PromptLang,
+  type PromptOverrides,
+} from './prompt-templates';
 
-/** Map the app language setting to a prompt language. */
-export function promptLang(language: string | null | undefined): PromptLang {
-  return language === 'zh' ? 'zh' : 'en';
-}
+export { promptLang } from './prompt-templates';
+export type { PromptLang } from './prompt-templates';
 
 /** Base system prompt injected before every chat. */
-export function systemPrompt(lang: PromptLang): string {
-  if (lang === 'zh') {
-    return (
-      'You are a helpful, professional assistant inside Catstep MD (猫步 MD), a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses.\n\n' +
-      '【思考与推演规范】\n' +
-      '在思考或调用工具前，可在 <think> 与 </think> 标签中输出 1~2 句精炼的意图与推演规划（如理解需求、梳理步骤），便于用户实时了解进展。思考推演请保持简明。\n\n' +
-      '【文件与目录整理规范】\n' +
-      '当用户要求整理、归类、移动或重命名笔记时：\n' +
-      '1. 先使用 list_notes 或 search 定位目标笔记；\n' +
-      '2. 如目标文件夹不存在，使用 create_folder 创建目标文件夹；\n' +
-      '3. 使用 move_note（指定 source_path 和 target_path）移动笔记。切勿使用 read_note + write_note 重复创建副本！\n' +
-      '4. 完成后向用户汇总移动结果。'
-    );
-  }
-  return (
-    'You are a helpful, professional assistant inside Catstep MD, a local-first markdown editor. Provide clear, direct, and well-structured Markdown responses.\n\n' +
-    '[Thinking guidelines]\n' +
-    'Before calling tools you may output 1-2 short sentences of intent inside <think> and </think> tags so the user can follow along. Keep thinking brief.\n\n' +
-    '[File and folder organization rules]\n' +
-    'When the user asks to organize, classify, move, or rename notes:\n' +
-    '1. First locate the target notes with list_notes or search;\n' +
-    '2. If the target folder does not exist, create it with create_folder;\n' +
-    '3. Move notes with move_note (set source_path and target_path). Never duplicate notes via read_note + write_note!\n' +
-    '4. Summarize the result for the user when done.'
-  );
+export function systemPrompt(lang: PromptLang, overrides?: PromptOverrides | null): string {
+  return effectivePromptText(AGENT_SYSTEM_TEMPLATE_ID, DEFAULT_AGENT_SYSTEM_PROMPT, lang, overrides);
 }
 
 /** One-line summary of a write-ish tool action, for the replayed history. */

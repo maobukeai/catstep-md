@@ -11,8 +11,9 @@
  * unmounts on close. ⌘⇧F toggles the parent's `searchOpen` ref.
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import { useGlobalSearch, type SearchHit } from '../composables/useGlobalSearch';
+import { useGlobalSearch, type SearchHit, type SearchOutcome } from '../composables/useGlobalSearch';
 import { useFiles } from '../composables/useFiles';
+import { useToastsStore } from '../stores/toasts';
 import { useTabsStore } from '../stores/tabs';
 import { useTilesStore } from '../stores/tiles';
 import { useWorkspaceStore } from '../stores/workspace';
@@ -28,6 +29,7 @@ const emit = defineEmits<{
 
 const search = useGlobalSearch();
 const files = useFiles();
+const toasts = useToastsStore();
 const tabs = useTabsStore();
 const tiles = useTilesStore();
 const workspace = useWorkspaceStore();
@@ -41,6 +43,25 @@ const loading = ref(false);
 const selectedIdx = ref(0);
 const inputRef = ref<HTMLInputElement | null>(null);
 const activeFilePath = computed(() => tabs.activeTab?.filePath ?? '');
+
+// v4.x cross-file replace + advanced match options (S12). The three toggles
+// map 1:1 onto the backend MatchOptions; toggling any of them re-runs the
+// search through the same debounce as the query itself.
+const replaceText = ref('');
+const caseSensitive = ref(false);
+const wholeWord = ref(false);
+const regex = ref(false);
+const pathFilter = ref('');
+const replacing = ref(false);
+const stats = ref<SearchOutcome | null>(null);
+
+function matchOptions() {
+  return {
+    caseSensitive: caseSensitive.value,
+    wholeWord: wholeWord.value,
+    regex: regex.value,
+  };
+}
 
 let debounceTimer: number | null = null;
 
@@ -69,7 +90,7 @@ watch(
   },
 );
 
-watch(query, () => {
+watch([query, caseSensitive, wholeWord, regex, pathFilter], () => {
   if (debounceTimer != null) {
     window.clearTimeout(debounceTimer);
   }
@@ -80,14 +101,43 @@ async function doSearch() {
   const q = query.value.trim();
   if (!q) {
     hits.value = [];
+    stats.value = null;
     return;
   }
   loading.value = true;
   try {
-    hits.value = await search.search(q);
+    const outcome = await search.search(q, undefined, 200, matchOptions(), pathFilter.value);
+    hits.value = outcome.hits;
+    stats.value = outcome;
     selectedIdx.value = 0;
   } finally {
     loading.value = false;
+  }
+}
+
+/**
+ * Cross-file replace (S12). Confirms first — this writes matching files to
+ * disk immediately — then reports "N files, M replacements" and re-runs the
+ * search so the result list reflects the new content.
+ */
+async function doReplace() {
+  const q = query.value.trim();
+  if (!q || replacing.value) return;
+  if (!window.confirm(t('search.replaceConfirm', { q, r: replaceText.value }))) return;
+  replacing.value = true;
+  try {
+    const summary = await search.replace(q, replaceText.value, matchOptions(), pathFilter.value);
+    if (!summary) return;
+    if (summary.errors.length) {
+      toasts.warning(t('search.replaceFailed', { n: summary.errors.length }));
+      console.warn('GlobalSearch: replace errors', summary.errors);
+    }
+    toasts.success(
+      t('search.replaceDone', { files: summary.filesChanged, count: summary.replacements }),
+    );
+    await doSearch();
+  } finally {
+    replacing.value = false;
   }
 }
 
@@ -126,7 +176,19 @@ async function openHit(hit: SearchHit) {
 function highlight(snippet: string): string {
   const q = query.value.trim();
   if (!q) return escapeHtml(snippet);
-  const re = new RegExp(`(${escapeRe(q)})`, 'gi');
+  // Mirror the backend matcher construction (search.rs `build_matcher`): the
+  // literal path escapes, regex mode passes the pattern through, and whole
+  // word wraps a non-capturing group so `foo|bar` gets BOTH boundaries. The
+  // outer capture group keeps `<mark>$1</mark>` pointing at the whole match.
+  const body = regex.value ? q : escapeRe(q);
+  const core = wholeWord.value ? `\\b(?:${body})\\b` : body;
+  let re: RegExp;
+  try {
+    re = new RegExp(`(${core})`, caseSensitive.value ? 'g' : 'gi');
+  } catch {
+    // Invalid user regex — show the snippet plain instead of throwing.
+    return escapeHtml(snippet);
+  }
   return escapeHtml(snippet).replace(re, '<mark>$1</mark>');
 }
 
@@ -250,6 +312,54 @@ function onKey(e: KeyboardEvent) {
           </button>
           <span v-else-if="loading" class="sp__loading">…</span>
         </div>
+        <div class="sp__options-row">
+          <button
+            type="button"
+            class="sp__opt"
+            :class="{ 'is-active': caseSensitive }"
+            :title="t('find.matchCase')"
+            :aria-pressed="caseSensitive"
+            @click="caseSensitive = !caseSensitive"
+          >Aa</button>
+          <button
+            type="button"
+            class="sp__opt"
+            :class="{ 'is-active': wholeWord }"
+            :title="t('find.byWord')"
+            :aria-pressed="wholeWord"
+            @click="wholeWord = !wholeWord"
+          >W</button>
+          <button
+            type="button"
+            class="sp__opt"
+            :class="{ 'is-active': regex }"
+            :title="t('find.regexp')"
+            :aria-pressed="regex"
+            @click="regex = !regex"
+          >.*</button>
+          <input
+            v-model="pathFilter"
+            class="sp__filter-input"
+            :placeholder="t('search.pathFilterPlaceholder')"
+            spellcheck="false"
+          />
+        </div>
+        <div class="sp__replace-row">
+          <input
+            v-model="replaceText"
+            class="sp__filter-input sp__replace-input"
+            :placeholder="t('find.replacePlaceholder')"
+            spellcheck="false"
+            @keydown.enter.prevent="doReplace"
+          />
+          <button
+            class="sp__replace-btn"
+            type="button"
+            :disabled="!query.trim() || replacing"
+            :title="t('find.replaceAll')"
+            @click="doReplace"
+          >{{ replacing ? '…' : t('find.replaceAll') }}</button>
+        </div>
       </div>
       <div v-if="!workspace.currentFolder" class="sp__empty">
         <p class="sp__msg">{{ t('search.openFolder') }}</p>
@@ -290,6 +400,7 @@ function onKey(e: KeyboardEvent) {
       </div>
       <div class="sp__footer">
         <span>{{ t('search.hitCount', { n: hits.length }) }}</span>
+        <span v-if="stats">{{ t('search.stats', { files: stats.filesScanned, ms: stats.elapsedMs }) }}</span>
         <span>{{ t('search.keyHint') }}</span>
       </div>
     </div>
@@ -413,6 +524,85 @@ function onKey(e: KeyboardEvent) {
   font-size: 13px;
   line-height: 1;
   flex-shrink: 0;
+}
+.sp__options-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sp__opt {
+  width: 22px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-faint);
+  font: 10.5px var(--font-mono, monospace);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+  user-select: none;
+}
+.sp__opt:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.sp__opt.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft, rgba(255, 159, 64, 0.12));
+}
+.sp__filter-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 7px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  font: 11.5px var(--font-ui);
+  color: var(--text);
+  transition: border-color 0.15s ease;
+}
+.sp__filter-input::placeholder {
+  color: var(--text-faint);
+}
+.sp__filter-input:focus {
+  border-color: var(--accent);
+}
+.sp__replace-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sp__replace-btn {
+  height: 22px;
+  padding: 0 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+.sp__replace-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft, rgba(255, 159, 64, 0.12));
+}
+.sp__replace-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 .sp__empty {
   padding: 14px 16px;

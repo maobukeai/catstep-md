@@ -12,19 +12,18 @@
  *   - `addRef` / `removeRef` / `addRelationshipKey` — front-matter edit path:
  *                              read the doc, rewrite its YAML block via the
  *                              pure transforms in `lib/relationships.ts`, and
- *                              persist with `write_file`.
+ *                              persist with `writeNote`.
  *
  * Edit safety: relationship edits only touch the *active* document, and only
  * when its editor buffer is clean — a dirty buffer is saved first (so a panel
  * edit never races the editor autosave or clobbers unsaved body changes).
  */
 import { computed, type ComputedRef } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { readNote, writeNote } from '../lib/commands';
 import { useTabsStore } from '../stores/tabs';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useWorkspaceIndexStore, type IndexEntry, type ReferencedByRef } from '../stores/workspaceIndex';
 import { useToastsStore } from '../stores/toasts';
-import type { FileReadResult } from '../types';
 import {
   extractRelationships,
   setRelationshipInBlock,
@@ -159,7 +158,7 @@ export function useRelationships() {
       return null;
     }
     try {
-      const res = await invoke<FileReadResult>('read_file', { path: tab.filePath });
+      const res = await readNote(tab.filePath);
       return {
         path: tab.filePath,
         content: res.content,
@@ -181,9 +180,7 @@ export function useRelationships() {
     try {
       const payload =
         doc.lineEnding === 'crlf' ? newContent.replace(/\n/g, '\r\n') : newContent;
-      await invoke('write_file', {
-        path: doc.path,
-        content: payload,
+      await writeNote(doc.path, payload, {
         encoding: doc.encoding,
         workspace: workspace.currentFolder ?? undefined,
       });

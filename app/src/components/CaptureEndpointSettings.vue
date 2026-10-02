@@ -92,7 +92,7 @@ async function copyEndpoint() {
   const port = state.value.port || 7777;
   try {
     await navigator.clipboard.writeText(`http://127.0.0.1:${port}/capture`);
-    toasts.success(t('inbox.endpoint') + ' URL 已复制');
+    toasts.success(t('inbox.endpointUrlCopied'));
   } catch (e) {
     toasts.error(String(e));
   }
@@ -162,7 +162,7 @@ onMounted(refresh);
           <p class="capture-header__desc">{{ t('inbox.enableCaptureHint') }}</p>
         </div>
         <div class="capture-header__control" @click.stop>
-          <label class="modern-switch" :title="state.enabled ? '点击关闭' : '点击开启'">
+          <label class="modern-switch" :title="state.enabled ? t('inbox.clickToDisable') : t('inbox.clickToEnable')">
             <input
               type="checkbox"
               :checked="state.enabled"
@@ -180,9 +180,9 @@ onMounted(refresh);
           <div class="capture-grid">
             <div class="capture-field">
               <label class="capture-field__label">{{ t('inbox.endpoint') }}</label>
-              <div class="capture-input-box capture-input-box--readonly" @click="copyEndpoint" :title="'点击复制端点地址'">
+              <div class="capture-input-box capture-input-box--readonly" @click="copyEndpoint" :title="t('inbox.clickToCopyEndpoint')">
                 <code class="capture-code">http://127.0.0.1:{{ state.port }}/capture</code>
-                <button type="button" class="btn-text-action">复制</button>
+                <button type="button" class="btn-text-action">{{ t('inbox.endpointCopy') }}</button>
               </div>
             </div>
 
@@ -205,7 +205,7 @@ onMounted(refresh);
           <div class="capture-field">
             <div class="capture-field__head-line">
               <label class="capture-field__label">{{ t('inbox.token') }} (Bearer Token)</label>
-              <span class="capture-field__subtip">Authorization: Bearer 鉴权</span>
+              <span class="capture-field__subtip">{{ t('inbox.bearerAuthHint') }}</span>
             </div>
             <div class="token-container">
               <code class="token-text" :class="{ 'is-masked': !showToken }">{{ tokenDisplay }}</code>
@@ -226,7 +226,7 @@ onMounted(refresh);
           <!-- Terminal Code Snippet Block -->
           <div class="terminal-block">
             <div class="terminal-block__head">
-              <span class="terminal-title">cURL 测试命令</span>
+              <span class="terminal-title">{{ t('inbox.curlTestCommand') }}</span>
               <button type="button" class="terminal-copy-btn" @click="copyCurl">
                 {{ t('inbox.curlCopy') }}
               </button>

@@ -53,7 +53,6 @@ import {
   applyPlainDeleteLine,
   applyPlainList,
   applyPlainQuote,
-  stripMarkdownFormatting,
 } from '../lib/editor-formatting';
 import {
   headingFoldExtension,
@@ -65,16 +64,17 @@ import {
 import InPlaceTableToolbar from './InPlaceTableToolbar.vue';
 import InPlaceFormulaBar from './InPlaceFormulaBar.vue';
 import SelectionBubbleBar from './SelectionBubbleBar.vue';
-import EditorContextMenu, { type EditorContextInfo } from './EditorContextMenu.vue';
+import EditorContextMenu from './EditorContextMenu.vue';
 import {
   findTableAtCursor,
   tableNavigate,
   type TableActionType,
 } from '../lib/markdown-table';
-import { findMathSpanAt } from '../lib/equations';
 import { openTableEditor } from '../lib/table-editor-bus';
 import { useEditorTable } from '../composables/useEditorTable';
 import { useEditorFormula } from '../composables/useEditorFormula';
+import { useSelectionBubble } from '../composables/useSelectionBubble';
+import { useContextMenu } from '../composables/useContextMenu';
 import {
   scanHeadings,
   foldedCharRanges,
@@ -95,6 +95,7 @@ import { liveBlocksExtension, liveBlocksTheme, extractImageRoot } from '../lib/c
 import { findTldrawFences, replaceBoardSnapshot } from '../lib/tldraw-board';
 import { dragAwareExtension } from '../lib/cm-drag-aware';
 import { imagePasteExtension, insertImageFromPath as cmInsertImageFromPath, insertSmartImage, handleTextareaImagePaste, type ImagePasteOptions } from '../lib/cm-image-paste';
+import { htmlToMarkdown, clipboardHtmlIsStructured } from '../lib/htmlToMarkdown';
 import { resolveUploader, uploadImage, type ImageUploadSettings } from '../lib/image-upload';
 import { focusModeExtension, typewriterModeExtension } from '../lib/cm-focus-mode';
 import { wikilinkExtension, wikilinkComplete } from '../lib/cm-wikilink';
@@ -1185,7 +1186,30 @@ function syncPlainLiveScroll() {
   emitPlainCursorAndSelection();
 }
 
+/**
+ * S14 — rich-text paste → Markdown. When the clipboard carries a structured
+ * `text/html` flavor (bold, links, lists, tables… copied from a browser,
+ * Feishu, Notion, Word…), converts it to Markdown and inserts it instead of
+ * letting the plain-text flavor fall through. Returns true when it consumed
+ * the paste (preventDefault already called). Wrapper-only HTML (`<div>text</div>`)
+ * and image-only clipboards keep the existing native/image paths.
+ */
+function tryRichTextPaste(event: ClipboardEvent, insert: (md: string) => void): boolean {
+  if (!settings.pasteRichTextAsMarkdown) return false;
+  const cd = event.clipboardData;
+  if (!cd || !cd.types || !cd.types.includes('text/html')) return false;
+  const html = cd.getData('text/html');
+  if (!html || !clipboardHtmlIsStructured(html)) return false;
+  const md = htmlToMarkdown(html);
+  if (!md.trim()) return false;
+  event.preventDefault();
+  insert(md);
+  return true;
+}
+
 function handlePlainPaste(event: ClipboardEvent) {
+  // Rich-text clipboard (text/html with real markup) → Markdown first.
+  if (tryRichTextPaste(event, (text) => plainInsertText(text))) return;
   // Clipboard image paste (Ctrl+V of a screenshot). Text paste falls through to
   // the textarea's native handling. plainInsertText records its own undo step.
   void handleTextareaImagePaste(event, imagePasteOpts(), (text) => plainInsertText(text));
@@ -2848,6 +2872,22 @@ function buildExtensions() {
     // turn into phantom multi-line selections when the layout shifts.
     stableClickSelection(),
     EditorView.domEventHandlers({
+      // S14 — rich-text paste → Markdown (CodeMirror path). The image-paste
+      // extension is registered first and only claims image clipboards, so
+      // reaching here means no image is present. Wrapper-only HTML falls
+      // through (returns false) so CodeMirror inserts the plain-text flavor
+      // with its native line-break semantics intact.
+      paste: (ev, cmView) => {
+        if (props.tab.language !== 'markdown') return false;
+        return tryRichTextPaste(ev, (md) => {
+          const sel = cmView.state.selection.main;
+          cmView.dispatch({
+            changes: { from: sel.from, to: sel.to, insert: md },
+            selection: { anchor: sel.from + md.length },
+            scrollIntoView: true,
+          });
+        });
+      },
       mousedown: (ev, cmView) => {
         if (ev.button === 0 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey) {
           const target = ev.target as HTMLElement | null;
@@ -2860,7 +2900,7 @@ function buildExtensions() {
         return false;
       },
       pointerdown: () => {
-        isDraggingSelection = true;
+        beginSelectionDrag();
         return false;
       },
       scroll: (_ev, cmView) => {
@@ -3027,6 +3067,76 @@ const {
       updateInPlaceOverlays(view);
     }
   },
+});
+
+// ── Selection Bubble Floating Bar (Catstep MD) ─────────────────────────────
+// State + update paths moved to composables; the pure anchor math lives in
+// lib/selection-bubble and the menu probing in lib/editor-context (tested).
+const {
+  selectionBubbleState,
+  hideSelectionBubble,
+  suppressSelectionBubble,
+  updateSelectionBubble,
+  updateSelectionBubblePlain,
+  beginSelectionDrag,
+  handleGlobalPointerUp,
+  onBubbleAction,
+  onBubbleAiAction,
+} = useSelectionBubble({
+  getView: () => view,
+  isPlainWindowsEditor: () => usePlainWindowsEditor,
+  isNarrow: () => isNarrow.value,
+  showSelectionBubble: () => settings.showSelectionBubble,
+  tabLanguage: () => props.tab.language,
+  hasActiveMobileMatches: () => activeMobileMatches.length > 0,
+  plainComposing: () => plainComposing,
+  plainSelectionText,
+  plainAbsoluteSelection,
+  plainLiveEnabled: () => plainLiveEnabled.value,
+  plainActiveBlock: () => plainActiveBlock.value,
+  plainBlockEditors,
+  plainEditor,
+  plainLineTops,
+  isInsideCodeContext,
+  applyFormat,
+  aiEnabled: () => settings.aiEnabled,
+  toasts,
+});
+
+// ── Typora Parity Editor Context Menu ─────────────────────────────────────
+const {
+  editorContextMenuState,
+  onEditorContextMenu,
+  closeEditorContextMenu,
+  onEditorContextMenuAction,
+} = useContextMenu({
+  getView: () => view,
+  isPlainWindowsEditor: () => usePlainWindowsEditor,
+  isNarrow: () => isNarrow.value,
+  tabLanguage: () => props.tab.language,
+  isInsideCodeContext,
+  activeTableWidgetInfo,
+  hideFloatingOverlays: () => {
+    hideSelectionBubble();
+    closeInPlaceTable();
+    closeInPlaceFormula();
+  },
+  plainText,
+  plainAbsoluteSelection,
+  plainSelectionText,
+  plainCaretOffset,
+  plainEditor,
+  applyFormat,
+  insertMarkdown,
+  plainInsertText,
+  openTableAtCursor,
+  onInPlaceTableAction,
+  openFormulaAtCursor,
+  pickAndInsertImage,
+  openFind,
+  onBubbleAiAction,
+  toasts,
+  t,
 });
 
 function updateInPlaceOverlays(cmView: EditorView) {
@@ -3319,7 +3429,7 @@ onMounted(() => {
   cleanupTransformCase = () => {
     window.removeEventListener('solomd:transform-case', onTransformCase as EventListener);
   };
-  window.addEventListener('pointerup', onGlobalPointerUp);
+  window.addEventListener('pointerup', handleGlobalPointerUp);
   window.addEventListener('keydown', onGlobalKeyDown);
   window.addEventListener('solomd:table-toolbar-show', onTableToolbarShow);
   window.addEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
@@ -3502,11 +3612,9 @@ function openFind(): void {
 }
 
 // ── Selection Bubble Floating Bar (Catstep MD) ─────────────────────────────
-let isDraggingSelection = false;
 let spotlightTimer: any = null;
 let pulseTimer: any = null;
 let agentJumpTimer: any = null;
-let suppressSelectionBubbleUntil = 0;
 
 function clearAgentJumpSpotlight() {
   if (agentJumpTimer) {
@@ -3518,624 +3626,6 @@ function clearAgentJumpSpotlight() {
   }
 }
 
-const selectionBubbleState = ref<{
-  visible: boolean;
-  top: number;
-  left: number;
-  selectedText: string;
-}>({
-  visible: false,
-  top: 0,
-  left: 0,
-  selectedText: '',
-});
-
-function updateSelectionBubble(cmView: EditorView) {
-  if (isNarrow.value || !settings.showSelectionBubble || activeMobileMatches.length > 0 || isDraggingSelection || cmView.composing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const sel = cmView.state.selection.main;
-  if (sel.empty || isInsideCodeContext(cmView.state, sel.from)) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const text = cmView.state.sliceDoc(sel.from, sel.to).trim();
-  if (!text) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const startCoords = cmView.coordsAtPos(sel.from);
-  const endCoords = cmView.coordsAtPos(sel.to);
-  if (!startCoords) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const coords = startCoords;
-  if (coords.top < 35 || coords.bottom > window.innerHeight - 20) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  let midX = coords.left;
-  if (endCoords && Math.abs(endCoords.top - coords.top) < 30) {
-    midX = (coords.left + endCoords.left) / 2;
-  }
-  const bubbleWidth = 280;
-  const left = Math.max(16, Math.min(window.innerWidth - bubbleWidth - 16, midX - bubbleWidth / 2));
-  const top = coords.top - 46 > 45 ? coords.top - 46 : (endCoords ? endCoords.bottom + 10 : coords.bottom + 10);
-  selectionBubbleState.value = {
-    visible: true,
-    top: Math.round(top),
-    left: Math.round(left),
-    selectedText: text,
-  };
-}
-
-function updateSelectionBubblePlain() {
-  if (isNarrow.value || !settings.showSelectionBubble || isDraggingSelection || !usePlainWindowsEditor || plainComposing || props.tab.language !== 'markdown' || Date.now() < suppressSelectionBubbleUntil) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const text = plainSelectionText().trim();
-  if (!text) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const el = plainLiveEnabled.value
-    ? plainBlockEditors.value[plainActiveBlock.value]
-    : plainEditor.value;
-  if (!el || el.selectionStart === el.selectionEnd) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-
-  const elRect = el.getBoundingClientRect();
-  const caret = el.selectionStart ?? 0;
-  const lineNum = el.value.slice(0, caret).split('\n').length;
-  const tops = plainLineTops.value;
-  const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
-  const topPx = elRect.top + lineY - el.scrollTop;
-  if (topPx < 35 || topPx > window.innerHeight - 35) {
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  const bubbleWidth = 280;
-  const left = Math.max(16, Math.min(window.innerWidth - bubbleWidth - 16, elRect.left + 40));
-  const top = topPx - 46 > 45 ? topPx - 46 : topPx + 30;
-
-  selectionBubbleState.value = {
-    visible: true,
-    top: Math.round(top),
-    left: Math.round(left),
-    selectedText: text,
-  };
-}
-
-function onBubbleAction(action: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'inlineCode' | 'link') {
-  applyFormat(action);
-  selectionBubbleState.value.visible = false;
-}
-
-function onBubbleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFix' | 'catstepDeAI' | 'custom') {
-  if (!settings.aiEnabled) {
-    toasts.info('请先在设置中启用 AI 助手并配置 API 密钥');
-    window.dispatchEvent(
-      new CustomEvent('solomd:open-settings', { detail: { section: 'integrations' } }),
-    );
-    selectionBubbleState.value.visible = false;
-    return;
-  }
-  let text = '';
-  let from = 0;
-  let to = 0;
-  if (usePlainWindowsEditor) {
-    const sel = plainAbsoluteSelection();
-    text = plainSelectionText();
-    from = sel?.from ?? 0;
-    to = sel?.to ?? 0;
-  } else if (view) {
-    const sel = view.state.selection.main;
-    from = sel.from;
-    to = sel.to;
-    text = view.state.sliceDoc(from, to);
-  }
-  if (text) {
-    window.dispatchEvent(
-      new CustomEvent('solomd:ai-rewrite-open', {
-        detail: { selection: text, from, to, actionId: actionId === 'custom' ? undefined : actionId },
-      }),
-    );
-  }
-  selectionBubbleState.value.visible = false;
-}
-
-// ── Typora Parity Editor Context Menu ─────────────────────────────────────
-const editorContextMenuState = ref<{
-  visible: boolean;
-  x: number;
-  y: number;
-  info: EditorContextInfo;
-}>({
-  visible: false,
-  x: 0,
-  y: 0,
-  info: {
-    hasSelection: false,
-    selectedText: '',
-    isTable: false,
-    isCodeBlock: false,
-  },
-});
-
-function onEditorContextMenu(e: MouseEvent) {
-  if (isNarrow.value) {
-    // On mobile phone viewports, allow native OS long-press selection / callout menu
-    return;
-  }
-  e.preventDefault();
-  selectionBubbleState.value.visible = false;
-  inPlaceTableState.value.visible = false;
-  inPlaceFormulaState.value.visible = false;
-
-  let hasSelection = false;
-  let selectedText = '';
-  let isTable = false;
-  let tableInfo: EditorContextInfo['tableInfo'] = undefined;
-  let linkInfo: EditorContextInfo['linkInfo'] = undefined;
-  let imageInfo: EditorContextInfo['imageInfo'] = undefined;
-  let mathInfo: EditorContextInfo['mathInfo'] = undefined;
-  let isCodeBlock = false;
-  let codeText: string | undefined = undefined;
-
-  if (!usePlainWindowsEditor && view) {
-    const sel = view.state.selection.main;
-    const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-
-    // If pos is clicked and outside current selection, move caret there
-    if (pos !== null) {
-      if (sel.empty || pos < sel.from || pos > sel.to) {
-        view.dispatch({ selection: { anchor: pos } });
-      }
-    }
-
-    const curSel = view.state.selection.main;
-    hasSelection = !curSel.empty;
-    selectedText = hasSelection ? view.state.sliceDoc(curSel.from, curSel.to) : '';
-    const caret = curSel.head;
-    const docText = view.state.doc.toString();
-
-    if (props.tab.language === 'markdown' && !isInsideCodeContext(view.state, caret)) {
-      // 1. Table
-      let tbl = findTableAtCursor(docText, caret);
-      if (!tbl && (e.target as HTMLElement)?.closest('.cm-interactive-table, table')) {
-        const tableEl = (e.target as HTMLElement).closest('.cm-interactive-table, table')!;
-        try {
-          const tablePos = view.posAtDOM(tableEl);
-          if (tablePos !== null) {
-            tbl = findTableAtCursor(docText, tablePos);
-          }
-        } catch {}
-      }
-      if (tbl) {
-        isTable = true;
-        tableInfo = {
-          canDeleteRow: tbl.rowIndex >= 0,
-          canDeleteCol: tbl.model.header.length > 1,
-          align: tbl.model.aligns[tbl.caretCol] ?? null,
-        };
-      } else if (activeTableWidgetInfo.value) {
-        const info = activeTableWidgetInfo.value;
-        isTable = true;
-        tableInfo = {
-          canDeleteRow: info.canDeleteRow,
-          canDeleteCol: info.canDeleteCol,
-          align: info.align,
-        };
-      }
-
-      // 2. Math
-      const math = findMathSpanAt(docText, caret);
-      if (math) {
-        mathInfo = { latex: math.body, display: math.display };
-      }
-    }
-
-    // 3. Code block
-    const line = view.state.doc.lineAt(caret);
-    let fenceCount = 0;
-    let fenceStartLine = 1;
-    for (let l = 1; l <= line.number; l++) {
-      const lt = view.state.doc.line(l).text.trim();
-      if (lt.startsWith('```') || lt.startsWith('~~~')) {
-        fenceCount++;
-        if (fenceCount % 2 === 1) fenceStartLine = l;
-      }
-    }
-    if (fenceCount % 2 === 1) {
-      isCodeBlock = true;
-      let fenceEndLine = view.state.doc.lines;
-      for (let l = line.number + 1; l <= view.state.doc.lines; l++) {
-        const lt = view.state.doc.line(l).text.trim();
-        if (lt.startsWith('```') || lt.startsWith('~~~')) {
-          fenceEndLine = l;
-          break;
-        }
-      }
-      if (fenceEndLine > fenceStartLine) {
-        const blockFrom = view.state.doc.line(fenceStartLine).to + 1;
-        const blockTo = view.state.doc.line(fenceEndLine).from;
-        if (blockTo >= blockFrom) {
-          codeText = view.state.sliceDoc(blockFrom, blockTo).trim();
-        }
-      }
-    }
-
-    // 4. Link & Image detection around caret
-    const lineText = line.text;
-    const col = caret - line.from;
-    const imgRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
-    let m: RegExpExecArray | null;
-    while ((m = imgRe.exec(lineText)) !== null) {
-      if (col >= m.index && col <= m.index + m[0].length) {
-        imageInfo = { alt: m[1], src: m[2] };
-        break;
-      }
-    }
-    if (!imageInfo) {
-      const linkRe = /(?<!!)\[([^\]]+)\]\(([^)]+)\)/g;
-      while ((m = linkRe.exec(lineText)) !== null) {
-        if (col >= m.index && col <= m.index + m[0].length) {
-          linkInfo = { text: m[1], url: m[2] };
-          break;
-        }
-      }
-    }
-
-    // DOM-level fallbacks for rendered widgets
-    const targetEl = e.target as HTMLElement | null;
-    if (!linkInfo && targetEl) {
-      const aEl = targetEl.closest('a');
-      if (aEl) {
-        linkInfo = {
-          text: (aEl.textContent || '').trim(),
-          url: aEl.getAttribute('href') || (aEl as HTMLAnchorElement).href,
-        };
-      }
-    }
-    if (!imageInfo && targetEl) {
-      const imgEl = targetEl.closest('img');
-      if (imgEl) {
-        imageInfo = {
-          alt: imgEl.getAttribute('alt') || '',
-          src: imgEl.getAttribute('src') || imgEl.src,
-        };
-      }
-    }
-    if (!mathInfo && targetEl) {
-      const mathEl = targetEl.closest('.katex, .katex-display, .cm-math');
-      if (mathEl) {
-        const tex = mathEl.querySelector('annotation[encoding="application/x-tex"]')?.textContent;
-        if (tex) {
-          mathInfo = { latex: tex, display: mathEl.classList.contains('katex-display') };
-        }
-      }
-    }
-    if (!isCodeBlock && targetEl) {
-      const preEl = targetEl.closest('pre');
-      if (preEl) {
-        isCodeBlock = true;
-        codeText = (preEl.textContent || '').trim();
-      }
-    }
-  } else if (usePlainWindowsEditor) {
-    const docText = plainText.value || '';
-    const sel = plainAbsoluteSelection();
-    hasSelection = sel ? sel.from !== sel.to : false;
-    selectedText = hasSelection ? (plainSelectionText() || '') : '';
-    const caret = plainCaretOffset();
-
-    // Table
-    const tbl = findTableAtCursor(docText, caret);
-    if (tbl) {
-      isTable = true;
-      tableInfo = {
-        canDeleteRow: tbl.rowIndex >= 0,
-        canDeleteCol: tbl.model.header.length > 1,
-        align: tbl.model.aligns[tbl.caretCol] ?? null,
-      };
-    }
-
-    // Math
-    const math = findMathSpanAt(docText, caret);
-    if (math) {
-      mathInfo = { latex: math.body, display: math.display };
-    }
-
-    // Code block
-    const lines = docText.slice(0, caret).split('\n');
-    let fenceCount = 0;
-    for (const l of lines) {
-      const trimmed = l.trim();
-      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) fenceCount++;
-    }
-    if (fenceCount % 2 === 1) {
-      isCodeBlock = true;
-    }
-  }
-
-  editorContextMenuState.value = {
-    visible: true,
-    x: e.clientX,
-    y: e.clientY,
-    info: {
-      hasSelection,
-      selectedText,
-      isTable,
-      tableInfo,
-      linkInfo,
-      imageInfo,
-      mathInfo,
-      isCodeBlock,
-      codeText,
-    },
-  };
-}
-
-function closeEditorContextMenu() {
-  editorContextMenuState.value.visible = false;
-}
-
-async function onEditorContextMenuAction(action: string, payload?: any) {
-  closeEditorContextMenu();
-  const info = editorContextMenuState.value.info;
-
-  try {
-    switch (action) {
-    case 'cut': {
-      if (info.selectedText) {
-        try {
-          await navigator.clipboard.writeText(info.selectedText);
-        } catch {}
-        if (!usePlainWindowsEditor && view) {
-          const sel = view.state.selection.main;
-          view.dispatch({ changes: { from: sel.from, to: sel.to, insert: '' } });
-          view.focus();
-        } else {
-          plainInsertText('');
-        }
-      }
-      break;
-    }
-    case 'copy': {
-      if (info.selectedText) {
-        try {
-          await navigator.clipboard.writeText(info.selectedText);
-        } catch {}
-      }
-      break;
-    }
-    case 'copyAsMarkdown': {
-      if (info.selectedText) {
-        try {
-          await navigator.clipboard.writeText(info.selectedText);
-        } catch {}
-      }
-      break;
-    }
-    case 'copyAsPlainText': {
-      if (info.selectedText) {
-        try {
-          await navigator.clipboard.writeText(stripMarkdownFormatting(info.selectedText));
-        } catch {}
-      }
-      break;
-    }
-    case 'copyAsHtml': {
-      if (info.selectedText) {
-        try {
-          const plain = stripMarkdownFormatting(info.selectedText);
-          const blobHtml = new Blob([`<p>${info.selectedText.replace(/\n/g, '<br/>')}</p>`], { type: 'text/html' });
-          const blobText = new Blob([plain], { type: 'text/plain' });
-          await navigator.clipboard.write([new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })]);
-        } catch {
-          await navigator.clipboard.writeText(info.selectedText);
-        }
-      }
-      break;
-    }
-    case 'paste':
-    case 'pasteAsPlainText': {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          insertMarkdown(text);
-        }
-      } catch (err) {
-        console.warn('[Editor] clipboard paste error:', err);
-      }
-      break;
-    }
-    case 'selectAll': {
-      if (!usePlainWindowsEditor && view) {
-        view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
-        view.focus();
-      } else if (plainEditor.value) {
-        plainEditor.value.select();
-      }
-      break;
-    }
-    case 'tableAction': {
-      if (payload === 'openTableEditor') {
-        openTableAtCursor();
-      } else {
-        onInPlaceTableAction(payload);
-      }
-      break;
-    }
-    case 'linkAction': {
-      if (payload === 'openLink' && info.linkInfo?.url) {
-        void openExternalUrl(info.linkInfo.url);
-      } else if (payload === 'copyLinkAddress' && info.linkInfo?.url) {
-        await navigator.clipboard.writeText(info.linkInfo.url);
-        toasts.success(t('editorCtx.copyLinkAddress') || '已复制链接地址');
-      } else if (payload === 'editLink') {
-        applyFormat('link');
-      }
-      break;
-    }
-    case 'imageAction': {
-      if (payload === 'copyImagePath' && info.imageInfo?.src) {
-        await navigator.clipboard.writeText(info.imageInfo.src);
-        toasts.success(t('editorCtx.copyImagePath') || '已复制图片路径');
-      }
-      break;
-    }
-    case 'mathAction': {
-      if (payload === 'copyLatex' && info.mathInfo?.latex) {
-        await navigator.clipboard.writeText(info.mathInfo.latex);
-        toasts.success(t('editorCtx.copyLatex') || '已复制 LaTeX 源码');
-      } else if (payload === 'editFormula') {
-        openFormulaAtCursor();
-      }
-      break;
-    }
-    case 'codeAction': {
-      if (payload === 'copyCode' && info.codeText) {
-        await navigator.clipboard.writeText(info.codeText);
-        toasts.success(t('editorCtx.copyCodeContent') || '已复制代码块内容');
-      }
-      break;
-    }
-    case 'aiAction': {
-      onBubbleAiAction(payload);
-      break;
-    }
-    case 'caseAction': {
-      if (info.selectedText) {
-        const mode = payload === 'uppercase' ? 'upper' : payload === 'lowercase' ? 'lower' : 'title';
-        const transformed = transformCase(info.selectedText, mode);
-        if (!usePlainWindowsEditor && view) {
-          const sel = view.state.selection.main;
-          view.dispatch({
-            changes: { from: sel.from, to: sel.to, insert: transformed },
-            selection: { anchor: sel.from, head: sel.from + transformed.length },
-          });
-          view.focus();
-        } else {
-          plainInsertText(transformed);
-        }
-      }
-      break;
-    }
-    case 'insertAction': {
-      if (payload === 'hr') {
-        insertMarkdown('\n---\n');
-      } else if (payload === 'image') {
-        void pickAndInsertImage();
-      } else if (payload === 'imageUrl') {
-        window.dispatchEvent(new CustomEvent('solomd:open-image-url-dialog'));
-      } else {
-        applyFormat(payload);
-      }
-      break;
-    }
-    case 'formatAction': {
-      applyFormat(payload);
-      break;
-    }
-    case 'paragraphAction': {
-      applyFormat(payload);
-      break;
-    }
-    case 'find': {
-      openFind();
-      break;
-    }
-    case 'selectAction': {
-      if (payload === 'word') {
-        if (!usePlainWindowsEditor && view) {
-          const caret = view.state.selection.main.head;
-          const word = view.state.wordAt(caret);
-          if (word) {
-            view.dispatch({ selection: { anchor: word.from, head: word.to } });
-            view.focus();
-          }
-        } else if (plainEditor.value) {
-          const el = plainEditor.value;
-          const text = el.value;
-          const caret = el.selectionStart;
-          let start = caret;
-          let end = caret;
-          while (start > 0 && /[\w\u4e00-\u9fa5]/.test(text[start - 1])) start--;
-          while (end < text.length && /[\w\u4e00-\u9fa5]/.test(text[end])) end++;
-          if (start < end) {
-            el.setSelectionRange(start, end);
-            el.focus();
-          }
-        }
-      } else if (payload === 'line') {
-        if (!usePlainWindowsEditor && view) {
-          const caret = view.state.selection.main.head;
-          const line = view.state.doc.lineAt(caret);
-          view.dispatch({ selection: { anchor: line.from, head: line.to } });
-          view.focus();
-        } else if (plainEditor.value) {
-          const el = plainEditor.value;
-          const text = el.value;
-          const caret = el.selectionStart;
-          const start = text.lastIndexOf('\n', caret - 1) + 1;
-          let end = text.indexOf('\n', caret);
-          if (end === -1) end = text.length;
-          el.setSelectionRange(start, end);
-          el.focus();
-        }
-      } else if (payload === 'paragraph') {
-        if (!usePlainWindowsEditor && view) {
-          const caret = view.state.selection.main.head;
-          const doc = view.state.doc;
-          const curLine = doc.lineAt(caret);
-          let startLine = curLine.number;
-          let endLine = curLine.number;
-          while (startLine > 1 && doc.line(startLine - 1).text.trim() !== '') startLine--;
-          while (endLine < doc.lines && doc.line(endLine + 1).text.trim() !== '') endLine++;
-          view.dispatch({ selection: { anchor: doc.line(startLine).from, head: doc.line(endLine).to } });
-          view.focus();
-        } else if (plainEditor.value) {
-          const el = plainEditor.value;
-          const text = el.value;
-          const caret = el.selectionStart;
-          const lines = text.split('\n');
-          let charCount = 0;
-          let curLineIdx = 0;
-          for (let i = 0; i < lines.length; i++) {
-            const nextCount = charCount + lines[i].length + 1;
-            if (caret >= charCount && caret <= nextCount) {
-              curLineIdx = i;
-              break;
-            }
-            charCount = nextCount;
-          }
-          let startLine = curLineIdx;
-          let endLine = curLineIdx;
-          while (startLine > 0 && lines[startLine - 1].trim() !== '') startLine--;
-          while (endLine < lines.length - 1 && lines[endLine + 1].trim() !== '') endLine++;
-          let startPos = 0;
-          for (let i = 0; i < startLine; i++) startPos += lines[i].length + 1;
-          let endPos = startPos;
-          for (let i = startLine; i <= endLine; i++) endPos += lines[i].length + (i < lines.length - 1 ? 1 : 0);
-          el.setSelectionRange(startPos, endPos);
-          el.focus();
-        }
-      }
-      break;
-    }
-    }
-  } catch (err) {
-    console.error('[Editor] Context menu action error:', err);
-  } finally {
-    closeEditorContextMenu();
-  }
-}
 
 /**
  * Heading folding, driven from the command palette / shortcuts.
@@ -4192,17 +3682,6 @@ function applyFold(action: 'toggle' | 'all' | 'none' | 'level', level = 2): void
   else foldHeadingsToLevel(view, level);
 }
 
-function onGlobalPointerUp() {
-  if (isDraggingSelection) {
-    isDraggingSelection = false;
-    if (!usePlainWindowsEditor && view) {
-      updateSelectionBubble(view);
-    } else if (usePlainWindowsEditor) {
-      updateSelectionBubblePlain();
-    }
-  }
-}
-
 function onGlobalKeyDown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (editorContextMenuState.value.visible) {
@@ -4238,7 +3717,7 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 
 onBeforeUnmount(() => {
   cancelCurrentSmoothScroll();
-  window.removeEventListener('pointerup', onGlobalPointerUp);
+  window.removeEventListener('pointerup', handleGlobalPointerUp);
   window.removeEventListener('keydown', onGlobalKeyDown);
   window.removeEventListener('solomd:table-toolbar-show', onTableToolbarShow);
   window.removeEventListener('solomd:table-toolbar-hide', onTableToolbarHide);
@@ -4737,8 +4216,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
       }
       if (isProofread || isAgentJump) {
         if (isAgentJump) {
-          suppressSelectionBubbleUntil = Date.now() + 2500;
-          selectionBubbleState.value.visible = false;
+          suppressSelectionBubble();
         }
         triggerJumpPulse();
       }
@@ -4756,8 +4234,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
     }
     if (isProofread || isAgentJump) {
       if (isAgentJump) {
-        suppressSelectionBubbleUntil = Date.now() + 2500;
-        selectionBubbleState.value.visible = false;
+        suppressSelectionBubble();
       }
       triggerJumpPulse();
     }
@@ -4887,8 +4364,7 @@ function gotoLine(line?: number, from?: number, to?: number, original?: string, 
   }
 
   if (isAgentJump) {
-    suppressSelectionBubbleUntil = Date.now() + 2500;
-    selectionBubbleState.value.visible = false;
+    suppressSelectionBubble();
     effects.push(setSpotlightEffect.of(null));
     effects.push(setAgentJumpEffect.of(null));
     if (agentJumpTimer) {

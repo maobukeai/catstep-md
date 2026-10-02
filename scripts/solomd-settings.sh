@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Read or update a Catstep MD localStorage setting from the CLI.
+# Note: the settings blob moved from `solomd.settings.v1` to
+# `catstep.settings.v1` (the app migrates + deletes the legacy row on first
+# launch), so this script targets the NEW key only.
 # Usage:
 #   solomd-settings.sh [--bundle dev|prod] get
 #   solomd-settings.sh [--bundle dev|prod] set <key> <jsonValue>
@@ -52,7 +55,7 @@ import sqlite3, json, os
 LS = os.environ['LS_FILE']
 conn = sqlite3.connect(LS)
 cur = conn.cursor()
-cur.execute("SELECT value FROM ItemTable WHERE key='solomd.settings.v1'")
+cur.execute("SELECT value FROM ItemTable WHERE key='catstep.settings.v1'")
 row = cur.fetchone()
 if not row:
     print('{}'); exit(0)
@@ -70,14 +73,14 @@ KEY = os.environ['KEY']
 VAL = json.loads(os.environ['VAL'])
 conn = sqlite3.connect(LS)
 cur = conn.cursor()
-cur.execute("SELECT value FROM ItemTable WHERE key='solomd.settings.v1'")
+cur.execute("SELECT value FROM ItemTable WHERE key='catstep.settings.v1'")
 row = cur.fetchone()
 if not row:
     print('no settings row'); exit(1)
 data = json.loads(row[0].decode('utf-16-le'))
 data[KEY] = VAL
 new_raw = json.dumps(data, ensure_ascii=False, separators=(',', ':')).encode('utf-16-le')
-cur.execute("UPDATE ItemTable SET value=? WHERE key='solomd.settings.v1'", (new_raw,))
+cur.execute("UPDATE ItemTable SET value=? WHERE key='catstep.settings.v1'", (new_raw,))
 conn.commit()
 print(f'set {KEY} = {VAL}')
 PY

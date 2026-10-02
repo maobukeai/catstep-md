@@ -14,7 +14,7 @@
  */
 
 import { EditorView } from '@codemirror/view';
-import { invoke } from '@tauri-apps/api/core';
+import { copyFile, writeBinaryFile } from './commands';
 import { tempDir, sep } from '@tauri-apps/api/path';
 import { uploadImage, type ResolvedUploader } from './image-upload';
 
@@ -245,7 +245,7 @@ async function prepareTempTarget(
 
 async function writeBytes(fullPath: string, bytes: Uint8Array): Promise<boolean> {
   try {
-    await invoke('write_binary_file', { path: fullPath, data: Array.from(bytes) });
+    await writeBinaryFile(fullPath, Array.from(bytes));
     return true;
   } catch (err) {
     console.error('[cm-image-paste] failed to write image', err);
@@ -396,7 +396,7 @@ async function saveAndInsert(
     // otherwise copy the temp file into the attachments folder.
     if (up.keepLocal) return local.insertText;
     try {
-      await invoke('copy_file', { src: srcPath, dst: local.fullPath });
+      await copyFile(srcPath, local.fullPath);
       return local.insertText;
     } catch {
       return `![](${srcPath.replace(/\\/g, '/')})`;
@@ -466,7 +466,7 @@ async function saveOrUploadText(
   return performUpload(up, srcPath, opts, async () => {
     if (up.keepLocal) return local.insertText;
     try {
-      await invoke('copy_file', { src: srcPath, dst: local.fullPath });
+      await copyFile(srcPath, local.fullPath);
       return local.insertText;
     } catch {
       return `![](${srcPath.replace(/\\/g, '/')})`;
@@ -548,7 +548,7 @@ export async function insertImageFromPath(
 
   if (!up || !up.onPaste) {
     try {
-      await invoke('copy_file', { src: srcPath, dst: local.fullPath });
+      await copyFile(srcPath, local.fullPath);
     } catch (err) {
       console.error('[cm-image-paste] copy_file failed', err);
       throw err;
@@ -561,7 +561,7 @@ export async function insertImageFromPath(
   // copy; otherwise upload the original file in place (no copy needed).
   let uploadSrc = srcPath;
   if (up.keepLocal) {
-    await invoke('copy_file', { src: srcPath, dst: local.fullPath });
+    await copyFile(srcPath, local.fullPath);
     uploadSrc = local.fullPath;
   }
   const token = `solomd-uploading-${randSuffix()}${randSuffix()}`;
@@ -569,7 +569,7 @@ export async function insertImageFromPath(
   const finalText = await performUpload(up, uploadSrc, opts, async () => {
     if (up.keepLocal) return local.insertText;
     try {
-      await invoke('copy_file', { src: srcPath, dst: local.fullPath });
+      await copyFile(srcPath, local.fullPath);
       return local.insertText;
     } catch {
       return `![](${srcPath.replace(/\\/g, '/')})`;

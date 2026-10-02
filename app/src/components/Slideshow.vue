@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue';
 import { renderMarkdown } from '../lib/markdown';
+import { readPersistedSettings } from '../lib/settings-storage';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { toggleFullscreen } from '../lib/fullscreen';
 import Reveal from 'reveal.js';
@@ -33,14 +34,15 @@ const showHelp = ref(false);
 const title = ref('');
 
 function getLocale(): 'zh' | 'en' {
-  try {
-    const raw = localStorage.getItem('solomd.settings.v1');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.language?.startsWith('en')) return 'en';
-      if (parsed.language?.startsWith('zh')) return 'zh';
-    }
-  } catch {}
+  // Shared pre-hydration read (new key with legacy fallback) — the inline
+  // legacy-key read here kept returning the default locale after the
+  // settings blob moved to `catstep.settings.v1`.
+  const persisted = readPersistedSettings();
+  const language = persisted?.language;
+  if (typeof language === 'string') {
+    if (language.startsWith('en')) return 'en';
+    if (language.startsWith('zh')) return 'zh';
+  }
   const nav = typeof navigator !== 'undefined' ? navigator.language : '';
   return nav.startsWith('zh') ? 'zh' : 'en';
 }

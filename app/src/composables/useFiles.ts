@@ -1,5 +1,13 @@
 import { inject } from 'vue';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import {
+  convertFileToMarkdown,
+  listDir,
+  openPathExternal,
+  readNote,
+  writeBinaryFile,
+  writeNote,
+} from '../lib/commands';
 import { pickFile, pickFiles, pickFolder, pickSavePath } from '../lib/user-pick';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { documentDir, join } from '@tauri-apps/api/path';
@@ -12,9 +20,8 @@ import { useToastsStore } from '../stores/toasts';
 import { useRecentEditsStore } from '../stores/recentEdits';
 import { useWindowsStore } from '../stores/windows';
 import { openImageOverlay, type OverlayStrings } from '../lib/image-overlay';
-import { openPath as openWithSystemDefault } from '@tauri-apps/plugin-opener';
 import { useI18n } from '../i18n';
-import type { FileReadResult, Tab } from '../types';
+import type { Tab } from '../types';
 import { isSafPath, fromSafPath, safRead, safWrite, safLaunchPicker } from '../lib/saf-fs';
 import { baseNameOf, fileNameOf, claimImportName, joinInFolder } from '../lib/import-plan';
 
@@ -206,7 +213,7 @@ export function useFiles() {
         n += 1;
       }
     }
-    await invoke('write_binary_file', { path: dest, data: Array.from(bytes) });
+    await writeBinaryFile(dest, Array.from(bytes));
     return dest;
   }
 
@@ -296,7 +303,7 @@ export function useFiles() {
       const isSaf = isSafPath(path);
       const result = isSaf
         ? await safRead(workspace.safTreeUri!, fromSafPath(path))
-        : await invoke<FileReadResult>('read_file', { path });
+        : await readNote(path);
 
       // Reveal the file's folder in the sidebar BEFORE adding the tab.
       // Order matters: `workspace.setFolder` switches the per-workspace tab
@@ -362,7 +369,10 @@ export function useFiles() {
         };
       }
       try {
-        await openWithSystemDefault(path);
+        // S20 — opener:allow-open-path is gone; the Rust command authorizes
+        // the path (workspace / approved vault / app dirs) before the OS
+        // default program opens it.
+        await openPathExternal(path);
       } catch (e) {
         console.error('openWithSystemDefault failed', e);
         toasts.error(`Failed to open: ${e}`);
@@ -382,7 +392,7 @@ export function useFiles() {
     const fileName = path.split(/[\\/]/).pop() ?? path;
     const tid = toasts.info(`Converting ${fileName} to Markdown…`, 0);
     try {
-      const markdown = await invoke<string>('convert_file_to_markdown', { path });
+      const markdown = await convertFileToMarkdown(path);
       toasts.dismiss(tid);
       // Open as a new unsaved Markdown tab with the converted content.
       const baseName = fileName.replace(/\.[^.]+$/, '');
@@ -454,7 +464,7 @@ export function useFiles() {
     const taken = new Set<string>();
     if (writeToDisk) {
       try {
-        const entries = await invoke<Array<{ name: string }>>('list_dir', { path: folder });
+        const entries = await listDir(folder);
         for (const e of entries) taken.add(e.name.toLowerCase());
       } catch {
         /* an unreadable folder will surface on the first write anyway */
@@ -476,14 +486,14 @@ export function useFiles() {
         0,
       );
       try {
-        const markdown = await invoke<string>('convert_file_to_markdown', { path });
+        const markdown = await convertFileToMarkdown(path);
         const base = baseNameOf(fileName);
         if (writeToDisk) {
           // `claimImportName` is where an existing note is protected — see
           // import-plan.ts. It also reserves the name inside this batch, so
           // importing two `report.*` files produces two notes.
           const target = joinInFolder(folder!, claimImportName(taken, fileName));
-          await invoke('write_file', { path: target, content: markdown, encoding: 'UTF-8' });
+          await writeNote(target, markdown);
           imported.push(target);
         } else {
           tabs.newTab();
@@ -673,11 +683,7 @@ export function useFiles() {
         // ContentResolver route as the original save.
         await writeContentUri(path, payload);
       } else {
-        await invoke('write_file', {
-          path,
-          content: payload,
-          encoding: tab.encoding || 'UTF-8',
-        });
+        await writeNote(path, payload, { encoding: tab.encoding });
       }
       tabs.markSaved(tab.id, path);
       if (!isSaf && !isContentUri) {
@@ -738,11 +744,7 @@ export function useFiles() {
         toasts.success(`Saved as ${fileName}`);
         return true;
       }
-      await invoke('write_file', {
-        path,
-        content: payload,
-        encoding: tab.encoding || 'UTF-8',
-      });
+      await writeNote(path, payload, { encoding: tab.encoding });
       tabs.markSaved(tab.id, path);
       workspace.pushRecent(path);
       // v2.5: feed the ⌘P quick-switcher's MFU ranking.

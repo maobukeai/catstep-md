@@ -14,7 +14,7 @@
  * how it knows the theme and the language without any IPC.
  */
 import { computed, nextTick, onMounted, onBeforeUnmount, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { quickCaptureClose, quickCaptureWrite } from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useI18n } from '../i18n';
 import { useSettingsStore } from '../stores/settings';
@@ -48,7 +48,7 @@ async function close() {
   text.value = '';
   error.value = '';
   try {
-    await invoke('quick_capture_close');
+    await quickCaptureClose();
   } catch {
     /* the window is going away either way */
   }
@@ -64,7 +64,7 @@ async function save() {
   saving.value = true;
   error.value = '';
   try {
-    await invoke<string>('quick_capture_write', { content });
+    await quickCaptureWrite({ content });
     text.value = '';
     await close();
   } catch (e) {

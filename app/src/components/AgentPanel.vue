@@ -9,8 +9,6 @@
  * commits on `feat/v4-panel`.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useSettingsStore } from '../stores/settings';
 import { useTabsStore } from '../stores/tabs';
@@ -18,27 +16,12 @@ import { useTilesStore } from '../stores/tiles';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { useAgentPanelStore, type AgentReference } from '../stores/agentPanel';
-import { providerById, type ProviderId } from '../lib/ai-providers';
-import { applyHistoryBudget } from '../lib/agent-context';
-import {
-  promptLang,
-  systemPrompt,
-  toolActionSummary,
-  toolLogBlock,
-  fallbackAssistantTurn,
-  selectionWriteDirective,
-  writeDirective,
-  readonlySelectionDirective,
-  readonlyDirective,
-  ragContextBlock,
-  refsBlock,
-  selectionBlock,
-} from '../lib/agent-prompts';
 import { extractCleanPolishedText } from '../lib/agent-replies';
-import { ThinkTagSplitter } from '../lib/think-splitter';
+import { matchesTabPath } from '../lib/agent-events';
 import { renderMarkdown } from '../lib/markdown';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useFiles } from '../composables/useFiles';
+import { useAgentRun } from '../composables/useAgentRun';
 import { useI18n } from '../i18n';
 import { getPlainSelection } from '../lib/plain-selection';
 import BrandMark from './BrandMark.vue';
@@ -66,7 +49,6 @@ const files = useFiles();
 const { t } = useI18n();
 
 const draft = ref('');
-const errorMsg = ref<string | null>(null);
 const lastPrompt = ref('');
 const showHistoryDropdown = ref(false);
 const stepElapsedMs = ref(0);
@@ -99,7 +81,35 @@ const quoteTooltip = ref<{ visible: boolean; x: number; y: number; text: string 
   text: '',
 });
 const hasPastUserMessage = computed(() => agent.messages.some((m) => m.role === 'user'));
-const reverts = ref<Record<string, { type: 'path' | 'content' | 'move'; data: string }>>({});
+
+// ── Agent run loop (send / SSE listeners / write-back / watchdog) ──────────
+// Moved to composables/useAgentRun; the pure reductions it uses live in
+// lib/agent-events and are unit-tested.
+const {
+  errorMsg,
+  reverts,
+  includeActiveNote,
+  send,
+  stop,
+  revertToolCall,
+  saveAssistantAsNote,
+  setupAgentStream,
+  cleanupAgentRun,
+  startAgentWatchdog,
+  stopAgentWatchdog,
+} = useAgentRun({
+  draft,
+  lastPrompt,
+  activeReferences,
+  activeImages,
+  activeSelectionText,
+  isSelectionDismissed,
+  showMentionMenu,
+  autoscroll,
+  onListenersCleanup: () => {
+    activeMoreMenuMsgId.value = null;
+  },
+});
 
 // --- Cascading Flyout Model Selector (Desktop Native Style matching user screenshot) ---
 const showModelPicker = ref(false);
@@ -326,28 +336,28 @@ const phaseDisplay = computed(() => {
   switch (agent.agentPhase) {
     case 'analyzing':
       return {
-        text: agent.agentPhaseDetail || '分析上下文与意图…',
+        text: agent.agentPhaseDetail || t('agent.phaseAnalyzing'),
         time: `${sec}s`,
       };
     case 'thinking':
       return {
-        text: agent.agentPhaseDetail || '深度推演中…',
+        text: agent.agentPhaseDetail || t('agent.phaseThinking'),
         time: `${sec}s`,
       };
     case 'calling_tool':
       return {
-        text: agent.agentPhaseDetail || '执行工具中…',
+        text: agent.agentPhaseDetail || t('agent.phaseCallingTool'),
         time: `${sec}s`,
       };
     case 'organizing':
       return {
-        text: agent.agentPhaseDetail || '组织回复与整理内容…',
+        text: agent.agentPhaseDetail || t('agent.phaseOrganizing'),
         time: `${sec}s`,
       };
     default:
       if (agent.isStreaming) {
         return {
-          text: agent.agentPhaseDetail || '处理中…',
+          text: agent.agentPhaseDetail || t('agent.phaseWorking'),
           time: `${sec}s`,
         };
       }
@@ -359,8 +369,8 @@ function formatSessionTime(ts: number): string {
   if (!ts) return '';
   const now = Date.now();
   const diff = now - ts;
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}分钟前`;
+  if (diff < 60_000) return t('agent.timeJustNow');
+  if (diff < 3600_000) return t('agent.timeMinutesAgo', { n: Math.floor(diff / 60_000) });
   const d = new Date(ts);
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const date = String(d.getDate()).padStart(2, '0');
@@ -456,7 +466,7 @@ async function recallMessage(msg: any) {
   if (msgIdx === -1) return;
   const subsequentCount = agent.messages.length - 1 - msgIdx;
   if (subsequentCount > 1) {
-    const ok = window.confirm(t('agent.confirmRecallMsg') || '撤回此历史消息将清除其后的所有回复，是否继续？');
+    const ok = window.confirm(t('agent.confirmRecallMsg'));
     if (!ok) return;
   }
 
@@ -487,7 +497,7 @@ async function recallMessage(msg: any) {
   activeImages.value = imgs;
 
   if (revertedCount > 0) {
-    toasts.success(t('agent.msgRecalledAndReverted', { count: revertedCount }) || `已撤回提问并还原了 ${revertedCount} 处笔记修改`);
+    toasts.success(t('agent.msgRecalledAndReverted', { count: revertedCount }));
   } else {
     toasts.success(t('agent.msgRecallTitle'));
   }
@@ -544,7 +554,7 @@ async function regenerateAssistant(msg: any) {
   if (msgIdx === -1) return;
   const subsequentCount = agent.messages.length - 1 - msgIdx;
   if (subsequentCount > 0) {
-    const ok = window.confirm(t('agent.confirmRegenerateMsg') || '重新生成此历史回复将清除其后的所有对话，是否继续？');
+    const ok = window.confirm(t('agent.confirmRegenerateMsg'));
     if (!ok) return;
   }
   let prevUserIdx = -1;
@@ -588,7 +598,7 @@ async function regenerateAssistant(msg: any) {
 
 function deleteTurn(msg: any) {
   if (agent.isStreaming) return;
-  const ok = window.confirm(t('agent.confirmDeleteTurn') || '确定删除此轮对话吗？');
+  const ok = window.confirm(t('agent.confirmDeleteTurn'));
   if (!ok) return;
   agent.deleteTurn(msg.id);
   toasts.success(t('agent.msgDeleteTurnTitle'));
@@ -791,7 +801,7 @@ function onPaste(e: ClipboardEvent) {
           const dataUrl = loadEvt.target?.result as string;
           if (dataUrl) {
             activeImages.value.push(dataUrl);
-            toasts.success('已识别并粘贴剪贴板截图');
+            toasts.success(t('agent.clipboardPasted'));
           }
         };
         reader.readAsDataURL(file);
@@ -817,7 +827,7 @@ const filteredSessions = computed(() => {
 
 function startSessionRename(s: any) {
   editingSessionId.value = s.id;
-  editingSessionTitle.value = s.title || '新会话';
+  editingSessionTitle.value = s.title || t('agent.untitledSession');
 }
 
 function saveSessionRename(id: string) {
@@ -834,152 +844,6 @@ function openReferencedNote(relPath?: string) {
   void files.openPath(full);
 }
 
-// Save Assistant reply as a new note (F15)
-async function saveAssistantAsNote(content: string) {
-  if (!content || agent.isStreaming) return;
-  if (!workspace.currentFolder) {
-    toasts.warning('请先打开一个工作区文件夹');
-    return;
-  }
-  try {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-    const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
-
-    const firstLine = content.split('\n')[0].replace(/^[#\s*`]+/, '').trim();
-    const safeTitle = (firstLine.slice(0, 24).replace(/[\\/:*?"<>|]/g, '') || '智能体沉淀').trim();
-    const fileName = `Agent-${safeTitle}-${dateStr}_${timeStr}.md`;
-    const fullPath = `${workspace.currentFolder}/${fileName}`;
-
-    const frontmatter = `---\ntitle: "${safeTitle}"\ndate: "${now.toISOString()}"\ntags:\n  - agent\n  - ai-archive\n---\n\n`;
-    const finalContent = frontmatter + content;
-
-    await invoke('write_file', {
-      path: fullPath,
-      content: finalContent,
-      encoding: 'UTF-8',
-      workspace: workspace.currentFolder,
-    });
-
-    toasts.success(t('agent.msgSavedAsNote'));
-    await files.openPath(fullPath);
-  } catch (err) {
-    toasts.error(`沉淀笔记失败: ${err}`);
-  }
-}
-
-/** Toggle: include the active note's content as additional context on each
- *  send. Persisted across sessions in localStorage. Off by default — costs
- *  tokens, and not every chat is about the active doc. */
-const INCLUDE_ACTIVE_NOTE_KEY = 'solomd:agent-include-active-note';
-const includeActiveNote = ref(true);
-try {
-  let val = localStorage.getItem(INCLUDE_ACTIVE_NOTE_KEY);
-  if (val === null) val = '1';
-  includeActiveNote.value = val === '1';
-} catch {
-  /* localStorage unavailable — defaults to true */
-}
-watch(includeActiveNote, (v) => {
-  try {
-    localStorage.setItem(INCLUDE_ACTIVE_NOTE_KEY, v ? '1' : '0');
-  } catch {
-    /* best-effort */
-  }
-});
-
-/** Per-message ceiling for active-note injection. 8 KB ≈ ~2k tokens, which
- *  keeps the prompt reasonable on small-context models. */
-const ACTIVE_NOTE_CHAR_LIMIT = 8192;
-
-
-function normalizePath(p?: string | null): string {
-  if (!p) return '';
-  let s = p.replace(/\\/g, '/');
-  if (s.startsWith('//?/UNC/')) {
-    s = '//' + s.slice(8);
-  } else if (s.startsWith('//?/')) {
-    s = s.slice(4);
-  }
-  return s.toLowerCase();
-}
-
-function matchesTabPath(tab: any, targetPath: string): boolean {
-  const tp = normalizePath(tab.filePath || tab.fileName || '');
-  const np = normalizePath(targetPath);
-  if (!tp || !np) return false;
-  return tp === np || tp.endsWith('/' + np) || np.endsWith('/' + tp);
-}
-
-/**
- * Build a workspace-context system message describing where the user is.
- * The agent gets vault path, active file, total note count — enough to
- * answer "what file am I editing?" without yet having tool calls. The next
- * commit on `feat/v4-panel` adds an explicit "include active note content"
- * toggle and the commit after that adds proper MCP tool calls.
- */
-function getActiveNoteRelativePath(): string {
-  const tab = tabs.activeTab;
-  if (!tab) return '';
-  const folder = workspace.currentFolder;
-  const filePath = (tab.filePath || '').replace(/\\/g, '/');
-  if (folder && filePath) {
-    const normFolder = folder.replace(/\\/g, '/').replace(/\/+$/, '');
-    if (filePath.toLowerCase().startsWith(normFolder.toLowerCase() + '/')) {
-      return filePath.slice(normFolder.length + 1);
-    }
-  }
-  return tab.fileName || filePath;
-}
-
-function buildVaultContext(): string {
-  const folder = workspace.currentFolder;
-  if (!folder) return '';
-  const activeRel = getActiveNoteRelativePath();
-  const activeFile = tabs.activeTab?.filePath || '(no active file)';
-  const noteCount = workspaceIndex.entries.length;
-  const lines = [
-    `User's vault is at: ${folder}`,
-    `Active file relative path: ${activeRel || activeFile}`,
-  ];
-  if (noteCount > 0) {
-    lines.push(`Workspace contains ${noteCount} indexed note${noteCount === 1 ? '' : 's'}.`);
-  }
-  return lines.join('\n');
-}
-
-/**
- * Active-note context block — opt-in via the panel header toggle. Returns an
- * empty string if the toggle is off, no folder is open, no active markdown
- * tab, or the tab is unsaved/empty. Truncates to ACTIVE_NOTE_CHAR_LIMIT to
- * keep prompts bounded.
- */
-function buildActiveNoteContext(explicitSelection?: string): string {
-  if (!includeActiveNote.value) return '';
-  const tab = tabs.activeTab;
-  if (!tab || tab.language !== 'markdown') return '';
-  const content = (tab.content || '').trim();
-  if (!content) return '';
-
-  const rawSel = explicitSelection !== undefined
-    ? explicitSelection.trim()
-    : (!isSelectionDismissed.value && activeSelectionText.value
-      ? activeSelectionText.value.trim()
-      : '');
-  const relPath = getActiveNoteRelativePath() || tab.fileName || '(untitled)';
-  const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)' : content;
-
-  if (rawSel.length > 0) {
-    const truncatedSelection =
-      rawSel.length > ACTIVE_NOTE_CHAR_LIMIT
-        ? rawSel.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)'
-        : rawSel;
-    return `Active note (${relPath}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\nUser's current selected text in ${relPath}:\n\`\`\`markdown\n${truncatedSelection}\n\`\`\``;
-  }
-
-  return `Active note (${relPath}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\``;
-}
 
 const hasFolder = computed(() => !!workspace.currentFolder);
 const aiConfigured = computed(() => settings.aiEnabled);
@@ -1112,7 +976,7 @@ async function applyPolishedTextToDoc(assistantMsgContent: string, targetContext
   if (agent.isStreaming) return;
   const cleanSnippet = extractCleanPolishedText(assistantMsgContent);
   if (!cleanSnippet) {
-    toasts.warning('未能从回答中提取到有效的润色内容');
+    toasts.warning(t('agent.polishExtractFailed'));
     return;
   }
 
@@ -1219,334 +1083,6 @@ function autoscroll() {
   });
 }
 
-async function send() {
-  const prompt = draft.value.trim();
-  if (!prompt || agent.isStreaming) return;
-  errorMsg.value = null;
-  lastPrompt.value = prompt;
-  resetThinkingState();
-
-  // Auto-save active note if dirty so disk content matches editor before tool calls (D06)
-  if (tabs.activeTab && tabs.activeTab.filePath && (tabs.isDirty(tabs.activeTab.id) || tabs.activeTab.content !== tabs.activeTab.savedContent)) {
-    try {
-      await files.saveTab(tabs.activeTab, { silent: true });
-    } catch (e) {
-      console.warn('Auto-save active tab before agent send failed:', e);
-    }
-  }
-
-  // Prompt language follows the app language: zh users get zh prompts,
-  // every other locale gets English (AI-facing text, not UI copy).
-  // Declared before the history-rebuild loop, which summarizes tool calls.
-  const plang = promptLang(settings.language);
-  const refsToSend = [...activeReferences.value];
-  const imagesToSend = [...activeImages.value];
-
-  const activeSel = (!isSelectionDismissed.value && activeSelectionText.value) ? activeSelectionText.value.trim() : '';
-  const hasActiveSel = !!activeSel;
-  if (hasActiveSel && !refsToSend.some((r) => r.type === 'selection')) {
-    refsToSend.push({
-      type: 'selection',
-      name: `${t('agent.refSelection')} (${activeSel.length}字)`,
-      preview: activeSel,
-    });
-  }
-
-  // Push user message + empty assistant placeholder. Chunks stream into the
-  // placeholder via the `solomd://ai-chunk` listener below.
-  agent.addMessage({
-    role: 'user',
-    content: prompt,
-    references: refsToSend.length > 0 ? refsToSend : undefined,
-    images: imagesToSend.length > 0 ? imagesToSend : undefined,
-    selectionContext: hasActiveSel ? {
-      path: tabs.activeTab?.filePath || tabs.activeTab?.fileName,
-      targetText: activeSel,
-    } : undefined,
-  });
-  agent.addMessage({ role: 'assistant', content: '' });
-  draft.value = '';
-  activeReferences.value = [];
-  activeImages.value = [];
-  showMentionMenu.value = false;
-  autoscroll();
-
-  // Resolve everything from the ACTIVE PROFILE, not from the flat
-  // `settings.aiProvider` / `aiModel` / `aiBaseUrl` mirrors. The mirrors are
-  // kept in sync by `syncActiveProfile()` for legacy readers, but the key we
-  // are about to use is stored under the profile's id — so the provider,
-  // model and endpoint must come from that same profile or the request and
-  // the credential can describe two different vendors. That mismatch is
-  // exactly what made a saved-and-verified key look unconfigured at chat time.
-  const activeProfile = settings.aiProfiles.find(
-    (p) => p.id === settings.activeProfileId,
-  );
-  const activeProviderId = (activeProfile?.provider ?? settings.aiProvider) as ProviderId;
-  const cfg = providerById(activeProviderId);
-  const apiFormat = cfg?.apiFormat || 'openai';
-  const model = activeProfile?.selectedModel || settings.aiModel || cfg?.defaultModel || '';
-  const baseUrl = activeProfile?.baseUrl || settings.aiBaseUrl || cfg?.defaultBaseUrl || null;
-  const isOllama = apiFormat === 'ollama';
-  // Ollama runs the same tool loop as every other backend now (modern
-  // servers take OpenAI-style tools; models without a tool template error
-  // honestly), so a local model can be a full agent too.
-  const isToolAllowed = settings.agentAllowWrite;
-
-  // Compose conversation: system + history with physical tool actions for context memory.
-  const rawTurnHistory: { role: string; content: string }[] = [];
-  let currentTurnUser: { role: string; content: string } | null = null;
-  let currentTurnAssistantParts: string[] = [];
-  let currentTurnToolSummaries: string[] = [];
-
-  const msgsToProcess = agent.messages.slice(0, -1);
-
-  for (let i = 0; i < msgsToProcess.length; i++) {
-    const m = msgsToProcess[i];
-    if (m.role === 'user') {
-      if (currentTurnUser) {
-        rawTurnHistory.push(currentTurnUser);
-        let assistantContent = currentTurnAssistantParts.filter(Boolean).join('\n\n').trim();
-        if (currentTurnToolSummaries.length > 0) {
-          const toolLog = toolLogBlock(currentTurnToolSummaries, plang);
-          assistantContent = assistantContent ? `${assistantContent}\n\n${toolLog}` : toolLog;
-        }
-        if (!assistantContent) {
-          assistantContent = fallbackAssistantTurn(plang);
-        }
-        rawTurnHistory.push({ role: 'assistant', content: assistantContent });
-      }
-      currentTurnUser = { role: 'user', content: m.content || '' };
-      currentTurnAssistantParts = [];
-      currentTurnToolSummaries = [];
-    } else if (m.role === 'assistant') {
-      if (m.content && m.content.trim()) {
-        currentTurnAssistantParts.push(m.content.trim());
-      }
-    } else if (m.role === 'tool' && m.tool) {
-      currentTurnToolSummaries.push(toolActionSummary(m.tool.name, m.tool.args, plang));
-    }
-  }
-
-  if (currentTurnUser) {
-    rawTurnHistory.push(currentTurnUser);
-    let assistantContent = currentTurnAssistantParts.filter(Boolean).join('\n\n').trim();
-    if (currentTurnToolSummaries.length > 0) {
-      const toolLog = toolLogBlock(currentTurnToolSummaries, plang);
-      assistantContent = assistantContent ? `${assistantContent}\n\n${toolLog}` : toolLog;
-    }
-    if (assistantContent) {
-      rawTurnHistory.push({ role: 'assistant', content: assistantContent });
-    }
-  }
-
-  // Strictly normalize alternating user/assistant roles and strip empties
-  const history: { role: string; content: string }[] = [];
-  for (const m of rawTurnHistory) {
-    if (!m.content || !m.content.trim()) continue;
-    if (history.length === 0) {
-      if (m.role === 'user') {
-        history.push({ role: m.role, content: m.content.trim() });
-      }
-    } else {
-      const last = history[history.length - 1];
-      if (last.role === m.role) {
-        last.content = `${last.content}\n\n${m.content.trim()}`;
-      } else {
-        history.push({ role: m.role, content: m.content.trim() });
-      }
-    }
-  }
-
-  const ctx = buildVaultContext();
-  const noteCtx = buildActiveNoteContext(activeSel);
-  const systemParts = [systemPrompt(plang)];
-
-  if (isToolAllowed) {
-    const activeRel = getActiveNoteRelativePath();
-    systemParts.push(
-      hasActiveSel
-        ? selectionWriteDirective(activeRel, activeSel, plang)
-        : writeDirective(activeRel, plang),
-    );
-  } else {
-    systemParts.push(
-      hasActiveSel
-        ? readonlySelectionDirective(isOllama, plang)
-        : readonlyDirective(isOllama, plang),
-    );
-  }
-
-  if (ctx) systemParts.push(ctx);
-  if (noteCtx) systemParts.push(noteCtx);
-
-  // Automatic semantic retrieval over the vault (RAG). When the index is on
-  // and ready, the prompt is embedded and the top matches are injected as
-  // grounded context with source paths — the model answers from the vault
-  // (and cites [[path]] links) instead of either guessing or having to
-  // think of calling the semantic_search tool itself. Best-effort: any
-  // failure (index off, not built, embedder down) just skips the block.
-  if (settings.ragEnabled && settings.agentRagGrounding && workspace.currentFolder) {
-    try {
-      const ragHits = await invoke<{ path: string; name: string; score: number; snippet: string }[]>(
-        'rag_search',
-        { args: { folder: workspace.currentFolder, query: prompt, limit: 4 } },
-      );
-      // Floor drops pure-noise matches; no per-backend tuning exists, so it
-      // is deliberately loose — the prompt below tells the model to say so
-      // when the snippets don't actually answer the question.
-      const usable = ragHits.filter((h) => h.score >= 0.25);
-      if (usable.length > 0) {
-        const parts = usable.map((h) => {
-          const snippet = (h.snippet.length > 300 ? h.snippet.slice(0, 300) + '…' : h.snippet)
-            .split('\n')
-            .map((l) => `> ${l}`)
-            .join('\n');
-          return `### ${h.name} (${h.path}) 相似度 ${h.score.toFixed(2)}\n${snippet}`;
-        });
-        systemParts.push(ragContextBlock(parts, plang));
-      }
-    } catch {
-      // No index / backend unreachable — answer ungrounded.
-    }
-  }
-
-  // Stage 1: Explicitly referenced notes
-  if (refsToSend.length > 0) {
-    const refTexts: string[] = [];
-    for (const refItem of refsToSend) {
-      if (refItem.path) {
-        try {
-          const fullPath = workspace.currentFolder ? `${workspace.currentFolder}/${refItem.path}` : refItem.path;
-          const readRes = await invoke<{ content: string }>('read_file', { path: fullPath });
-          const snippet = readRes.content.length > 8192 ? readRes.content.slice(0, 8192) + '\n…(截断)' : readRes.content;
-          refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n\`\`\`markdown\n${snippet}\n\`\`\``);
-        } catch (e) {
-          refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n(读取失败: ${e})`);
-        }
-      }
-    }
-    if (refTexts.length > 0) {
-      systemParts.push(refsBlock(refTexts, plang));
-    }
-  }
-
-  // Stage 1: Explicit selection context
-  if (hasActiveSel && !includeActiveNote.value) {
-    const truncatedSel = activeSel.length > 8192 ? activeSel.slice(0, 8192) + '\n…(截断)' : activeSel;
-    systemParts.push(selectionBlock(truncatedSel, plang));
-  }
-
-  // Now dismiss the badge after full prompt construction (D02)
-  isSelectionDismissed.value = true;
-
-  const budgetedHistory = applyHistoryBudget(history);
-
-  const messages = [
-    { role: 'system', content: systemParts.join('\n\n') },
-    ...budgetedHistory,
-  ];
-
-  // Attach this turn's pasted/picked images to the current-turn user message
-  // so vision-capable models actually receive them. The UI always collected
-  // and rendered attachments, but the payload never carried them — the model
-  // never saw a single one. Only the current turn carries images: history
-  // turns were already sent (with their images) in their own turn, and
-  // re-attaching base64 blobs every turn would multiply the payload.
-  if (imagesToSend.length > 0) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        (messages[i] as { role: string; content: string; images?: string[] }).images = imagesToSend;
-        break;
-      }
-    }
-  }
-
-  if (!model || !model.trim()) {
-    const lastMsg = agent.messages[agent.messages.length - 1];
-    if (lastMsg && lastMsg.role === 'assistant') {
-      lastMsg.content =
-        '⚠️ **未配置模型型号**：请先在顶部或“设置 → AI 大模型”中为你使用的服务商输入模型名称（例如 `deepseek-chat` 或 `gpt-4o`），或点击“获取模型列表”后选择。';
-    }
-    return;
-  }
-
-  // Generate the request id on the frontend so we can wire `currentRunId`
-  // BEFORE invoking the command. Closes a race where a fast backend
-  // failure (ollama 404 on a missing model) emits `ai-error` before the
-  // `await invoke(...)` resolves — without a pre-set `currentRunId`, the
-  // error listener's id-match check drops the event and the panel hangs
-  // on "生成回复中…" with the Stop button stuck on.
-  const requestId =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  agent.currentRunId = requestId;
-  agent.isStreaming = true;
-  touchAgentEvent();
-  try {
-    await invoke<string>('ai_chat', {
-      request: {
-        provider: activeProviderId,
-        api_format: apiFormat,
-        model,
-        messages,
-        base_url: baseUrl,
-        // The keychain slot this request authenticates with. Must be the
-        // profile's own id: profiles save under `profile-<ts>-<rand>`, and
-        // omitting this made the backend fall back to reading a slot named
-        // after the provider — a slot nothing had ever written to.
-        key_id: activeProfile?.id ?? null,
-        // v4.0 — let the model decide which tools to call. The Rust side
-        // passes `null` ⇒ all read-only tools by default; write tools
-        // need explicit `allow_write: true`.
-        tools: null,
-        allow_write: settings.agentAllowWrite,
-        tool_loop_cap: settings.agentToolLoopCap,
-        // v1.x MCP client — enabled servers ride along with every chat so
-        // the backend tool loop can list and route their tools. The master
-        // toggle gates the whole surface (default off).
-        mcp_servers: settings.agentMcpEnabled
-          ? settings.agentMcpServers
-              .filter((s) => s.enabled && s.command.trim())
-              .map((s) => ({
-                id: s.id,
-                command: s.command,
-                args: s.args,
-                env: {},
-                enabled: true,
-                timeout_secs: s.timeout_secs ?? null,
-                url: s.url ?? null,
-                headers: s.headers ?? {},
-              }))
-          : null,
-        workspace: workspace.currentFolder,
-        request_id: requestId,
-      },
-    });
-  } catch (err) {
-    agent.isStreaming = false;
-    agent.currentRunId = null;
-    errorMsg.value = String(err);
-    // Drop the empty placeholder when the request never reached the wire.
-    const last = agent.messages[agent.messages.length - 1];
-    if (last && last.role === 'assistant' && last.content === '') {
-      agent.messages.pop();
-    }
-  }
-}
-
-async function stop() {
-  const id = agent.currentRunId;
-  if (id) {
-    try {
-      await invoke('ai_cancel', { requestId: id });
-    } catch {
-      /* best-effort */
-    }
-  }
-  agent.isStreaming = false;
-  agent.currentRunId = null;
-}
 
 function onKeydown(e: KeyboardEvent) {
   // CJK / IME guard: while the user is mid-composition (e.g. typing
@@ -1609,94 +1145,6 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-// --- Streaming event listeners ------------------------------------------
-// Global latch on window to prevent duplicate listeners across HMR and remounts
-declare global {
-  interface Window {
-    __solomd_agent_cleanup?: () => void;
-  }
-}
-
-let agentMountToken = 0;
-let activeUnlistens: UnlistenFn[] = [];
-
-// --- Stream watchdog ---------------------------------------------------------
-// The backend streams via fire-and-forget events; if its spawned task dies
-// without emitting ai-done/ai-error (a panic, a lost event, a hung tool
-// dispatch with no turn timeout), the panel would sit on "generating…"
-// forever. Every relevant event refreshes this timestamp; a 10s interval
-// aborts the UI state after 5 minutes of total silence (multi-turn tool
-// loops legitimately pause the stream, hence the generous ceiling).
-let lastAgentEventAt = Date.now();
-let agentWatchdogTimer: ReturnType<typeof setInterval> | null = null;
-const AGENT_WATCHDOG_MS = 300_000;
-
-function touchAgentEvent(): void {
-  lastAgentEventAt = Date.now();
-}
-
-function checkAgentWatchdog(): void {
-  if (!agent.isStreaming || !agent.currentRunId) return;
-  if (Date.now() - lastAgentEventAt <= AGENT_WATCHDOG_MS) return;
-  const id = agent.currentRunId;
-  agent.isStreaming = false;
-  agent.currentRunId = null;
-  resetThinkingState();
-  errorMsg.value = t('agent.watchdogTimeout');
-  void invoke('ai_cancel', { requestId: id }).catch(() => {
-    /* best-effort — the backend may already be gone */
-  });
-}
-// Streaming <think> tag state lives in lib/think-splitter (unit-tested):
-// fragmented tags must not leak reasoning into the visible content.
-const think = new ThinkTagSplitter();
-
-function resetThinkingState() {
-  think.reset();
-}
-
-function cleanupListeners() {
-  agentMountToken++;
-  activeMoreMenuMsgId.value = null;
-  while (activeUnlistens.length) {
-    const fn = activeUnlistens.pop();
-    try {
-      fn?.();
-    } catch {
-      /* ignore */
-    }
-  }
-  if (typeof window !== 'undefined' && window.__solomd_agent_cleanup) {
-    try {
-      window.__solomd_agent_cleanup();
-    } catch {
-      /* ignore */
-    }
-    window.__solomd_agent_cleanup = undefined;
-  }
-}
-
-function processChunkForThinking(chunk: string) {
-  const last = agent.messages[agent.messages.length - 1];
-  if (!last || last.role !== 'assistant') return;
-
-  const r = think.feed(chunk);
-  if (r.thoughtDelta) {
-    last.thought = (last.thought || '') + r.thoughtDelta;
-  }
-  if (r.contentDelta) {
-    last.content = (last.content || '') + r.contentDelta;
-  }
-  if (r.closedDurationMs !== undefined && last.thoughtDurationMs === undefined) {
-    last.thoughtDurationMs = r.closedDurationMs;
-  }
-  // Kept from the original: a thought seeded by the ai-done full-text path
-  // may still lack its duration even when the stream is back to plain
-  // content.
-  if (last.thought && last.thoughtDurationMs === undefined && think.startedAtMs !== null) {
-    last.thoughtDurationMs = Date.now() - think.startedAtMs;
-  }
-}
 
 function isThoughtExpanded(msg: any): boolean {
   if (typeof msg.thoughtExpanded === 'boolean') {
@@ -1749,36 +1197,36 @@ function getToolFileDirectory(tool?: any): string {
 
 function getToolFileBaseName(tool?: any): string {
   const p = getToolFileRelativePath(tool);
-  if (!p) return '未知文件';
+  if (!p) return t('agent.unknownFile');
   const norm = p.replace(/\\/g, '/');
   const lastSlash = norm.lastIndexOf('/');
   return lastSlash === -1 ? norm : norm.slice(lastSlash + 1);
 }
 
 function getToolActionTag(tool?: any): { label: string; icon: string; cls: string } {
-  if (!tool) return { label: '操作', icon: '', cls: 'edit' };
+  if (!tool) return { label: t('agent.actAction'), icon: '', cls: 'edit' };
   if (tool.error) {
-    return { label: '操作失败', icon: '', cls: 'err' };
+    return { label: t('agent.actFailed'), icon: '', cls: 'err' };
   }
   switch (tool.name) {
     case 'patch_note':
-      return { label: '已编辑', icon: '', cls: 'edit' };
+      return { label: t('agent.actEdited'), icon: '', cls: 'edit' };
     case 'write_note':
-      return { label: '新建', icon: '', cls: 'create' };
+      return { label: t('agent.actCreated'), icon: '', cls: 'create' };
     case 'append_to_note':
-      return { label: '追加', icon: '', cls: 'append' };
+      return { label: t('agent.actAppended'), icon: '', cls: 'append' };
     case 'delete_note':
-      return { label: '删除', icon: '', cls: 'delete' };
+      return { label: t('agent.actDeleted'), icon: '', cls: 'delete' };
     case 'move_note':
-      return { label: '移动', icon: '', cls: 'move' };
+      return { label: t('agent.actMoved'), icon: '', cls: 'move' };
     case 'create_folder':
-      return { label: '目录', icon: '', cls: 'create' };
+      return { label: t('agent.actFolder'), icon: '', cls: 'create' };
     case 'delete_folder':
-      return { label: '删目录', icon: '', cls: 'delete' };
+      return { label: t('agent.actFolderDeleted'), icon: '', cls: 'delete' };
     case 'copy_note':
-      return { label: '复制', icon: '', cls: 'copy' };
+      return { label: t('agent.actCopied'), icon: '', cls: 'copy' };
     default:
-      return { label: '操作', icon: '', cls: 'default' };
+      return { label: t('agent.actAction'), icon: '', cls: 'default' };
   }
 }
 
@@ -2024,273 +1472,24 @@ async function jumpToToolModification(tool?: any, specificSnippet?: string, spec
 }
 
 onMounted(async () => {
-  cleanupListeners();
-  const currentToken = ++agentMountToken;
-
   if (typeof window !== 'undefined') {
     window.addEventListener('click', onWindowClick);
     document.addEventListener('selectionchange', checkSelection);
   }
   void checkOllama();
   ollamaTimer = setInterval(checkOllama, 30_000);
-  agentWatchdogTimer = setInterval(checkAgentWatchdog, 10_000);
-
-  window.__solomd_agent_cleanup = cleanupListeners;
-
-  try {
-    const unlistenResults = await Promise.all([
-      listen<{ request_id: string; chunk: string }>('solomd://ai-thought', (e) => {
-        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-        touchAgentEvent();
-        if (think.startedAtMs === null) {
-          void think.feed('', Date.now()); // start the duration clock
-        }
-        agent.appendToLastThought(e.payload.chunk);
-        autoscroll();
-      }),
-      listen<{ request_id: string; chunk: string }>('solomd://ai-chunk', (e) => {
-        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-        touchAgentEvent();
-        processChunkForThinking(e.payload.chunk);
-        autoscroll();
-      }),
-      listen<{ request_id: string; full_text: string }>('solomd://ai-done', (e) => {
-        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-        touchAgentEvent();
-        const last = agent.messages[agent.messages.length - 1];
-        if (last && last.role === 'assistant') {
-          const flushed = think.flush();
-          if (flushed.thoughtDelta) {
-            last.thought = (last.thought || '') + flushed.thoughtDelta;
-          }
-          if (flushed.contentDelta) {
-            last.content = (last.content || '') + flushed.contentDelta;
-          }
-          if (e.payload.full_text) {
-            if (e.payload.full_text.includes('<think>')) {
-              const thinkStart = e.payload.full_text.indexOf('<think>');
-              const thinkEnd = e.payload.full_text.indexOf('</think>');
-              if (thinkEnd !== -1) {
-                last.thought = e.payload.full_text.slice(thinkStart + 7, thinkEnd).trim();
-                last.content = e.payload.full_text.slice(thinkEnd + 8).trimStart();
-              } else {
-                last.thought = e.payload.full_text.slice(thinkStart + 7).trim();
-                last.content = '';
-              }
-            } else {
-              last.content = e.payload.full_text;
-            }
-          }
-          if (last.content && last.content.includes('<think>')) {
-            last.content = last.content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-          }
-          if (last.thought && last.thoughtDurationMs === undefined && think.startedAtMs !== null) {
-            last.thoughtDurationMs = Date.now() - think.startedAtMs;
-          }
-          if (last.content === '' && !last.thought) {
-            agent.messages.pop();
-          }
-        }
-        resetThinkingState();
-        agent.isStreaming = false;
-        agent.currentRunId = null;
-      }),
-      listen<{ request_id: string; error: string }>('solomd://ai-error', (e) => {
-        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-        touchAgentEvent();
-        agent.isStreaming = false;
-        agent.currentRunId = null;
-        resetThinkingState();
-        const last = agent.messages[agent.messages.length - 1];
-        if (last && last.role === 'assistant' && last.content === '' && !last.thought) {
-          agent.messages.pop();
-        }
-        if (e.payload.error !== 'cancelled') {
-          errorMsg.value = e.payload.error;
-        }
-      }),
-      listen<{
-        request_id: string;
-        run_id: string;
-        tool_call_id: string;
-        tool: string;
-        args: Record<string, unknown>;
-      }>('solomd://ai-tool-call', (e) => {
-        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-        touchAgentEvent();
-        agent.insertToolCall({
-          toolCallId: e.payload.tool_call_id,
-          name: e.payload.tool,
-          args: e.payload.args,
-          runId: e.payload.run_id,
-        });
-        autoscroll();
-      }),
-      listen<{
-        request_id: string;
-        run_id: string;
-        tool_call_id: string;
-        result: unknown;
-        error?: string;
-      }>('solomd://ai-tool-result', async (e) => {
-        if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-        touchAgentEvent();
-        let resultStr: string;
-        try {
-          resultStr =
-            typeof e.payload.result === 'string'
-              ? e.payload.result
-              : JSON.stringify(e.payload.result, null, 2);
-        } catch {
-          resultStr = String(e.payload.result);
-        }
-        agent.completeToolCall({
-          toolCallId: e.payload.tool_call_id,
-          result: resultStr,
-          error: e.payload.error,
-        });
-        autoscroll();
-
-        if (!e.payload.error && e.payload.result && typeof e.payload.result === 'object') {
-          const payloadResult = e.payload.result as any;
-
-          // 1. Move note handling
-          if (payloadResult.ok && payloadResult.moved && payloadResult.source_path && payloadResult.target_path) {
-            reverts.value[e.payload.tool_call_id] = {
-              type: 'move',
-              data: JSON.stringify({
-                from: payloadResult.target_path,
-                to: payloadResult.source_path,
-              }),
-            };
-            const tab = tabs.tabs.find((t) => matchesTabPath(t, payloadResult.source_path));
-            if (tab && typeof tab.id === 'string') {
-              tabs.renamePath(tab.id, payloadResult.target_path);
-            }
-            window.dispatchEvent(new CustomEvent('solomd:saved'));
-          }
-
-          // 2. Folder creation / deletion handling
-          if (payloadResult.ok && (payloadResult.created || payloadResult.deleted)) {
-            window.dispatchEvent(new CustomEvent('solomd:saved'));
-          }
-
-          // 3. Write / patch note handling
-          if (payloadResult.ok && payloadResult.path && !payloadResult.moved) {
-            const path = payloadResult.path;
-            const tab = tabs.tabs.find((t) => matchesTabPath(t, path)) ||
-              (tabs.activeTab && matchesTabPath(tabs.activeTab, path) ? tabs.activeTab : undefined);
-            if (payloadResult.backup_path) {
-              reverts.value[e.payload.tool_call_id] = { type: 'path', data: payloadResult.backup_path };
-            } else if (tab) {
-              reverts.value[e.payload.tool_call_id] = { type: 'content', data: tab.content };
-            }
-
-            if (tab && typeof tab.id === 'string') {
-              try {
-                const result = await invoke<any>('read_file', { path });
-                if (result && typeof result.content === 'string') {
-                  tabs.applyExternalSave(tab.id, result.content);
-                  window.dispatchEvent(new CustomEvent('solomd:saved'));
-                }
-              } catch (err) {
-                console.error('Failed to sync file after ai write:', err);
-              }
-            } else {
-              try {
-                await files.openPath(path, { bypassNewWindow: true });
-                window.dispatchEvent(new CustomEvent('solomd:saved'));
-              } catch (err) {
-                console.error('Failed to auto-open created note:', err);
-              }
-            }
-          }
-        }
-      }),
-      listen<{ request_id: string; run_id: string }>('solomd://ai-run-started', (e) => {
-        if (e.payload.request_id === agent.currentRunId) {
-          touchAgentEvent();
-          agent.currentPersistRunId = e.payload.run_id;
-        }
-      }),
-    ]);
-
-    // If unmounted or re-entered while awaiting, clean them up immediately!
-    if (currentToken !== agentMountToken) {
-      for (const fn of unlistenResults) {
-        try { fn(); } catch {}
-      }
-      return;
-    }
-
-    activeUnlistens = unlistenResults;
-  } catch (err) {
-    console.error('[AgentPanel] listener registration error:', err);
-  }
+  startAgentWatchdog();
+  await setupAgentStream();
 });
 
-async function revertToolCall(toolCallId: string, toolResultStr?: string, silent = false) {
-  const original = reverts.value[toolCallId];
-  if (original === undefined) return;
-  if (!toolResultStr) {
-    if (!silent) toasts.error('Cannot revert: missing tool result');
-    return;
-  }
-  try {
-    const resultObj = JSON.parse(toolResultStr);
-    if (original.type === 'move') {
-      const moveInfo = JSON.parse(original.data);
-      await invoke('agent_tool_move_note', {
-        workspace: workspace.currentFolder,
-        args: {
-          source_path: moveInfo.from,
-          target_path: moveInfo.to,
-          overwrite: true,
-        },
-      });
-      const tab = tabs.tabs.find((t) => matchesTabPath(t, moveInfo.from));
-      if (tab && typeof tab.id === 'string') {
-        tabs.renamePath(tab.id, moveInfo.to);
-      }
-      window.dispatchEvent(new CustomEvent('solomd:saved'));
-      if (!silent) toasts.success(t('agent.revertSuccess'));
-      delete reverts.value[toolCallId];
-      return;
-    }
-
-    const path = resultObj.path;
-    if (path) {
-      let contentToRestore = '';
-      if (original.type === 'path') {
-        await invoke('agent_tool_restore_note_backup', { workspace: workspace.currentFolder, args: { path, backup_path: original.data } });
-        const backupResult = await invoke<{ content: string }>('read_file', { path: original.data });
-        contentToRestore = backupResult.content;
-      } else {
-        await invoke('write_file', { path, content: original.data, encoding: 'UTF-8' });
-        contentToRestore = original.data;
-      }
-      const tab = tabs.tabs.find((t) => matchesTabPath(t, path));
-      if (tab && typeof tab.id === 'string') {
-        tabs.applyExternalSave(tab.id, contentToRestore);
-      }
-      if (!silent) toasts.success(t('agent.revertSuccess'));
-      delete reverts.value[toolCallId];
-    }
-  } catch (err) {
-    if (!silent) toasts.error(`Failed to revert: ${err}`);
-  }
-}
 
 onBeforeUnmount(() => {
-  cleanupListeners();
+  cleanupAgentRun();
   if (typeof window !== 'undefined') {
     window.removeEventListener('click', onWindowClick);
     document.removeEventListener('selectionchange', checkSelection);
   }
-  if (agentWatchdogTimer) {
-    clearInterval(agentWatchdogTimer);
-    agentWatchdogTimer = null;
-  }
+  stopAgentWatchdog();
   if (ollamaTimer) {
     clearInterval(ollamaTimer);
     ollamaTimer = null;
@@ -2373,28 +1572,28 @@ function getGroupSummaryText(tools: any[]): string {
   const count = tools.length;
   const names = Array.from(new Set(tools.map((m) => m.tool?.name).filter(Boolean)));
   const friendlyNames: Record<string, string> = {
-    list_notes: '检索笔记',
-    list_folders: '浏览目录',
-    read_note: '读取笔记',
-    search: '知识库检索',
-    semantic_search: '语义向量检索',
-    patch_note: '局部修改',
-    write_note: '写入笔记',
-    append_to_note: '追加笔记',
-    delete_note: '移入回收站',
-    move_note: '移动笔记',
-    create_folder: '创建目录',
-    delete_folder: '删除目录',
-    copy_note: '复制笔记',
-    get_backlinks: '反向链接检索',
-    list_tags: '标签检索',
-    get_outline: '读取大纲',
-    autogit_log: '版本记录',
-    autogit_diff: '版本差异',
-    read_agent_trace: '分析执行轨迹',
+    list_notes: t('agent.opListNotes'),
+    list_folders: t('agent.opListFolders'),
+    read_note: t('agent.opReadNote'),
+    search: t('agent.opSearch'),
+    semantic_search: t('agent.opSemanticSearch'),
+    patch_note: t('agent.opPatchNote'),
+    write_note: t('agent.opWriteNote'),
+    append_to_note: t('agent.opAppendNote'),
+    delete_note: t('agent.opDeleteNote'),
+    move_note: t('agent.opMoveNote'),
+    create_folder: t('agent.opCreateFolder'),
+    delete_folder: t('agent.opDeleteFolder'),
+    copy_note: t('agent.opCopyNote'),
+    get_backlinks: t('agent.opBacklinks'),
+    list_tags: t('agent.opListTags'),
+    get_outline: t('agent.opOutline'),
+    autogit_log: t('agent.opAutogitLog'),
+    autogit_diff: t('agent.opAutogitDiff'),
+    read_agent_trace: t('agent.opReadTrace'),
   };
   const nameLabels = names.map((n) => friendlyNames[n] || n).join('、');
-  return `执行了 ${count} 项操作${nameLabels ? ` (${nameLabels})` : ''}`;
+  return `${t('agent.performedActions', { count })}${nameLabels ? ` (${nameLabels})` : ''}`;
 }
 
 interface RenderBlockUser {
@@ -2420,7 +1619,7 @@ interface RenderBlockAssistantTurn {
 type RenderBlock = RenderBlockUser | RenderBlockAssistantTurn;
 
 const shortcutHint = computed(() => {
-  const full = t('agent.enterToSend') || 'Enter 发送 · Shift+Enter 换行';
+  const full = t('agent.enterToSend');
   const parts = full.split(' · ');
   if (parts.length >= 2) {
     return { main: parts[0], sub: ` · ${parts[1]}` };
@@ -2502,7 +1701,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 <template>
   <div class="agent-panel" :class="{ 'agent-panel--mobile': mobileMode }">
     <header v-if="!mobileMode" class="agent-panel__head">
-      <div class="rs-pane-title-group" :title="collapsed ? '展开面板' : '折叠面板'">
+      <div class="rs-pane-title-group" :title="collapsed ? t('agent.expandPaneTitle') : t('agent.collapsePaneTitle')">
         <span class="rs-pane-chevron" :class="{ 'is-collapsed': collapsed }">
           <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <polyline points="4 6 8 10 12 6" />
@@ -2521,27 +1720,27 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__action-btn"
             type="button"
             :disabled="agent.isStreaming"
-            title="新建会话"
+            :title="t('agent.newSessionTitle')"
             @click.stop="agent.newSession()"
           >
-            新建
+            {{ t('agent.actionNew') }}
           </button>
 
           <div class="agent-panel__history-wrap">
             <button
               class="agent-panel__action-btn"
               type="button"
-              title="会话历史记录"
+              :title="t('agent.historyTitle')"
               @click.stop="showHistoryDropdown = !showHistoryDropdown"
             >
-              历史
+              {{ t('agent.actionHistory') }}
             </button>
 
             <!-- History Dropdown Menu -->
             <div v-if="showHistoryDropdown" class="agent-panel__history-dropdown" @click.stop>
               <div class="agent-panel__history-head">
                 <div class="agent-panel__history-head-title">
-                  <span>历史对话 ({{ agent.sessions.length }})</span>
+                  <span>{{ t('agent.historyConversations', { n: agent.sessions.length }) }}</span>
                 </div>
                 <button
                   class="agent-panel__history-new-btn"
@@ -2549,7 +1748,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   :disabled="agent.isStreaming"
                   @click="agent.newSession(); showHistoryDropdown = false"
                 >
-                  新建
+                  {{ t('agent.actionNew') }}
                 </button>
               </div>
 
@@ -2588,15 +1787,15 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         @keydown.esc.stop="editingSessionId = null"
                       />
                       <div class="agent-panel__history-rename-actions" @click.stop>
-                        <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">保存</button>
-                        <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">取消</button>
+                        <button class="agent-panel__history-action-btn" type="button" @click="saveSessionRename(s.id)">{{ t('agent.actionSave') }}</button>
+                        <button class="agent-panel__history-action-btn" type="button" @click="editingSessionId = null">{{ t('agent.actionCancel') }}</button>
                       </div>
                     </template>
                     <template v-else>
-                      <div class="agent-panel__history-item-title">{{ s.title || '新会话' }}</div>
+                      <div class="agent-panel__history-item-title">{{ s.title || t('agent.untitledSession') }}</div>
                       <div class="agent-panel__history-item-meta">
                         <span>{{ formatSessionTime(s.updatedAt) }}</span>
-                        <span>· {{ s.messages.length }} 条消息</span>
+                        <span>· {{ t('agent.msgCount', { n: s.messages.length }) }}</span>
                       </div>
                     </template>
                   </div>
@@ -2605,24 +1804,24 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     <button
                       class="agent-panel__history-item-btn"
                       type="button"
-                      title="重命名会话"
+                      :title="t('agent.renameSession')"
                       @click="startSessionRename(s)"
                     >
-                      重命名
+                      {{ t('agent.actionRename') }}
                     </button>
                     <button
                       class="agent-panel__history-item-btn agent-panel__history-item-btn--del"
                       type="button"
                       :disabled="agent.isStreaming"
-                      title="删除此会话"
+                      :title="t('agent.deleteSessionTitle')"
                       @click="agent.deleteSession(s.id)"
                     >
-                      删除
+                      {{ t('agent.actionDelete') }}
                     </button>
                   </div>
                 </div>
                 <div v-if="filteredSessions.length === 0" class="agent-panel__history-empty">
-                  未找到匹配的会话
+                  {{ t('agent.noMatchingSessions') }}
                 </div>
               </div>
             </div>
@@ -2647,7 +1846,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             :title="t('agent.clearTitle')"
             @click.stop="agent.clear()"
           >
-            清空
+            {{ t('agent.actionClear') }}
           </button>
         </div>
       </template>
@@ -2700,10 +1899,10 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       class="agent-panel__msg-ref-pill"
                       :class="{ 'agent-panel__msg-ref-pill--sel': r.type === 'selection' }"
                       type="button"
-                      :title="r.preview ? r.preview : `在编辑器中打开 ${r.name}`"
+                      :title="r.preview ? r.preview : t('agent.openInEditor', { name: r.name })"
                       @click="r.path && openReferencedNote(r.path)"
                     >
-                      {{ r.type === 'selection' ? '选区: ' : '' }}{{ r.name }}
+                      {{ r.type === 'selection' ? t('agent.selectionPrefix') : '' }}{{ r.name }}
                     </button>
                   </div>
 
@@ -2764,7 +1963,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                     @keydown.esc.prevent="cancelEditUserMessage"
                   ></textarea>
                   <div class="agent-panel__edit-actions">
-                    <span class="agent-panel__edit-hint">Esc 取消 · ⌘/Ctrl+Enter 发送</span>
+                    <span class="agent-panel__edit-hint">{{ t('agent.editHint') }}</span>
                     <div class="agent-panel__edit-btns">
                       <button
                         class="agent-panel__edit-btn agent-panel__edit-btn--cancel"
@@ -2804,7 +2003,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 <div
                   class="agent-panel__thought-ticker-main"
                   @click="toggleThoughtExpand(block.primaryMsg)"
-                  :title="block.combinedThought || '点击展开思考推演详情'"
+                  :title="block.combinedThought || t('agent.thoughtExpandHint')"
                 >
                   <span class="agent-panel__thought-tag">{{ t('agent.thoughtTag') }}</span>
                   <span
@@ -2816,7 +2015,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       {{ getLatestThoughtLine(block.combinedThought) }}
                     </span>
                     <span v-else class="agent-panel__thought-ticker-placeholder">
-                      正在分析笔记内容与意图，组织思考推演…
+                      {{ t('agent.thinkingPlaceholder') }}
                     </span>
                   </div>
                   <span class="agent-panel__thought-time-pill" v-if="block.isStreaming && !block.content">
@@ -2837,7 +2036,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   <pre v-if="block.combinedThought" class="agent-panel__thought-text">{{ block.combinedThought }}<span v-if="block.isStreaming && !block.content" class="agent-panel__cursor" aria-hidden="true">▋</span></pre>
                   <div v-else class="agent-panel__thought-loading">
                     <span class="agent-panel__thought-loading-dot"></span>
-                    <span>正在分析笔记内容与意图，组织思考推演…</span>
+                    <span>{{ t('agent.thinkingPlaceholder') }}</span>
                   </div>
                 </div>
               </div>
@@ -2854,8 +2053,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   </div>
                   <div class="agent-panel__tool-group-right">
                     <span v-if="block.tools.some((t: any) => !t.tool?.result && !t.tool?.error)" class="agent-panel__tool-spinner" />
-                    <span class="agent-panel__tool-group-count">{{ block.tools.length }} 步</span>
-                    <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id, block.tools) ? '收起' : '展开' }}</span>
+                    <span class="agent-panel__tool-group-count">{{ t('agent.stepsCount', { n: block.tools.length }) }}</span>
+                    <span class="agent-panel__tool-group-caret">{{ isGroupExpanded(block.id, block.tools) ? t('agent.thoughtCollapse') : t('agent.thoughtExpand') }}</span>
                   </div>
                 </button>
 
@@ -2867,7 +2066,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                         <div
                           class="agent-panel__file-action-info"
                           :class="{ 'agent-panel__file-action-info--clickable': !m.tool?.error && m.tool?.name !== 'delete_note' && m.tool?.name !== 'delete_folder' }"
-                          title="在编辑器中定位此修改"
+                          :title="t('agent.locateEditTitle')"
                           @click="jumpToToolModification(m.tool)"
                         >
                           <!-- Action Capsule -->
@@ -2898,15 +2097,15 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                             v-if="!m.tool?.error && reverts[m.tool?.toolCallId]"
                             class="agent-panel__action-pill agent-panel__action-pill--revert"
                             type="button"
-                            title="撤销修改并恢复备份"
+                            :title="t('agent.undoRestoreTitle')"
                             @click.stop="revertToolCall(m.tool!.toolCallId, m.tool?.result)"
                           >
-                            ↩ 撤销
+                            {{ t('agent.actionUndo') }}
                           </button>
                           <button
                             class="agent-panel__action-pill agent-panel__action-pill--caret"
                             type="button"
-                            :title="isToolExpanded(m.tool) ? '折叠代码' : '展开代码'"
+                            :title="isToolExpanded(m.tool) ? t('agent.collapseCodeTitle') : t('agent.expandCodeTitle')"
                             @click.stop="agent.toggleToolExpand(m.tool!.toolCallId)"
                           >
                             <span class="agent-panel__caret-arrow">{{ isToolExpanded(m.tool) ? '▲' : '▼' }}</span>
@@ -2926,7 +2125,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                                   :key="rIdx"
                                   class="agent-panel__diff-row"
                                   :class="`agent-panel__diff-row--${row.type}`"
-                                  :title="row.type === 'del' ? '已删除内容（点击定位上下文）' : '点击在编辑器中定位此行'"
+                                  :title="row.type === 'del' ? t('agent.deletedRowTitle') : t('agent.locateRowTitle')"
                                   @click.stop="jumpToToolModification(m.tool, row.text, row.lineNum)"
                                 >
                                   <td class="agent-panel__diff-gutter">{{ row.lineNum }}</td>
@@ -2959,7 +2158,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                           <span v-else class="agent-panel__tool-dot" />
                         </span>
                         <code class="agent-panel__tool-sig">{{ m.tool?.name }}({{ formatArgsInline(m.tool?.args) }})</code>
-                        <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? '收起' : '展开' }}</span>
+                        <span class="agent-panel__tool-caret">{{ m.tool?.expanded ? t('agent.thoughtCollapse') : t('agent.thoughtExpand') }}</span>
                       </button>
                       <div v-if="m.tool?.expanded" class="agent-panel__tool-body">
                         <div class="agent-panel__tool-section">
@@ -3172,16 +2371,16 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         <div class="agent-panel__welcome-avatar-wrap">
           <div class="agent-panel__welcome-avatar-halo" />
           <div class="agent-panel__welcome-avatar">
-            <BrandMark :size="44" class="agent-panel__welcome-brand" label="猫步智能体" />
+            <BrandMark :size="44" class="agent-panel__welcome-brand" :label="t('agent.brandLabel')" />
           </div>
-          <span class="agent-panel__welcome-status-badge" :title="settings.aiProvider ? `已连接: ${settings.aiProvider}` : '就绪'">
+          <span class="agent-panel__welcome-status-badge" :title="settings.aiProvider ? t('agent.connectedTo', { name: settings.aiProvider }) : t('agent.readyStatus')">
             <span class="agent-panel__welcome-status-dot" />
           </span>
         </div>
 
         <div class="agent-panel__welcome-title-row">
           <h3 class="agent-panel__welcome-title">{{ t('agent.emptyTitle') }}</h3>
-          <span class="agent-panel__welcome-badge">{{ t('agent.welcomeBadge') || '智能伴侣' }}</span>
+          <span class="agent-panel__welcome-badge">{{ t('agent.welcomeBadge') }}</span>
         </div>
         <p class="agent-panel__welcome-desc">{{ t('agent.emptyDesc') }}</p>
 
@@ -3202,7 +2401,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             </div>
             <div class="agent-panel__suggestion-content">
               <span class="agent-panel__suggestion-text">{{ t('agent.suggestSummarize') }}</span>
-              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestSummarizeSub') || '快速梳理大纲与核心观点' }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestSummarizeSub') }}</span>
             </div>
             <span class="agent-panel__suggestion-arrow" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3224,7 +2423,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             </div>
             <div class="agent-panel__suggestion-content">
               <span class="agent-panel__suggestion-text">{{ t('agent.suggestTodos') }}</span>
-              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestTodosSub') || '梳理待办任务与行动项' }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestTodosSub') }}</span>
             </div>
             <span class="agent-panel__suggestion-arrow" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3245,7 +2444,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             </div>
             <div class="agent-panel__suggestion-content">
               <span class="agent-panel__suggestion-text">{{ t('agent.suggestPolish') }}</span>
-              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestPolishSub') || '精修文笔、去AI味、理顺逻辑' }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestPolishSub') }}</span>
             </div>
             <span class="agent-panel__suggestion-arrow" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3270,7 +2469,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             </div>
             <div class="agent-panel__suggestion-content">
               <span class="agent-panel__suggestion-text">{{ t('agent.suggestRelated') }}</span>
-              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestRelatedSub') || '跨笔记关联发掘灵感脉络' }}</span>
+              <span class="agent-panel__suggestion-sub">{{ t('agent.suggestRelatedSub') }}</span>
             </div>
             <span class="agent-panel__suggestion-arrow" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3282,7 +2481,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 
         <div class="agent-panel__welcome-footer">
           <span class="agent-panel__welcome-hint">
-            <span class="agent-panel__hint-text">{{ t('agent.welcomeHint') || '输入 @ 引用笔记 · 选中文本自动附加上下文' }}</span>
+            <span class="agent-panel__hint-text">{{ t('agent.welcomeHint') }}</span>
           </span>
         </div>
       </div>
@@ -3297,12 +2496,12 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       <!-- Rich Error Card with 1-Click Retry -->
       <div v-if="errorMsg" class="agent-panel__error-card">
         <div class="agent-panel__error-head">
-          <span class="agent-panel__error-title">执行异常中断</span>
+          <span class="agent-panel__error-title">{{ t('agent.errorTitle') }}</span>
         </div>
         <div class="agent-panel__error-body">{{ errorMsg }}</div>
         <div class="agent-panel__error-actions">
           <button class="agent-panel__retry-btn" type="button" @click="retryLastPrompt">
-            重新发送 / 重试本轮
+            {{ t('agent.retryTurn') }}
           </button>
         </div>
       </div>
@@ -3315,8 +2514,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           @click.stop
         >
           <div class="agent-panel__mention-head">
-            <span>引用知识库资源 ({{ filteredMentions.length }})</span>
-            <span class="agent-panel__mention-hint">↑↓ 选择 · ↵ / Tab 确认 · Esc 关闭</span>
+            <span>{{ t('agent.mentionResources', { n: filteredMentions.length }) }}</span>
+            <span class="agent-panel__mention-hint">{{ t('agent.mentionNavHint') }}</span>
           </div>
           <div class="agent-panel__mention-list">
             <button
@@ -3348,13 +2547,13 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           <span
             v-if="tabs.activeTab && includeActiveNote"
             class="agent-panel__ref-badge agent-panel__ref-badge--active-note"
-            :title="`当前笔记：${tabs.activeTab.filePath || tabs.activeTab.fileName}（已附带到本次对话上下文）`"
+            :title="t('agent.currentNoteAttached', { name: tabs.activeTab.filePath || tabs.activeTab.fileName })"
           >
-            <span class="agent-panel__ref-badge-name">{{ tabs.activeTab.fileName || '当前笔记' }}</span>
+            <span class="agent-panel__ref-badge-name">{{ tabs.activeTab.fileName || t('agent.includeNote') }}</span>
             <button
               class="agent-panel__ref-badge-del"
               type="button"
-              title="从本次会话上下文中排除当前笔记"
+              :title="t('agent.excludeCurrentNote')"
               @click="includeActiveNote = false"
             >×</button>
           </span>
@@ -3376,7 +2575,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__ref-badge agent-panel__ref-badge--selection"
             :title="activeSelectionText"
           >
-            <span class="agent-panel__ref-badge-name">选区 ({{ activeSelectionText.length }}字)</span>
+            <span class="agent-panel__ref-badge-name">{{ t('agent.selectionChars', { n: activeSelectionText.length }) }}</span>
             <button class="agent-panel__ref-badge-del" type="button" @click="isSelectionDismissed = true">×</button>
           </span>
 
@@ -3397,7 +2596,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__ref-badge agent-panel__ref-badge--img"
           >
             <img :src="img" class="agent-panel__ref-thumb" alt="screenshot" />
-            <span class="agent-panel__ref-badge-name">截图 {{ imgIdx + 1 }}</span>
+            <span class="agent-panel__ref-badge-name">{{ t('agent.screenshotN', { n: imgIdx + 1 }) }}</span>
             <button class="agent-panel__ref-badge-del" type="button" @click="removeImage(imgIdx)">×</button>
           </div>
         </div>
@@ -3415,14 +2614,14 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         <div class="agent-panel__compose-foot">
           <div class="agent-panel__compose-foot-left">
             <!-- Segmented Mode Switch [ 编辑 | 只读 ] -->
-            <div class="agent-panel__mode-switch" :title="settings.agentAllowWrite ? '编辑模式：AI 拥有真实修改/创建笔记的物理权限' : '只读模式：AI 仅提供建议与回答，不可修改本地文件'">
+            <div class="agent-panel__mode-switch" :title="settings.agentAllowWrite ? t('agent.modeEditTitle') : t('agent.modeReadOnlyTitle')">
               <button
                 type="button"
                 class="agent-panel__mode-opt"
                 :class="{ 'is-active': settings.agentAllowWrite }"
                 @click.stop="settings.setAgentAllowWrite(true)"
               >
-                编辑
+                {{ t('agent.modeEdit') }}
               </button>
               <button
                 type="button"
@@ -3430,7 +2629,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                 :class="{ 'is-active': !settings.agentAllowWrite }"
                 @click.stop="settings.setAgentAllowWrite(false)"
               >
-                只读
+                {{ t('agent.modeSuggest') }}
               </button>
             </div>
 
@@ -3438,7 +2637,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <button
               class="agent-panel__compose-model-pill"
               type="button"
-              :title="t('ai.selectProviderAndModel') || '选择服务商与模型'"
+              :title="t('ai.selectProviderAndModel')"
               @click.stop="toggleModelPicker('footer', $event)"
             >
               <span class="agent-panel__compose-model-text">{{ currentActiveProfileName }} / {{ settings.aiModel }}</span>
@@ -3452,7 +2651,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               :title="t('agent.mentionTooltip')"
               @click.stop="toggleMentionMenu"
             >
-              @ 引用
+              {{ t('agent.mentionButton') }}
             </button>
 
             <!-- Re-attach current note button if excluded -->
@@ -3463,7 +2662,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
               :title="t('agent.includeNoteTitle')"
               @click.stop="includeActiveNote = true"
             >
-              附带当前笔记
+              {{ t('agent.attachCurrentNote') }}
             </button>
 
             <!-- Quick Recall Button -->
@@ -3481,7 +2680,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             <div
               v-if="ollamaStatus.online"
               class="agent-panel__ollama-pill"
-              :title="`本地 Ollama 正在运行，检测到 ${ollamaStatus.models.length} 个本地模型`"
+              :title="t('agent.ollamaDetected', { n: ollamaStatus.models.length })"
             >
               <span class="agent-panel__ollama-dot" />
               <span>Ollama ({{ ollamaStatus.models.length }})</span>
@@ -3570,7 +2769,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="catstep-cascade-menu__manage"
             @click="openManageProfiles"
           >
-            {{ t('ai.manageProviders') || '管理模型' }}
+            {{ t('ai.manageProviders') }}
           </button>
         </div>
 
@@ -3592,7 +2791,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             @click="chooseProfileAndModel(hoveredProfile, m)"
           >
             <span class="catstep-cascade-submenu__name" :title="m">{{ m }}</span>
-            <span v-if="isVisionModel(m)" class="catstep-cascade-submenu__badge">视觉</span>
+            <span v-if="isVisionModel(m)" class="catstep-cascade-submenu__badge">{{ t('agent.visionBadge') }}</span>
             <span
               v-if="hoveredProfile.id === settings.activeProfileId && m === settings.aiModel"
               class="catstep-cascade-submenu__check"
@@ -3600,7 +2799,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
           </div>
 
           <div v-if="!hoveredProfile.models.length" class="catstep-cascade-submenu__empty">
-            暂无模型
+            {{ t('agent.noModels') }}
           </div>
         </div>
       </div>

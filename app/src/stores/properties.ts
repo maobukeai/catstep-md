@@ -17,7 +17,7 @@
  * cells can suggest values already used elsewhere in the vault.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import { readNote, writeNote } from '../lib/commands';
 import type { DisplayMode } from '../lib/property-types';
 import { useWorkspaceIndexStore } from './workspaceIndex';
 
@@ -39,12 +39,6 @@ function joinPath(folder: string, rel: string): string {
   const sep = folder.includes('\\') ? '\\' : '/';
   const f = folder.endsWith(sep) ? folder.slice(0, -1) : folder;
   return `${f}${sep}${rel.split('/').join(sep)}`;
-}
-
-function dirOf(p: string): string {
-  const sep = p.includes('\\') ? '\\' : '/';
-  const idx = p.lastIndexOf(sep);
-  return idx >= 0 ? p.slice(0, idx) : p;
 }
 
 export const usePropertiesStore = defineStore('properties', {
@@ -120,7 +114,7 @@ export const usePropertiesStore = defineStore('properties', {
       if (!this.folder) return;
       const path = joinPath(this.folder, CONFIG_REL);
       try {
-        const res = await invoke<{ content: string }>('read_file', { path });
+        const res = await readNote(path);
         const parsed = JSON.parse(res.content) as Partial<PropertiesConfig>;
         this.displayModes =
           parsed.displayModes && typeof parsed.displayModes === 'object'
@@ -143,12 +137,11 @@ export const usePropertiesStore = defineStore('properties', {
         pinned: this.pinned,
       };
       try {
-        // Ensure `.solomd/` exists, then write.
-        await invoke('fs_create_dir', { path: dirOf(path) }).catch(() => {});
-        await invoke('write_file', {
-          path,
-          content: JSON.stringify(config, null, 2) + '\n',
-          encoding: 'utf-8',
+        // `ensureDir` covers the old explicit `fs_create_dir` pre-step (the
+        // `.solomd/` parent), and writeNote's default UTF-8 matches the
+        // previous `encoding: 'utf-8'` byte-for-byte.
+        await writeNote(path, JSON.stringify(config, null, 2) + '\n', {
+          ensureDir: true,
         });
       } catch (e) {
         console.warn('properties config persist failed', e);

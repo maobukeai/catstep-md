@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { openPathExternal, quickCaptureOpen } from '../lib/commands';
 import { useFiles } from './useFiles';
 import { useSettingsStore } from '../stores/settings';
 import { shortcutLabel } from '../lib/keybindings';
@@ -14,7 +14,6 @@ import { toggleFullscreen } from '../lib/fullscreen';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { cleanAIArtifacts, stripMarkdownToPlain } from '../lib/clean-ai';
 import { openWelcomeTour } from '../lib/welcome-tour';
-import { openPath } from '@tauri-apps/plugin-opener';
 import { useDailyNotes } from './useDailyNotes';
 import { usePandocExport } from './usePandocExport';
 import { useBasesView } from './useBasesView';
@@ -197,7 +196,9 @@ export function useCommands(): Command[] {
           return;
         }
         try {
-          await openPath(path);
+          // S20 — opener:allow-open-path is gone; the Rust command
+          // authorizes the path before the OS default editor opens it.
+          await openPathExternal(path);
         } catch (e) {
           toasts.warning(`Failed: ${e}`);
         }
@@ -361,7 +362,7 @@ export function useCommands(): Command[] {
       hint: 'Open the small capture box and file a note straight into the Inbox',
       run: async () => {
         try {
-          await invoke('quick_capture_open');
+          await quickCaptureOpen();
         } catch (e) {
           toasts.error(`Quick capture failed: ${e}`);
         }

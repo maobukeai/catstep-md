@@ -4,8 +4,20 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-import { openPath } from '@tauri-apps/plugin-opener';
 import { readText as readClipboardText } from '@tauri-apps/plugin-clipboard-manager';
+import {
+  aiHasKey as aiHasKeyCmd,
+  androidRestartApp,
+  androidRequestAllFilesAccess,
+  androidSystemInsets,
+  drainPendingOpens,
+  forceCloseWindow,
+  openPathExternal,
+  quickCaptureSetShortcut,
+  saveLanguagePreference,
+  setMenuConfig,
+  spellcheckInit,
+} from './lib/commands';
 import { setMarkdownHardBreaks, setMarkdownAutoNumberHeadings, setMarkdownSmartQuotes } from './lib/markdown';
 import { openNewWindow } from './lib/new-window';
 import { toggleFullscreen } from './lib/fullscreen';
@@ -125,7 +137,7 @@ const androidRestartNeeded = ref(false);
 async function doAndroidRestart() {
   androidRestartNeeded.value = false;
   try {
-    await invoke('android_restart_app');
+    await androidRestartApp();
   } catch (e) {
     const toasts = (await import('./stores/toasts')).useToastsStore();
     toasts.error(String(e));
@@ -144,7 +156,7 @@ async function requestAndroidStorage() {
     // the app so the storage sandbox re-mounts (grant alone doesn't remount a
     // running process — see android_restart_app).
     localStorage.setItem('solomd:android-storage-pending', '1');
-    await invoke('android_request_all_files_access');
+    await androidRequestAllFilesAccess();
     toasts.info(
       '打开「允许管理所有文件 / All files access」后返回,App 会自动重启以让权限生效。',
     );
@@ -726,11 +738,11 @@ watchEffect(() => {
   // a dependency on a key that does not exist yet, so the first rebind of an
   // action never re-ran this effect and the native menu kept the old chord.
   const overrides = { ...settings.keybindings };
-  invoke('set_menu_config', {
+  setMenuConfig({
     lang: settings.language,
     accels: nativeMenuAccelerators(overrides),
   }).catch(() => {});
-  invoke('save_language_preference', { lang: settings.language }).catch(() => {});
+  saveLanguagePreference({ lang: settings.language }).catch(() => {});
 });
 
 // Per-note Frontmatter Theme resolution
@@ -809,7 +821,7 @@ watchEffect(() => {
 watchEffect(() => {
   if (typeof window === 'undefined' || !isTauri()) return;
   const accel = settings.quickCaptureEnabled ? settings.quickCaptureShortcut : null;
-  invoke('quick_capture_set_shortcut', { accelerator: accel })
+  quickCaptureSetShortcut({ accelerator: accel })
     .then(() => {
       quickCaptureError.value = '';
     })
@@ -885,7 +897,7 @@ watchEffect(async () => {
   const lang = settings.spellcheckLang || 'en_US';
   if (settings.spellcheckEnabled && spellcheckLoadedFor !== lang) {
     try {
-      await invoke('spellcheck_init', { lang });
+      await spellcheckInit({ lang });
       spellcheckLoadedFor = lang;
     } catch (e) {
       console.warn('spellcheck_init failed', e);
@@ -1007,7 +1019,9 @@ async function openExternalFile() {
     return;
   }
   try {
-    await openPath(filePath);
+    // S20 — opener:allow-open-path is gone; the Rust command authorizes the
+    // path before handing it to the OS default program.
+    await openPathExternal(filePath);
   } catch (e) {
     console.warn('openExternal failed', e);
   }
@@ -1309,7 +1323,7 @@ onMounted(async () => {
   // devicePixelRatio. Runs only on Android; failures leave the vars unset (0).
   if (isAndroid()) {
     try {
-      const insets = await invoke<{ top: number; bottom: number }>('android_system_insets');
+      const insets = await androidSystemInsets();
       const dpr = window.devicePixelRatio || 1;
       const root = document.documentElement;
       root.style.setProperty('--android-safe-top', `${Math.round((insets.top || 0) / dpr)}px`);
@@ -1463,7 +1477,7 @@ onMounted(async () => {
 
   if (isTauri()) {
     try {
-      const pending = await invoke<string[]>('drain_pending_opens');
+      const pending = await drainPendingOpens();
       for (const p of pending || []) {
         await files.openPath(p, { bypassNewWindow: true });
       }
@@ -1553,9 +1567,50 @@ onMounted(async () => {
   if (isTauri()) {
     try {
       await listen('solomd://close-requested', async () => {
-        tabs.persist?.();
-        tiles.persist();
-        await invoke('force_close_window');
+        // S08 — the CodeMirror editor syncs doc→tab.content on a 350ms
+        // debounce. Clicking ✕ inside that window used to persist (and, with
+        // auto-save off, leave on disk) a stale document — the tail of the
+        // edit was silently lost. Flush first so the dirty check below and
+        // the persisted session both see the last keystroke. While an IME
+        // composition is in flight the flush stays a no-op, the same accepted
+        // edge as closeTabSafe (#222/#186).
+        window.dispatchEvent(new Event('solomd:flush-content-sync'));
+        const dirty = tabs.tabs.filter((t) => t.content !== t.savedContent);
+        if (dirty.length > 0) {
+          const action = await showUnsavedDialog('window', dirty[0].fileName, dirty.length);
+          if (action === 'cancel') return; // stay open, keep editing
+          if (action === 'save') {
+            // Save every dirty tab, then close. A failure (including a
+            // cancelled Save-As on an untitled tab) blocks the close so
+            // nothing is discarded behind the user's back.
+            for (const tab of dirty) {
+              const ok = await files.saveTab(tab, { silent: true });
+              if (!ok) return;
+            }
+          }
+          // 'discard' → the dirty content is part of the persisted session
+          // (restore brings tabs back with content), so persist + close.
+        }
+        // TODO(S08 follow-up): optional recovery copies under
+        // <workspace>/.solomd/recovery/ were deliberately NOT implemented —
+        // writing into the workspace feeds the file watcher / AutoGit /
+        // workspace indexer and risks a save→watch→commit loop. Only revisit
+        // alongside a watcher/auto-git ignore list for that directory.
+        try {
+          tabs.persist?.();
+          tiles.persist();
+        } catch (e: any) {
+          // tabs.persist rethrows only QuotaExceededError (tiles.persist
+          // swallows everything). Block the close and say why — closing now
+          // would restore an incomplete session on next launch.
+          toasts.warning(
+            settings.language?.startsWith('zh')
+              ? '本地存储配额已超限，标签页会话状态无法完整保存，已取消关闭。请先保存或关闭部分标签页。'
+              : 'Local storage quota exceeded. The tab session could not be fully saved, so closing was cancelled. Save or close some tabs first.',
+          );
+          return;
+        }
+        await forceCloseWindow();
       });
     } catch (err) {
       console.warn('close-requested listener failed', err);
@@ -2359,9 +2414,9 @@ async function refreshAiHasKey() {
     // Ask about the profile's own slot first; `provider` is only a legacy
     // fallback for profiles created before keys moved to profile-scoped ids.
     const slot = activeAiProfile.value?.id || settings.aiProvider;
-    aiHasKey.value = await invoke<boolean>('ai_has_key', { provider: slot });
+    aiHasKey.value = await aiHasKeyCmd(slot);
     if (!aiHasKey.value && slot !== settings.aiProvider) {
-      aiHasKey.value = await invoke<boolean>('ai_has_key', { provider: settings.aiProvider });
+      aiHasKey.value = await aiHasKeyCmd(settings.aiProvider);
     }
   } catch {
     aiHasKey.value = false;
@@ -2844,6 +2899,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
       :base-url="activeAiProfile?.baseUrl || settings.aiBaseUrl"
       :profile-id="activeAiProfile?.id || ''"
       :has-key="aiHasKey"
+      :prompt-overrides="settings.agentPromptOverrides"
       @open-settings="(section?: string) => openSettingsAt(section ?? 'integrations')"
     />
     <CommandPalette :open="paletteOpen" @close="paletteOpen = false" />

@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  createDir,
+  createFile,
+  deletePath,
+  dirExists,
+  listDir,
+  readNote,
+  renamePath,
+} from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useWorkspaceStore } from '../stores/workspace';
@@ -18,6 +26,7 @@ import { useI18n } from '../i18n';
 import { isMobile, isMacOS } from '../lib/platform';
 import { usePendingDeletes, isDeletePending, UNDO_WINDOW_MS } from '../composables/usePendingDeletes';
 import { isSafPath, fromSafPath, safList, safCreate } from '../lib/saf-fs';
+import { pickFolder } from '../lib/user-pick';
 
 interface Entry {
   name: string;
@@ -205,7 +214,7 @@ async function doContentSearch() {
   }
   searchLoading.value = true;
   try {
-    hits.value = await search.search(q);
+    hits.value = (await search.search(q)).hits;
     selectedHitIdx.value = 0;
   } finally {
     searchLoading.value = false;
@@ -367,7 +376,7 @@ async function loadDir(path: string): Promise<{ children: Node[]; truncated: boo
         truncated: false,
       };
     }
-    const entries = await invoke<Entry[]>('list_dir', { path });
+    const entries = await listDir(path);
     let truncated = false;
     const filtered: Node[] = [];
     for (const e of entries) {
@@ -409,7 +418,7 @@ async function loadDir(path: string): Promise<{ children: Node[]; truncated: boo
     // vanished mid-expand just lists as empty.
     if (path === workspace.currentFolder) {
       try {
-        rootMissing.value = !(await invoke<boolean>('fs_dir_exists', { path }));
+        rootMissing.value = !(await dirExists(path));
       } catch {
         rootMissing.value = false;
       }
@@ -584,7 +593,7 @@ function openCtx(e: MouseEvent, node: Node | null) {
   e.stopPropagation();
   ctxFocusedIndex.value = -1;
   const menuWidth = 205;
-  const menuHeight = 260;
+  const menuHeight = 290;
   const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
   const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
   ctx.value = { x: Math.max(10, x), y: Math.max(10, y), node };
@@ -672,12 +681,12 @@ async function commitEdit() {
       // A pending delete on this exact path would fire later and take the new
       // file with it. Commit it now so the two never race.
       await pendingDeletes.flushUnder(target);
-      await invoke('fs_create_file', { path: target, content: '' });
+      await createFile(target);
       scheduleRefresh();
       await files.openPath(target, { bypassNewWindow: true });
     } else if (e.kind === 'new-dir') {
       await pendingDeletes.flushUnder(joinPath(e.parent, name));
-      await invoke('fs_create_dir', { path: joinPath(e.parent, name) });
+      await createDir(joinPath(e.parent, name));
       scheduleRefresh();
     } else if (e.kind === 'rename' && e.original) {
       const target = joinPath(e.parent, name);
@@ -685,39 +694,9 @@ async function commitEdit() {
         return;
       }
       await pendingDeletes.flushUnder(target);
-      await invoke('fs_rename', { from: e.original, to: target });
+      await renamePath(e.original, target);
       scheduleRefresh();
-      // v4.3.5 — if the renamed file is open in a tab, point the tab at the
-      // new path and (when content might have changed on disk via the
-      // per-file `.assets/` link rewrite) reload from disk for clean tabs.
-      // Dirty tabs keep their in-memory content; user resolves on save.
-      //
-      // #91 fix: the dirty check has to run BEFORE we call markSaved —
-      // markSaved sets savedContent = content as part of its bookkeeping,
-      // so the comparison was always true and dirty tabs lost their
-      // in-memory edits to whatever was on disk. Snapshot first, reload
-      // only if it was already clean.
-      try {
-        const tab = tabs.tabs.find((t: { filePath?: string }) => t.filePath === e.original);
-        if (tab) {
-          const wasClean = tab.savedContent === tab.content;
-          if (wasClean) {
-            // Clean tab: safe to repoint + reload from disk (picks up any
-            // per-file `.assets/` link rewrite the rename triggered).
-            tabs.markSaved(tab.id, target);
-            const fr = await invoke<{ content: string }>('read_file', { path: target });
-            tabs.setContent(tab.id, fr.content);
-            tabs.markSaved(tab.id, target);
-          } else {
-            // Dirty tab: repoint to the new path but KEEP the unsaved edits
-            // AND the dirty flag. markSaved() here would clear savedContent
-            // and silently lose the edits when the tab is later closed (#91).
-            tabs.renamePath(tab.id, target);
-          }
-        }
-      } catch (err) {
-        console.warn('[FileTree.rename] tab refresh failed', err);
-      }
+      await repointOpenTabs(e.original, target);
     }
   } catch (err) {
     toasts.error(String(err));
@@ -769,7 +748,7 @@ async function deleteNode(node: Node) {
     delayMs: UNDO_WINDOW_MS,
     commit: async () => {
       try {
-        await invoke('fs_delete', { path });
+        await deletePath(path);
       } catch (e) {
         toasts.error(`Delete failed: ${e}`);
       }
@@ -782,6 +761,180 @@ async function deleteNode(node: Node) {
     scheduleRefresh();
     toasts.info(t('explorer.deleteUndone', { name }));
   }, { actionLabel: t('explorer.undo') });
+}
+
+// ---------------------------------------------------------------------------
+// S13 — move a node into another folder (context menu "Move to…" + drag)
+// ---------------------------------------------------------------------------
+
+/** v4.3.5 — if the moved/renamed file is open in a tab, point the tab at the
+ *  new path and (when content might have changed on disk via the per-file
+ *  `.assets/` link rewrite) reload from disk for clean tabs. Dirty tabs keep
+ *  their in-memory content; user resolves on save.
+ *
+ *  #91 fix: the dirty check has to run BEFORE we call markSaved — markSaved
+ *  sets savedContent = content as part of its bookkeeping, so the comparison
+ *  was always true and dirty tabs lost their in-memory edits to whatever was
+ *  on disk. Snapshot first, reload only if it was already clean. */
+async function repointOpenTabs(original: string, target: string) {
+  try {
+    const tab = tabs.tabs.find((t: { filePath?: string }) => t.filePath === original);
+    if (!tab) return;
+    const wasClean = tab.savedContent === tab.content;
+    if (wasClean) {
+      // Clean tab: safe to repoint + reload from disk (picks up any per-file
+      // `.assets/` link rewrite the rename triggered).
+      tabs.markSaved(tab.id, target);
+      const fr = await readNote(target);
+      tabs.setContent(tab.id, fr.content);
+      tabs.markSaved(tab.id, target);
+    } else {
+      // Dirty tab: repoint to the new path but KEEP the unsaved edits AND the
+      // dirty flag. markSaved() here would clear savedContent and silently
+      // lose the edits when the tab is later closed (#91).
+      tabs.renamePath(tab.id, target);
+    }
+  } catch (err) {
+    console.warn('[FileTree.move] tab refresh failed', err);
+  }
+}
+
+/** Would moving `node` into `targetDir` be a no-op or an illegal self-move?
+ *  Kept in front-end so the user gets a precise hint instead of a raw
+ *  "rename failed" from the backend (which only knows "target exists"). */
+function checkMoveTarget(node: Node, targetDir: string): 'ok' | 'same' | 'self' | 'descendant' {
+  const sep = node.path.includes('\\') && !node.path.includes('/') ? '\\' : '/';
+  const dir = targetDir.endsWith(sep) ? targetDir.slice(0, -sep.length) : targetDir;
+  if (dir === node.path) return 'self';
+  if (node.is_dir && dir.startsWith(node.path + sep)) return 'descendant';
+  const parent = node.path.replace(/[\\/][^\\/]+$/, '');
+  if (dir === parent) return 'same';
+  return 'ok';
+}
+
+/** Shared tail of both move entries (menu + drag): validate, fs_rename
+ *  (which also follows along the per-file `.assets/` folder and rewrites
+ *  body links — commands.rs), keep expansion on refresh, repoint open tabs. */
+async function performMove(node: Node, targetDir: string) {
+  const check = checkMoveTarget(node, targetDir);
+  if (check === 'same') {
+    toasts.info(t('explorer.moveSamePlace', { name: node.name }));
+    return;
+  }
+  if (check === 'self' || check === 'descendant') {
+    toasts.warning(t('explorer.moveIntoSelf'));
+    return;
+  }
+  const target = joinPath(targetDir, node.name);
+  try {
+    // A pending delete under the destination would fire later and take the
+    // freshly moved file with it — same race the inline new-file guards.
+    await pendingDeletes.flushUnder(target);
+    await renamePath(node.path, target);
+    scheduleRefresh();
+    await repointOpenTabs(node.path, target);
+    toasts.success(t('explorer.moved', { name: node.name }));
+  } catch (err) {
+    toasts.error(String(err));
+  }
+}
+
+/** Context-menu entry: pick a destination folder in the system dialog
+ *  (user-pick wrapper so the backend path guard registers the choice),
+ *  then move via fs_rename. */
+async function startMoveTo(node: Node) {
+  closeCtx();
+  const parent = node.path.replace(/[\\/][^\\/]+$/, '');
+  let dir: string | null = null;
+  try {
+    dir = await pickFolder({
+      title: t('explorer.moveToTitle'),
+      defaultPath: parent || undefined,
+    });
+  } catch (err) {
+    toasts.error(String(err));
+    return;
+  }
+  if (!dir) return;
+  await performMove(node, dir);
+}
+
+// Pointer-based drag-to-move, mirroring PaneTabBar's #86 pattern: we must NOT
+// use the HTML5 Drag and Drop API — Tauri's native drag-drop handler
+// (`dragDropEnabled`, needed for "drop a file from Explorer to open it")
+// makes WebView2 swallow every in-page `draggable` drag on Windows. Pointer
+// events bypass that interception. Touch pointers are ignored so mobile
+// scrolling is never hijacked (touch drag simply isn't offered).
+const DRAG_THRESHOLD = 6; // px of movement before a press counts as a drag
+
+let dragPress: { x: number; y: number; node: Node } | null = null;
+let dragActive = false;
+// Set after a real drag so the trailing synthetic `click` doesn't toggle /
+// open the node the user just dropped (same trick as PaneTabBar). Timestamped
+// so a click that never follows (drag released outside the window) can't
+// leave the suppressor latched and eat an unrelated later click.
+let suppressClickUntil = 0;
+const SUPPRESS_CLICK_MS = 400;
+
+const dragNodePath = ref('');
+const dropDirPath = ref('');
+
+function onNodeDragDown(e: PointerEvent, node: Node) {
+  if (e.pointerType !== 'mouse' || e.button !== 0) return;
+  dragPress = { x: e.clientX, y: e.clientY, node };
+  dragActive = false;
+  window.addEventListener('pointermove', onDragPointerMove);
+  window.addEventListener('pointerup', onDragPointerUp);
+  window.addEventListener('pointercancel', onDragPointerCancel);
+}
+
+function onDragPointerMove(e: PointerEvent) {
+  if (!dragPress) return;
+  if (!dragActive) {
+    const dx = e.clientX - dragPress.x;
+    const dy = e.clientY - dragPress.y;
+    if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+    dragActive = true;
+    dragNodePath.value = dragPress.node.path;
+  }
+  // Hit-test whatever directory row (or the workspace root button) sits
+  // under the cursor; rows advertise themselves via [data-drop-dir].
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const dirEl = el?.closest('[data-drop-dir]');
+  dropDirPath.value = dirEl?.getAttribute('data-drop-dir') ?? '';
+}
+
+function onDragPointerUp() {
+  const press = dragPress;
+  const wasActive = dragActive;
+  const target = dropDirPath.value;
+  cleanupDragState();
+  if (!press || !wasActive) return;
+  // Swallow the click that follows pointerup so the drop doesn't also
+  // open the file / collapse the folder / pop the workspace switcher.
+  suppressClickUntil = Date.now() + SUPPRESS_CLICK_MS;
+  if (target) void performMove(press.node, target);
+}
+
+function onDragPointerCancel() {
+  cleanupDragState();
+}
+
+function cleanupDragState() {
+  dragPress = null;
+  dragActive = false;
+  dragNodePath.value = '';
+  dropDirPath.value = '';
+  window.removeEventListener('pointermove', onDragPointerMove);
+  window.removeEventListener('pointerup', onDragPointerUp);
+  window.removeEventListener('pointercancel', onDragPointerCancel);
+}
+
+function onCaptureClick(e: MouseEvent) {
+  if (Date.now() >= suppressClickUntil) return;
+  suppressClickUntil = 0;
+  e.stopPropagation();
+  e.preventDefault();
 }
 
 async function revealNode(node: Node) {
@@ -905,10 +1058,13 @@ function onWindowKey(e: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('pointerdown', onWindowPointerDown);
   window.addEventListener('keydown', onWindowKey);
+  window.addEventListener('click', onCaptureClick, true);
 });
 onBeforeUnmount(() => {
   window.removeEventListener('pointerdown', onWindowPointerDown);
   window.removeEventListener('keydown', onWindowKey);
+  window.removeEventListener('click', onCaptureClick, true);
+  cleanupDragState();
 });
 </script>
 
@@ -1071,8 +1227,9 @@ onBeforeUnmount(() => {
         <div class="ftree__root-wrap">
           <button
             class="ftree__root ftree__root--btn"
-            :class="{ 'ftree__root--open': switcherOpen }"
+            :class="{ 'ftree__root--open': switcherOpen, 'ftree__root--drop': dropDirPath === root.path }"
             :title="t('explorer.switchWorkspace') + ' · ' + root.path"
+            :data-drop-dir="root.path"
             @click.stop="toggleSwitcher"
             @contextmenu.prevent="openCtx($event, root)"
           >
@@ -1221,8 +1378,11 @@ onBeforeUnmount(() => {
             :ctx-path="ctx?.node?.path || ''"
             :search-query="searchQuery"
             :matching-paths="matchingPaths"
+            :drag-path="dragNodePath"
+            :drop-path="dropDirPath"
             @toggle="toggle"
             @contextmenu="openCtx"
+            @nodedrag="onNodeDragDown"
           />
           <li v-if="root.truncated" class="ftree__truncated" :title="t('explorer.folderTruncatedHint')">
             {{ t('explorer.folderTruncated') }}
@@ -1254,6 +1414,11 @@ onBeforeUnmount(() => {
           <button v-if="ctx.node" class="ftree__ctx-item" @click="startRename(ctx.node)">
             <span class="ftree__ctx-label">{{ t('explorer.rename') }}</span>
             <span class="ftree__ctx-kbd">{{ isMac ? 'Enter' : 'F2' }}</span>
+          </button>
+          <!-- S13 — move via fs_rename: the backend already follows along the
+               per-file `.assets/` folder and rewrites body links on rename. -->
+          <button v-if="ctx.node" class="ftree__ctx-item" @click="startMoveTo(ctx.node)">
+            <span class="ftree__ctx-label">{{ t('explorer.moveTo') }}</span>
           </button>
           <button v-if="ctx.node" class="ftree__ctx-item ftree__ctx-item--danger" @click="deleteNode(ctx.node)">
             <span class="ftree__ctx-label">{{ t('explorer.delete') }}</span>
@@ -1297,8 +1462,12 @@ export const FileTreeNode = defineComponent({
     ctxPath: { type: String, default: '' },
     searchQuery: { type: String, default: '' },
     matchingPaths: { type: Object as () => Set<string> | null, default: null },
+    // S13 drag-to-move: path of the node being dragged / the directory row
+    // currently hovered as drop target (empty strings = not dragging).
+    dragPath: { type: String, default: '' },
+    dropPath: { type: String, default: '' },
   },
-  emits: ['toggle', 'contextmenu'],
+  emits: ['toggle', 'contextmenu', 'nodedrag'],
   setup(props, { emit }) {
     // #182 — the full-names toggle lives in settings; this inner component is
     // module-scoped so it can't close over <script setup>'s store instance.
@@ -1576,6 +1745,8 @@ export const FileTreeNode = defineComponent({
               n.is_dir ? 'ftree__item--dir' : 'ftree__item--file',
               { 'ftree__item--active': isActive },
               { 'ftree__item--context-target': props.ctxPath && props.ctxPath === n.path },
+              { 'ftree__item--drag-source': props.dragPath && props.dragPath === n.path },
+              { 'ftree__item--drop-target': props.dropPath && props.dropPath === n.path },
             ],
             style: { paddingLeft: `${indent}px` },
             onClick: () => emit('toggle', n),
@@ -1584,6 +1755,10 @@ export const FileTreeNode = defineComponent({
               e.stopPropagation();
               emit('contextmenu', e, n);
             },
+            // S13 drag-to-move — every row can start a drag; only directories
+            // (and the workspace root button) advertise a drop target.
+            onPointerdown: (e: PointerEvent) => emit('nodedrag', e, n),
+            'data-drop-dir': n.is_dir ? n.path : null,
             title: n.path,
           },
           [
@@ -1633,8 +1808,11 @@ export const FileTreeNode = defineComponent({
               ctxPath: props.ctxPath,
               searchQuery: props.searchQuery,
               matchingPaths: props.matchingPaths,
+              dragPath: props.dragPath,
+              dropPath: props.dropPath,
               onToggle: (target: any) => emit('toggle', target),
               onContextmenu: (event: MouseEvent, target: any) => emit('contextmenu', event, target),
+              onNodedrag: (event: PointerEvent, target: any) => emit('nodedrag', event, target),
             })
           );
         }
@@ -2485,6 +2663,21 @@ body.dark .ftree__ctx-sep {
 /* Row context target highlight */
 .ftree__item--context-target {
   background: color-mix(in srgb, var(--accent) 15%, var(--bg-hover, transparent)) !important;
+}
+
+/* S13 drag-to-move: source row dims, hovered directory row (or the workspace
+   root button) lights up as the drop target. */
+:deep(.ftree__item--drag-source) {
+  opacity: 0.45;
+}
+:deep(.ftree__item--drop-target) {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--accent, #0366d6);
+}
+.ftree__root--drop {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent, #0366d6);
 }
 
 /* Better filename display with middle ellipsis for very long names */

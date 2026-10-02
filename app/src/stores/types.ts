@@ -11,14 +11,15 @@
  *   - `propertyKeysOf()` — union of member frontmatter keys (for the
  *                      pinned-properties multiselect in the customize popover)
  *
- * Write actions go through the existing `read_file` + `write_file` Tauri
- * commands and the frontmatter splice helpers in `lib/frontmatter.ts`, so we
+ * Write actions go through the `readNote` + `writeNote` facades in
+ * `lib/commands.ts` (which wrap the `read_file` / `write_file` Tauri commands)
+ * and the frontmatter splice helpers in `lib/frontmatter.ts`, so we
  * never re-serialize a whole document or touch off-limits stores. The Rust
  * file-watcher emits `solomd://index-updated` after each write, which the
  * workspace-index store listens to — so the sidebar refreshes for free.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import { readNote, writeNote } from '../lib/commands';
 import { useWorkspaceIndexStore, type IndexEntry } from './workspaceIndex';
 import {
   buildRegistry,
@@ -49,16 +50,10 @@ async function patchNoteFrontmatter(
   path: string,
   patch: Record<string, unknown>,
 ): Promise<void> {
-  const result = await invoke<{ content: string; encoding?: string }>(
-    'read_file',
-    { path },
-  );
+  const result = await readNote(path);
   const next = patchFrontmatter(result.content, patch);
-  await invoke('write_file', {
-    path,
-    content: next,
-    encoding: result.encoding || 'UTF-8',
-  });
+  // writeNote falls back to UTF-8 when the detection came back empty.
+  await writeNote(path, next, { encoding: result.encoding });
 }
 
 export const useTypesStore = defineStore('types', {
@@ -140,7 +135,7 @@ export const useTypesStore = defineStore('types', {
         `---\ntype: Type\n---\n\n# ${trimmed}\n\n` +
         `Notes with \`type: ${trimmed}\` in their frontmatter appear in this ` +
         `type's sidebar section.\n`;
-      await invoke('write_file', { path, content: body, encoding: 'UTF-8' });
+      await writeNote(path, body);
       await idx.rescan();
       return path;
     },

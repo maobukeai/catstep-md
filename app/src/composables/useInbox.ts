@@ -10,7 +10,7 @@
  *   3. The "filter to inbox" toggle that the file tree consults.
  */
 import { computed, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { quickCaptureWrite, readNote, writeNote } from '../lib/commands';
 import { useTabsStore } from '../stores/tabs';
 import { useWorkspaceIndexStore, type IndexEntry } from '../stores/workspaceIndex';
 import { useToastsStore } from '../stores/toasts';
@@ -272,7 +272,7 @@ export function useInbox() {
     const defaultBody = initialContent ?? '# 灵感速记\n\n- ';
     try {
       // If Tauri shell is available, use quick_capture_write to persist directly in inbox folder
-      const createdPath = await invoke<string>('quick_capture_write', {
+      const createdPath = await quickCaptureWrite({
         title: '新速记',
         content: defaultBody,
       });
@@ -318,7 +318,7 @@ export function useInbox() {
       if (openTab) {
         content = openTab.content;
       } else {
-        const res = await invoke<{ content: string }>('read_file', { path });
+        const res = await readNote(path);
         content = res.content;
       }
 
@@ -327,7 +327,7 @@ export function useInbox() {
         tabs.setContent(openTab.id, next);
       }
       try {
-        await invoke('write_file', { path, content: next, encoding: 'UTF-8' });
+        await writeNote(path, next);
       } catch {
         /* browser fallback */
       }

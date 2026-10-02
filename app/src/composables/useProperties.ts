@@ -18,7 +18,7 @@
  * works against a path on disk.
  */
 import { computed } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { deleteFrontmatterProperty, updateFrontmatterProperty } from '../lib/commands';
 import { useTabsStore } from '../stores/tabs';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { useToastsStore } from '../stores/toasts';
@@ -93,11 +93,7 @@ export function useProperties() {
       return false;
     }
     try {
-      const next = await invoke<string>('update_frontmatter_property', {
-        path,
-        key,
-        value,
-      });
+      const next = await updateFrontmatterProperty(path, key, value);
       applyRewritten(next);
       // Refresh the index so vault-wide autocomplete + the inspector's own
       // read view pick up the change without waiting for the fs watcher.
@@ -117,10 +113,7 @@ export function useProperties() {
       return false;
     }
     try {
-      const next = await invoke<string>('delete_frontmatter_property', {
-        path,
-        key,
-      });
+      const next = await deleteFrontmatterProperty(path, key);
       applyRewritten(next);
       idx.refresh().catch(() => {});
       return true;

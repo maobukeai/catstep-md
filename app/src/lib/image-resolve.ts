@@ -4,7 +4,8 @@
  * to convert local image paths into URLs the webview can load or bytes for embedding.
  */
 
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { readNote } from './commands';
 
 /**
  * Whole-line image detection regex with optional title, bracketed path, and spaces in path.
@@ -212,7 +213,7 @@ export function rewriteImageUrls(
 
 async function loadLocalSvgDataUrl(path: string): Promise<string | null> {
   try {
-    const result = await invoke<{ content: string }>('read_file', { path });
+    const result = await readNote(path);
     const svg = result.content.trimStart();
     if (!svg.startsWith('<svg') && !svg.startsWith('<?xml')) return null;
     return svgTextToDataUrl(result.content);

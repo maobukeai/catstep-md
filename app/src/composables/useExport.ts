@@ -1,6 +1,6 @@
 import { pickSavePath } from '../lib/user-pick';
 import { EditorView } from '@codemirror/view';
-import { invoke } from '@tauri-apps/api/core';
+import { printWebview, writeBinaryFile, writeNote } from '../lib/commands';
 import { writeText, writeHtml, writeImage } from '@tauri-apps/plugin-clipboard-manager';
 import { Image } from '@tauri-apps/api/image';
 import { documentDir, join } from '@tauri-apps/api/path';
@@ -415,7 +415,7 @@ export function useExport() {
     );
     const html = HTML_TEMPLATE(ctx.baseName, body);
     try {
-      await invoke('write_file', { path, content: html, encoding: 'UTF-8' });
+      await writeNote(path, html);
       toasts.success(isIOS() ? iosSavedToast(filename) : 'Exported to HTML');
     } catch (e) {
       toasts.error(`Export failed: ${e}`);
@@ -440,7 +440,7 @@ export function useExport() {
       );
       const buffer = new Uint8Array(await blob.arrayBuffer());
       // Tauri 2 serializes Uint8Array as a number array which Rust accepts as Vec<u8>.
-      await invoke('write_binary_file', { path, data: Array.from(buffer) });
+      await writeBinaryFile(path, Array.from(buffer));
       toasts.dismiss(tid);
       toasts.success(isIOS() ? iosSavedToast(filename) : 'Exported to DOCX');
     } catch (e) {
@@ -467,7 +467,7 @@ export function useExport() {
       const { markdownToPdfBlob } = await import('../lib/pdf-export');
       const blob = await markdownToPdfBlob(ctx.content, ctx.baseName, pdfOpts, ctx.filePath);
       const buffer = new Uint8Array(await blob.arrayBuffer());
-      await invoke('write_binary_file', { path, data: Array.from(buffer) });
+      await writeBinaryFile(path, Array.from(buffer));
       toasts.dismiss(tid);
       toasts.success(isIOS() ? iosSavedToast(filename) : 'Exported to PDF');
     } catch (e) {
@@ -551,7 +551,7 @@ export function useExport() {
     // Give KaTeX / images a tick to apply layout before print.
     await new Promise((r) => setTimeout(r, 200));
     try {
-      await invoke('print_webview');
+      await printWebview();
       // The native print sheet is modal; by the time invoke resolves,
       // the user has already dismissed it. Safe to tear down shortly after.
       setTimeout(cleanup, 100);
@@ -651,7 +651,7 @@ export function useExport() {
         branding: settings.imageExportBranding,
       });
       const buffer = new Uint8Array(await blob.arrayBuffer());
-      await invoke('write_binary_file', { path, data: Array.from(buffer) });
+      await writeBinaryFile(path, Array.from(buffer));
       toasts.dismiss(tid);
       const msg = isIOS()
         ? iosSavedToast(filename)
@@ -713,7 +713,7 @@ export function useExport() {
             branding: settings.imageExportBranding,
           });
           const buffer = new Uint8Array(await blob2.arrayBuffer());
-          await invoke('write_binary_file', { path, data: Array.from(buffer) });
+          await writeBinaryFile(path, Array.from(buffer));
           toasts.success(isIOS() ? iosSavedToast(filename) : 'Clipboard failed — saved as PNG instead');
         } else {
           toasts.error(`Copy image failed: ${e}`);

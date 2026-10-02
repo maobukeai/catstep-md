@@ -8,18 +8,19 @@
  *      `defaultDailyTemplate` if the user left the setting empty), write it,
  *      then open the new file in the current window.
  *
- * We rely on `write_binary_file` to create the file because it also creates
- * any missing parent directory (which `write_file` does not). For an
- * existence check we attempt `read_file` first — cheaper than wiring a
- * dedicated `file_exists` Tauri command and good enough for daily notes.
+ * We go through `writeBinaryFile` (lib/commands.ts → the `write_binary_file`
+ * Tauri command) to create the file because it also creates any missing
+ * parent directory (which the plain note write does not). For an existence
+ * check we attempt `readNote` first — cheaper than wiring a dedicated
+ * `file_exists` Tauri command and good enough for daily notes.
  *
  * The settings fields (`dailyNotesFolder`, `dailyNotesFormat`,
  * `dailyNotesTemplate`) are read from `useSettingsStore`. The parent harness
  * is responsible for adding them — see SUMMARY.md for the contract.
  */
 
-import { invoke } from '@tauri-apps/api/core';
 import { sep } from '@tauri-apps/api/path';
+import { readNote, writeBinaryFile } from '../lib/commands';
 import { useFiles } from './useFiles';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useSettingsStore } from '../stores/settings';
@@ -91,7 +92,7 @@ function stem(filename: string): string {
 
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await invoke('read_file', { path });
+    await readNote(path);
     return true;
   } catch {
     return false;
@@ -156,10 +157,10 @@ export function useDailyNotes() {
     }
 
     try {
-      // `write_binary_file` is used here (rather than `write_file`) because
-      // it creates missing parent directories for us.
+      // `writeBinaryFile` (not `writeNote`) because it creates missing
+      // parent directories for us on the Rust side.
       const bytes = Array.from(new TextEncoder().encode(body));
-      await invoke('write_binary_file', { path: fullPath, data: bytes });
+      await writeBinaryFile(fullPath, bytes);
     } catch (e) {
       toasts.error(`Failed to create ${filename}: ${e}`);
       return;

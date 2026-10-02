@@ -18,6 +18,7 @@
  */
 import { pickSavePath } from '../lib/user-pick';
 import { invoke } from '@tauri-apps/api/core';
+import { readNote } from '../lib/commands';
 import { useTabsStore } from '../stores/tabs';
 import { useToastsStore } from '../stores/toasts';
 // NOTE: the parent must add `workspaceBibliography: string` and
@@ -274,8 +275,7 @@ export function usePandocExport() {
       return citationCache.entries;
     }
     try {
-      // The Rust `read_file` command returns `{ content, encoding, … }`.
-      const result = await invoke<{ content: string }>('read_file', { path });
+      const result = await readNote(path);
       const content = result?.content ?? '';
       const entries =
         detectCitationFormat(path) === 'csl-json'

@@ -5,6 +5,7 @@ import { useTilesStore } from './tiles';
 import { useWritingSessionStore } from './writingSession';
 import { useWindowsStore } from './windows';
 import { stampGoalSetAtIfMissing } from '../composables/useWritingGoals';
+import { readPersistedSettings } from '../lib/settings-storage';
 
 // Legacy / global key (used when per-workspace tabs is OFF, and as the
 // migration source on first upgrade).
@@ -70,30 +71,22 @@ export interface TabsState extends PersistedState {
   activeEditorSelection: ActiveEditorSelection | null;
 }
 
-/** Read-only check for the "restore previous session" setting, inlined
- *  from localStorage so we can run before the settings store hydrates. */
+/** Read-only check for the "restore previous session" setting, read through
+ *  the shared pre-hydration helper so it works before the settings store
+ *  hydrates and never disagrees with what the store loaded (the inline read
+ *  here used to hit the renamed legacy key and miss changed toggles). */
 function restoreSessionEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem('solomd.settings.v1');
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && typeof s.restoreSession === 'boolean') return s.restoreSession;
-    }
-  } catch {}
+  const s = readPersistedSettings();
+  if (s && typeof s.restoreSession === 'boolean') return s.restoreSession;
   return true;
 }
 
-/** Per-workspace tab scoping. Default ON. Inlined from localStorage so it
- *  works before the settings store hydrates (loadPersisted runs at store
- *  creation). */
+/** Per-workspace tab scoping. Default ON. Read through the shared
+ *  pre-hydration helper so it works before the settings store hydrates
+ *  (loadPersisted runs at store creation). */
 function perWorkspaceTabsEnabled(): boolean {
-  try {
-    const raw = localStorage.getItem('solomd.settings.v1');
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && typeof s.perWorkspaceTabs === 'boolean') return s.perWorkspaceTabs;
-    }
-  } catch {}
+  const s = readPersistedSettings();
+  if (s && typeof s.perWorkspaceTabs === 'boolean') return s.perWorkspaceTabs;
   return true;
 }
 

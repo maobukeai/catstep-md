@@ -14,7 +14,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-import { openPath, openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
+import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useI18n } from '../i18n';
@@ -153,10 +153,12 @@ async function copyMcpConfig() {
 async function openClaudeConfigFile() {
   if (!claudeConfigPath.value) return;
   try {
-    await openPath(claudeConfigPath.value);
+    // S20 — opener:allow-open-path is gone; the Rust command re-derives the
+    // config path from the client id and opens the file, or its parent
+    // folder when the file doesn't exist yet.
+    await invoke('open_ai_client_config', { clientId: 'claude-desktop' });
   } catch (e) {
-    // File may not exist yet — reveal the parent folder so the user can
-    // create it, or fall back to surfacing the path in a toast.
+    // Fall back to revealing the (computed) path so the user can find it.
     try {
       await revealItemInDir(claudeConfigPath.value);
     } catch {
@@ -269,12 +271,10 @@ async function removeOne(c: AiClient) {
 
 async function openClientConfig(c: AiClient) {
   try {
-    if (c.config_exists) {
-      await openPath(c.config_path);
-    } else {
-      const parent = c.config_path.replace(/[/\\][^/\\]+$/, '');
-      await openPath(parent);
-    }
+    // S20 — opener:allow-open-path is gone; the Rust command re-derives the
+    // config path from the client id and opens the file, or its parent
+    // folder when the file doesn't exist yet.
+    await invoke('open_ai_client_config', { clientId: c.id });
   } catch {
     try {
       await revealItemInDir(c.config_path);

@@ -8,7 +8,7 @@ import { installSvgImageFallbacks, rewriteImageUrls } from '../lib/image-resolve
 import { openImageOverlay, type OverlayStrings } from '../lib/image-overlay';
 import { svgToPngBlob, diagramBackground } from '../lib/mermaid-export';
 import { pickSavePath } from '../lib/user-pick';
-import { invoke } from '@tauri-apps/api/core';
+import { writeBinaryFile } from '../lib/commands';
 import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
 import { useSettingsStore } from '../stores/settings';
@@ -413,7 +413,7 @@ async function exportDiagramPng(svg: SVGElement) {
     });
     if (!path) return;
     const buffer = new Uint8Array(await blob.arrayBuffer());
-    await invoke('write_binary_file', { path, data: Array.from(buffer) });
+    await writeBinaryFile(path, Array.from(buffer));
     toasts.success(`Saved ${path.split(/[\\/]/).pop()}`);
   } catch (err) {
     toasts.error(`Export failed: ${err}`);

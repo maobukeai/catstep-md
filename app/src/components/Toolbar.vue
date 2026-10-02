@@ -14,11 +14,10 @@ import { useExport } from '../composables/useExport';
 import { useToastsStore } from '../stores/toasts';
 import { cleanAIArtifactsWithReport, formatCleanReport } from '../lib/clean-ai';
 import { useI18n } from '../i18n';
-import { openPath } from '@tauri-apps/plugin-opener';
 import { pickFile } from '../lib/user-pick';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
+import { openPathExternal, setMaxButtonRect } from '../lib/commands';
 import { forceWinChromePreview, isIOS, isMacOS, isWindowsDesktop } from '../lib/platform';
 import { EditorView } from '@codemirror/view';
 import { openPipFocusTimer } from '../lib/pip-window';
@@ -271,7 +270,9 @@ async function onOpenExternal() {
     return;
   }
   try {
-    await openPath(path);
+    // S20 — opener:allow-open-path is gone; the Rust command authorizes the
+    // path before the OS default program opens it.
+    await openPathExternal(path);
   } catch (e) {
     toasts.warning(`Failed: ${e}`);
   }
@@ -741,7 +742,7 @@ function reportMaxBtnRect() {
   rectRaf = requestAnimationFrame(() => {
     const scale = window.devicePixelRatio || 1;
     const r = maxBtnRef.value?.getBoundingClientRect();
-    void invoke('set_max_button_rect', r && r.width > 0
+    void setMaxButtonRect(r && r.width > 0
       ? { x: r.left, y: r.top, w: r.width, h: r.height, scale }
       : { x: 0, y: 0, w: 0, h: 0, scale });
   });
@@ -775,7 +776,7 @@ onBeforeUnmount(() => {
   for (const un of unlistenWinChrome) un();
   unlistenWinChrome = [];
   if (hasTauriShell && isWindowsDesktop()) {
-    void invoke('set_max_button_rect', { x: 0, y: 0, w: 0, h: 0, scale: 1 });
+    void setMaxButtonRect({ x: 0, y: 0, w: 0, h: 0, scale: 1 });
   }
 });
 

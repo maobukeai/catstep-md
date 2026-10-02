@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { setAsDefaultMarkdownEditor } from '../../lib/commands';
 import { useSettingsStore } from '../../stores/settings';
 import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
@@ -19,7 +19,7 @@ const settingDefault = ref(false);
 async function setAsDefault() {
   settingDefault.value = true;
   try {
-    const msg = await invoke<string>('set_as_default_markdown_editor', {
+    const msg = await setAsDefaultMarkdownEditor({
       lang: isZh.value ? 'zh' : 'en',
     });
     toasts.success(msg);

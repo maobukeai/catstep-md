@@ -19,7 +19,14 @@
  *   3. Done — closes wizard, marks `agentWizardSeen` so it doesn't re-fire.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  aiSetKey,
+  aiVerifyKey,
+  ollamaCancelPull,
+  ollamaDetect,
+  ollamaPull,
+  openOllamaInstallPage,
+} from '../lib/commands';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import BrandMark from './BrandMark.vue';
 import ProviderSelect from './ProviderSelect.vue';
@@ -132,11 +139,7 @@ async function saveCloudKey() {
     });
 
     if (cloudKey.value.trim()) {
-      await invoke('ai_set_key', {
-        provider: profile.id,
-        keyId: profile.id,
-        key: cloudKey.value.trim(),
-      });
+      await aiSetKey(profile.id, profile.id, cloudKey.value.trim());
     }
     // Quick verify — same command (and SAME ARGS) the AI Settings panel
     // uses. `ai_verify_key` switches on the wire format, not the brand id:
@@ -146,7 +149,7 @@ async function saveCloudKey() {
     // provider config's apiFormat + base URL (and the key directly, avoiding
     // a keystore read race) so DeepSeek/Gemini/etc. verify cleanly.
     try {
-      await invoke('ai_verify_key', {
+      await aiVerifyKey({
         provider: profile.provider,
         key: cloudKey.value.trim(),
         apiFormat: cfg?.apiFormat || 'openai',
@@ -206,7 +209,7 @@ let pullRequestId: string | null = null;
 async function detectOllama() {
   detecting.value = true;
   try {
-    ollama.value = await invoke<OllamaDetect>('ollama_detect', {
+    ollama.value = await ollamaDetect<OllamaDetect>({
       baseUrl: ollamaBaseUrl.value || undefined,
     });
   } catch (e) {
@@ -218,7 +221,7 @@ async function detectOllama() {
 
 async function openOllamaInstall() {
   try {
-    await invoke('open_ollama_install_page');
+    await openOllamaInstallPage();
   } catch {
     await openUrl('https://ollama.com/download');
   }
@@ -255,7 +258,7 @@ async function pullRecommended() {
   });
 
   try {
-    await invoke('ollama_pull', {
+    await ollamaPull({
       model: 'qwen2.5:1.5b',
       requestId: pullRequestId,
       baseUrl: ollamaBaseUrl.value || undefined,
@@ -327,7 +330,7 @@ const ollamaUrl = computed(() => ollamaBaseUrl.value || 'http://localhost:11434'
 onMounted(() => {
   // Pre-detect ollama in the background so the choice card can highlight
   // the local option if it's already installed (subtle dot, no claim).
-  invoke<OllamaDetect>('ollama_detect', { baseUrl: ollamaBaseUrl.value || undefined })
+  ollamaDetect<OllamaDetect>({ baseUrl: ollamaBaseUrl.value || undefined })
     .then((s) => {
       ollama.value = s;
     })
@@ -340,7 +343,7 @@ onMounted(() => {
 // disk + bandwidth in the background with no UI to stop it.
 onBeforeUnmount(() => {
   if (pulling.value && pullRequestId) {
-    invoke('ollama_cancel_pull', { requestId: pullRequestId }).catch(() => {});
+    ollamaCancelPull(pullRequestId).catch(() => {});
   }
   if (pullUnlisten) {
     pullUnlisten();

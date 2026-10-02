@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import type { Theme, ViewMode } from '../types';
 import { isIOS, isMobile } from '../lib/platform';
+import {
+  LEGACY_SETTINGS_LS_KEY,
+  readPersistedSettings,
+  SETTINGS_LS_KEY,
+} from '../lib/settings-storage';
 import { isDarkTheme } from '../lib/themes';
 import {
   providerById,
@@ -8,6 +13,7 @@ import {
   resolveProvider,
   type ProviderId,
 } from '../lib/ai-providers';
+import type { PromptLang, PromptOverrides } from '../lib/prompt-templates';
 
 /** One user-registered third-party MCP server (stdio transport). Mirrors
  *  the Rust `mcp_client::McpServerConfig` — the object travels with each
@@ -26,6 +32,9 @@ export interface AgentMcpServer {
   url?: string | null;
   /** Static headers sent with every HTTP request (bearer keys etc.). */
   headers?: Record<string, string>;
+  /** Extra environment variables injected into the spawned stdio process
+   *  (Rust side: `Command::envs`). HTTP servers ignore them. */
+  env?: Record<string, string>;
 }
 
 export interface AIProviderProfile {
@@ -39,8 +48,10 @@ export interface AIProviderProfile {
   createdAt?: number;
 }
 
-const LS_KEY = 'catstep.settings.v1';
-const LEGACY_LS_KEY = 'solomd.settings.v1';
+// Aliases keep the historical local names; the single source of truth for
+// both keys (and the pre-hydration read) lives in lib/settings-storage.ts.
+const LS_KEY = SETTINGS_LS_KEY;
+const LEGACY_LS_KEY = LEGACY_SETTINGS_LS_KEY;
 
 // CJK + generic fallback appended after the user's chosen face. This way
 // Latin glyphs come from the user's pick while CJK still falls back to
@@ -233,6 +244,11 @@ interface Settings {
   // (same trust model as Claude Desktop's MCP config), so it stays opt-in.
   agentMcpEnabled: boolean;
   agentMcpServers: AgentMcpServer[];
+  // S21 — per-language user overrides for the agent system prompt and the
+  // inline-rewrite action instructions. Template id (or action id) → slot;
+  // a blank or missing slot falls back to the built-in zh/en default in
+  // prompt-templates.ts. Edited from Settings → AI → "Agent prompts".
+  agentPromptOverrides: PromptOverrides;
   // Width (in px) of the right/left side sidebar that hosts Outline /
   // Backlinks / Tags / History / Agent Panel. The agent panel needs more
   // room than read-only browsing; user-resizable via the drag handle.
@@ -388,6 +404,11 @@ interface Settings {
   // default — the promotion is heuristic (a line opening with a decimal like
   // `3.14 …` also matches), so CJK-report users opt in.
   markdownAutoNumberHeadings: boolean;
+  // S14 — rich-text paste → Markdown. When on (default), a paste whose
+  // clipboard carries structured text/html (bold, links, lists, tables,
+  // headings…) is converted to Markdown before insertion; plain-text-only
+  // and image pastes keep their existing paths untouched.
+  pasteRichTextAsMarkdown: boolean;
   // v4.3.0: user-customisable order of the right-sidebar panes. Each entry
   // is a pane id (search / outline / backlinks / tags / history / agent).
   // Default matches the pre-v4.3.0 hardcoded order. Panes not in the list
@@ -663,6 +684,7 @@ function defaults(): Settings {
     agentToolLoopCap: 8,
     agentMcpEnabled: false,
     agentMcpServers: [],
+    agentPromptOverrides: {},
     agentRagGrounding: true,
     sideSidebarWidth: 260,
     fileTreeWidth: 240,
@@ -714,6 +736,7 @@ function defaults(): Settings {
     keybindings: {},
     smartQuotesOptInMigrated: true,
     markdownAutoNumberHeadings: false,
+    pasteRichTextAsMarkdown: true,
     rsPaneOrder: ['search', 'outline', 'backlinks', 'relationships', 'tags', 'tasks', 'neighborhood', 'types', 'history', 'inspector', 'agent'],
     previewFontSize: 15,
     attachmentMode: 'shared',
@@ -784,9 +807,11 @@ function mergePdfDefaults(saved: unknown): PdfDefaults {
 
 function load(): Settings {
   try {
-    const raw = localStorage.getItem(LS_KEY) || localStorage.getItem(LEGACY_LS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<Settings>;
+    // Single shared read (new key first, legacy `solomd.settings.v1`
+    // fallback) — the same one pre-hydration readers use, so nothing can
+    // disagree with what this store loaded.
+    const parsed = readPersistedSettings() as Partial<Settings> | null;
+    if (parsed) {
       const merged: Settings = { ...defaults(), ...parsed };
       // pdfDefaults is a nested object: do a clamping merge so a missing
       // sub-key (older settings blob) doesn't yield `undefined` and a
@@ -798,6 +823,21 @@ function load(): Settings {
       if (parsed.keybindings && typeof parsed.keybindings === 'object') {
         for (const [k, v] of Object.entries(parsed.keybindings)) {
           if (v === null || typeof v === 'string') merged.keybindings[k] = v;
+        }
+      }
+      // S21 — agent prompt overrides are free-form too: keep only
+      // well-formed per-language string slots so a tampered blob can't
+      // smuggle junk straight into the model prompts. Blank slots are
+      // dropped (blank = "use the built-in default").
+      merged.agentPromptOverrides = {};
+      if (parsed.agentPromptOverrides && typeof parsed.agentPromptOverrides === 'object') {
+        for (const [id, slot] of Object.entries(parsed.agentPromptOverrides)) {
+          if (!slot || typeof slot !== 'object') continue;
+          const clean: { zh?: string; en?: string } = {};
+          const rec = slot as Record<string, unknown>;
+          if (typeof rec.zh === 'string' && rec.zh.trim()) clean.zh = rec.zh.trim();
+          if (typeof rec.en === 'string' && rec.en.trim()) clean.en = rec.en.trim();
+          if (clean.zh || clean.en) merged.agentPromptOverrides[id] = clean;
         }
       }
       // One-time v4.0 upgrade: any saved settings blob written before
@@ -947,6 +987,23 @@ function load(): Settings {
         merged.aiModel = active.selectedModel || active.models[0] || '';
         merged.aiBaseUrl = active.baseUrl || '';
       }
+
+      // solomd→catstep storage-key migration (one launch). The blob used to
+      // live under `solomd.settings.v1`; when this read came from the legacy
+      // key, persist the merged snapshot under the new key, then delete the
+      // legacy blob so it can never shadow what the user actually configured
+      // (the pre-hydration readers in tabs/tiles/Slideshow would otherwise
+      // see stale toggles forever). Transient-field carve-out matches
+      // `persist()`. Write-before-remove so a failed setItem never destroys
+      // the only copy.
+      try {
+        if (!localStorage.getItem(LS_KEY)) {
+          const { _rsPanesBeforeHide: _transient, ...snapshot } = merged as unknown as Record<string, unknown>;
+          void _transient;
+          localStorage.setItem(LS_KEY, JSON.stringify(snapshot));
+        }
+        localStorage.removeItem(LEGACY_LS_KEY);
+      } catch {}
 
       return merged;
     }
@@ -1386,6 +1443,41 @@ export const useSettingsStore = defineStore('settings', {
     setAgentToolLoopCap(n: number) {
       const clean = Math.max(1, Math.min(20, Math.round(n) || 8));
       this.agentToolLoopCap = clean;
+      this.persist();
+    },
+    /** S21 — set (or clear, when blank) one language slot of a prompt
+     *  template override. Blanks delete the slot; a template whose slots
+     *  are all blank is removed entirely, which is what "restore default"
+     *  means — absence always resolves to the built-in prompt. */
+    setAgentPromptOverride(id: string, lang: PromptLang, text: string) {
+      const value = text.trim();
+      const next: PromptOverrides = { ...(this.agentPromptOverrides || {}) };
+      const slot = { ...next[id] };
+      if (value) {
+        slot[lang] = value;
+      } else {
+        delete slot[lang];
+      }
+      if (slot.zh?.trim() || slot.en?.trim()) {
+        next[id] = slot;
+      } else {
+        delete next[id];
+      }
+      this.agentPromptOverrides = next;
+      this.persist();
+    },
+    /** S21 — drop every language slot of one prompt template. */
+    resetAgentPromptOverride(id: string) {
+      if (!this.agentPromptOverrides?.[id]) return;
+      const next = { ...this.agentPromptOverrides };
+      delete next[id];
+      this.agentPromptOverrides = next;
+      this.persist();
+    },
+    /** S21 — drop all prompt template overrides at once. */
+    resetAllAgentPromptOverrides() {
+      if (!this.agentPromptOverrides || Object.keys(this.agentPromptOverrides).length === 0) return;
+      this.agentPromptOverrides = {};
       this.persist();
     },
     toggleAgentMcpEnabled() {
@@ -1921,6 +2013,10 @@ export const useSettingsStore = defineStore('settings', {
     },
     toggleMarkdownAutoNumberHeadings() {
       this.markdownAutoNumberHeadings = !this.markdownAutoNumberHeadings;
+      this.persist();
+    },
+    togglePasteRichTextAsMarkdown() {
+      this.pasteRichTextAsMarkdown = !this.pasteRichTextAsMarkdown;
       this.persist();
     },
     /** v4.3.0 issue #57b — reorder the right sidebar by moving a pane id to

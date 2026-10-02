@@ -18,7 +18,7 @@
  *      so we never touch bases.ts and never do async work per row.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import { createDir, deletePath, listDir, readNote, writeNote } from '../lib/commands';
 import { inferColumns, applySort, type ColumnDef, type SortSpec } from '../lib/bases';
 import {
   parseViewFile,
@@ -96,7 +96,7 @@ export const useSavedViewsStore = defineStore('savedViews', {
         const dir = joinPath(folder, VIEWS_DIR);
         let entries: DirEntry[] = [];
         try {
-          entries = await invoke<DirEntry[]>('list_dir', { path: dir });
+          entries = await listDir(dir);
         } catch {
           // Directory doesn't exist yet → no views. Not an error.
           this.views = [];
@@ -109,9 +109,7 @@ export const useSavedViewsStore = defineStore('savedViews', {
         const loaded: ViewFile[] = [];
         for (const e of ymls) {
           try {
-            const res = await invoke<{ content: string }>('read_file', {
-              path: e.path,
-            });
+            const res = await readNote(e.path);
             const slug = e.name.replace(/\.ya?ml$/i, '');
             loaded.push(parseViewFile(slug, res.content));
           } catch (err) {
@@ -134,7 +132,7 @@ export const useSavedViewsStore = defineStore('savedViews', {
     async ensureDir(folder: string): Promise<string> {
       const dir = joinPath(folder, VIEWS_DIR);
       try {
-        await invoke('fs_create_dir', { path: dir });
+        await createDir(dir);
       } catch (e) {
         // `already exists` is expected and fine; rethrow anything else.
         if (!String(e).includes('already exists')) throw e;
@@ -154,11 +152,7 @@ export const useSavedViewsStore = defineStore('savedViews', {
       await this.ensureDir(folder);
       const dir = joinPath(folder, VIEWS_DIR);
       const path = joinPath(dir, `${clean.slug}.yml`);
-      await invoke('write_file', {
-        path,
-        content: serializeViewFile(clean),
-        encoding: 'UTF-8',
-      });
+      await writeNote(path, serializeViewFile(clean));
       const idx = this.views.findIndex((v) => v.slug === clean.slug);
       if (idx >= 0) this.views.splice(idx, 1, clean);
       else this.views.push(clean);
@@ -171,7 +165,7 @@ export const useSavedViewsStore = defineStore('savedViews', {
       if (!folder) return;
       const path = joinPath(joinPath(folder, VIEWS_DIR), `${slug}.yml`);
       try {
-        await invoke('fs_delete', { path });
+        await deletePath(path);
       } catch (e) {
         console.warn('[savedViews] delete failed', e);
       }
