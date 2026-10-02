@@ -237,7 +237,6 @@ The "save the announce" arc. New users meet v4.0 through these surfaces, not the
 | Feature | Why we skip |
 |---|---|
 | **Block editor** (Notion-style) | AFFiNE / SiYuan / Anytype own this. Different brand. 6-month rewrite for unclear ROI. |
-| **Infinite canvas / whiteboard** | Same. Plus we don't have the right team. |
 | **Real-time collaboration** | Off-mission for "solo." Reconsider only as part of paid sync if a clear team market shows up. |
 | **Graph view** | Eye candy. Low daily-use value, high effort. Obsidian users who want it stay on Obsidian. |
 | **Spaced repetition / Anki-style flashcards** | SiYuan + Logseq cover it. Niche. |
@@ -251,6 +250,12 @@ The "save the announce" arc. New users meet v4.0 through these surfaces, not the
 | **Card / grid file browser + density presets** | MarKing's answer to "browse notes visually." Bases (table over properties) and saved views already cover browsing-as-data, and nobody has asked for cards in our tracker. Revisit only if a real request arrives. |
 | **One-click vault migration** | Moving a folder is a job Finder / Explorer already do with progress, conflict handling and undo; a recursive cross-device move inside a text editor is real risk for a once-in-a-lifetime action. The half worth having — not breaking afterwards — shipped instead: the tree now says when the workspace folder is gone and offers to relocate it. |
 | **"Lightweight mode" (fast double-click open without the sidebar)** | Solves a problem we do not have. MarKing needs files imported into a library first (their #80 / #64 are literally "let me open a file without importing it"); Catstep MD opens any `.md` directly from Finder, drag-drop or CLI. Startup time is a separate, real question — measure before inventing a mode for it. |
+
+> **Correction (2026-10-02):** the old "**Infinite canvas / whiteboard** — Same. Plus we don't
+> have the right team." row above is obsolete. A Markdown-backed tldraw whiteboard **shipped**
+> (`F7`, `WhiteboardOverlay.vue`, boards stored as plain Markdown — see `app/src/lib/tldraw-*.ts`)
+> in the internal v4.6 wave, before the 1.0.x renumbering. What remains out of scope is a full
+> Notion/AFFiNE-style freeform infinite canvas on top of it.
 
 ---
 
