@@ -7,8 +7,10 @@ This directory contains the source for the **`solomd-bin`** package on the
 
 [![AUR](https://img.shields.io/aur/version/solomd-bin)](https://aur.archlinux.org/packages/solomd-bin)
 
-The package is published on AUR and kept in sync with the latest Catstep MD release
-via a daily auto-update job that checks GitHub releases.
+The package is published on AUR and updated by hand whenever a new Catstep MD
+release is published — there is no automatic sync job. The version in
+`PKGBUILD` must match `app/package.json`; a drift-check CI job fails when the
+two fall out of step.
 
 ## Install
 

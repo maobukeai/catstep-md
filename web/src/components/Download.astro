@@ -4,21 +4,26 @@ interface Props { lang: Lang }
 const { lang } = Astro.props;
 const tr = getT(lang);
 
-const VERSION = '4.12.0';
+// Single source of truth is app/package.json; ci.yml's satellite-version
+// drift job fails when this pin falls behind it.
+const VERSION = '1.0.6';
 const REPO = 'maobukeai/catstep-md';
 // The Store ships both x64 and arm64 and picks for the machine, and it keeps
 // the app updated — worth offering next to the MSI rather than only below it.
 const MS_STORE = 'https://apps.microsoft.com/detail/9nxghk2ll1q4';
 
-// What the Store is actually serving, read at build time. It is deliberately
-// not assumed equal to VERSION: the Store trails the GitHub release for as
-// long as a submission sits in certification, and pointing people at a "v4.12"
-// badge over a 4.11 package would be worse than showing nothing.
+// What the Store is actually serving, read at build time. The pin is
+// deliberately not assumed equal to VERSION above: the Store release line is
+// independent of the GitHub one, and pointing people at a GitHub version
+// badge over an older Store package would be worse than showing nothing.
+// Measured against the catalogue on 2026-10-02 it served 4.14.5
+// (PackageFullName zhitong.SoloMD_4.14.5.0_* — the listing kept its SoloMD
+// identity and version line from before the GitHub side reset to 1.0.x).
 //
 // The pin is the fallback, not the source of truth — a deploy must not fail
 // or block because Microsoft's catalogue is slow, so an unreachable endpoint
 // just leaves the last known-good value in place.
-const MS_STORE_VERSION_PIN = '4.12.0';
+const MS_STORE_VERSION_PIN = '4.14.5';
 
 async function readStoreVersion(): Promise<string> {
   const url =
@@ -34,7 +39,7 @@ async function readStoreVersion(): Promise<string> {
         if (pkg?.PackageFullName) names.push(pkg.PackageFullName);
       }
     }
-    // maobukeai.CatstepMD_1.0.2.0_x64__3vmxy07xh2v3m -> 1.0.2
+    // zhitong.SoloMD_4.14.5.0_x64__3vmxy07xh2v3m -> 4.14.5
     const versions = names
       .map((n) => n.match(/_(\d+)\.(\d+)\.(\d+)\.\d+_/))
       .filter((m): m is RegExpMatchArray => Boolean(m))
@@ -60,7 +65,9 @@ const platforms = [
     icon: '🍎',
     key: 'macos' as const,
     version: VERSION,
-    primaryFile: `Catstep MD_${VERSION}_universal.dmg`,
+    // release.yml builds the dmg only on macos-latest (Apple Silicon), so the
+    // published asset is the aarch64 image — there is no universal dmg.
+    primaryFile: `CatstepMD_${VERSION}_aarch64.dmg`,
   },
   {
     icon: '🪟',
@@ -73,39 +80,39 @@ const platforms = [
     // signatures 1.457.411.0) and reported it clean, which is the condition
     // this pin was waiting on. Pin it again if the verdict comes back.
     version: VERSION,
-    primaryFile: `Catstep MD_${VERSION}_x64_en-US.msi`,
+    primaryFile: `CatstepMD_${VERSION}_x64_en-US.msi`,
     storeUrl: MS_STORE,
   },
   {
     icon: '🪟',
     key: 'windowsArm' as const,
     version: VERSION,
-    primaryFile: `Catstep MD_${VERSION}_arm64_en-US.msi`,
+    primaryFile: `CatstepMD_${VERSION}_arm64_en-US.msi`,
     storeUrl: MS_STORE,
   },
   {
     icon: '🐧',
     key: 'linux' as const,
     version: VERSION,
-    primaryFile: `Catstep MD_${VERSION}_amd64.AppImage`,
-    secondaryFile: `Catstep MD_${VERSION}_amd64.deb`,
-    tertiaryFile: `Catstep MD-${VERSION}-1.x86_64.rpm`,
+    primaryFile: `CatstepMD_${VERSION}_amd64.AppImage`,
+    secondaryFile: `CatstepMD_${VERSION}_amd64.deb`,
+    tertiaryFile: `CatstepMD-${VERSION}-1.x86_64.rpm`,
   },
   {
     icon: '🍓',
     key: 'linuxArm' as const,
     version: VERSION,
-    primaryFile: `Catstep MD_${VERSION}_aarch64.AppImage`,
-    secondaryFile: `Catstep MD_${VERSION}_arm64.deb`,
-    tertiaryFile: `Catstep MD-${VERSION}-1.aarch64.rpm`,
+    primaryFile: `CatstepMD_${VERSION}_aarch64.AppImage`,
+    secondaryFile: `CatstepMD_${VERSION}_arm64.deb`,
+    tertiaryFile: `CatstepMD-${VERSION}-1.aarch64.rpm`,
   },
   {
     icon: '🤖',
     key: 'android' as const,
     version: VERSION,
-    primaryFile: `Catstep MD_${VERSION}_universal.apk`,
-    secondaryFile: `Catstep MD_${VERSION}_arm64-v8a.apk`,
-    tertiaryFile: `Catstep MD_${VERSION}_armeabi-v7a.apk`,
+    primaryFile: `CatstepMD_${VERSION}_universal.apk`,
+    secondaryFile: `CatstepMD_${VERSION}_arm64-v8a.apk`,
+    tertiaryFile: `CatstepMD_${VERSION}_armeabi-v7a.apk`,
   },
 ];
 ---

@@ -198,22 +198,27 @@ jobs:
             Write-Warning "Defender scan encountered non-fatal issue: $_"
           }
 
-      # ----------------------------------------------------------------------
-      # v2.4: solomd-mcp standalone tarballs.
-      #
-      # `tauri-action` already ran `scripts/build-mcp-sidecar.sh` (via
-      # `beforeBundleCommand` in tauri.conf.json) and embedded the binary
-      # into the .app / .msi / .deb. We now repackage *that exact same
-      # binary* into a standalone tarball so users who don't want the
-      # desktop app (e.g. running a headless MCP server on a homelab box)
-      # can `curl install-mcp.sh | bash` and get the matched build.
-      #
-      # Linux x64:    solomd-mcp-linux-x64.tar.gz
-      # Linux arm64:  solomd-mcp-linux-arm64.tar.gz
-      # Windows x64:  solomd-mcp-win-x64.zip
-      # macOS:        produced locally via scripts/build-mac.sh, since
-      #               macOS isn't in this matrix anymore.
-      # ----------------------------------------------------------------------
+  # ----------------------------------------------------------------------
+  # v2.4: catstep-mcp standalone tarballs.
+  #
+  # `tauri-action` already ran `scripts/build-mcp-sidecar.sh` (via
+  # `beforeBundleCommand` in tauri.conf.json) and embedded the binary
+  # into the .app / .msi / .deb. We now repackage *that exact same
+  # binary* into a standalone tarball so users who don't want the
+  # desktop app (e.g. running a headless MCP server on a homelab box)
+  # can `curl install-mcp.sh | bash` and get the matched build.
+  #
+  # Asset names MUST match what scripts/install-mcp.sh resolves for the
+  # same platform — it is the contract the install script downloads
+  # against. Guarded end-to-end by the "Drift check" step in the
+  # checksums job:
+  #
+  # Linux x64:    catstep-mcp-linux-x64.tar.gz
+  # Linux arm64:  catstep-mcp-linux-arm64.tar.gz
+  # Windows x64:  catstep-mcp-win-x64.zip
+  # macOS:        produced locally via scripts/build-mcp.sh, since
+  #               macOS isn't in this matrix anymore.
+  # ----------------------------------------------------------------------
       - name: Pack catstep-mcp tarball (Linux)
         if: startsWith(matrix.platform, 'ubuntu-')
         shell: bash
@@ -271,7 +276,7 @@ jobs:
       # has WebView2; users without it see a runtime prompt the first time.
       # Skipped on non-Windows runners. Uploaded to the same draft release.
       #
-      # Also packs solomd-mcp.exe into a separate `.zip` for `install-mcp.sh`.
+      # Also packs catstep-mcp.exe into a separate `.zip` for `install-mcp.sh`.
       # ----------------------------------------------------------------------
       - name: Build Windows portable .zip
         if: matrix.platform == 'windows-latest' || matrix.platform == 'windows-11-arm'
@@ -315,13 +320,27 @@ jobs:
           Compress-Archive -Path "$stage/*" -DestinationPath $zipCatstep -Force
           gh release upload "${{ github.ref_name }}" $zipCatstep --clobber
 
-          # solomd-mcp standalone .zip (install-mcp.sh on Windows expects this).
+          # catstep-mcp standalone .zip. BOTH names are the contract with
+          # scripts/install-mcp.sh: it resolves `catstep-mcp-win-<arch>.zip`
+          # for the download URL AND expects `catstep-mcp.exe` at the zip root
+          # after extraction (its binary search only looks for catstep-mcp
+          # names). The asset half is re-checked against the script by the
+          # "Drift check" step in the checksums job; the archive half is
+          # verified below before upload.
           if ($mcpExe) {
-            $mcpStage = "solomd-mcp-win-${arch}"
+            $mcpStage = "catstep-mcp-win-${arch}"
             New-Item -ItemType Directory -Force -Path $mcpStage | Out-Null
-            Copy-Item $mcpExe.FullName -Destination "$mcpStage/solomd-mcp.exe"
-            $mcpZip = "solomd-mcp-win-${arch}.zip"
+            Copy-Item $mcpExe.FullName -Destination "$mcpStage/catstep-mcp.exe"
+            $mcpZip = "catstep-mcp-win-${arch}.zip"
             Compress-Archive -Path "$mcpStage/*" -DestinationPath $mcpZip -Force
+            $mcpZipVerify = Join-Path $env:RUNNER_TEMP "mcp-zip-verify"
+            Remove-Item -Recurse -Force $mcpZipVerify -ErrorAction SilentlyContinue
+            Expand-Archive -Path $mcpZip -DestinationPath $mcpZipVerify
+            if (-Not (Test-Path (Join-Path $mcpZipVerify "catstep-mcp.exe"))) {
+              Write-Error "$mcpZip does not contain catstep-mcp.exe at its root — install-mcp.sh would fail to find the binary"
+              exit 1
+            }
+            Write-Host "mcp zip verified: catstep-mcp.exe present at zip root"
             gh release upload "${{ github.ref_name }}" $mcpZip --clobber
           }
 
@@ -559,3 +578,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/checksums.sh "${{ github.ref_name }}"
+
+      # ----------------------------------------------------------------------
+      # Drift guard: every MCP asset install-mcp.sh resolves for the platforms
+      # CI builds must actually exist on this release. The Windows MCP zip
+      # once shipped as solomd-mcp-win-*.zip while the install script asked
+      # for catstep-mcp-win-*.zip — every Windows `curl install-mcp.sh | bash`
+      # 404'd while the workflow comments still claimed the two agreed. This
+      # step derives the expected names from install-mcp.sh ITSELF (fake
+      # uname, no second copy of the mapping to drift) and fails the release
+      # when one is missing. macOS is intentionally unchecked — see the
+      # script header for why.
+      # ----------------------------------------------------------------------
+      - name: Drift check - install-mcp.sh expected assets vs release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/check-mcp-asset-drift.sh "${{ github.ref_name }}"

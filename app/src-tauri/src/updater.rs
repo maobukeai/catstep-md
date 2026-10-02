@@ -1,14 +1,49 @@
-use std::path::PathBuf;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 const UPDATE_DIR_NAME: &str = "catstep-updates";
+
+// ---------------------------------------------------------------------------
+// Integrity (S11). `updater_install_and_restart` *executes* the file it is
+// given, and both of its inputs come from the WebView — the same context a
+// `v-html`-injected script runs in (see the path_guard note atop commands.rs).
+// The gate is anchored entirely on the Rust side: the expected sha256 is
+// fetched from the release's SHA256SUMS.txt at a URL DERIVED BY RULE from the
+// download URL, and only when that URL itself sits on the official release
+// host. The expected value never travels through the WebView.
+// ---------------------------------------------------------------------------
+
+/// The only release source whose installers may be executed. Kept in sync
+/// with `REPO_OWNER`/`REPO_NAME` in `app/src/lib/check-update.ts` — the
+/// frontend discovers releases, but trust is anchored HERE, not there.
+const TRUSTED_RELEASE_HOST: &str = "github.com";
+/// Path prefixes (below `TRUSTED_RELEASE_HOST`) of the release download
+/// area, with whether a `<tag>` segment sits between the prefix and the
+/// asset: `…/releases/download/<tag>/<asset>` vs its tag-less `latest`
+/// alias `…/releases/latest/download/<asset>`.
+const TRUSTED_RELEASE_PATH_PREFIXES: [(&str, bool); 2] = [
+    ("/maobukeai/catstep-md/releases/download/", true),
+    ("/maobukeai/catstep-md/releases/latest/download/", false),
+];
+/// Checksum manifest .github/workflows/release.yml uploads next to every
+/// asset (scripts/checksums.sh, `<hex>  <filename>` sha256sum format).
+const SHA256SUMS_FILE: &str = "SHA256SUMS.txt";
+/// Dev/test bypass for the installer integrity gate: payloads with no
+/// verification record (local builds, mirror tests) may be executed only
+/// when this is set to `1`. Every bypass is logged loudly; it must never
+/// become the quiet default for any distribution channel — the other
+/// channels (Play Store, hand-run browser downloads, MAS builds, …) don't
+/// go through these commands at all and need no bypass.
+const ENV_ALLOW_UNVERIFIED: &str = "CATSTEPMD_UPDATER_ALLOW_UNVERIFIED";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformInfo {
@@ -30,6 +65,13 @@ pub struct UpdateProgressPayload {
 pub struct UpdaterState {
     cancel_flag: Arc<AtomicBool>,
     active_download: Arc<Mutex<bool>>,
+    /// Downloaded-file path → the sha256 the release's SHA256SUMS.txt
+    /// records for that asset. Written ONLY by `updater_start_download`
+    /// after a byte-for-byte match against the manifest fetched from the
+    /// trusted channel; read by `updater_install_and_restart` as the gate
+    /// before executing anything. A std (not tokio) Mutex: held for
+    /// microseconds, never across an await.
+    verified_downloads: Arc<std::sync::Mutex<HashMap<String, String>>>,
 }
 
 impl Default for UpdaterState {
@@ -43,6 +85,7 @@ impl UpdaterState {
         Self {
             cancel_flag: Arc::new(AtomicBool::new(false)),
             active_download: Arc::new(Mutex::new(false)),
+            verified_downloads: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
 }
@@ -325,6 +368,66 @@ pub async fn updater_start_download(
     }
     drop(file);
 
+    // ---------------------------------------------------------------------------
+    // Integrity (S11): before this download may later be executed as an
+    // installer, hash it against the release's SHA256SUMS.txt. The manifest
+    // URL is derived from the download URL by fixed rule and only trusted
+    // when the download URL itself sits on the official release host — the
+    // WebView never supplies (and cannot forge) the expected hash.
+    //   * hash mismatch → the payload is DELETED and the download fails;
+    //   * manifest unavailable (network, pre-checksum release) → keep the
+    //     file but leave it unverified; `updater_install_and_restart` will
+    //     refuse it;
+    //   * URL outside the trusted channel → same, with a log here.
+    // ---------------------------------------------------------------------------
+    match trusted_release_asset(&url) {
+        None => {
+            eprintln!(
+                "[updater] download source is outside the trusted release channel: {url} — \
+                 the installer will be refused by the integrity gate"
+            );
+        }
+        Some(trusted) => match fetch_expected_hash(&client, &trusted).await {
+            Ok(expected) => {
+                let actual = file_sha256_hex(&target_file_path)?;
+                if actual.eq_ignore_ascii_case(&expected) {
+                    state
+                        .verified_downloads
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .insert(target_path_str.clone(), expected);
+                } else {
+                    let _ = tokio::fs::remove_file(&target_file_path).await;
+                    *active = false;
+                    let err_msg = format!(
+                        "Installer integrity check FAILED: sha256 {actual} does not match the \
+                         release manifest ({expected}). The download was deleted and nothing \
+                         will be executed."
+                    );
+                    let _ = app.emit(
+                        "updater-progress",
+                        UpdateProgressPayload {
+                            status: "error".to_string(),
+                            downloaded,
+                            total: Some(downloaded),
+                            percent: 100.0,
+                            speed_bps: 0,
+                            file_path: None,
+                            error: Some(err_msg.clone()),
+                        },
+                    );
+                    return Err(err_msg);
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "[updater] SHA256SUMS manifest unavailable for {url}: {e} — download kept \
+                     but marked unverified; installer execution will be refused"
+                );
+            }
+        },
+    }
+
     *active = false;
     let _ = app.emit(
         "updater-progress",
@@ -372,6 +475,173 @@ fn sanitize_download_filename(raw: &str) -> Result<String, String> {
     Ok(name.to_string())
 }
 
+// ---------------------------------------------------------------------------
+// Installer integrity: derivation + verification helpers.
+//
+// Pure functions are kept separate from the commands so they stay unit-testable
+// (see the tests module at the bottom); the command shells only wire them up.
+// ---------------------------------------------------------------------------
+
+/// A download URL that passed the trusted-channel check, plus everything that
+/// can be derived from it WITHOUT any further input from the WebView.
+struct TrustedReleaseAsset {
+    /// SHA256SUMS.txt URL, derived by fixed rule: the manifest lives in the
+    /// same release download directory as the asset.
+    manifest_url: String,
+    asset_name: String,
+}
+
+/// Recognize an official release download URL —
+/// `https://github.com/maobukeai/catstep-md/releases/{download/<tag>|latest/download}/<asset>`
+/// — and derive the manifest location. Parsed as a URL, not matched as a
+/// string, so look-alike hosts (`github.com.evil.tld`) and plain http cannot
+/// pass. Anything else returns `None`; the installer gate then refuses the
+/// file later.
+fn trusted_release_asset(url: &str) -> Option<TrustedReleaseAsset> {
+    let parsed = reqwest::Url::parse(url).ok()?;
+    if parsed.scheme() != "https" || parsed.host_str() != Some(TRUSTED_RELEASE_HOST) {
+        return None;
+    }
+    for (prefix, has_tag) in TRUSTED_RELEASE_PATH_PREFIXES {
+        let Some(rest) = parsed.path().strip_prefix(prefix) else {
+            continue;
+        };
+        // Url::parse keeps query/fragment out of path(); no further trimming.
+        let asset = if has_tag {
+            // `<tag>/<asset>`: the tag must be present and the asset must be
+            // the final path segment.
+            let (tag, asset) = rest.split_once('/')?;
+            if tag.is_empty() || asset.is_empty() || asset.contains('/') {
+                return None;
+            }
+            asset
+        } else if rest.is_empty() || rest.contains('/') {
+            return None;
+        } else {
+            rest
+        };
+        // The manifest lives in the same directory as the asset — i.e. the
+        // path minus the final segment — which keeps the tagged and `latest`
+        // shapes on one derivation.
+        let dir = &parsed.path()[..parsed.path().len() - asset.len()];
+        return Some(TrustedReleaseAsset {
+            manifest_url: format!("https://{TRUSTED_RELEASE_HOST}{dir}{SHA256SUMS_FILE}"),
+            asset_name: asset.to_string(),
+        });
+    }
+    None
+}
+
+/// Pull the digest recorded for `asset_name` out of a SHA256SUMS.txt body
+/// (`<hex>  <filename>` per line, as `sha256sum`/scripts/checksums.sh write
+/// it; a leading `*` marks binary mode). Malformed digest candidates are
+/// ignored rather than trusted.
+fn expected_hash_from_manifest(manifest: &str, asset_name: &str) -> Option<String> {
+    for line in manifest.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        // A line that isn't `<hash> <name>` is skipped, not fatal — one stray
+        // line must not sink the lookup of a well-formed line further down.
+        let Some((hash, name)) = line.split_once(char::is_whitespace) else {
+            continue;
+        };
+        let name = name.trim().trim_start_matches('*');
+        if name.eq_ignore_ascii_case(asset_name)
+            && hash.len() == 64
+            && hash.chars().all(|c| c.is_ascii_hexdigit())
+        {
+            return Some(hash.to_ascii_lowercase());
+        }
+    }
+    None
+}
+
+/// Fetch the sha256 recorded for `trusted.asset_name` in the release's
+/// SHA256SUMS.txt. Failures are returned to the caller, which decides
+/// between "refuse" and "mark unverified" — it never falls back to a hash
+/// supplied from anywhere else.
+async fn fetch_expected_hash(
+    client: &reqwest::Client,
+    trusted: &TrustedReleaseAsset,
+) -> Result<String, String> {
+    let res = client
+        .get(&trusted.manifest_url)
+        .send()
+        .await
+        .map_err(|e| format!("manifest request failed: {e}"))?;
+    if !res.status().is_success() {
+        return Err(format!("manifest HTTP {}", res.status()));
+    }
+    let body = res
+        .text()
+        .await
+        .map_err(|e| format!("manifest read failed: {e}"))?;
+    expected_hash_from_manifest(&body, &trusted.asset_name)
+        .ok_or_else(|| format!("manifest does not list {}", trusted.asset_name))
+}
+
+/// SHA-256 of a file, streamed in 64 KiB chunks so a ~100 MB installer never
+/// sits whole in memory.
+fn file_sha256_hex(path: &Path) -> Result<String, String> {
+    use std::io::Read;
+    let mut file =
+        std::fs::File::open(path).map_err(|e| format!("failed to open for hashing: {e}"))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = file
+            .read(&mut buf)
+            .map_err(|e| format!("failed to read while hashing: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
+/// The install-side half of the integrity gate: refuse to execute anything
+/// that does not carry a verification record, or whose bytes no longer match
+/// the hash the release manifest recorded at download time (catches a file
+/// swapped between download and install, too).
+fn verify_installer_before_execute(
+    app: &AppHandle,
+    path: &Path,
+    file_path: &str,
+) -> Result<(), String> {
+    // Explicit dev/test bypass — loud on purpose, never a silent default.
+    if std::env::var(ENV_ALLOW_UNVERIFIED).ok().as_deref() == Some("1") {
+        eprintln!(
+            "[updater] {ENV_ALLOW_UNVERIFIED}=1 — integrity gate bypassed for {file_path} (dev/test only)"
+        );
+        return Ok(());
+    }
+    let state = app.state::<UpdaterState>();
+    let expected = state
+        .verified_downloads
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(file_path)
+        .cloned();
+    let Some(expected) = expected else {
+        return Err(format!(
+            "No integrity record for this installer — only payloads downloaded in this session \
+             through the in-app updater (with a {SHA256SUMS_FILE} manifest on the release) may \
+             be executed. Set {ENV_ALLOW_UNVERIFIED}=1 to bypass (dev/test only)."
+        ));
+    };
+    let actual = file_sha256_hex(path)?;
+    if !actual.eq_ignore_ascii_case(&expected) {
+        return Err(format!(
+            "Installer integrity check FAILED: sha256 {actual} != expected {expected}. \
+             Nothing was executed."
+        ));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn updater_install_and_restart(
     app: AppHandle,
@@ -388,6 +658,15 @@ pub fn updater_install_and_restart(
     // to be authorized keeps a compromised WebView from pointing it at any
     // executable on disk.
     super::commands::authorize(&file_path)?;
+
+    // The path guard above only proves WHERE the file sits; this gate proves
+    // WHAT it is — byte-for-byte the artifact the release's SHA256SUMS
+    // manifest recorded, with the expected hash fetched Rust-side from a URL
+    // derived by rule (see the integrity note atop this file). With both
+    // gates, the injected-script path of "pick a URL, then pick a file" ends
+    // in a refusal unless the payload came off the official release and still
+    // matches its manifest entry.
+    verify_installer_before_execute(&app, &path, &file_path)?;
 
     #[cfg(target_os = "windows")]
     {
@@ -505,7 +784,10 @@ pub fn updater_install_and_restart(
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_download_filename;
+    use super::{
+        expected_hash_from_manifest, file_sha256_hex, sanitize_download_filename,
+        trusted_release_asset,
+    };
 
     #[test]
     fn download_name_keeps_only_the_basename() {
@@ -548,5 +830,87 @@ mod tests {
         }
         // Absurdly long names are refused rather than handed to the filesystem.
         assert!(sanitize_download_filename(&"x".repeat(201)).is_err());
+    }
+
+    #[test]
+    fn official_release_urls_derive_the_manifest_location() {
+        let trusted = trusted_release_asset(
+            "https://github.com/maobukeai/catstep-md/releases/download/v1.2.3/CatstepMD_1.2.3_x64-setup.msi",
+        )
+        .expect("tagged release URL must be trusted");
+        assert_eq!(trusted.asset_name, "CatstepMD_1.2.3_x64-setup.msi");
+        assert_eq!(
+            trusted.manifest_url,
+            "https://github.com/maobukeai/catstep-md/releases/download/v1.2.3/SHA256SUMS.txt"
+        );
+
+        // The `latest` alias follows the same fixed rule.
+        let trusted = trusted_release_asset(
+            "https://github.com/maobukeai/catstep-md/releases/latest/download/CatstepMD.dmg",
+        )
+        .expect("latest release URL must be trusted");
+        assert_eq!(trusted.asset_name, "CatstepMD.dmg");
+        assert_eq!(
+            trusted.manifest_url,
+            "https://github.com/maobukeai/catstep-md/releases/latest/download/SHA256SUMS.txt"
+        );
+    }
+
+    #[test]
+    fn lookalike_or_untrusted_download_urls_are_refused() {
+        // Wrong host: prefix-matching a plain string would let these through.
+        for url in [
+            "https://github.com.evil.tld/maobukeai/catstep-md/releases/download/v1.0.0/x.msi",
+            "https://evil.tld/maobukeai/catstep-md/releases/download/v1.0.0/x.msi",
+            // Downgrade to http.
+            "http://github.com/maobukeai/catstep-md/releases/download/v1.0.0/x.msi",
+            // Wrong repo.
+            "https://github.com/other/repo/releases/download/v1.0.0/x.msi",
+            // Path too short / asset missing.
+            "https://github.com/maobukeai/catstep-md/releases/download/v1.0.0/",
+            // Nested path where the asset should be.
+            "https://github.com/maobukeai/catstep-md/releases/download/v1.0.0/dir/x.msi",
+        ] {
+            assert!(
+                trusted_release_asset(url).is_none(),
+                "{url} must not be trusted"
+            );
+        }
+        // Not a URL at all.
+        assert!(trusted_release_asset("not a url").is_none());
+    }
+
+    #[test]
+    fn manifest_lookup_finds_the_asset_and_ignores_bad_lines() {
+        let manifest = "\n\
+             # comment-ish line with a bogus digest\n\
+             not-a-hash-line\n\
+             e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  CatstepMD_1.2.3_x64-setup.msi\n\
+             0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20  *CatstepMD.dmg\n\
+             short  CatstepMD_broken.msi\n";
+        assert_eq!(
+            expected_hash_from_manifest(manifest, "CatstepMD_1.2.3_x64-setup.msi").as_deref(),
+            Some("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        );
+        // Binary-mode `*` marker and case-insensitive name match.
+        assert_eq!(
+            expected_hash_from_manifest(manifest, "catstepmd.dmg").as_deref(),
+            Some("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20")
+        );
+        // Wrong-length digests are not trusted, missing assets are None.
+        assert_eq!(expected_hash_from_manifest(manifest, "CatstepMD_broken.msi"), None);
+        assert_eq!(expected_hash_from_manifest(manifest, "Missing.msi"), None);
+    }
+
+    #[test]
+    fn file_sha256_hex_matches_the_abc_vector() {
+        let path = std::env::temp_dir().join(format!("catstep-sha-test-{}", std::process::id()));
+        std::fs::write(&path, b"abc").unwrap();
+        let got = file_sha256_hex(&path);
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(
+            got.unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 }

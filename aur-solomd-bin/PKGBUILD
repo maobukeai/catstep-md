@@ -1,6 +1,8 @@
 # Maintainer: maobukeai <dev@catstepmd.local>
+# pkgver must match app/package.json — guarded by the satellite-version
+# drift job in .github/workflows/ci.yml.
 pkgname=solomd-bin
-pkgver=4.11.13
+pkgver=1.0.6
 pkgrel=1
 pkgdesc='A lightweight Markdown and plain text editor built with Tauri 2'
 arch=('x86_64')
@@ -16,7 +18,10 @@ conflicts=('solomd')
 options=('!strip' '!debug')
 source=("${pkgname}-${pkgver}.AppImage::https://github.com/maobukeai/catstep-md/releases/download/v${pkgver}/CatstepMD_${pkgver}_amd64.AppImage"
         "solomd.desktop")
-sha256sums=('b2fba77c80b60a0261c0208636b5dc4a568729210b3be38fc7fba7f687413e93'
+# Checksum of the v1.0.6 amd64 AppImage asset; re-run `updpkgsums` on every
+# pkgver bump (the v4.11.13 hash that was here before pointed at a release
+# whose assets no longer exist).
+sha256sums=('2dc57356d230b170bb632e3e5e172fec17009b3b2a92a9474f769ecb231315dc'
             'SKIP')
 
 prepare() {
