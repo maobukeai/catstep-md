@@ -58,6 +58,14 @@ walkdir = "2"
 regex-lite = "0.1"
 once_cell = "1"
 
+# Encoding detection + re-encode for legacy-encoded notes (GBK / Big5 / ...).
+# Same crates + versions the desktop app uses in
+# app/src-tauri/src/commands.rs — this module is an independent copy of that
+# pipeline (see src/encoding.rs), pinned to the same versions so both sides
+# label and re-encode identically.
+chardetng = "1.0.0"
+encoding_rs = "0.8.35"
+
 # v3.1 — git access for autogit_log/diff/rollback. Vendored libgit2 +
 # OpenSSL so the binary is self-contained on every platform (no system
 # git required, matching the desktop app's policy).

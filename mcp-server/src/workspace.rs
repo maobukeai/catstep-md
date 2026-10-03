@@ -122,10 +122,14 @@ pub fn scan_meta(path: &Path) -> Result<NoteMeta, String> {
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    // Read up to 8KB for summary/title — avoids slurping huge files.
+    // Read up to 8KB for summary/title — avoids slurping huge files. The
+    // prefix goes through the shared detection pipeline (same as the app's
+    // `tool_list_notes`) so a GBK / Big5 note lists with a readable
+    // title/summary instead of lossy mojibake — the prefix alone is enough
+    // for chardetng to lock on.
     let mut buf = vec![0u8; 8 * 1024];
     let n = read_prefix(path, &mut buf)?;
-    let raw = String::from_utf8_lossy(&buf[..n]).to_string();
+    let raw = crate::encoding::decode_text_detected(&buf[..n]).content;
 
     let (frontmatter, body) = split_front_matter(&raw);
     let frontmatter_json: serde_json::Value = match frontmatter {
@@ -171,8 +175,15 @@ fn read_prefix(path: &Path, buf: &mut [u8]) -> Result<usize, String> {
 }
 
 /// Full parse — reads the entire file.
+///
+/// Detection read (`crate::encoding::read_text_detected`): `read_to_string`
+/// used to hard-fail on legacy-encoded (GBK / Big5 / ...) notes, which made
+/// them invisible to `read_note`, `get_backlinks`, `list_tags` and
+/// `list_tasks` even though the editor opened them fine. Truly undecodable
+/// files still come back lossy with `had_errors` — same text the editor
+/// would show.
 pub fn read_full(path: &Path) -> Result<Note, String> {
-    let raw = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let raw = crate::encoding::read_text_detected(path)?.content;
     let meta = fs::metadata(path).map_err(|e| e.to_string())?;
     let mtime = meta
         .modified()
@@ -413,9 +424,12 @@ pub fn extract_summary(body: &str) -> String {
 }
 
 /// Read the line at `line_no` plus its neighbours (3-line window).
+///
+/// Detection read — snippets for search / backlinks must render GBK / Big5
+/// notes too; undecodable files yield the lossy rendering like anywhere else.
 pub fn read_context(path: &Path, line_no: u32) -> Vec<String> {
-    let raw = match fs::read_to_string(path) {
-        Ok(r) => r,
+    let raw = match crate::encoding::read_text_detected(path) {
+        Ok(d) => d.content,
         Err(_) => return Vec::new(),
     };
     let lines: Vec<&str> = raw.lines().collect();

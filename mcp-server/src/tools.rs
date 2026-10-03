@@ -592,8 +592,12 @@ impl SoloMdServer {
             .map_err(|e| McpError::invalid_params(e, None))?;
         let path = safety::resolve_in(workspace, &args.0.path, true)
             .map_err(|e| McpError::invalid_params(e, None))?;
-        let raw = std::fs::read_to_string(&path)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        // Detection read — a GBK / Big5 note must yield its outline too;
+        // `read_to_string` used to hard-fail on non-UTF-8 bytes. Undecodable
+        // files yield the same lossy rendering the editor would show.
+        let raw = crate::encoding::read_text_detected(&path)
+            .map_err(|e| McpError::internal_error(e, None))?
+            .content;
         let (_fm, body) = workspace::split_front_matter(&raw);
         let headings: Vec<HeadingRef> = workspace::extract_headings(body);
         Ok(CallToolResult::success(vec![
@@ -805,15 +809,31 @@ impl SoloMdServer {
             .map_err(|e| McpError::invalid_params(e, None))?;
         let path = safety::resolve_in(workspace, &args.0.path, true)
             .map_err(|e| McpError::invalid_params(e, None))?;
-        let mut existing = std::fs::read_to_string(&path)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        // Detection read + same-encoding write-back: reading with detection
+        // but writing plain UTF-8 would silently transcode a GBK / Big5
+        // note on the first append. Undecodable bytes refuse loudly instead
+        // of persisting the lossy rendering; characters the encoding cannot
+        // represent fail in `atomic_write_encoded`. The write goes through
+        // the same temp+fsync+rename as the desktop app.
+        let det = crate::encoding::read_text_detected(&path)
+            .map_err(|e| McpError::internal_error(e, None))?;
+        if det.had_errors {
+            return Err(McpError::invalid_request(
+                format!(
+                    "file is not decodable as {} text; refusing to append to avoid corrupting it",
+                    det.encoding
+                ),
+                None,
+            ));
+        }
+        let mut existing = det.content;
         if !existing.ends_with('\n') && !existing.is_empty() {
             existing.push('\n');
         }
         existing.push_str(&args.0.content);
         let bytes = existing.len();
-        std::fs::write(&path, existing)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        crate::encoding::atomic_write_encoded(&path, &existing, &det.encoding, det.had_bom)
+            .map_err(|e| McpError::internal_error(e, None))?;
         let result = WriteResult {
             ok: true,
             bytes_written: bytes,
@@ -1113,9 +1133,12 @@ fn search_native(
     let needle_lower = query.to_lowercase();
     let mut hits: Vec<SearchHit> = Vec::new();
     'outer: for path in workspace::walk_markdown_files(root) {
-        let raw = match std::fs::read_to_string(&path) {
-            Ok(r) => r,
-            Err(_) => continue,
+        // Detection read + skip undecodable files, mirroring the app's global
+        // search: `read_to_string` used to make GBK / Big5 notes invisible
+        // here, and truly undecodable junk is skipped like it used to be.
+        let raw = match crate::encoding::read_text_detected(&path) {
+            Ok(d) if !d.had_errors => d.content,
+            _ => continue,
         };
         for (line_idx, line) in raw.lines().enumerate() {
             let col = if let Some(re) = &pattern {

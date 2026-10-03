@@ -24,6 +24,9 @@ use clap::{Parser, ValueEnum};
 use rmcp::{ServiceExt, transport::stdio};
 use tracing_subscriber::{EnvFilter, fmt};
 
+// Encoding detection + faithful write-back (mirrors
+// app/src-tauri/src/commands.rs — independent copy, no path dep).
+mod encoding;
 mod safety;
 mod tools;
 // v4.0 Pillar 3 — slim trace.jsonl reader (mirrors app/src-tauri/src/trace.rs).
