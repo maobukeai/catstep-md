@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import { useSettingsStore } from '../../stores/settings';
+import { useToastsStore } from '../../stores/toasts';
 import { useI18n } from '../../i18n';
 import { isMacOS, isMobile } from '../../lib/platform';
 import { quickCaptureError } from '../../lib/quick-capture-status';
@@ -16,6 +17,7 @@ import {
 
 const { t } = useI18n();
 const settings = useSettingsStore();
+const toasts = useToastsStore();
 
 const isPhoneOrTablet = isMobile();
 const isZh = computed(() => settings.language === 'zh');
@@ -95,8 +97,12 @@ const ACTION_LABELS_ZH: Record<string, string> = {
   'view.toggleAgentPanel': '切换猫步 AI 助手面板',
   'view.cycleView': '视图模式循环切换',
   'view.toggleReading': '切换纯净阅读模式',
-  'view.toggleFileTree': '侧边栏：文件列表',
-  'view.toggleOutline': '侧边栏：大纲目录',
+  // C23 — toggleFileTree / toggleOutline previously repeated the
+  // sidebarFiles / sidebarOutline labels verbatim, but the pairs do
+  // different things (switch the sidebar tab vs toggle panel visibility),
+  // so the labels must say so.
+  'view.toggleFileTree': '左侧边栏整体显隐',
+  'view.toggleOutline': '当前文档大纲面板显隐',
   'view.toggleRightSidebar': '切换右侧工具抽屉',
   'view.toggleInspector': '切换属性检查器',
   'view.slideshow': '开始幻灯片演示',
@@ -176,11 +182,20 @@ function onRecordKey(e: KeyboardEvent): void {
   stopRecording();
 }
 
+/** C06 — "restore all defaults" wipes every custom binding and is not
+ *  undoable, so confirm first (same pattern as the other settings panels)
+ *  and toast when done. */
+function onResetAllKeybindings() {
+  if (!window.confirm(t('settings.keysResetAllConfirm'))) return;
+  settings.resetKeybindings();
+  toasts.success(t('settings.keysResetAllDone'));
+}
+
 onUnmounted(stopRecording);
 </script>
 
 <template>
-  <div class="settings-tab-pane">
+  <div class="settings-tab-pane" data-setting-anchor="shortcuts">
     <!-- 全局系统快捷键 (Desktop Only) -->
     <div v-if="!isPhoneOrTablet" class="settings-group global-hotkeys-group">
       <div class="settings-group__title">{{ t('settings.quickCaptureSectionTitle') || (isZh ? '全局系统快捷键' : 'Global System Hotkeys') }}</div>
@@ -269,7 +284,7 @@ onUnmounted(stopRecording);
           </div>
         </div>
         <p v-if="recordError" class="kb-error">{{ recordError }}</p>
-        <button class="kb-btn kb-btn--wide" @click="settings.resetKeybindings()">{{ t('settings.keysResetAll') }}</button>
+        <button class="kb-btn kb-btn--wide" @click="onResetAllKeybindings">{{ t('settings.keysResetAll') }}</button>
       </section>
     </div>
   </div>

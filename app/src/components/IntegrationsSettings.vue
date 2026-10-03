@@ -12,7 +12,17 @@
  */
 
 import { ref, computed, onMounted } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  cliInstall,
+  cliStatus,
+  cliUninstall,
+  detectAiClients,
+  injectMcp,
+  mcpClaudeDesktopConfigPath,
+  mcpPath,
+  openAiClientConfig,
+  removeMcp,
+} from '../lib/commands';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useToastsStore } from '../stores/toasts';
@@ -59,19 +69,17 @@ const claudeConfigPath = ref<string | null>(null);
 
 async function refreshAll() {
   try {
-    cli.value = await invoke<CliStatus>('cli_status');
+    cli.value = await cliStatus<CliStatus>();
   } catch (e) {
     cli.value = { installed: false };
   }
   try {
-    mcp.value = await invoke<McpPath>('mcp_path');
+    mcp.value = await mcpPath<McpPath>();
   } catch (e) {
     mcp.value = { path: null, bundled: false };
   }
   try {
-    claudeConfigPath.value = await invoke<string | null>(
-      'mcp_claude_desktop_config_path'
-    );
+    claudeConfigPath.value = await mcpClaudeDesktopConfigPath();
   } catch {
     claudeConfigPath.value = null;
   }
@@ -91,7 +99,7 @@ async function copyInstallCmd() {
 async function onInstallCli() {
   cliBusy.value = true;
   try {
-    const status = await invoke<CliStatus>('cli_install');
+    const status = await cliInstall<CliStatus>();
     cli.value = status;
     toasts.success(t('integrations.cliInstallSuccessToast'));
   } catch (e) {
@@ -105,7 +113,7 @@ async function onInstallCli() {
 async function onUninstallCli() {
   cliBusy.value = true;
   try {
-    const status = await invoke<CliStatus>('cli_uninstall');
+    const status = await cliUninstall<CliStatus>();
     cli.value = status;
     toasts.success(t('integrations.cliUninstallSuccessToast'));
   } catch (e) {
@@ -156,7 +164,7 @@ async function openClaudeConfigFile() {
     // S20 — opener:allow-open-path is gone; the Rust command re-derives the
     // config path from the client id and opens the file, or its parent
     // folder when the file doesn't exist yet.
-    await invoke('open_ai_client_config', { clientId: 'claude-desktop' });
+    await openAiClientConfig('claude-desktop');
   } catch (e) {
     // Fall back to revealing the (computed) path so the user can find it.
     try {
@@ -203,7 +211,7 @@ const injectBusy = ref(false);
 
 async function refreshClients() {
   try {
-    const list = await invoke<AiClient[]>('detect_ai_clients');
+    const list = await detectAiClients<AiClient[]>();
     clients.value = list;
     // Default: tick every client whose config dir already exists AND that
     // doesn't already have a solomd entry. Skips clients that aren't
@@ -236,7 +244,7 @@ async function injectChecked() {
     let okCount = 0;
     for (const c of targets) {
       try {
-        await invoke<string>('inject_mcp', {
+        await injectMcp({
           clientId: c.id,
           workspace: workspace.currentFolder,
           allowWrite: injectAllowWrite.value,
@@ -259,7 +267,7 @@ async function injectChecked() {
 
 async function removeOne(c: AiClient) {
   try {
-    await invoke('remove_mcp', { clientId: c.id });
+    await removeMcp(c.id);
     toasts.success(
       t('integrations.aiClientsRemovedToast', { name: c.display_name }),
     );
@@ -274,7 +282,7 @@ async function openClientConfig(c: AiClient) {
     // S20 — opener:allow-open-path is gone; the Rust command re-derives the
     // config path from the client id and opens the file, or its parent
     // folder when the file doesn't exist yet.
-    await invoke('open_ai_client_config', { clientId: c.id });
+    await openAiClientConfig(c.id);
   } catch {
     try {
       await revealItemInDir(c.config_path);

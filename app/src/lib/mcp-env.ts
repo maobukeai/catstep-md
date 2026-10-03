@@ -9,19 +9,40 @@
  * drop entries with an empty key or value.
  */
 
+/** C21 — parse result that also counts what was dropped, so the settings
+ *  UI can tell the user which lines silently used to vanish. Blank lines
+ *  (whitespace-only) are not counted as dropped. */
+export interface ParsedEnvText {
+  env: Record<string, string>;
+  /** Non-blank lines that did not yield a `KEY=value` pair. */
+  dropped: number;
+}
+
+/** Parse the multi-line `KEY=value` editor text into a record plus a count
+ *  of dropped non-blank lines. Lines without a `=` (or with an empty
+ *  key/value) are dropped. Values may contain `=` — only the first one
+ *  separates. */
+export function parseEnvTextDetailed(text: string): ParsedEnvText {
+  const env: Record<string, string> = {};
+  let dropped = 0;
+  for (const part of text.split(/\r?\n/)) {
+    const idx = part.indexOf('=');
+    const k = idx > 0 ? part.slice(0, idx).trim() : '';
+    const v = idx > 0 ? part.slice(idx + 1).trim() : '';
+    if (k && v) {
+      env[k] = v;
+    } else if (part.trim()) {
+      dropped++;
+    }
+  }
+  return { env, dropped };
+}
+
 /** Parse the multi-line `KEY=value` editor text into a record. Lines
  *  without a `=` (or with an empty key/value) are dropped. Values may
  *  contain `=` — only the first one separates. */
 export function parseEnvText(text: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const part of text.split(/\r?\n/)) {
-    const idx = part.indexOf('=');
-    if (idx <= 0) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (k && v) out[k] = v;
-  }
-  return out;
+  return parseEnvTextDetailed(text).env;
 }
 
 /** Serialize the env record back to the one `KEY=value` per line editor

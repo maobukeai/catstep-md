@@ -3,21 +3,24 @@ import { onMounted, onBeforeUnmount, ref, watch, watchEffect, computed, provide,
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { readText as readClipboardText } from '@tauri-apps/plugin-clipboard-manager';
 import {
   aiHasKey as aiHasKeyCmd,
   androidRestartApp,
   androidRequestAllFilesAccess,
   androidSystemInsets,
+  captureSetWorkspace,
   drainPendingOpens,
   forceCloseWindow,
   openPathExternal,
   quickCaptureSetShortcut,
+  restSetWorkspace,
   saveLanguagePreference,
   setMenuConfig,
   spellcheckInit,
 } from './lib/commands';
+import { openPipFocusTimer } from './lib/pip-window';
 import { setMarkdownHardBreaks, setMarkdownAutoNumberHeadings, setMarkdownSmartQuotes } from './lib/markdown';
 import { openNewWindow } from './lib/new-window';
 import { toggleFullscreen } from './lib/fullscreen';
@@ -44,6 +47,7 @@ const HistoryPanel = defineAsyncComponent(() => import('./components/HistoryPane
 const PropertiesInspector = defineAsyncComponent(() => import('./components/PropertiesInspector.vue'));
 const AgentPanel = defineAsyncComponent(() => import('./components/AgentPanel.vue'));
 const SessionRestoreDialog = defineAsyncComponent(() => import('./components/SessionRestoreDialog.vue'));
+const RecoveryDialog = defineAsyncComponent(() => import('./components/RecoveryDialog.vue'));
 const WhiteboardOverlay = defineAsyncComponent(() => import('./components/WhiteboardOverlay.vue'));
 const AIRewriteOverlay = defineAsyncComponent(() => import('./components/AIRewriteOverlay.vue'));
 const BasesView = defineAsyncComponent(() => import('./components/BasesView.vue'));
@@ -74,6 +78,7 @@ const MobileFindBar = defineAsyncComponent(() => import('./components/MobileFind
 import { useAutoCommit } from './composables/useAutoCommit';
 import { useGithubSync } from './composables/useGithubSync';
 import { useSessionRestore } from './composables/useSessionRestore';
+import { useRecovery } from './composables/useRecovery';
 import { BASES_OPEN_EVENT, BASES_CLOSE_EVENT } from './composables/useBasesView';
 import { INBOX_OPEN_EVENT, INBOX_CLOSE_EVENT } from './composables/useInboxView';
 // v4.6.1 F2 — Type lens (center-pane filtered view of one type's members).
@@ -157,9 +162,7 @@ async function requestAndroidStorage() {
     // running process — see android_restart_app).
     localStorage.setItem('solomd:android-storage-pending', '1');
     await androidRequestAllFilesAccess();
-    toasts.info(
-      '打开「允许管理所有文件 / All files access」后返回,App 会自动重启以让权限生效。',
-    );
+    toasts.info(t('toast.androidAllFilesHint'));
   } catch (e) {
     toasts.error(String(e));
   }
@@ -177,6 +180,11 @@ githubSync.start();
 // offers to pick up tabs from a sibling device when one is fresher.
 const sessionRestore = useSessionRestore();
 sessionRestore.start();
+// F3: crash-recovery snapshots — 15s beat copies dirty-tab content into
+// <workspace>/.solomd/recovery/; startup scan offers leftovers back (the
+// RecoveryDialog does the prompting, user-confirmed restore only).
+const recovery = useRecovery();
+recovery.start();
 // v2.5 F4: pick up an in-progress focus session from before the reload.
 // Fire-and-forget — the store handles the (rare) "session already past
 // its end" case by short-circuiting into the completion path.
@@ -187,7 +195,7 @@ pomodoro.rehydrate();
 // Pinia internals. Dev-only convenience — release builds ignore the
 // extra hook.
 (window as any).usePomodoroStore = usePomodoroStore;
-const { t, lang } = useI18n();
+const { t } = useI18n();
 
 const cursorLine = ref(1);
 const cursorCol = ref(1);
@@ -546,11 +554,7 @@ function debouncedPersistTabs() {
       const now = Date.now();
       if (now - lastQuotaWarn > 10000) {
         lastQuotaWarn = now;
-        toasts.warning(
-          settings.language?.startsWith('zh')
-            ? '本地存储配额已超限，标签页会话状态无法完整保存。'
-            : 'Local storage quota exceeded. Tab session state could not be fully saved.',
-        );
+        toasts.warning(t('toast.quotaExceeded'));
       }
     }
   }, 400);
@@ -807,11 +811,12 @@ watchEffect(() => {
 watchEffect(() => {
   if (typeof window === 'undefined' || !isTauri()) return;
   const folder = workspace.currentFolder;
-  invoke('capture_set_workspace', { folder: folder ?? null }).catch(() => {});
+  // Best-effort pushes — a failed registration must never break folder open.
+  captureSetWorkspace(folder ?? null).catch(() => {});
   // v4.0: same dance for the public REST API server. Both endpoints share
   // the "I 503 when no folder is open" contract, so they read from
   // independent state but get pushed together.
-  invoke('rest_set_workspace', { folder: folder ?? null }).catch(() => {});
+  restSetWorkspace(folder ?? null).catch(() => {});
 });
 
 // Quick capture's hotkey is an OS-level registration owned by Rust, but the
@@ -1287,7 +1292,9 @@ function dispatchMenuAction(id: string) {
       window.dispatchEvent(new CustomEvent('solomd:toggle-pomodoro'));
       break;
     case 'tools.pomodoroPip':
-      import('@tauri-apps/api/core').then(({ invoke }) => invoke('pip_timer_open')).catch(() => {});
+      // Same handling as Toolbar.vue's menu entry — the pip-window facade
+      // owns the Rust command + webview fallback chain. Fire-and-forget.
+      openPipFocusTimer().catch(() => {});
       break;
     default:
       console.warn('unknown menu action', id);
@@ -1591,11 +1598,16 @@ onMounted(async () => {
           // 'discard' → the dirty content is part of the persisted session
           // (restore brings tabs back with content), so persist + close.
         }
-        // TODO(S08 follow-up): optional recovery copies under
-        // <workspace>/.solomd/recovery/ were deliberately NOT implemented —
-        // writing into the workspace feeds the file watcher / AutoGit /
-        // workspace indexer and risks a save→watch→commit loop. Only revisit
-        // alongside a watcher/auto-git ignore list for that directory.
+        // F3 follow-up (was TODO): the recovery copies under
+        // <workspace>/.solomd/recovery/ now exist — useRecovery snapshots
+        // dirty tabs on a 15s beat while they're open, so nothing extra is
+        // needed on the close path. The loop risks that deferred the original
+        // TODO are closed: the Rust watcher only emits for whitelisted note
+        // paths (watcher.rs `watched_files`), the workspace index escalates
+        // .md/.markdown/.mdown only (workspace_index.rs scan_into/handle_event),
+        // and AutoGit staging skips `.solomd` paths (git_history.rs
+        // `skip_workspace_metadata_cb`) with the entry added to the default
+        // gitignore.
         try {
           tabs.persist?.();
           tiles.persist();
@@ -1603,11 +1615,7 @@ onMounted(async () => {
           // tabs.persist rethrows only QuotaExceededError (tiles.persist
           // swallows everything). Block the close and say why — closing now
           // would restore an incomplete session on next launch.
-          toasts.warning(
-            settings.language?.startsWith('zh')
-              ? '本地存储配额已超限，标签页会话状态无法完整保存，已取消关闭。请先保存或关闭部分标签页。'
-              : 'Local storage quota exceeded. The tab session could not be fully saved, so closing was cancelled. Save or close some tabs first.',
-          );
+          toasts.warning(t('toast.quotaCloseBlocked'));
           return;
         }
         await forceCloseWindow();
@@ -2032,7 +2040,7 @@ async function onOpenMobileDaily() {
       } else {
         tabs.newTab({ fileName: `${dateStr}.md`, content: `# ${dateStr}\n\n` });
       }
-      toasts.success(lang.value === 'zh' ? `已开启今日灵感速记 (${dateStr})` : `Daily note opened (${dateStr})`);
+      toasts.success(t('toast.dailyNoteOpened', { date: dateStr }));
     }
   } catch (err) {
     console.error('Failed to open daily note:', err);
@@ -2942,6 +2950,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
       @cancel="imageUrlDialogOpen = false"
     />
     <SessionRestoreDialog />
+    <!-- F3 — crash-recovery prompt (self-mounts via `solomd:recovery-available`). -->
+    <RecoveryDialog />
     <!-- v4.6 F5 — saved-view create/edit modal (self-mounts via window events). -->
     <ViewEditorDialog />
     <WhiteboardOverlay />

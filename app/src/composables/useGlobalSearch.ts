@@ -1,6 +1,7 @@
 import { searchInDir, searchReplace } from '../lib/commands';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useToastsStore } from '../stores/toasts';
+import { useI18n } from '../i18n';
 
 export interface SearchHit {
   file: string;
@@ -23,6 +24,13 @@ export interface SearchOutcome {
   hits: SearchHit[];
   filesScanned: number;
   elapsedMs: number;
+  /**
+   * True when the backend walk stopped early at the maxResults cap — the
+   * list is a prefix of the real match set. The panel shows a "list capped"
+   * notice on this, and the replace confirmation states that matches beyond
+   * the displayed list are rewritten too (replace is never capped).
+   */
+  truncated: boolean;
 }
 
 /** Cross-file replace summary from the `search_replace` command. */
@@ -33,8 +41,14 @@ export interface ReplaceSummary {
   elapsedMs: number;
 }
 
-const EMPTY_OUTCOME: SearchOutcome = { hits: [], filesScanned: 0, elapsedMs: 0 };
+const EMPTY_OUTCOME: SearchOutcome = {
+  hits: [],
+  filesScanned: 0,
+  elapsedMs: 0,
+  truncated: false,
+};
 
+  const { t } = useI18n();
 export function useGlobalSearch() {
   const workspace = useWorkspaceStore();
   const toasts = useToastsStore();
@@ -48,7 +62,7 @@ export function useGlobalSearch() {
   ): Promise<SearchOutcome> {
     const folder = root ?? workspace.currentFolder;
     if (!folder) {
-      toasts.warning('Open a folder first to enable global search');
+      toasts.warning(t('toast.globalSearchNeedFolder'));
       return EMPTY_OUTCOME;
     }
     if (!query.trim()) return EMPTY_OUTCOME;
@@ -72,9 +86,10 @@ export function useGlobalSearch() {
           ].filter(h => h.snippet.toLowerCase().includes(q) || h.file.toLowerCase().includes(q)),
           filesScanned: 4,
           elapsedMs: 0,
+          truncated: false,
         };
       }
-      toasts.error(`Search failed: ${e}`);
+      toasts.error(t('toast.searchFailed', { error: String(e) }));
       return EMPTY_OUTCOME;
     }
   }
@@ -93,7 +108,7 @@ export function useGlobalSearch() {
   ): Promise<ReplaceSummary | null> {
     const folder = workspace.currentFolder;
     if (!folder) {
-      toasts.warning('Open a folder first to enable global search');
+      toasts.warning(t('toast.globalSearchNeedFolder'));
       return null;
     }
     if (!query.trim()) return null;
@@ -106,7 +121,7 @@ export function useGlobalSearch() {
         pathFilter: pathFilter?.trim() ? pathFilter.trim() : null,
       });
     } catch (e) {
-      toasts.error(`Replace failed: ${e}`);
+      toasts.error(t('toast.replaceFailed', { error: String(e) }));
       return null;
     }
   }

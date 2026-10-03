@@ -9,7 +9,15 @@
  * change, which is exactly when our git status would have changed.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  gitAutoCommit,
+  gitFileAtVersion,
+  gitFileDiff,
+  gitFileHistory,
+  gitInitWorkspace,
+  gitRollbackFile,
+  gitWorkspaceStatus,
+} from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { hasGitBackend } from '../lib/platform';
 
@@ -99,7 +107,7 @@ export const useGitHistoryStore = defineStore('gitHistory', {
       }
       this.folder = folder;
       try {
-        this.status = await invoke<WorkspaceStatus>('git_workspace_status', { folder });
+        this.status = await gitWorkspaceStatus<WorkspaceStatus>(folder);
       } catch (e) {
         this.lastError = String(e);
         this.status = null;
@@ -123,11 +131,11 @@ export const useGitHistoryStore = defineStore('gitHistory', {
     async init(folder: string, initialMessage?: string, excludeAssets?: boolean): Promise<void> {
       this.loading = true;
       try {
-        await invoke('git_init_workspace', {
+        await gitInitWorkspace(
           folder,
-          initialMessage: initialMessage ?? null,
-          excludeAssets: excludeAssets ?? false,
-        });
+          initialMessage ?? null,
+          excludeAssets ?? false,
+        );
         await this.refreshStatus(folder);
       } finally {
         this.loading = false;
@@ -137,11 +145,11 @@ export const useGitHistoryStore = defineStore('gitHistory', {
     /** Stage + commit. Returns the new SHA, or null if nothing changed. */
     async commit(folder: string, filePath?: string, message?: string): Promise<string | null> {
       try {
-        const sha = await invoke<string | null>('git_auto_commit', {
+        const sha = await gitAutoCommit(
           folder,
-          filePath: filePath ?? null,
-          message: message ?? null,
-        });
+          filePath ?? null,
+          message ?? null,
+        );
         // Bust caches so the panel reloads.
         this.history = {};
         await this.refreshStatus(folder);
@@ -160,11 +168,7 @@ export const useGitHistoryStore = defineStore('gitHistory', {
       const key = filePath;
       if (this.history[key]) return this.history[key];
       try {
-        const list = await invoke<CommitMeta[]>('git_file_history', {
-          folder,
-          filePath,
-          limit,
-        });
+        const list = await gitFileHistory<CommitMeta[]>(folder, filePath, limit);
         this.history[key] = list;
         return list;
       } catch (e) {
@@ -175,7 +179,7 @@ export const useGitHistoryStore = defineStore('gitHistory', {
 
     async diff(folder: string, filePath: string, sha: string): Promise<DiffResult | null> {
       try {
-        return await invoke<DiffResult>('git_file_diff', { folder, filePath, sha });
+        return await gitFileDiff<DiffResult>(folder, filePath, sha);
       } catch (e) {
         this.lastError = String(e);
         return null;
@@ -184,7 +188,7 @@ export const useGitHistoryStore = defineStore('gitHistory', {
 
     async fileAt(folder: string, filePath: string, sha: string): Promise<string | null> {
       try {
-        return await invoke<string>('git_file_at_version', { folder, filePath, sha });
+        return await gitFileAtVersion(folder, filePath, sha);
       } catch (e) {
         this.lastError = String(e);
         return null;
@@ -192,7 +196,7 @@ export const useGitHistoryStore = defineStore('gitHistory', {
     },
 
     async rollback(folder: string, filePath: string, sha: string): Promise<void> {
-      await invoke('git_rollback_file', { folder, filePath, sha });
+      await gitRollbackFile(folder, filePath, sha);
       // Clear cached history for the file — caller will save+commit shortly.
       delete this.history[filePath];
     },

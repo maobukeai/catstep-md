@@ -314,25 +314,44 @@ export function useInbox() {
   async function markPathOrganized(path: string) {
     try {
       const openTab = tabs.tabs.find((t) => t.filePath === path || t.id === path);
+      // A tab matched by id alone is the memory-only fallback note from
+      // createNewInboxNote — `path` is a tab id, not a disk path, so there is
+      // nothing to write and the flag flip stays in memory.
+      const onDisk = openTab ? openTab.filePath === path : true;
       let content = '';
+      let encoding: string | undefined;
       if (openTab) {
         content = openTab.content;
+        encoding = openTab.encoding;
       } else {
         const res = await readNote(path);
         content = res.content;
+        encoding = res.encoding;
       }
 
       const next = setInboxFlag(content, false);
       if (openTab) {
         tabs.setContent(openTab.id, next);
       }
-      try {
-        await writeNote(path, next);
-      } catch {
-        /* browser fallback */
+      if (onDisk) {
+        try {
+          // Read-modify-write MUST round-trip the detected encoding (see
+          // writeNote's docs in lib/commands.ts, and useTasks.toggle for the
+          // same pattern) — the old `writeNote(path, next)` silently
+          // transcoded GBK/UTF-16 inbox notes to UTF-8 on organize.
+          await writeNote(path, next, { encoding });
+        } catch (err) {
+          // A failed disk write is NOT the browser fallback: roll the
+          // optimistic flips back and report it — otherwise the row snaps
+          // back into the list under a success toast that never hit disk.
+          if (openTab) tabs.setContent(openTab.id, content);
+          toasts.error(t('toast.saveFailed', { error: String(err) }));
+          return;
+        }
       }
 
-      // Optimistically update workspace index entry so the row updates instantly in UI
+      // The write stuck — only now flip the index entry, so the row leaves
+      // the list exactly when the flag is real on disk.
       const entry = index.entries.find((e) => e.path === path);
       if (entry && entry.frontmatter) {
         entry.frontmatter.inbox = false;

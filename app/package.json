@@ -11,6 +11,7 @@
     "test:type": "vue-tsc -p tsconfig.test.json --noEmit",
     "i18n:check": "node --experimental-strip-types scripts/check-i18n.mjs && node scripts/check-cjk.mjs",
     "i18n:cjk": "node scripts/check-cjk.mjs",
+    "i18n:toast": "node scripts/check-toast-literals.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

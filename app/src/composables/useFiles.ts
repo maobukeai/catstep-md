@@ -1,4 +1,4 @@
-import { inject } from 'vue';
+import { inject, nextTick } from 'vue';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import {
   convertFileToMarkdown,
@@ -24,6 +24,7 @@ import { useI18n } from '../i18n';
 import type { Tab } from '../types';
 import { isSafPath, fromSafPath, safRead, safWrite, safLaunchPicker } from '../lib/saf-fs';
 import { baseNameOf, fileNameOf, claimImportName, joinInFolder } from '../lib/import-plan';
+import { purgeRecoverySnapshot } from './useRecovery';
 
 // Save dialogs only — opening uses no filter so any file is selectable.
 // (rfd treats `'*'` literally as the extension `*`, not as wildcard, so we
@@ -161,10 +162,10 @@ export function useFiles() {
       });
       openImageOverlay({ source: img, title: fileName, strings: overlayStrings() });
       workspace.pushRecent(path);
-      toasts.success(`Opened ${fileName}`);
+      toasts.success(t('toast.openedName', { name: fileName }));
     } catch (e) {
       console.error('open image failed', e);
-      toasts.error(`Failed to open image: ${e}`);
+      toasts.error(t('toast.openImageFailed', { error: String(e) }));
     }
   }
 
@@ -224,7 +225,7 @@ export function useFiles() {
         path = await importContentUri(path);
       } catch (e) {
         console.error('content:// import failed', e);
-        toasts.error(`Failed to open: ${e}`);
+        toasts.error(t('toast.openFailed', { error: String(e) }));
         return;
       }
     }
@@ -305,22 +306,19 @@ export function useFiles() {
         ? await safRead(workspace.safTreeUri!, fromSafPath(path))
         : await readNote(path);
 
-      // Reveal the file's folder in the sidebar BEFORE adding the tab.
-      // Order matters: `workspace.setFolder` switches the per-workspace tab
-      // session (tabs.onWorkspaceSwitched), and that swap only *carries* DIRTY
-      // tabs across a folder change. A freshly opened CLEAN file added BEFORE
-      // the switch would be discarded — the editor kept showing the previously
-      // open document (or a blank Untitled) while the tree revealed the new
-      // folder, and only a close+reopen "fixed" it (by then the folder was
-      // already current). That was the real "double-click opens nothing" bug.
-      // Switching first means `openFromDisk` below adds the tab into the
-      // already-settled workspace, so it survives and becomes active.
+      // C20 — reveal the file inside the CURRENT file tree (expand its
+      // ancestor chain, scroll the row into view, flash) instead of the old
+      // `workspace.setFolder(parent)`, which silently swapped the whole
+      // workspace whenever the file lived in a subfolder: the per-workspace
+      // tab session reset, a recentFolders entry got written, and none of
+      // the "locate the file" the setting promised ever happened. A file
+      // outside the open root is left alone — no workspace switch. The tree
+      // is conditionally mounted while the sidebar is hidden, so show it
+      // first and wait a tick before dispatching.
       if (settings.revealInFileTreeOnOpen && !isSaf) {
-        const parent = path.replace(/[\\/][^\\/]+$/, '');
-        if (parent && parent !== path) {
-          workspace.setFolder(parent);
-          if (!settings.showFileTree) settings.toggleFileTree();
-        }
+        if (!settings.showFileTree) settings.toggleFileTree();
+        await nextTick();
+        window.dispatchEvent(new CustomEvent('solomd:reveal-in-file-tree', { detail: { path } }));
       }
 
       tabs.openFromDisk({
@@ -337,10 +335,10 @@ export function useFiles() {
       // behaves the same way the layout does.
       if (isNarrowViewport() && settings.showFileTree) settings.toggleFileTree();
       const fileName = fileNameOf(path);
-      toasts.success(`Opened ${fileName}`);
+      toasts.success(t('toast.openedName', { name: fileName }));
     } catch (e) {
       console.error('open failed', e);
-      toasts.error(`Failed to open file: ${e}`);
+      toasts.error(t('toast.openFailed', { error: String(e) }));
     }
   }
 
@@ -375,7 +373,7 @@ export function useFiles() {
         await openPathExternal(path);
       } catch (e) {
         console.error('openWithSystemDefault failed', e);
-        toasts.error(`Failed to open: ${e}`);
+        toasts.error(t('toast.openFailed', { error: String(e) }));
       }
       return;
     }
@@ -390,7 +388,7 @@ export function useFiles() {
 
   async function openAndConvert(path: string, ext: string) {
     const fileName = path.split(/[\\/]/).pop() ?? path;
-    const tid = toasts.info(`Converting ${fileName} to Markdown…`, 0);
+    const tid = toasts.info(t('toast.convertingName', { name: fileName }), 0);
     try {
       const markdown = await convertFileToMarkdown(path);
       toasts.dismiss(tid);
@@ -403,18 +401,18 @@ export function useFiles() {
         tab.fileName = `${baseName}.md`;
         tab.language = 'markdown';
       }
-      toasts.success(`Converted ${fileName} → Markdown`);
+      toasts.success(t('toast.convertedName', { name: fileName }));
     } catch (e) {
       toasts.dismiss(tid);
       const msg = String(e);
       if (msg.includes('markitdown')) {
         // Show install hint for markitdown-dependent formats
         toasts.warning(
-          `Converting .${ext} requires markitdown:\npip install 'markitdown[all]'`,
+          t('toast.markitdownNeeded', { ext }),
           8000,
         );
       } else {
-        toasts.error(`Conversion failed: ${msg}`);
+        toasts.error(t('toast.conversionFailedReason', { error: msg }));
       }
     }
   }
@@ -597,9 +595,7 @@ export function useFiles() {
         const dir = await documentDir();
         workspace.setFolder(dir);
         if (!settings.showFileTree) settings.toggleFileTree();
-        toasts.info(
-          `Workspace pinned to the Catstep MD folder. Drop .md files there via the Files app and they'll show up here.`,
-        );
+        toasts.info(t('toast.workspacePinned'));
       } catch (e) {
         toasts.error(String(e));
       }
@@ -699,15 +695,15 @@ export function useFiles() {
       if (!opts.silent) {
         if (isIOS()) {
           const fname = path.split(/[\\/]/).pop() ?? path;
-          toasts.success(`Saved to On My iPhone › Catstep MD › ${fname}`);
+          toasts.success(t('toast.savedToDocuments', { name: fname }));
         } else {
-          toasts.success(`Saved ${tab.fileName}`);
+          toasts.success(t('toast.savedName', { name: tab.fileName }));
         }
       }
       return true;
     } catch (e) {
       console.error('save failed', e);
-      toasts.error(`Failed to save: ${e}`);
+      toasts.error(t('toast.saveFailed', { error: String(e) }));
       return false;
     }
   }
@@ -741,7 +737,7 @@ export function useFiles() {
         await writeContentUri(path, payload);
         tabs.markSaved(tab.id, path);
         const fileName = contentUriName(path);
-        toasts.success(`Saved as ${fileName}`);
+        toasts.success(t('toast.savedAsName', { name: fileName }));
         return true;
       }
       await writeNote(path, payload, { encoding: tab.encoding });
@@ -753,11 +749,11 @@ export function useFiles() {
         new CustomEvent('solomd:saved', { detail: { filePath: path } }),
       );
       const fileName = path.split(/[\\/]/).pop() ?? path;
-      toasts.success(isIOS() ? `Saved to On My iPhone › Catstep MD › ${fileName}` : `Saved as ${fileName}`);
+      toasts.success(t(isIOS() ? 'toast.savedToDocuments' : 'toast.savedAsName', { name: fileName }));
       return true;
     } catch (e) {
       console.error('save-as failed', e);
-      toasts.error(`Failed to save: ${e}`);
+      toasts.error(t('toast.saveFailed', { error: String(e) }));
       return false;
     }
   }
@@ -797,9 +793,26 @@ export function useFiles() {
     return w.__solomd_showUnsavedDialog as UnsavedDialog | undefined;
   }
 
-  async function closeTabSafe(id: string) {
+  /** F3 — closing a tab ends its unsaved-content lifecycle: whether the user
+   *  saved or discarded, the crash-recovery snapshot must not outlive the tab
+   *  (a surviving one would be offered as a restore on next launch,
+   *  resurrecting content the user just threw away). No questions asked —
+   *  only for callers that already resolved the dirty state (closeTabSafe's
+   *  dialog, or closeManySafe's batched one). */
+  function forceCloseTab(id: string) {
     const tab = tabs.tabs.find((t) => t.id === id);
     if (!tab) return;
+    if (tab.filePath) void purgeRecoverySnapshot(tab.filePath);
+    tabs.closeTab(id);
+  }
+
+  /** Closes one tab, confirming unsaved changes first. Resolves to whether
+   *  the tab is actually gone — `false` means the user cancelled (or a save
+   *  failed) and the tab is still open, which closeManySafe uses to stop the
+   *  batch instead of ploughing into the next prompt. */
+  async function closeTabSafe(id: string): Promise<boolean> {
+    const tab = tabs.tabs.find((t) => t.id === id);
+    if (!tab) return true; // already gone — nothing to confirm
     // #222 — same stale-window hazard as saveTab: the dirty check below reads
     // tab.content, which lags the CodeMirror doc by up to 350ms. A close
     // landing inside that window (vim `:q`, fast Ctrl+W) saw a clean tab and
@@ -810,13 +823,60 @@ export function useFiles() {
       const action = await showUnsavedDialog('tab', tab.fileName, 1);
       if (action === 'save') {
         const ok = await saveTab(tab);
-        if (!ok) return;
+        if (!ok) return false;
       } else if (action === 'cancel') {
-        return; // go back to editing
+        return false; // go back to editing
       }
       // 'discard' → fall through to close
     }
-    tabs.closeTab(id);
+    forceCloseTab(id);
+    return true;
+  }
+
+  /**
+   * C06 — batch close (close left / right / others / all from the tab-bar
+   * context menu). Mirrors the window-close path (App.vue solomd://
+   * close-requested): one count>1 dialog ("N documents unsaved") covering
+   * every dirty tab, instead of one modal per dirty tab, and Cancel actually
+   * stops the batch — the old per-tab loop kept prompting the next dirty tab
+   * after a "cancel", which made it near-useless.
+   */
+  async function closeManySafe(ids: string[]): Promise<void> {
+    // Flush once up front so the dirty checks below read the live doc (same
+    // #222 stale-window hazard closeTabSafe guards for its own single close).
+    window.dispatchEvent(new Event('solomd:flush-content-sync'));
+    const dirty = ids
+      .map((id) => tabs.tabs.find((t) => t.id === id))
+      .filter((t): t is Tab => !!t && t.content !== t.savedContent);
+    if (dirty.length > 1) {
+      const showUnsavedDialog = getUnsavedDialog();
+      if (showUnsavedDialog) {
+        const action = await showUnsavedDialog('window', dirty[0].fileName, dirty.length);
+        if (action === 'cancel') return; // stop the batch, keep every tab
+        if (action === 'save') {
+          // Save every dirty tab BEFORE closing anything: a failure (e.g. a
+          // cancelled Save-As on an untitled tab) aborts the batch with every
+          // tab still open, so nothing is discarded behind the user's back.
+          for (const tab of dirty) {
+            if (!tabs.tabs.find((t) => t.id === tab.id)) continue;
+            const ok = await saveTab(tab, { silent: true });
+            if (!ok) return;
+          }
+        }
+        if (action === 'discard') {
+          // Drop them all — force-close so no per-tab dialog sneaks back in.
+          for (const tab of dirty) {
+            forceCloseTab(tab.id);
+          }
+        }
+      }
+    }
+    // Whatever is still open (clean tabs, or the single-dirty-tab case)
+    // closes through the one-tab path. A `false` — the user cancelled that
+    // prompt, or its save failed — stops the rest of the batch.
+    for (const id of ids) {
+      if (!(await closeTabSafe(id))) return;
+    }
   }
 
   return {
@@ -835,6 +895,7 @@ export function useFiles() {
     saveTab,
     autoSaveDirtyTabs,
     closeTabSafe,
+    closeManySafe,
     spawnAuxWindow,
   };
 }

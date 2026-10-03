@@ -20,6 +20,9 @@
  * first time the user picks something outside the vault.
  */
 
+// Deliberate raw `invoke` — this module IS the single facade for
+// pick_user_path (the only command that can register a user-picked root with
+// the Rust path guard); see the tail note in lib/commands.ts.
 import { invoke } from '@tauri-apps/api/core';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { isAndroid, isIOS } from './platform';

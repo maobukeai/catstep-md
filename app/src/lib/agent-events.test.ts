@@ -49,7 +49,10 @@ test('fold: plain full_text replaces accumulated content', () => {
 });
 
 test('fold: full_text with closed think tag splits thought and content', () => {
-  const last = { role: 'assistant', content: '' };
+  const last: { role: string; content: string; thought?: string; thoughtDurationMs?: number } = {
+    role: 'assistant',
+    content: '',
+  };
   const { pop } = foldAiDoneIntoAssistant(
     last,
     '<think>plan</think>  Visible reply',
@@ -64,7 +67,10 @@ test('fold: full_text with closed think tag splits thought and content', () => {
 });
 
 test('fold: unclosed think tag in full_text yields thought only', () => {
-  const last = { role: 'assistant', content: 'streamed' };
+  const last: { role: string; content: string; thought?: string; thoughtDurationMs?: number } = {
+    role: 'assistant',
+    content: 'streamed',
+  };
   const { pop } = foldAiDoneIntoAssistant(
     last,
     '<think>still thinking',
@@ -78,7 +84,10 @@ test('fold: unclosed think tag in full_text yields thought only', () => {
 });
 
 test('fold: uppercase <THINK> is not recognized (includes() is case-sensitive)', () => {
-  const last = { role: 'assistant', content: '' };
+  const last: { role: string; content: string; thought?: string; thoughtDurationMs?: number } = {
+    role: 'assistant',
+    content: '',
+  };
   foldAiDoneIntoAssistant(
     last,
     '<THINK>a</THINK>',
@@ -107,7 +116,10 @@ test('fold: lowercase think block inside streamed content is stripped and trimme
 });
 
 test('fold: flushed deltas append before the full_text decision', () => {
-  const last = { role: 'assistant', content: '' };
+  const last: { role: string; content: string; thought?: string; thoughtDurationMs?: number } = {
+    role: 'assistant',
+    content: '',
+  };
   const { pop } = foldAiDoneIntoAssistant(
     last,
     '',

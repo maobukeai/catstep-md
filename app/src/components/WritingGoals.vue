@@ -169,7 +169,26 @@ function onDocClick(e: MouseEvent) {
   }
 }
 onMounted(() => document.addEventListener('mousedown', onDocClick, true));
-onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick, true));
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', onDocClick, true);
+  document.removeEventListener('keydown', onDocKeydown, true);
+});
+
+// Unified Esc-to-close (DsModal baseline): a document-level capture listener
+// mounted while the popover is open. IME guard per CommandPalette.vue:
+// Esc must first cancel pinyin candidates, not close the popover.
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    closePopover();
+  }
+}
+watch(popoverOpen, (v) => {
+  if (v) document.addEventListener('keydown', onDocKeydown, true);
+  else document.removeEventListener('keydown', onDocKeydown, true);
+});
 </script>
 
 <template>
@@ -195,7 +214,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocClick, true
       </span>
     </button>
 
-    <div v-if="popoverOpen" class="writing-goals__popover" role="dialog">
+    <div v-if="popoverOpen" class="writing-goals__popover" role="dialog" aria-modal="true">
       <header class="writing-goals__popover-header">
         {{ t('writingStats.popoverTitle') }}
       </header>

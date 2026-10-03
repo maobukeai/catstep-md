@@ -12,7 +12,12 @@
  * round-trip to Tauri lands.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  mcpProfilesDelete,
+  mcpProfilesExportConfig,
+  mcpProfilesList,
+  mcpProfilesSave,
+} from '../lib/commands';
 
 export interface McpWorkspaceEntry {
   alias: string;
@@ -53,7 +58,7 @@ export const useMcpProfilesStore = defineStore('mcpProfiles', {
       this.loading = true;
       this.error = '';
       try {
-        this.profiles = await invoke<McpProfile[]>('mcp_profiles_list');
+        this.profiles = await mcpProfilesList<McpProfile[]>();
         this.loaded = true;
       } catch (e) {
         this.error = String((e as Error)?.message ?? e);
@@ -76,9 +81,7 @@ export const useMcpProfilesStore = defineStore('mcpProfiles', {
         const idx = this.profiles.findIndex((p) => p.name === profile.name);
         if (idx >= 0) this.profiles[idx] = profile;
         else this.profiles.push(profile);
-        this.profiles = await invoke<McpProfile[]>('mcp_profiles_save', {
-          profile,
-        });
+        this.profiles = await mcpProfilesSave<McpProfile[]>(profile);
       } finally {
         this.savingName = '';
       }
@@ -88,9 +91,7 @@ export const useMcpProfilesStore = defineStore('mcpProfiles', {
       const before = this.profiles;
       this.profiles = this.profiles.filter((p) => p.name !== name);
       try {
-        this.profiles = await invoke<McpProfile[]>('mcp_profiles_delete', {
-          name,
-        });
+        this.profiles = await mcpProfilesDelete<McpProfile[]>(name);
       } catch (e) {
         // Roll back on failure.
         this.profiles = before;
@@ -99,10 +100,7 @@ export const useMcpProfilesStore = defineStore('mcpProfiles', {
     },
 
     async exportConfig(name: string, mcpPath: string | null): Promise<string> {
-      return await invoke<string>('mcp_profiles_export_config', {
-        name,
-        mcpPath: mcpPath ?? null,
-      });
+      return await mcpProfilesExportConfig(name, mcpPath);
     },
   },
 });

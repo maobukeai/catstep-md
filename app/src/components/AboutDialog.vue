@@ -101,7 +101,7 @@ async function manualCheckUpdate() {
     const r = await checkForUpdate();
     if (r.error) {
       updateStatus.value = { checked: true, hasUpdate: false, error: true };
-      toasts.error(t('settings.updateCheckFailed') || '检查更新失败，请检查网络连接');
+      toasts.error(t('settings.updateCheckFailed'));
     } else if (r.hasUpdate) {
       updateStatus.value = {
         checked: true,
@@ -113,7 +113,7 @@ async function manualCheckUpdate() {
       showUpdateModal.value = true;
     } else {
       updateStatus.value = { checked: true, hasUpdate: false };
-      toasts.info(t('settings.upToDate') || '当前已是最新版本');
+      toasts.info(t('settings.upToDate'));
     }
   } catch (e) {
     updateStatus.value = { checked: true, hasUpdate: false, error: true };

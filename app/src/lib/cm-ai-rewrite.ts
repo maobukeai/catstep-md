@@ -19,13 +19,9 @@
  * use-cases if the host app maps it).
  */
 
-import { keymap } from '@codemirror/view';
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  WidgetType,
-} from '@codemirror/view';
+import { keymap, Decoration, EditorView, WidgetType } from '@codemirror/view';
+// DecorationSet 是纯类型导出，node --test 会真实解析具名导入，必须用 import type。
+import type { DecorationSet } from '@codemirror/view';
 import { StateEffect, StateField } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 
@@ -77,8 +73,12 @@ interface StreamState {
 }
 
 class StreamingWidget extends WidgetType {
-  constructor(readonly state: StreamState) {
+  // 显式字段赋值（等价于构造器参数属性）：node --test 的 strip-only 模式
+  // 不支持参数属性语法，lib 模块需要能被单测直接加载。
+  state: StreamState;
+  constructor(state: StreamState) {
     super();
+    this.state = state;
   }
   eq(other: StreamingWidget): boolean {
     return (

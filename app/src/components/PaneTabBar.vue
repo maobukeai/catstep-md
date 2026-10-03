@@ -4,7 +4,6 @@ import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useTabsStore } from '../stores/tabs';
 import { useTilesStore } from '../stores/tiles';
 import { useSettingsStore } from '../stores/settings';
-import { useWorkspaceStore } from '../stores/workspace';
 import { useFiles } from '../composables/useFiles';
 import { useI18n } from '../i18n';
 import type { SplitDirection } from '../types';
@@ -17,7 +16,6 @@ const props = defineProps<{
 const tabs = useTabsStore();
 const tiles = useTilesStore();
 const settings = useSettingsStore();
-const workspace = useWorkspaceStore();
 const files = useFiles();
 const { t: tr } = useI18n();
 
@@ -108,13 +106,6 @@ const ctxFlags = computed(() => {
   };
 });
 
-async function closeMany(ids: string[]) {
-  for (const id of ids) {
-    if (!tabs.tabs.find((t) => t.id === id)) continue;
-    await files.closeTabSafe(id);
-  }
-}
-
 async function onTabAction(action: 'close' | 'closeLeft' | 'closeRight' | 'closeOthers' | 'closeSaved' | 'closeAll' | 'revealInFolder' | 'revealInFileTree') {
   const m = ctxMenu.value;
   closeCtxMenu();
@@ -131,11 +122,17 @@ async function onTabAction(action: 'close' | 'closeLeft' | 'closeRight' | 'close
   if (action === 'revealInFileTree') {
     const path = list[idx]?.filePath;
     if (!path) return;
-    const parent = path.replace(/[\\/][^\\/]+$/, '');
-    if (parent && parent !== path) {
-      if (!settings.showFileTree) settings.toggleFileTree();
-      workspace.setFolder(parent);
-    }
+    // C20 — locate the file inside the CURRENT file tree (expand ancestors,
+    // scroll, flash) instead of the old `workspace.setFolder(parent)`, which
+    // swapped the whole workspace whenever the file lived in a subfolder —
+    // resetting the per-workspace tab session and polluting recentFolders —
+    // and never actually highlighted anything. The tree reveals within its
+    // open root only; a file outside the workspace simply doesn't relocate
+    // it. If the sidebar was hidden, show it first and wait a tick so the
+    // (conditionally mounted) FileTree is listening before we dispatch.
+    if (!settings.showFileTree) settings.toggleFileTree();
+    await nextTick();
+    window.dispatchEvent(new CustomEvent('solomd:reveal-in-file-tree', { detail: { path } }));
     return;
   }
   const ids = (() => {
@@ -149,7 +146,10 @@ async function onTabAction(action: 'close' | 'closeLeft' | 'closeRight' | 'close
     }
     return [];
   })();
-  await closeMany(ids);
+  // C06 — batched confirmation (one "N documents unsaved" dialog for every
+  // dirty tab) and cancel-stops-the-batch live in closeManySafe; the old
+  // local loop prompted once per dirty tab and kept going past a cancel.
+  await files.closeManySafe(ids);
 }
 
 // ---- Pointer-based drag: reorder within the bar + drag-to-split across panes

@@ -48,7 +48,6 @@ export function useGithubSync() {
   }
 
   let listening = false;
-  let pulling = false;
   let pulltimer: ReturnType<typeof setInterval> | null = null;
   // Debounce auto-push so a flurry of saves coalesces into one push.
   let pushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -91,18 +90,68 @@ export function useGithubSync() {
     }, 5000);
   }
 
-  async function pullIfWanted(): Promise<void> {
-    if (pulling) return;
+  /**
+   * Core pull, shared by the auto timer, the boot pull and the manual
+   * entries (status pill, command palette). No cached-dirty guard: the
+   * backend commits uncommitted tracked work ("workspace state at pull",
+   * github_sync.rs `needs_safety_commit`) before the fast-forward
+   * checkout, so pulling onto a dirty tree is safe — the old guard only
+   * made auto-pulls silently vanish behind a stale `status.dirty`.
+   * Unresolved merge conflicts are the one remaining skip: the backend
+   * skips its safety commit on a conflicted index, so a merge there
+   * would just fail.
+   *
+   * `manual` gives user-initiated pulls feedback on every skip path (no
+   * folder, not linked, conflicts, up to date) instead of a silent
+   * return — the silent-failure footgun this module's header warns
+   * about. The in-flight mutex lives on the Pinia store (`sync.pulling`)
+   * so the pill's composable instance, the command palette's and this
+   * one all share it.
+   */
+  /** Deep-link into Settings → Sync, where the existing E2EE passphrase
+   *  form lives. Same event the other toolbar/empty-state callers use. */
+  function openSyncSettings(): void {
+    window.dispatchEvent(new CustomEvent('solomd:open-settings', { detail: { section: 'sync' } }));
+  }
+
+  /**
+   * E2EE fresh-device bootstrap: the pull succeeded, but this device has
+   * no passphrase yet so the shadow ciphertext was never mirrored back to
+   * plaintext — the workspace still shows no notes. The backend used to
+   * leave this state invisible (`finalize_decrypt` soft-skips "key
+   * missing") and the frontend toasted a normal "pulled". Say what
+   * actually happened and offer the Settings decrypt flow. By the time
+   * this fires the salt has been pulled, so setting the passphrase in
+   * Settings derives the right key immediately.
+   */
+  function announcePendingDecryption(): void {
+    toasts.push(
+      t('githubSync.pullPendingDecryption'),
+      'warning',
+      8000,
+      () => openSyncSettings(),
+      { actionLabel: t('githubSync.openSyncSettings') },
+    );
+  }
+
+  async function runPull(manual: boolean): Promise<void> {
     const folder = workspace.currentFolder;
-    if (!folder) return;
-    if (!sync.status?.linked) return;
-    if (sync.status.dirty) {
-      // Pulling onto a dirty tree would let libgit2 cancel the merge — and
-      // would also confuse the user about which version is theirs. Wait
-      // until AutoGit catches up.
+    if (!folder) {
+      if (manual) toasts.warning(t('githubSync.noWorkspace'));
       return;
     }
-    pulling = true;
+    if (!sync.status?.linked) {
+      if (manual) {
+        const key = sync.status?.provider === 'gitea' ? 'githubSync.giteaNotLinked' : 'githubSync.notLinked';
+        toasts.warning(t(key));
+      }
+      return;
+    }
+    if (sync.status.has_conflicts) {
+      if (manual) toasts.warning(t('githubSync.pullBlockedByConflicts'));
+      return;
+    }
+    if (sync.pulling) return;
     try {
       const r = await sync.pull(folder);
       if (r.kind === 'fast_forward' || r.kind === 'merged') {
@@ -110,16 +159,26 @@ export function useGithubSync() {
         // Notify the rest of the app that files changed under us so the
         // workspace index, file tree, and active editor reload from disk.
         window.dispatchEvent(new CustomEvent('solomd:remote-pulled'));
+        if (r.pending_decryption) announcePendingDecryption();
       } else if (r.kind === 'conflicts') {
         toasts.warning(t('githubSync.pullConflicts', { n: String(r.conflicts.length) }));
         // The conflict panel surfaces in the History panel when
         // `sync.status.has_conflicts` is true.
+      } else if (r.pending_decryption) {
+        // Up to date, but this device never decrypted — repeating the
+        // "up to date" toast would hide the real problem.
+        announcePendingDecryption();
+      } else if (manual) {
+        toasts.info(t('githubSync.upToDate'));
       }
     } catch (e) {
       reportSyncError(e, 'githubSync.pullFailed');
-    } finally {
-      pulling = false;
     }
+  }
+
+  /** Auto-pull entry (timer tick, boot pull): silent on skips. */
+  function pullIfWanted(): Promise<void> {
+    return runPull(false);
   }
 
   function rescheduleTimer(): void {
@@ -158,10 +217,20 @@ export function useGithubSync() {
       { immediate: true },
     );
 
-    // Best-effort: on boot, do one immediate pull if linked. Catches the
-    // common "edited on iPad last night" case the moment the app opens.
+    // Best-effort: on boot, do one immediate pull if linked AND auto-pull
+    // is enabled. "Off (manual)" is respected — a manual-mode user may
+    // have pulled deliberately before closing and must not get a surprise
+    // pull 2s after every launch (the old boot pull ignored the setting).
+    // If the status hasn't landed yet, refresh it once so the decision
+    // uses the real auto_pull_minutes, not "not loaded yet".
     setTimeout(() => {
-      void pullIfWanted();
+      void (async () => {
+        const folder = workspace.currentFolder;
+        if (!folder) return;
+        if (!sync.status) await sync.refreshStatus(folder);
+        if ((sync.status?.auto_pull_minutes ?? 0) <= 0) return;
+        await pullIfWanted();
+      })();
     }, 2000);
   }
 
@@ -179,9 +248,9 @@ export function useGithubSync() {
     }
   }
 
-  /** Command-palette entry: pull right now, regardless of timer. */
-  async function pullNow(): Promise<void> {
-    await pullIfWanted();
+  /** Manual entry (command palette, status pill): every outcome talks. */
+  function pullNow(): Promise<void> {
+    return runPull(true);
   }
 
   /** Command-palette entry: push right now, even if auto_push is off. */

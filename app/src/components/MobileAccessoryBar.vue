@@ -117,7 +117,7 @@ function handleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFi
   aiMenuOpen.value = false;
 
   if (!settings.aiEnabled) {
-    toasts.info('请先在设置中启用 AI 助手并配置 API 密钥');
+    toasts.info(t('toast.aiNotConfigured'));
     window.dispatchEvent(
       new CustomEvent('solomd:open-settings', { detail: { section: 'integrations' } }),
     );
@@ -126,7 +126,7 @@ function handleAiAction(actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFi
 
   const range = getTargetTextRange();
   if (!range || !range.selection.trim()) {
-    toasts.info('请先将光标放置在需润色的文字处或选中文本');
+    toasts.info(t('toast.aiNeedSelection'));
     return;
   }
 

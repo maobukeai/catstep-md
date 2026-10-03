@@ -26,6 +26,8 @@ export interface UseEditorTableOptions {
   recordPlainHistory: () => void;
   replaceDocRange: (from: number, to: number, text: string) => void;
   emitPlainCursorAndSelection: () => void;
+  /** C16 — measured line height (getComputedStyle) for the fallback anchor math. */
+  plainLineHeightPx: () => number;
   t: (key: string, args?: any) => string;
   toasts: { info: (msg: string) => void };
   openTableEditor: (options: { source: string; apply: (markdown: string) => void }) => void;
@@ -41,6 +43,8 @@ export function useEditorTable(options: {
   recordPlainHistory: () => void;
   replaceDocRange: (from: number, to: number, text: string) => void;
   emitPlainCursorAndSelection: () => void;
+  /** C16 — measured line height (getComputedStyle) for the fallback anchor math. */
+  plainLineHeightPx: () => number;
   t: (key: string, args?: any) => string;
   toasts: { info: (msg: string) => void };
   openTableEditor: (options: { source: string; apply: (markdown: string) => void }) => void;
@@ -144,7 +148,10 @@ export function useEditorTable(options: {
     if (tableInfo && el) {
       const elRect = el.getBoundingClientRect();
       const lineNum = docText.slice(0, caret).split('\n').length;
-      const lineY = lineTops && lineNum <= lineTops.length ? lineTops[lineNum - 1] : (lineNum - 1) * 22;
+      const lineY =
+        lineTops && lineNum <= lineTops.length
+          ? lineTops[lineNum - 1]
+          : (lineNum - 1) * options.plainLineHeightPx();
       const topPx = elRect.top + lineY - el.scrollTop;
       if (topPx < 35 || topPx > window.innerHeight - 35) {
         inPlaceTableState.value.visible = false;

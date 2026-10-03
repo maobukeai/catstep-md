@@ -122,7 +122,7 @@ export function useCommands(): Command[] {
       toasts.success(successMsg);
     } catch (e) {
       console.error('transform failed', e);
-      toasts.error('Conversion failed');
+      toasts.error(t('toast.conversionFailed'));
     }
   }
 
@@ -192,7 +192,7 @@ export function useCommands(): Command[] {
         const tab = useTabsStore().activeTab;
         const path = tab?.filePath;
         if (!path) {
-          toasts.warning('Save the file first before opening in an external editor');
+          toasts.warning(t('toast.openExternalNoFile'));
           return;
         }
         try {
@@ -200,7 +200,7 @@ export function useCommands(): Command[] {
           // authorizes the path before the OS default editor opens it.
           await openPathExternal(path);
         } catch (e) {
-          toasts.warning(`Failed: ${e}`);
+          toasts.warning(t('toast.failedWithReason', { error: String(e) }));
         }
       },
     },
@@ -261,7 +261,7 @@ export function useCommands(): Command[] {
         });
         if (path) {
           settings.setCustomCssPath(path);
-          toasts.success('Custom CSS theme loaded');
+          toasts.success(t('toast.cssThemeLoaded'));
         }
       },
     },
@@ -270,7 +270,7 @@ export function useCommands(): Command[] {
       title: 'Theme: Clear Custom CSS',
       run: () => {
         settings.setCustomCssPath('');
-        toasts.info('Custom CSS theme cleared');
+        toasts.info(t('toast.cssThemeCleared'));
       },
     },
 
@@ -279,10 +279,10 @@ export function useCommands(): Command[] {
       title: 'Chinese: Simplified → Traditional',
       hint: 'Convert document content',
       run: async () => {
-        const tid = toasts.info('Converting to Traditional…', 0);
+        const tid = toasts.info(t('toast.toTraditional'), 0);
         try {
           const { simplifiedToTraditional } = await import('../lib/chinese');
-          await transformActive(simplifiedToTraditional, 'Converted to Traditional');
+          await transformActive(simplifiedToTraditional, t('toast.convertedTraditional'));
         } finally {
           toasts.dismiss(tid);
         }
@@ -292,10 +292,10 @@ export function useCommands(): Command[] {
       id: 'cn.t2s',
       title: 'Chinese: Traditional → Simplified',
       run: async () => {
-        const tid = toasts.info('Converting to Simplified…', 0);
+        const tid = toasts.info(t('toast.toSimplified'), 0);
         try {
           const { traditionalToSimplified } = await import('../lib/chinese');
-          await transformActive(traditionalToSimplified, 'Converted to Simplified');
+          await transformActive(traditionalToSimplified, t('toast.convertedSimplified'));
         } finally {
           toasts.dismiss(tid);
         }
@@ -307,18 +307,18 @@ export function useCommands(): Command[] {
       run: async () => {
         const tDoc = tabs.activeTab;
         if (!tDoc) {
-          toasts.warning('No active document');
+          toasts.warning(t('toast.noActiveDoc'));
           return;
         }
-        const tid = toasts.info('Converting to Pinyin…', 0);
+        const tid = toasts.info(t('toast.toPinyin'), 0);
         try {
           const { pinyin } = await import('../lib/chinese');
           const py = await pinyin(tDoc.content);
           await writeText(py);
-          toasts.success('Pinyin copied to clipboard');
+          toasts.success(t('toast.pinyinCopied'));
         } catch (e) {
           console.error('copy pinyin failed', e);
-          toasts.error('Pinyin conversion failed');
+          toasts.error(t('toast.pinyinFailed'));
         } finally {
           toasts.dismiss(tid);
         }
@@ -364,7 +364,7 @@ export function useCommands(): Command[] {
         try {
           await quickCaptureOpen();
         } catch (e) {
-          toasts.error(`Quick capture failed: ${e}`);
+          toasts.error(t('toast.quickCaptureFailed', { error: String(e) }));
         }
       },
     },
@@ -428,7 +428,7 @@ export function useCommands(): Command[] {
       hint: 'Pick an image — it is copied into the note’s attachments folder and a Markdown image link is inserted',
       run: async () => {
         if (!tabs.activeTab) {
-          toasts.warning('No active document');
+          toasts.warning(t('toast.noActiveDoc'));
           return;
         }
         const sel = await pickFile({
@@ -485,7 +485,7 @@ export function useCommands(): Command[] {
       hint: 'Upload every local image in this note to the configured image host and rewrite the links',
       run: () => {
         if (!tabs.activeTab) {
-          toasts.warning('No active document');
+          toasts.warning(t('toast.noActiveDoc'));
           return;
         }
         window.dispatchEvent(
@@ -502,28 +502,28 @@ export function useCommands(): Command[] {
       shortcut: kb('format.markdown'),
       hint: 'Reformat the active document — normalize lists, tables, spacing',
       run: async () => {
-        const t = tabs.activeTab;
-        if (!t) {
-          toasts.warning('No active document');
+        const tab = tabs.activeTab;
+        if (!tab) {
+          toasts.warning(t('toast.noActiveDoc'));
           return;
         }
-        if (t.language !== 'markdown') {
-          toasts.warning('Format works on Markdown files only');
+        if (tab.language !== 'markdown') {
+          toasts.warning(t('toast.formatMarkdownOnly'));
           return;
         }
-        const tid = toasts.info('Formatting…', 0);
+        const tid = toasts.info(t('toast.formatting'), 0);
         try {
           const { formatMarkdown } = await import('../lib/markdown-format');
-          const next = await formatMarkdown(t.content);
-          if (next === t.content) {
-            toasts.info('Already formatted');
+          const next = await formatMarkdown(tab.content);
+          if (next === tab.content) {
+            toasts.info(t('toast.alreadyFormatted'));
             return;
           }
-          tabs.setContent(t.id, next);
-          toasts.success('Formatted');
+          tabs.setContent(tab.id, next);
+          toasts.success(t('toast.formatted'));
         } catch (e) {
           console.error('format failed', e);
-          toasts.warning('Format failed — check syntax');
+          toasts.warning(t('toast.formatFailed'));
         } finally {
           toasts.dismiss(tid);
         }
@@ -541,7 +541,7 @@ export function useCommands(): Command[] {
       id: 'clean.stripMarkdown',
       title: 'Strip All Markdown to Plain Text',
       hint: 'Remove headings, bold, lists, code fences — leave only prose',
-      run: () => transformActive(stripMarkdownToPlain, (settings.language?.startsWith('zh') ?? true) ? '已去除 Markdown 格式为纯文本' : 'Stripped to plain text'),
+      run: () => transformActive(stripMarkdownToPlain, t('toast.strippedToPlainText')),
     },
 
     { id: 'export.html', title: 'Export to HTML…', run: () => exporter.exportHtml() },
@@ -607,14 +607,14 @@ export function useCommands(): Command[] {
       hint: 'Run `git init` + initial commit of all .md/.txt files in this workspace',
       run: async () => {
         if (!ws.currentFolder) {
-          toasts.warning('Open a folder first');
+          toasts.warning(t('toast.openFolderFirst'));
           return;
         }
         try {
           await gh.init(ws.currentFolder);
-          toasts.success('Git history initialized');
+          toasts.success(t('toast.gitHistoryInitialized'));
         } catch (e) {
-          toasts.warning(`Init failed: ${e}`);
+          toasts.warning(t('toast.gitInitFailed', { error: String(e) }));
         }
       },
     },
@@ -651,12 +651,12 @@ export function useCommands(): Command[] {
         const url = activeShareUrl();
         if (!url) {
           toasts.warning(
-            'Open a note in a GitHub-linked workspace first, then push it.',
+            t('toast.ghPushNoWorkspace'),
           );
           return;
         }
         await writeText(url);
-        toasts.success('GitHub share link copied.');
+        toasts.success(t('toast.ghLinkCopied'));
       },
     },
     {
@@ -666,11 +666,11 @@ export function useCommands(): Command[] {
       run: async () => {
         const url = activeGitUrl();
         if (!url) {
-          toasts.warning('Open a note in a Git-linked workspace first.');
+          toasts.warning(t('toast.gitNoWorkspace'));
           return;
         }
         await writeText(url);
-        toasts.success('Git URL copied to clipboard.');
+        toasts.success(t('toast.gitUrlCopied'));
       },
     },
 
@@ -680,7 +680,7 @@ export function useCommands(): Command[] {
       hint: 'Open 4 in-memory tutorial tabs (Welcome, Syntax, Slideshow, Shortcuts)',
       run: () => {
         openWelcomeTour();
-        toasts.success(settings.language === 'zh' ? '已打开教程' : 'Welcome tour opened');
+        toasts.success(t('toast.tourOpened'));
       },
     },
     {
@@ -699,16 +699,16 @@ export function useCommands(): Command[] {
       shortcut: kb('view.slideshow'),
       hint: 'Render the active document as a fullscreen slideshow (split on `---`)',
       run: async () => {
-        const t = tabs.activeTab;
-        if (!t) {
-          toasts.warning('No active document');
+        const tab = tabs.activeTab;
+        if (!tab) {
+          toasts.warning(t('toast.noActiveDoc'));
           return;
         }
         try {
-          localStorage.setItem('solomd:slideshow:content', t.content || '');
+          localStorage.setItem('solomd:slideshow:content', tab.content || '');
           localStorage.setItem(
             'solomd:slideshow:title',
-            t.fileName || 'Untitled',
+            tab.fileName || 'Untitled',
           );
         } catch {}
 
@@ -717,7 +717,7 @@ export function useCommands(): Command[] {
             window.open('/?slideshow=1', '_blank', 'width=1200,height=800,menubar=no,toolbar=no,location=no');
           } catch (e) {
             console.error('failed to open slideshow window fallback', e);
-            toasts.warning('Failed to open slideshow window');
+            toasts.warning(t('toast.slideshowFailed'));
           }
         };
 
@@ -757,7 +757,7 @@ export function useCommands(): Command[] {
           try {
             window.open('/', '_blank');
           } catch {
-            toasts.warning('Failed to open a new window');
+            toasts.warning(t('toast.newWindowFailed'));
           }
         }
       },
@@ -770,7 +770,7 @@ export function useCommands(): Command[] {
       hint: 'Review notes flagged `inbox: true` — Week / Month / All, ⌘E to organize & advance',
       run: () => {
         if (!settings.inboxWorkflowEnabled) {
-          toasts.info('Enable the Inbox workflow in Settings first');
+          toasts.info(t('toast.inboxDisabled'));
           return;
         }
         inboxView.openInbox();

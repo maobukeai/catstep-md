@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+import { getVersion } from '@tauri-apps/api/app';
 import { useSettingsStore } from '../stores/settings';
 import { useI18n } from '../i18n';
 import { DsModal } from '../ui';
@@ -38,6 +39,11 @@ const searchInputRef = ref<HTMLInputElement | null>(null);
 
 const bodyEl = ref<HTMLElement | null>(null);
 const mobileBodyEl = ref<HTMLElement | null>(null);
+
+// C14 — real app version from the Tauri runtime (falls back like AboutSettings
+// and check-update do), so badges/hero never show a stale hardcoded number.
+const appVersion = ref('');
+const versionLabel = computed(() => appVersion.value || '…');
 
 const isZh = computed(() => (kbSettings.language || 'zh').startsWith('zh'));
 const backLabel = computed(() => t('common.back') || (isZh.value ? '返回' : 'Back'));
@@ -158,8 +164,8 @@ const categories: CategoryMeta[] = [
     labelZh: '关于 猫步 MD',
     labelEn: 'About Catstep MD',
     group: 'system',
-    subtitleZh: '应用版本 v4.3.5 · 检查更新 · 开源主页',
-    subtitleEn: 'App version, updates, repository info',
+    subtitleZh: '应用版本 v{version} · 检查更新 · 开源主页',
+    subtitleEn: 'App version {version} · updates, repository info',
     descZh: '应用版本、检查更新、开源主页与开发者信息',
     descEn: 'App version, updates, open source repository, and developer info',
   },
@@ -184,7 +190,7 @@ const currentCategoryMeta = computed(() => {
   return {
     ...cat,
     label: t(cat.labelKey) || (isZh.value ? cat.labelZh : cat.labelEn),
-    subtitle: isZh.value ? cat.subtitleZh : cat.subtitleEn,
+    subtitle: categorySubtitle(cat),
     desc: isZh.value ? cat.descZh : cat.descEn,
   };
 });
@@ -217,257 +223,140 @@ function adjustFontSize(delta: number) {
 interface SearchableItem {
   id: string;
   category: SettingsCategory;
-  categoryName: string;
-  title: string;
-  desc: string;
+  /** i18n keys under settings.searchEntries.* so every locale gets its own copy */
+  titleKey: string;
+  descKey: string;
+  /** data-setting-anchor of the target row; undefined → only open the category */
+  anchor?: string;
   keywords: string[];
 }
 
+/** Shorthand for the searchEntries i18n key pair of a catalog entry. */
+const se = (id: string) => ({
+  titleKey: `settings.searchEntries.${id}.title`,
+  descKey: `settings.searchEntries.${id}.desc`,
+});
+
 const searchableCatalog: SearchableItem[] = [
-  {
-    id: 'theme',
-    category: 'basics',
-    categoryName: '通用与外观',
-    title: '外观主题配色',
-    desc: '切换猫步晴白、玄夜、羊皮纸、松柏等经典主题风格',
-    keywords: ['主题', 'theme', '深色', '浅色', '夜行', '颜色', '皮肤', '暗黑'],
-  },
-  {
-    id: 'language',
-    category: 'basics',
-    categoryName: '通用与外观',
-    title: '界面语言 / Language',
-    desc: '设置简体中文、English、日本語等 14 种多语言环境',
-    keywords: ['语言', 'language', '中文', '英文', 'english', '日语'],
-  },
-  {
-    id: 'fontFamily',
-    category: 'basics',
-    categoryName: '通用与外观',
-    title: '正文与代码字体',
-    desc: '配置 JetBrains Mono、思源黑体/宋体、系统无衬线字体',
-    keywords: ['字体', 'font', 'mono', '思源', '宋体', '黑体', 'jetbrains'],
-  },
-  {
-    id: 'fontSize',
-    category: 'basics',
-    categoryName: '通用与外观',
-    title: '正文字号与界面缩放',
-    desc: '调节编辑器字号大小 (10px~28px) 与整体界面显示比例',
-    keywords: ['字号', '大小', 'font-size', '放大', '缩小', '缩放', 'zoom'],
-  },
-  {
-    id: 'wallpaper',
-    category: 'basics',
-    categoryName: '通用与外观',
-    title: '背景壁纸与沉浸纹理',
-    desc: '为窗口衬托微质感纹理或自定义浅色/深色独立背景壁纸',
-    keywords: ['壁纸', '背景', 'wallpaper', '画布', '纹理'],
-  },
-  {
-    id: 'frontmatter',
-    category: 'basics',
-    categoryName: '通用与外观',
-    title: '单篇文档专属主题 (Frontmatter)',
-    desc: '支持在笔记头部 YAML 中通过 theme 指定单篇个性排版',
-    keywords: ['frontmatter', 'yaml', '文章主题', '专属主题'],
-  },
-  {
-    id: 'typewriter',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '打字机居中模式',
-    desc: '打字时光标垂直锁定在屏幕中央，长时间码字更舒适',
-    keywords: ['打字机', 'typewriter', '居中', '光标'],
-  },
-  {
-    id: 'wordWrap',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '自动换行与行号',
-    desc: '配置长行自动折行、行号栏与实心静止光标风格',
-    keywords: ['自动换行', '换行', 'word wrap', '行号', '光标'],
-  },
-  {
-    id: 'livePreview',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '实时渲染与 Markdown 排版',
-    desc: '所见即所得实时就地渲染、单次回车换行、智能引号与自动编号',
-    keywords: ['实时预览', '所见即所得', '回车换行', '智能引号', '自动编号', 'plantuml'],
-  },
-  {
-    id: 'outline',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '大纲目录与侧边导航',
-    desc: '控制大纲目录停靠位置、前缀序号标记与侧边栏辅助面板',
-    keywords: ['大纲', 'outline', '目录', '侧边栏', '反向链接', '标签'],
-  },
-  {
-    id: 'lineNumbers',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '代码行号显示',
-    desc: '在编辑器左侧显示行号栏，方便精准定位内容',
-    keywords: ['行号', 'line numbers', '代码行'],
-  },
-  {
-    id: 'stats',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '写作统计与今日字数',
-    desc: '在状态栏实时显示当前字数、阅读时长与每日目标进度',
-    keywords: ['统计', '字数', 'word count', '目标', '专注'],
-  },
-  {
-    id: 'spellcheck',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '拼写检查 (Spellcheck)',
-    desc: '基于本地 Hunspell 词典的实时英文与多语言拼写校对',
-    keywords: ['拼写', 'spellcheck', '纠错', '英文', '词典'],
-  },
-  {
-    id: 'imageUpload',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '图片上传与图床配置',
-    desc: '集成 PicGo、SM.MS、Amazon S3、GitHub 等自动化图床',
-    keywords: ['图床', 'picgo', 'smms', 's3', 'github', '图片上传'],
-  },
-  {
-    id: 'attachments',
-    category: 'writing',
-    categoryName: '编辑与排版',
-    title: '附件存储目录策略',
-    desc: '设置共享 _assets 目录存储或每篇独立文件夹存放',
-    keywords: ['附件', 'assets', '图片保存', '目录', '存放'],
-  },
-  {
-    id: 'syncGithub',
-    category: 'sync',
-    categoryName: '同步与版本时光机',
-    title: 'GitHub 自动云同步',
-    desc: '自动提交并将工作区同步至远端 Git 仓库，多端数据防丢',
-    keywords: ['同步', 'github', 'git', '云端', '备份', 'push', 'token'],
-  },
-  {
-    id: 'history',
-    category: 'sync',
-    categoryName: '同步与版本时光机',
-    title: '版本时光机与快照历史',
-    desc: '本地自动保留文档修改历史，支持一键对比与历史回滚',
-    keywords: ['时光机', '历史', '快照', '版本', '回滚', 'history'],
-  },
-  {
-    id: 'exportPdf',
-    category: 'export',
-    categoryName: '导出与输出预设',
-    title: 'PDF 打印规格与页面边距',
-    desc: '自定义 PDF 页面大小 (A4/Letter)、边距与打印排版预设',
-    keywords: ['pdf', '导出', '打印', '边距', '纸张'],
-  },
-  {
-    id: 'exportImage',
-    category: 'export',
-    categoryName: '导出与输出预设',
-    title: '长图生成与高保真分享',
-    desc: '一键将 Markdown 转换为带水印的高清长图分享至社交平台',
-    keywords: ['长图', '图片', '长微博', '分享', '海报'],
-  },
-  {
-    id: 'aiModel',
-    category: 'integrations',
-    categoryName: 'AI 助手模型与服务',
-    title: 'AI 智能体模型与 API Key',
-    desc: '接入 OpenAI、Claude、DeepSeek、Ollama 等多厂商模型',
-    keywords: ['ai', 'gpt', 'claude', 'deepseek', 'ollama', 'api key', 'token', '模型'],
-  },
-  {
-    id: 'recipes',
-    category: 'integrations',
-    categoryName: 'AI 助手模型与服务',
-    title: '自动化工作流配方 (Recipes)',
-    desc: '配置一键润色、多语言翻译、会议纪要等 AI 快捷处理配方',
-    keywords: ['配方', 'recipes', '自动化', 'prompt', '指令'],
-  },
-  {
-    id: 'mcp',
-    category: 'integrations',
-    categoryName: 'AI 助手模型与服务',
-    title: 'MCP 智能体工具协议',
-    desc: '连接本地与网络 MCP 协议工具，赋予 AI 外部系统感知力',
-    keywords: ['mcp', 'tools', '工具', '协议'],
-  },
-  {
-    id: 'dailyNotes',
-    category: 'advanced',
-    categoryName: '系统与高级设置',
-    title: '每日笔记与日记',
-    desc: '配置日记存储目录与文件名命名规则模板',
-    keywords: ['日记', '每日笔记', 'daily', 'notes', '格式', '模板'],
-  },
-  {
-    id: 'restoreSession',
-    category: 'advanced',
-    categoryName: '系统与高级设置',
-    title: '启动与会话恢复',
-    desc: '启动时恢复上次打开的文档与分屏、默认启动模式、工作区隔离',
-    keywords: ['启动', '恢复', '会话', 'session', '标签页', '工作区隔离', '分屏'],
-  },
-  {
-    id: 'fileBehavior',
-    category: 'advanced',
-    categoryName: '系统与高级设置',
-    title: '文件自动保存与外部监控',
-    desc: '外部修改静默自动重载、窗口失焦自动存盘、目录树高亮定位',
-    keywords: ['保存', '失焦', '自动保存', '外部重载', '监控', '高亮定位'],
-  },
-  {
-    id: 'fileAssoc',
-    category: 'advanced',
-    categoryName: '系统与高级设置',
-    title: '文件格式关联',
-    desc: '将猫步 MD 设为系统默认 Markdown 编辑器并集成右键菜单',
-    keywords: ['关联', '默认', '打开方式', 'markdown', '默认编辑器'],
-  },
-  {
-    id: 'shortcuts',
-    category: 'keys',
-    categoryName: '快捷键速查表',
-    title: 'Typora 兼容快捷键速查',
-    desc: '查看全部菜单项与排版格式绑定的桌面快捷键一览',
-    keywords: ['快捷键', 'shortcuts', 'keybindings', '热键', '键位'],
-  },
-  {
-    id: 'about',
-    category: 'about',
-    categoryName: '关于 猫步 MD',
-    title: '关于猫步 MD 与更新检测',
-    desc: '查看应用版本、更新日志、开源协议与贡献者列表',
-    keywords: ['关于', '版本', 'update', '更新', '关于猫步'],
-  },
+  // basics
+  { id: 'theme', category: 'basics', anchor: 'theme', ...se('theme'), keywords: ['主题', 'theme', '深色', '浅色', '夜行', '颜色', '皮肤', '暗黑'] },
+  { id: 'language', category: 'basics', anchor: 'language', ...se('language'), keywords: ['语言', 'language', '中文', '英文', 'english', '日语'] },
+  { id: 'fontFamily', category: 'basics', anchor: 'fontFamily', ...se('fontFamily'), keywords: ['字体', 'font', 'mono', '思源', '宋体', '黑体', 'jetbrains'] },
+  { id: 'fontSize', category: 'basics', anchor: 'fontSize', ...se('fontSize'), keywords: ['字号', '大小', 'font-size', '放大', '缩小', '缩放', 'zoom'] },
+  { id: 'wallpaper', category: 'basics', anchor: 'wallpaper', ...se('wallpaper'), keywords: ['壁纸', '背景', 'wallpaper', '画布', '纹理'] },
+  { id: 'frontmatter', category: 'basics', anchor: 'frontmatter', ...se('frontmatter'), keywords: ['frontmatter', 'yaml', '文章主题', '专属主题'] },
+  // writing
+  { id: 'typewriter', category: 'writing', ...se('typewriter'), keywords: ['打字机', 'typewriter', '居中', '光标'] },
+  { id: 'wordWrap', category: 'writing', anchor: 'wordWrap', ...se('wordWrap'), keywords: ['自动换行', '换行', 'word wrap', '行号', '光标'] },
+  { id: 'livePreview', category: 'writing', anchor: 'livePreview', ...se('livePreview'), keywords: ['实时预览', '所见即所得', '回车换行', '智能引号', '自动编号', 'plantuml'] },
+  { id: 'outline', category: 'writing', anchor: 'outline', ...se('outline'), keywords: ['大纲', 'outline', '目录', '侧边栏', '反向链接', '标签'] },
+  { id: 'lineNumbers', category: 'writing', anchor: 'lineNumbers', ...se('lineNumbers'), keywords: ['行号', 'line numbers', '代码行'] },
+  { id: 'stats', category: 'writing', anchor: 'stats', ...se('stats'), keywords: ['统计', '字数', 'word count', '目标', '专注'] },
+  { id: 'spellcheck', category: 'writing', anchor: 'spellcheck', ...se('spellcheck'), keywords: ['拼写', 'spellcheck', '纠错', '英文', '词典'] },
+  { id: 'imageUpload', category: 'writing', anchor: 'imageUpload', ...se('imageUpload'), keywords: ['图床', 'picgo', 'smms', 's3', 'github', '图片上传'] },
+  { id: 'imageUploadKeepLocal', category: 'writing', anchor: 'imageUploadKeepLocal', ...se('imageUploadKeepLocal'), keywords: ['副本', '本地', 'keep local', '图床', '上传', 'copy'] },
+  { id: 'attachments', category: 'writing', anchor: 'attachments', ...se('attachments'), keywords: ['附件', 'assets', '图片保存', '目录', '存放'] },
+  { id: 'pasteRichText', category: 'writing', anchor: 'pasteRichText', ...se('pasteRichText'), keywords: ['粘贴', '富文本', 'paste', 'markdown', 'word', 'notion', '飞书', '转换'] },
+  // sync
+  { id: 'syncGithub', category: 'sync', anchor: 'syncGithub', ...se('syncGithub'), keywords: ['同步', 'github', 'git', '云端', '备份', 'push', 'token'] },
+  { id: 'history', category: 'sync', anchor: 'history', ...se('history'), keywords: ['时光机', '历史', '快照', '版本', '回滚', 'history'] },
+  // export
+  { id: 'exportPdf', category: 'export', anchor: 'exportPdf', ...se('exportPdf'), keywords: ['pdf', '导出', '打印', '边距', '纸张'] },
+  { id: 'exportImage', category: 'export', anchor: 'exportImage', ...se('exportImage'), keywords: ['长图', '图片', '长微博', '分享', '海报'] },
+  // integrations
+  { id: 'aiModel', category: 'integrations', anchor: 'aiModel', ...se('aiModel'), keywords: ['ai', 'gpt', 'claude', 'deepseek', 'ollama', 'api key', 'token', '模型'] },
+  { id: 'recipes', category: 'integrations', anchor: 'recipes', ...se('recipes'), keywords: ['配方', 'recipes', '自动化', 'prompt', '指令'] },
+  { id: 'mcp', category: 'integrations', anchor: 'mcp', ...se('mcp'), keywords: ['mcp', 'tools', '工具', '协议'] },
+  // advanced
+  { id: 'dailyNotes', category: 'advanced', anchor: 'dailyNotes', ...se('dailyNotes'), keywords: ['日记', '每日笔记', 'daily', 'notes', '格式', '模板'] },
+  { id: 'restoreSession', category: 'advanced', anchor: 'restoreSession', ...se('restoreSession'), keywords: ['启动', '恢复', '会话', 'session', '标签页', '工作区隔离', '分屏'] },
+  { id: 'fileBehavior', category: 'advanced', anchor: 'fileBehavior', ...se('fileBehavior'), keywords: ['保存', '失焦', '自动保存', '外部重载', '监控', '高亮定位'] },
+  { id: 'fileAssoc', category: 'advanced', anchor: 'fileAssoc', ...se('fileAssoc'), keywords: ['关联', '默认', '打开方式', 'markdown', '默认编辑器'] },
+  // system
+  { id: 'shortcuts', category: 'keys', anchor: 'shortcuts', ...se('shortcuts'), keywords: ['快捷键', 'shortcuts', 'keybindings', '热键', '键位'] },
+  { id: 'about', category: 'about', anchor: 'about', ...se('about'), keywords: ['关于', '版本', 'update', '更新', '关于猫步'] },
 ];
+
+function getCategoryName(cat: SettingsCategory): string {
+  const meta = categories.find((c) => c.id === cat);
+  if (!meta) return '';
+  return t(meta.labelKey) || (isZh.value ? meta.labelZh : meta.labelEn);
+}
+
+/** Category subtitle with the {version} placeholder filled from the runtime. */
+function categorySubtitle(cat: CategoryMeta): string {
+  return (isZh.value ? cat.subtitleZh : cat.subtitleEn).replace('{version}', versionLabel.value);
+}
 
 const searchResults = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   if (!q) return [];
-  return searchableCatalog.filter((item) => {
-    if (isNarrow.value && (item.category === 'keys' || item.id === 'mcp')) return false;
-    return (
-      item.title.toLowerCase().includes(q) ||
-      item.desc.toLowerCase().includes(q) ||
-      item.categoryName.toLowerCase().includes(q) ||
-      item.keywords.some((k) => k.toLowerCase().includes(q))
-    );
-  });
+  return searchableCatalog
+    .filter((item) => {
+      if (isNarrow.value && (item.category === 'keys' || item.id === 'mcp')) return false;
+      return (
+        t(item.titleKey).toLowerCase().includes(q) ||
+        t(item.descKey).toLowerCase().includes(q) ||
+        getCategoryName(item.category).toLowerCase().includes(q) ||
+        item.keywords.some((k) => k.toLowerCase().includes(q))
+      );
+    })
+    .map((item) => ({
+      ...item,
+      title: t(item.titleKey),
+      desc: t(item.descKey),
+      categoryName: getCategoryName(item.category),
+    }));
 });
 
 function openCategory(cat: SettingsCategory) {
   activeCategory.value = cat;
   mobileSubPage.value = cat;
   searchQuery.value = '';
+}
+
+let highlightTimer: ReturnType<typeof setTimeout> | null = null;
+let highlightedEl: HTMLElement | null = null;
+
+function clearAnchorHighlight() {
+  if (highlightTimer) {
+    clearTimeout(highlightTimer);
+    highlightTimer = null;
+  }
+  if (highlightedEl) {
+    highlightedEl.classList.remove('is-anchor-highlighted');
+    highlightedEl = null;
+  }
+}
+
+/**
+ * Scroll the active category body to the row carrying `data-setting-anchor`
+ * and flash a temporary highlight so the hit is easy to spot.
+ */
+async function scrollToSetting(anchor: string) {
+  clearAnchorHighlight();
+  // Wait for the category switch to render (and the scroll-to-top watcher to run).
+  await nextTick();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const container = isNarrow.value ? mobileBodyEl.value : bodyEl.value;
+  if (!container) return;
+  const el = container.querySelector<HTMLElement>(`[data-setting-anchor="${CSS.escape(anchor)}"]`);
+  if (!el) return;
+  const delta = el.getBoundingClientRect().top - container.getBoundingClientRect().top;
+  container.scrollTo({ top: Math.max(0, container.scrollTop + delta - 12), behavior: 'smooth' });
+  highlightedEl = el;
+  el.classList.add('is-anchor-highlighted');
+  highlightTimer = setTimeout(() => {
+    el.classList.remove('is-anchor-highlighted');
+    if (highlightedEl === el) highlightedEl = null;
+    highlightTimer = null;
+  }, 2000);
+}
+
+/** Open a search hit: switch category, then scroll to its row and flash it. */
+function openSetting(item: SearchableItem) {
+  openCategory(item.category);
+  if (item.anchor) void scrollToSetting(item.anchor);
 }
 
 function goBackToHub() {
@@ -491,7 +380,7 @@ function getCategoryStatusBadge(catId: SettingsCategory): string {
     case 'integrations':
       return kbSettings.aiModel ? kbSettings.aiModel.split('/')[0] || 'AI' : (isZh.value ? '已就绪' : 'Ready');
     case 'about':
-      return 'v4.3.5';
+      return `v${versionLabel.value}`;
     default:
       return '';
   }
@@ -552,12 +441,19 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
+  try {
+    appVersion.value = await getVersion();
+  } catch {
+    // non-Tauri (web preview) — keep the same fallback as AboutSettings
+    appVersion.value = '1.0.6';
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown);
+  clearAnchorHighlight();
 });
 </script>
 
@@ -605,7 +501,7 @@ onBeforeUnmount(() => {
                 v-model="searchQuery"
                 type="text"
                 class="settings-mobile-search__input"
-                :placeholder="isZh ? '搜索设置项（字号、主题、AI、图床）...' : 'Search settings (font, theme, AI)...'"
+                :placeholder="t('settings.search.placeholder')"
               />
               <button
                 v-if="searchQuery"
@@ -625,13 +521,13 @@ onBeforeUnmount(() => {
           <!-- Content Mode A: Live Search Results -->
           <div v-if="searchQuery.trim()" class="settings-mobile-search-results">
             <div class="settings-mobile-search-results__count">
-              {{ isZh ? `匹配到 ${searchResults.length} 项设置` : `Found ${searchResults.length} settings` }}
+              {{ t('settings.search.resultsCount', { n: searchResults.length }) }}
             </div>
 
             <div v-if="!searchResults.length" class="settings-mobile-search-results__empty">
-              <p>{{ isZh ? '未找到相关设置项' : 'No matching settings found' }}</p>
+              <p>{{ t('settings.search.noResults') }}</p>
               <span class="text-xs text-[var(--text-muted)]">
-                {{ isZh ? '尝试搜索其他关键词，如“主题”、“字号”、“云同步”' : 'Try searching for other keywords' }}
+                {{ t('settings.search.noResultsHint') }}
               </span>
             </div>
 
@@ -640,7 +536,7 @@ onBeforeUnmount(() => {
                 v-for="item in searchResults"
                 :key="item.id"
                 class="settings-mobile-search-item"
-                @click="openCategory(item.category)"
+                @click="openSetting(item)"
               >
                 <div class="settings-mobile-search-item__header">
                   <span class="settings-mobile-search-item__title">{{ item.title }}</span>
@@ -658,7 +554,7 @@ onBeforeUnmount(() => {
               <div class="settings-mobile-hero__brand">
                 <BrandMark :size="30" class="settings-mobile-hero__icon" />
                 <div class="settings-mobile-hero__info">
-                  <div class="settings-mobile-hero__name">猫步 MD <span class="settings-mobile-hero__ver">v4.3.5</span></div>
+                  <div class="settings-mobile-hero__name">猫步 MD <span class="settings-mobile-hero__ver">v{{ versionLabel }}</span></div>
                   <div class="settings-mobile-hero__desc">{{ isZh ? '轻快、纯粹的现代化 Markdown 笔记' : 'Pure & Delightful Markdown Notebook' }}</div>
                 </div>
               </div>
@@ -814,7 +710,7 @@ onBeforeUnmount(() => {
                       {{ t(cat.labelKey) || (isZh ? cat.labelZh : cat.labelEn) }}
                     </div>
                     <div class="settings-mobile-entry__sub">
-                      {{ isZh ? cat.subtitleZh : cat.subtitleEn }}
+                      {{ categorySubtitle(cat) }}
                     </div>
                   </div>
                   <div class="settings-mobile-entry__trailing">
@@ -922,7 +818,63 @@ onBeforeUnmount(() => {
         <h2 class="ds-modal__title">{{ t('settings.title') }}</h2>
       </div>
     </template>
-    <div class="settings__layout">
+    <!-- C14: Settings search, shared with the mobile hub (same searchQuery/searchResults data) -->
+    <div class="settings-desktop-search">
+      <div class="settings-desktop-search__inner">
+        <svg class="settings-desktop-search__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          ref="searchInputRef"
+          v-model="searchQuery"
+          type="text"
+          class="settings-desktop-search__input"
+          :placeholder="t('settings.search.placeholder')"
+        />
+        <button
+          v-if="searchQuery"
+          type="button"
+          class="settings-desktop-search__clear"
+          aria-label="Clear search"
+          @click="clearSearch"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search results replace the two-column layout while querying -->
+    <div v-if="searchQuery.trim()" class="settings-desktop-search-results">
+      <div class="settings-desktop-search-results__count">
+        {{ t('settings.search.resultsCount', { n: searchResults.length }) }}
+      </div>
+
+      <div v-if="!searchResults.length" class="settings-desktop-search-results__empty">
+        <p>{{ t('settings.search.noResults') }}</p>
+        <span>{{ t('settings.search.noResultsHint') }}</span>
+      </div>
+
+      <div v-else class="settings-desktop-search-results__list">
+        <div
+          v-for="item in searchResults"
+          :key="item.id"
+          class="settings-desktop-search-item"
+          @click="openSetting(item)"
+        >
+          <div class="settings-desktop-search-item__header">
+            <span class="settings-desktop-search-item__title">{{ item.title }}</span>
+            <span class="settings-desktop-search-item__badge">{{ item.categoryName }}</span>
+          </div>
+          <p class="settings-desktop-search-item__desc">{{ item.desc }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="settings__layout">
       <!-- Left-side category navigation -->
       <nav class="settings__nav">
         <button
@@ -998,7 +950,145 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   min-height: 0;
-  height: min(600px, 80vh);
+  /* leave room for the settings search bar above (C14) */
+  height: min(600px, calc(80vh - 55px));
+}
+
+/* ==========================================================================
+   Desktop Settings Search (C14: same searchQuery/searchResults as mobile hub)
+   ========================================================================== */
+.settings-desktop-search {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.settings-desktop-search__inner {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--text) 5%, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.settings-desktop-search__inner:focus-within {
+  border-color: var(--accent, #ea580c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #ea580c) 18%, transparent);
+}
+.settings-desktop-search__icon {
+  color: var(--text-muted);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.settings-desktop-search__input {
+  flex: 1;
+  height: 100% !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-size: 13px;
+  color: var(--text);
+}
+.settings-desktop-search__clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: 6px;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  color: var(--text);
+  cursor: pointer;
+}
+.settings-desktop-search-results {
+  height: min(600px, calc(80vh - 55px));
+  overflow-y: auto;
+  padding: 12px 16px 18px;
+}
+.settings-desktop-search-results__count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.settings-desktop-search-results__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 48px 16px;
+  text-align: center;
+}
+.settings-desktop-search-results__empty p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.settings-desktop-search-results__empty span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.settings-desktop-search-results__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.settings-desktop-search-item {
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.settings-desktop-search-item:hover {
+  border-color: color-mix(in srgb, var(--accent, #ea580c) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent, #ea580c) 4%, var(--bg-elev));
+}
+.settings-desktop-search-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 3px;
+}
+.settings-desktop-search-item__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.settings-desktop-search-item__badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent, #ea580c) 12%, transparent);
+  color: var(--accent, #ea580c);
+}
+.settings-desktop-search-item__desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Search-hit anchor flash (C14): rows tagged with data-setting-anchor in the
+   settings tabs highlight briefly after a search result is clicked. */
+:deep([data-setting-anchor]) {
+  transition: background-color 0.4s ease, box-shadow 0.4s ease;
+}
+:deep([data-setting-anchor].is-anchor-highlighted) {
+  background: color-mix(in srgb, var(--accent, #ea580c) 12%, transparent) !important;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent, #ea580c) 45%, transparent);
+  border-radius: 8px;
 }
 .settings__nav {
   width: 128px;

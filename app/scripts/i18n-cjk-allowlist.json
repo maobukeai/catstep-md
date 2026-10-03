@@ -12,6 +12,7 @@
     "components/markdown-help/shortcuts.data.ts",
     "components/markdown-help/syntax.data.ts",
     "lib/markdown-tables.test.ts",
+    "lib/cm-extensions.test.ts",
     "lib/agent-prompts.test.ts",
     "lib/html-live-render.test.ts",
     "lib/agent-context.test.ts",
@@ -24,7 +25,8 @@
     "lib/tasks.test.ts",
     "lib/prompt-templates.test.ts",
     "lib/code-block-fidelity.test.ts",
-    "lib/htmlToMarkdown.test.ts"
+    "lib/htmlToMarkdown.test.ts",
+    "lib/math-block.test.ts"
   ],
   "exemptLines": {
     "components/settings/GeneralSettingsTab.vue": [

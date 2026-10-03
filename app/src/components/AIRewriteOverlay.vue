@@ -23,8 +23,7 @@
  */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
-import { aiCancel, aiHasKey } from '../lib/commands';
+import { aiCancel, aiHasKey, aiRewrite } from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { ACTIONS, providerById, type AIAction, type ProviderId } from '../lib/ai-providers';
 import {
@@ -302,7 +301,7 @@ async function startAction(a: AIAction): Promise<void> {
       key_id: props.profileId || null,
       request_id: newRequestId,
     };
-    await invoke<string>('ai_rewrite', { request: payload });
+    await aiRewrite<string>(payload);
   } catch (err) {
     console.error('[ai] ai_rewrite invoke threw', err);
     streaming.value = false;
@@ -386,7 +385,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="open" class="ai-overlay__backdrop" @click.self="onReject">
-    <div class="ai-overlay" role="dialog" aria-label="AI rewrite">
+    <div class="ai-overlay" role="dialog" aria-modal="true" aria-label="AI rewrite">
       <header class="ai-overlay__head">
         <span class="ai-overlay__title">{{ t('ai.rewrite') }}</span>
         <button class="ai-overlay__close" @click="onReject" aria-label="Close">×</button>

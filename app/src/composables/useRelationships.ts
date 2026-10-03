@@ -24,6 +24,7 @@ import { useTabsStore } from '../stores/tabs';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useWorkspaceIndexStore, type IndexEntry, type ReferencedByRef } from '../stores/workspaceIndex';
 import { useToastsStore } from '../stores/toasts';
+import { useI18n } from '../i18n';
 import {
   extractRelationships,
   setRelationshipInBlock,
@@ -82,6 +83,7 @@ function withSynthesizedFrontMatter(doc: string, block: string): string {
   return `${bom}---\n${block}\n---\n${sep}${rest}`;
 }
 
+  const { t } = useI18n();
 export function useRelationships() {
   const tabs = useTabsStore();
   const workspace = useWorkspaceStore();
@@ -145,16 +147,16 @@ export function useRelationships() {
   > {
     const tab = tabs.activeTab;
     if (!tab || !tab.filePath) {
-      toasts.error('No active document to edit relationships on.');
+      toasts.error(t('relationships.noActive'));
       return null;
     }
     if (tab.language !== 'markdown') {
-      toasts.error('Relationships can only be edited on Markdown notes.');
+      toasts.error(t('relationships.notMarkdown'));
       return null;
     }
     if (tab.content !== tab.savedContent) {
       // Don't race the editor buffer — persist current edits first.
-      toasts.error('Save the document first, then edit relationships.');
+      toasts.error(t('relationships.saveFirst'));
       return null;
     }
     try {
@@ -167,7 +169,7 @@ export function useRelationships() {
         tabId: tab.id,
       };
     } catch (e) {
-      toasts.error(`Failed to read document: ${e}`);
+      toasts.error(t('relationships.readFailed', { error: String(e) }));
       return null;
     }
   }
@@ -194,7 +196,7 @@ export function useRelationships() {
       idx.refresh().catch(() => {});
       return true;
     } catch (e) {
-      toasts.error(`Failed to save relationship: ${e}`);
+      toasts.error(t('relationships.saveFailed', { error: String(e) }));
       return false;
     }
   }
@@ -245,17 +247,17 @@ export function useRelationships() {
   function addRelationshipKey(key: string, targetStem: string): Promise<boolean> {
     const cleanKey = key.trim();
     if (!cleanKey) {
-      toasts.error('Relationship name cannot be empty.');
+      toasts.error(t('relationships.emptyName'));
       return Promise.resolve(false);
     }
     if (isReservedKey(cleanKey)) {
-      toasts.error(`"${cleanKey}" is a reserved key and can't be a relationship.`);
+      toasts.error(t('relationships.reservedKey', { key: cleanKey }));
       return Promise.resolve(false);
     }
     const path = tabs.activeTab?.filePath ?? null;
     const existing = forwardFor(path);
     if (Object.keys(existing).some((k) => k.toLowerCase() === cleanKey.toLowerCase())) {
-      toasts.error('That relationship already exists.');
+      toasts.error(t('relationships.keyExists'));
       return Promise.resolve(false);
     }
     return addRef(cleanKey, targetStem);

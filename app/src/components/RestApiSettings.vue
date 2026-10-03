@@ -9,7 +9,13 @@
  * dedicated "Allow write" toggle gating the two writer tools.
  */
 import { computed, onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  restGetState,
+  restRegenerateToken,
+  restSetAllowWrite,
+  restSetEnabled,
+  restSetWorkspace,
+} from '../lib/commands';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useI18n } from '../i18n';
@@ -38,7 +44,7 @@ const showToken = ref(false);
 
 async function refresh() {
   try {
-    state.value = await invoke<RestState>('rest_get_state');
+    state.value = await restGetState<RestState>();
   } catch (e) {
     console.warn('rest_get_state failed', e);
   }
@@ -47,42 +53,37 @@ async function refresh() {
 async function onToggleEnabled() {
   const next = !state.value.enabled;
   try {
-    state.value = await invoke<RestState>('rest_set_enabled', {
-      enabled: next,
-      port: state.value.port,
-    });
+    state.value = await restSetEnabled<RestState>(next, state.value.port);
     if (next) {
       // Push the active workspace immediately so the first request after
       // enable doesn't hit a 503.
-      await invoke('rest_set_workspace', {
-        folder: workspace.currentFolder ?? null,
-      });
+      await restSetWorkspace(workspace.currentFolder ?? null);
       toasts.success(t('rest.endpointEnabled', { port: String(state.value.port) }));
     } else {
       toasts.info(t('rest.endpointDisabled'));
     }
   } catch (e) {
-    toasts.error(`REST API: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'REST API', error: String(e) }));
   }
 }
 
 async function onToggleAllowWrite() {
   const next = !state.value.allow_write;
   try {
-    state.value = await invoke<RestState>('rest_set_allow_write', { allow: next });
+    state.value = await restSetAllowWrite<RestState>(next);
     toasts.info(next ? t('rest.allowWriteOn') : t('rest.allowWriteOff'));
   } catch (e) {
-    toasts.error(`REST API: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'REST API', error: String(e) }));
   }
 }
 
 async function onRegenerateToken() {
   try {
-    state.value = await invoke<RestState>('rest_regenerate_token');
+    state.value = await restRegenerateToken<RestState>();
     showToken.value = true;
     toasts.success(t('rest.tokenRegenerated'));
   } catch (e) {
-    toasts.error(`Regenerate: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Regenerate', error: String(e) }));
   }
 }
 
@@ -90,7 +91,7 @@ async function copyEndpoint() {
   const port = state.value.port || 7878;
   try {
     await navigator.clipboard.writeText(`http://127.0.0.1:${port}`);
-    toasts.success(t('rest.endpoint') + ' URL 已复制');
+    toasts.success(t('rest.urlCopied'));
   } catch (e) {
     toasts.error(String(e));
   }

@@ -8,7 +8,13 @@
  * search. We don't tear the DB down — re-enabling is then instant.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  ragIndexStatus,
+  ragReindex,
+  ragReindexFile,
+  ragSearch,
+  ragSetEnabled,
+} from '../lib/commands';
 
 export interface RagStatus {
   enabled: boolean;
@@ -51,7 +57,7 @@ export const useRagStore = defineStore('rag', {
         return;
       }
       try {
-        this.status = await invoke<RagStatus>('rag_index_status', { folder });
+        this.status = await ragIndexStatus<RagStatus>(folder);
       } catch (e) {
         this.lastError = String(e);
       }
@@ -62,7 +68,7 @@ export const useRagStore = defineStore('rag', {
       if (!folder) return;
       this.indexing = enabled;
       try {
-        this.status = await invoke<RagStatus>('rag_set_enabled', { folder, enabled });
+        this.status = await ragSetEnabled<RagStatus>(folder, enabled);
       } catch (e) {
         this.lastError = String(e);
       } finally {
@@ -75,7 +81,7 @@ export const useRagStore = defineStore('rag', {
       this.indexing = true;
       this.lastError = null;
       try {
-        this.status = await invoke<RagStatus>('rag_reindex', { folder });
+        this.status = await ragReindex<RagStatus>(folder);
       } catch (e) {
         this.lastError = String(e);
       } finally {
@@ -88,8 +94,10 @@ export const useRagStore = defineStore('rag', {
       this.searching = true;
       this.lastError = null;
       try {
-        const hits = await invoke<RagHit[]>('rag_search', {
-          args: { folder, query, limit },
+        const hits = await ragSearch<RagHit[]>({
+          folder,
+          query,
+          limit,
         });
         return hits;
       } catch (e) {
@@ -104,7 +112,7 @@ export const useRagStore = defineStore('rag', {
     async reindexFile(folder: string | null, filePath: string): Promise<void> {
       if (!folder) return;
       try {
-        await invoke('rag_reindex_file', { folder, filePath });
+        await ragReindexFile(folder, filePath);
       } catch {
         // best-effort; full reindex will catch up if this misses.
       }

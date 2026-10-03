@@ -33,7 +33,7 @@ async function onToggleRagEnabled() {
     await rag.setEnabled(workspace.currentFolder, false);
   }
   if (rag.lastError) {
-    toasts.error(`RAG: ${rag.lastError}`);
+    toasts.error(t('toast.moduleError', { module: 'RAG', error: String(rag.lastError) }));
   }
 }
 
@@ -41,9 +41,9 @@ async function onReindexNow() {
   if (!workspace.currentFolder) return;
   await rag.reindex(workspace.currentFolder);
   if (rag.lastError) {
-    toasts.error(`RAG reindex failed: ${rag.lastError}`);
+    toasts.error(t('rag.reindexFailed', { error: String(rag.lastError) }));
   } else {
-    toasts.success(`Reindexed ${rag.status?.indexed_files ?? 0} files`);
+    toasts.success(t('rag.reindexed', { n: rag.status?.indexed_files ?? 0 }));
   }
 }
 </script>
@@ -115,7 +115,7 @@ async function onReindexNow() {
     </div>
 
     <!-- AISettings -->
-    <div v-if="!IS_APP_STORE_BUILD" class="settings-subcomponent-wrap">
+    <div v-if="!IS_APP_STORE_BUILD" class="settings-subcomponent-wrap" data-setting-anchor="aiModel">
       <AISettings
         :enabled="settings.aiEnabled"
         :provider="(settings.aiProvider as any)"
@@ -134,12 +134,12 @@ async function onReindexNow() {
     </div>
 
     <!-- CLI + MCP Integrations (Desktop only) -->
-    <div v-if="!isMobilePlatform && !isNarrow" class="settings-subcomponent-wrap">
+    <div v-if="!isMobilePlatform && !isNarrow" class="settings-subcomponent-wrap" data-setting-anchor="mcp">
       <IntegrationsSettings />
     </div>
 
     <!-- Recipes (Agent recipes) -->
-    <div v-if="!IS_APP_STORE_BUILD && gitBackend" class="settings-subcomponent-wrap">
+    <div v-if="!IS_APP_STORE_BUILD && gitBackend" class="settings-subcomponent-wrap" data-setting-anchor="recipes">
       <RecipesSettings />
     </div>
 

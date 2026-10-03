@@ -43,6 +43,14 @@ jobs:
           cd app
           pnpm run i18n:check
 
+      # C13 — the first argument of every toasts.*/confirm() call must be
+      # free of raw copy: a t('key') call is fine, 'Saved xxx' / isZh ternaries
+      # are not. Allowlist: scripts/toast-literal-allowlist.json.
+      - name: Toast/Confirm Literal Gate
+        run: |
+          cd app
+          pnpm run i18n:toast
+
       - name: Type Check Unit Tests (vue-tsc + tsconfig.test.json)
         run: |
           cd app

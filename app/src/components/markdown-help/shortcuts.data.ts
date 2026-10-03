@@ -576,6 +576,7 @@ const ALL_SHORTCUTS: ShortcutDef[] = [
   },
   {
     id: 'edt-del-line',
+    action: 'editor.deleteLine',
     category: 'edit',
     zh: '删除光标所在整行',
     en: 'Delete current line',
@@ -688,6 +689,26 @@ const ALL_SHORTCUTS: ShortcutDef[] = [
     winFallback: 'Ctrl+Shift+J / F6',
     macFallback: '⌘⇧J / F6',
     tag: '排版',
+  },
+  {
+    id: 'edt-table-editor',
+    action: 'editor.tableEditor',
+    category: 'edit',
+    zh: '表格可视化编辑（网格模式）',
+    en: 'Edit table as a grid',
+    winFallback: 'Ctrl+Alt+T',
+    macFallback: '⌘⌥T',
+    tag: '编辑',
+  },
+  {
+    id: 'edt-formula-editor',
+    action: 'editor.formulaEditor',
+    category: 'edit',
+    zh: '数学公式可视化编辑',
+    en: 'Edit formula',
+    winFallback: 'Ctrl+Alt+M',
+    macFallback: '⌘⌥M',
+    tag: '编辑',
   },
 
   // ── 5. 视图与模式 (View & Modes) ──────────────────────────────────────────
@@ -822,6 +843,69 @@ const ALL_SHORTCUTS: ShortcutDef[] = [
     macFallback: '⌘⌥→ / ⌘⌥←',
     tag: '分屏',
   },
+  {
+    id: 'view-close-pane',
+    action: 'tile.closePane',
+    category: 'view',
+    zh: '关闭当前编辑器分屏',
+    en: 'Close current pane',
+    winFallback: 'Ctrl+Alt+W',
+    macFallback: '⌘⌥W',
+    tag: '分屏',
+  },
+  {
+    id: 'view-cycle',
+    action: 'view.cycleView',
+    category: 'view',
+    zh: '循环切换 编辑 / 分屏 / 预览',
+    en: 'Cycle edit, split, preview',
+    winFallback: 'Ctrl+Alt+V',
+    macFallback: '⌘⌥V',
+    tag: '视图',
+  },
+  {
+    id: 'view-filetree',
+    action: 'view.toggleFileTree',
+    category: 'view',
+    zh: '左侧边栏整体显隐',
+    en: 'Toggle left sidebar visibility',
+    // C23 — shipped with no default chord (defaults: []); shows unbound
+    // until the user binds one, rather than a chord that does not exist.
+    winFallback: '未绑定',
+    macFallback: '未绑定',
+    tag: '视图',
+  },
+  {
+    id: 'view-right-sidebar',
+    action: 'view.toggleRightSidebar',
+    category: 'view',
+    zh: '右侧工具抽屉显隐（大纲、反链、标签、历史、Agent）',
+    en: 'Toggle right sidebar (outline / backlinks / tags / history / agent)',
+    winFallback: 'Ctrl+Alt+B',
+    macFallback: '⌘⌥B',
+    tag: '视图',
+  },
+  {
+    id: 'view-outline-panel',
+    action: 'view.toggleOutline',
+    category: 'view',
+    zh: '当前文档大纲面板显隐（与左侧栏页签不同）',
+    en: 'Toggle the outline panel of the current note (distinct from the sidebar tab)',
+    // C23 — shipped with no default chord; shows unbound until bound.
+    winFallback: '未绑定',
+    macFallback: '未绑定',
+    tag: '视图',
+  },
+  {
+    id: 'view-inspector',
+    action: 'view.toggleInspector',
+    category: 'view',
+    zh: '属性检查器（frontmatter 可视化编辑）',
+    en: 'Toggle properties inspector (frontmatter)',
+    winFallback: 'Ctrl+Alt+I',
+    macFallback: '⌘⌥I',
+    tag: '视图',
+  },
 
   // ── 6. 文件与标签 (Files & Tabs) ──────────────────────────────────────────
   {
@@ -954,6 +1038,18 @@ const ALL_SHORTCUTS: ShortcutDef[] = [
     macFallback: '⌘⌥⇧P',
     tag: '导出',
   },
+  {
+    id: 'file-exit',
+    action: 'file.exit',
+    category: 'file',
+    zh: '退出应用（仅 Windows 与 Linux）',
+    en: 'Quit the app (Windows and Linux only)',
+    winFallback: 'Ctrl+Q',
+    // macFallback: the action is platform-gated off macOS (⌘Q belongs to the
+    // OS app menu), so there is no chord to show.
+    macFallback: '—',
+    tag: '文件',
+  },
 
   // ── 7. 猫步 AI 与高效工具 (AI & Tools) ────────────────────────────────────
   {
@@ -1015,6 +1111,16 @@ const ALL_SHORTCUTS: ShortcutDef[] = [
     winFallback: 'Ctrl+,',
     macFallback: '⌘,',
     tag: 'Typora',
+  },
+  {
+    id: 'tool-md-help',
+    action: 'help.markdown',
+    category: 'tools',
+    zh: 'Markdown 帮助与快捷键速查表',
+    en: 'Markdown help & shortcut cheat sheet',
+    winFallback: 'F1 / Ctrl+Shift+/',
+    macFallback: 'F1 / ⌘⇧/',
+    tag: '帮助',
   },
   {
     id: 'tool-daily',

@@ -12,7 +12,13 @@
  * panel is always coherent with the actually-running listener.
  */
 import { computed, onMounted, ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  captureGetState,
+  captureRegenerateToken,
+  captureSetEnabled,
+  captureSetInboxFolder,
+  captureSetWorkspace,
+} from '../lib/commands';
 import { useToastsStore } from '../stores/toasts';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useI18n } from '../i18n';
@@ -23,6 +29,8 @@ interface CaptureState {
   port: number;
   token: string;
   inbox_folder: string;
+  /** Fatal boot error (e.g. port already in use); null while healthy. */
+  last_error?: string | null;
 }
 
 const { t } = useI18n();
@@ -35,56 +43,76 @@ const state = ref<CaptureState>({
   port: 7777,
   token: '',
   inbox_folder: 'inbox',
+  last_error: null,
 });
 
 const showToken = ref(false);
 
 async function refresh() {
   try {
-    state.value = await invoke<CaptureState>('capture_get_state');
+    state.value = await captureGetState<CaptureState>();
   } catch (e) {
     console.warn('capture_get_state failed', e);
+  }
+}
+
+/**
+ * Briefly poll the backend after enabling so the pill lands on its real
+ * state instead of sticking on "starting…": the listener binds
+ * asynchronously, and a failed bind (e.g. port already taken) only shows
+ * up in `last_error` a moment later.
+ */
+async function awaitBootVerdict(): Promise<void> {
+  for (let i = 0; i < 15; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    try {
+      state.value = await captureGetState<CaptureState>();
+    } catch {
+      return; // IPC hiccup — leave whatever the last snapshot said
+    }
+    if (state.value.running || state.value.last_error) return;
   }
 }
 
 async function onToggleEnabled() {
   const next = !state.value.enabled;
   try {
-    state.value = await invoke<CaptureState>('capture_set_enabled', {
-      enabled: next,
-      port: state.value.port,
-    });
+    state.value = await captureSetEnabled<CaptureState>(next, state.value.port);
     if (next) {
       // Push the active workspace folder so the server can write there.
-      await invoke('capture_set_workspace', {
-        folder: workspace.currentFolder ?? null,
-      });
-      toasts.success(t('inbox.endpointEnabled', { port: String(state.value.port) }));
+      await captureSetWorkspace(workspace.currentFolder ?? null);
+      await awaitBootVerdict();
+      if (state.value.last_error) {
+        // Bind failed — say so instead of toasting success.
+        toasts.error(t('inbox.endpointStartFailed', { error: state.value.last_error }));
+      } else if (state.value.running) {
+        toasts.success(t('inbox.endpointEnabled', { port: String(state.value.port) }));
+      }
+      // Still neither after the polling window → leave the "starting…"
+      // pill up rather than claim an outcome we can't see yet.
     } else {
       toasts.info(t('inbox.endpointDisabled'));
     }
   } catch (e) {
-    toasts.error(`Capture endpoint: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Capture endpoint', error: String(e) }));
   }
 }
 
 async function onRegenerateToken() {
   try {
-    state.value = await invoke<CaptureState>('capture_regenerate_token');
+    state.value = await captureRegenerateToken<CaptureState>();
     showToken.value = true;
     toasts.success(t('inbox.tokenRegenerated'));
   } catch (e) {
-    toasts.error(`Regenerate: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Regenerate', error: String(e) }));
   }
 }
 
 async function onSetInboxFolder(value: string) {
   try {
-    state.value = await invoke<CaptureState>('capture_set_inbox_folder', {
-      folder: value,
-    });
+    state.value = await captureSetInboxFolder<CaptureState>(value);
   } catch (e) {
-    toasts.error(`Inbox folder: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Inbox folder', error: String(e) }));
   }
 }
 
@@ -140,6 +168,19 @@ const curlSnippet = computed(() => {
   ].join('\n');
 });
 
+// Status pill: real boot state, not an optimistic "starting…".
+const pillClass = computed(() => {
+  if (state.value.running) return 'status-pill--live';
+  if (state.value.last_error) return 'status-pill--error';
+  return 'status-pill--idle';
+});
+
+const pillLabel = computed(() => {
+  if (state.value.running) return t('inbox.statusRunning');
+  if (state.value.last_error) return t('inbox.statusError');
+  return t('inbox.statusStarting');
+});
+
 onMounted(refresh);
 </script>
 
@@ -151,12 +192,8 @@ onMounted(refresh);
         <div class="capture-header__info">
           <div class="capture-header__title-row">
             <span class="capture-header__title">{{ t('inbox.captureHeading') }}</span>
-            <span
-              v-if="state.enabled"
-              class="status-pill"
-              :class="state.running ? 'status-pill--live' : 'status-pill--idle'"
-            >
-              {{ state.running ? t('inbox.statusRunning') : t('inbox.statusStarting') }}
+            <span v-if="state.enabled" class="status-pill" :class="pillClass">
+              {{ pillLabel }}
             </span>
           </div>
           <p class="capture-header__desc">{{ t('inbox.enableCaptureHint') }}</p>
@@ -171,6 +208,15 @@ onMounted(refresh);
             <span class="modern-switch__slider"></span>
           </label>
         </div>
+      </div>
+
+      <!-- C18: a failed bind (e.g. port already taken) surfaces here instead
+           of the endpoint silently never coming up. -->
+      <div
+        v-if="state.enabled && !state.running && state.last_error"
+        class="capture-error-row"
+      >
+        {{ t('inbox.endpointStartFailed', { error: state.last_error }) }}
       </div>
 
       <!-- Expanded Configuration Panel -->
@@ -331,6 +377,21 @@ onMounted(refresh);
 .status-pill--idle {
   background: rgba(107, 114, 128, 0.12);
   color: var(--text-muted);
+}
+
+.status-pill--error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+/* Inline bind-failure banner (C18). */
+.capture-error-row {
+  border-top: 1px solid rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.06);
+  color: #ef4444;
+  font-size: 11px;
+  line-height: 1.45;
+  padding: 6px 14px;
 }
 
 /* Modern Toggle Switch */

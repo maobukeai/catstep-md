@@ -126,6 +126,18 @@ export const useRecentEditsStore = defineStore('recentEdits', {
         this.persist();
       }
     },
+    /** C20 — a move/rename must not orphan its MFU entry: carry the edit
+     *  count from `from` onto `to`. The larger count wins when `to` was
+     *  already tracked (both describe the same file's history). */
+    migratePath(from: string, to: string) {
+      if (!from || !to || from === to) return;
+      const count = this.counts[from];
+      if (!count) return;
+      delete this.counts[from];
+      this.counts[to] = Math.max(this.counts[to] || 0, count);
+      this.evictIfNeeded();
+      this.persist();
+    },
     evictIfNeeded() {
       const keys = Object.keys(this.counts);
       if (keys.length <= LRU_CAP) return;

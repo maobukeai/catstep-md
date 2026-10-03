@@ -67,7 +67,7 @@ async function refreshCustomCss() {
 async function refreshCustomThemes() {
   await themesStore.refreshInstalled();
   await reloadAllCustomStyles(settings.customCssPath);
-  toasts.success(t('settings.themeRefreshBtn') ? (isZh.value ? '已刷新主题与样式' : 'Themes and styles reloaded') : 'Themes and styles reloaded');
+  toasts.success(t('settings.themeRefreshed'));
 }
 
 const currentThemeSelectValue = computed(() =>
@@ -105,11 +105,11 @@ async function pickWallpaper(mode: 'light' | 'dark' = 'light') {
       const savedPath = await themesStore.saveWallpaper(path);
       if (mode === 'dark') {
         settings.setBgImageDark(savedPath);
-        toasts.success(isZh.value ? '已成功应用深色模式专属壁纸' : 'Dark wallpaper applied successfully');
+        toasts.success(t('settings.wallpaperDarkApplied'));
       } else {
         settings.setBgImage(savedPath);
         settings.setBgType('image');
-        toasts.success(isZh.value ? '已成功应用自定义背景壁纸' : 'Wallpaper applied successfully');
+        toasts.success(t('settings.wallpaperApplied'));
       }
     } catch (e) {
       console.error('Failed to save wallpaper:', e);
@@ -190,7 +190,7 @@ onMounted(() => {
       <div class="settings-group__title">{{ t('settings.groupAppearance') }}</div>
       <div class="settings-group__card">
         <!-- Row: Language -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="language">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.language') }}</label>
           </div>
@@ -218,9 +218,9 @@ onMounted(() => {
         </div>
 
         <!-- Row: Theme (3-in-1 Compact) -->
-        <div class="setting-row setting-theme-row">
+        <div class="setting-row setting-theme-row" data-setting-anchor="theme">
           <div class="setting-row__info">
-            <div class="setting-theme-title-line">
+            <div class="setting-theme-title-line" data-setting-anchor="frontmatter">
               <label class="setting-row__title">{{ t('settings.theme') }}</label>
               <label
                 class="setting-inline-check"
@@ -328,7 +328,7 @@ onMounted(() => {
         </div>
 
         <!-- Row: Canvas Background -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="wallpaper">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.bgTitle') }}</label>
             <p class="setting-row__hint">{{ t('settings.bgHint') }}</p>
@@ -503,7 +503,7 @@ onMounted(() => {
         </template>
 
         <!-- Row: Typography (Body Font + Code Font Dual) -->
-        <div class="setting-row setting-fonts-row">
+        <div class="setting-row setting-fonts-row" data-setting-anchor="fontFamily">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.typographyTitle') }}</label>
             <p class="setting-row__hint">{{ t('settings.typographyHint') }}</p>
@@ -556,6 +556,7 @@ onMounted(() => {
           <div
             class="settings-typo-cell"
             tabindex="0"
+            data-setting-anchor="fontSize"
             @mouseenter="fontSizeSliderRef?.activate()"
             @keydown.enter.prevent="fontSizeSliderRef?.resetToDefault(); settings.setFontSize(14)"
           >

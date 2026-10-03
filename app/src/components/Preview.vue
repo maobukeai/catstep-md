@@ -3,9 +3,11 @@ import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { requestMermaidTheme, getMermaid } from '../lib/mermaid-lazy';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { renderMarkdown, extractImageRoot } from '../lib/markdown';
+import { findMathBlock, rebuildMathBlock, type MathBlockWrap } from '../lib/math-block';
 import { plantumlSvgUrl } from '../lib/plantuml';
 import { installSvgImageFallbacks, rewriteImageUrls } from '../lib/image-resolve';
 import { openImageOverlay, type OverlayStrings } from '../lib/image-overlay';
+import { toggleTaskLine } from '../lib/tasks';
 import { svgToPngBlob, diagramBackground } from '../lib/mermaid-export';
 import { pickSavePath } from '../lib/user-pick';
 import { writeBinaryFile } from '../lib/commands';
@@ -59,48 +61,20 @@ const searchOpen = ref(false);
 const searchRef = ref<InstanceType<typeof PreviewSearch> | null>(null);
 
 // ── Editable display math (double-click a $$…$$ formula to edit its LaTeX) ──
+// C24 — block location + shape-preserving rebuild live in lib/math-block.ts
+// (pure functions, unit-tested); this component only holds the popover state.
 const mathEdit = ref<
-  null | { fromLine: number; toLine: number; top: number; left: number; width: number }
+  null | {
+    fromLine: number;
+    toLine: number;
+    top: number;
+    left: number;
+    width: number;
+    wrap: MathBlockWrap;
+  }
 >(null);
 const mathDraft = ref('');
 const mathTextarea = ref<HTMLTextAreaElement | null>(null);
-
-/**
- * Locate the `$$…$$` block whose opening `$$` is at/near 1-indexed `startLine`
- * and return its 0-indexed inclusive line range plus the inner LaTeX.
- */
-function findMathBlock(
-  source: string,
-  startLine: number,
-): { from: number; to: number; latex: string } | null {
-  const lines = source.split('\n');
-  let openIdx = -1;
-  for (let k = startLine - 1; k >= 0 && k < Math.min(lines.length, startLine + 1); k++) {
-    if (k >= 0 && lines[k]?.includes('$$')) { openIdx = k; break; }
-  }
-  if (openIdx === -1) return null;
-  const openLine = lines[openIdx];
-  const openPos = openLine.indexOf('$$');
-  const afterOpen = openLine.slice(openPos + 2);
-  // Single-line: $$ latex $$
-  const sameClose = afterOpen.indexOf('$$');
-  if (sameClose !== -1) {
-    return { from: openIdx, to: openIdx, latex: afterOpen.slice(0, sameClose).trim() };
-  }
-  // Multi-line: find the closing $$
-  let closeIdx = -1;
-  for (let k = openIdx + 1; k < lines.length; k++) {
-    if (lines[k].includes('$$')) { closeIdx = k; break; }
-  }
-  if (closeIdx === -1) return null;
-  const closeLine = lines[closeIdx];
-  const tail = closeLine.slice(0, closeLine.indexOf('$$'));
-  const latex = [afterOpen, ...lines.slice(openIdx + 1, closeIdx), tail]
-    .join('\n')
-    .replace(/^\s*\n|\n\s*$/g, '')
-    .trim();
-  return { from: openIdx, to: closeIdx, latex };
-}
 
 function onPreviewDblClick(e: MouseEvent) {
   if (!props.tabId) return;
@@ -119,6 +93,7 @@ function onPreviewDblClick(e: MouseEvent) {
     top: rect.bottom + 6,
     left: rect.left,
     width: Math.min(Math.max(rect.width, 300), 620),
+    wrap: found.wrap,
   };
   mathDraft.value = found.latex;
   nextTick(() => {
@@ -129,8 +104,10 @@ function onPreviewDblClick(e: MouseEvent) {
 
 function saveMathEdit() {
   if (!mathEdit.value || !props.tabId) return;
+  // C24 — rebuild in the user's original shape (one-line vs fenced, spacing,
+  // blank lines) instead of forcing the three-line `$$\n…\n$$` form.
+  const replacement = rebuildMathBlock(mathEdit.value.wrap, mathDraft.value);
   const lines = (props.source || '').split('\n');
-  const replacement = ('$$\n' + mathDraft.value.trim() + '\n$$').split('\n');
   lines.splice(mathEdit.value.fromLine, mathEdit.value.toLine - mathEdit.value.fromLine + 1, ...replacement);
   tabs.setContent(props.tabId, lines.join('\n'));
   mathEdit.value = null;
@@ -162,13 +139,24 @@ const html = ref('');
 const PREVIEW_RENDER_DEBOUNCE = 150;
 let renderTimer: ReturnType<typeof setTimeout> | null = null;
 
+// C07 — the shared markdown renderer (lib/markdown.ts) always emits task
+// checkboxes with `disabled=""`. In an editable preview that attribute is
+// stripped so the checkbox can be clicked to toggle its source marker
+// (see onPreviewTaskClick); read-only skins (slideshow, export — no tabId)
+// keep the inert checkbox.
+const TASK_CHECKBOX_DISABLED_RE =
+  /(<input class="task-list-item-checkbox[^"]*" type="checkbox"[^>]*?)\s+disabled=""/g;
+
 function renderPreviewNow(): void {
   // #141 — the hard-breaks toggle needs re-render on flip (renderMarkdown
   // reads the md singleton's option, which isn't reactive by itself); same
   // for #216's numbered-headings and smart-quotes module flags. All three
   // are in the watch source below.
   const source = props.source || '';
-  html.value = rewriteImageUrls(renderMarkdown(source), extractImageRoot(source), props.filePath);
+  const rendered = rewriteImageUrls(renderMarkdown(source), extractImageRoot(source), props.filePath);
+  html.value = props.tabId
+    ? rendered.replace(TASK_CHECKBOX_DISABLED_RE, '$1')
+    : rendered;
 }
 
 function schedulePreviewRender(): void {
@@ -414,9 +402,9 @@ async function exportDiagramPng(svg: SVGElement) {
     if (!path) return;
     const buffer = new Uint8Array(await blob.arrayBuffer());
     await writeBinaryFile(path, Array.from(buffer));
-    toasts.success(`Saved ${path.split(/[\\/]/).pop()}`);
+    toasts.success(t('toast.savedName', { name: path.split(/[\\/]/).pop() ?? path }));
   } catch (err) {
-    toasts.error(`Export failed: ${err}`);
+    toasts.error(t('toast.exportFailedReason', { error: String(err) }));
   }
 }
 
@@ -437,7 +425,7 @@ async function copyDiagramPng(svg: SVGElement) {
     }
     toasts.success(t('overlay.copyImage') + ' ✓');
   } catch (err) {
-    toasts.error(`Copy failed: ${err}`);
+    toasts.error(t('toast.copyFailed', { error: String(err) }));
   }
 }
 
@@ -469,6 +457,36 @@ watch(
     attachCodeCopyButtons();
   },
 );
+
+/**
+ * C07 — clicking a rendered task checkbox flips the `[ ]`/`[x]` marker on its
+ * source line. The checkbox carries `data-line` on its enclosing <li>
+ * (1-indexed, attached by lib/markdown.ts); toggleTaskLine rewrites the line
+ * and tabs.setContent writes it back — the same affordance the editor's
+ * plain blocks have (Editor.vue togglePlainTask).
+ */
+function onPreviewTaskClick(e: MouseEvent) {
+  if (!props.tabId) return;
+  const target = e.target as HTMLElement;
+  if (
+    !(target instanceof HTMLInputElement) ||
+    target.type !== 'checkbox' ||
+    !target.classList.contains('task-list-item-checkbox')
+  ) {
+    return;
+  }
+  const li = target.closest('li[data-line]');
+  const line = li ? Number(li.getAttribute('data-line') || 0) : 0;
+  if (!line) return;
+  // Undo the browser's pre-click checked flip; the re-render triggered by
+  // setContent repaints the real state from source.
+  e.preventDefault();
+  // toggleTaskLine returns null when that line is no longer a task — never
+  // write back then (same stale-line contract as the tasks panel).
+  const next = toggleTaskLine(props.source || '', line);
+  if (next === null) return;
+  tabs.setContent(props.tabId, next);
+}
 
 /**
  * Intercept all link clicks inside the preview pane and open them in the
@@ -668,6 +686,7 @@ onMounted(async () => {
   attachImageOverlayHandlers();
   attachCodeCopyButtons();
   host.value?.addEventListener('click', handleLinkClick);
+  host.value?.addEventListener('click', onPreviewTaskClick);
   host.value?.addEventListener('click', onPreviewTableClick);
   host.value?.addEventListener('dblclick', onPreviewDblClick);
   host.value?.parentElement?.addEventListener('scroll', onPreviewScroll, { passive: true });
@@ -675,6 +694,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   host.value?.removeEventListener('click', handleLinkClick);
+  host.value?.removeEventListener('click', onPreviewTaskClick);
   host.value?.removeEventListener('click', onPreviewTableClick);
   host.value?.removeEventListener('dblclick', onPreviewDblClick);
   host.value?.parentElement?.removeEventListener('scroll', onPreviewScroll);

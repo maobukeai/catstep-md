@@ -225,6 +225,7 @@ onBeforeUnmount(() => {
       }"
       :style="{ left: `${posX}px`, top: `${posY}px` }"
       role="dialog"
+      aria-modal="true"
       :aria-label="t('pomodoro.heading')"
     >
       <!-- 1. DRAGGABLE HEADER -->

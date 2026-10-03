@@ -91,7 +91,12 @@ export function spellcheckExtension(opts: SpellcheckOptions): Extension {
       private timer: ReturnType<typeof setTimeout> | null = null;
       private destroyed = false;
 
-      constructor(private view: EditorView) {
+      // 显式字段赋值（等价于构造器参数属性）：node --test 的 strip-only
+      // 模式不支持参数属性语法，lib 模块需要能被单测直接加载。
+      private view: EditorView;
+
+      constructor(view: EditorView) {
+        this.view = view;
         this.schedule();
       }
 

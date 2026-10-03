@@ -84,7 +84,7 @@ function onSelectPdfFont(v: string) {
       </div>
       <div class="settings-group__card">
         <!-- 默认页面大小 -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="exportPdf">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.pdfDefaults.pageSize') }}</label>
             <span class="setting-row__desc">
@@ -340,7 +340,7 @@ function onSelectPdfFont(v: string) {
         </div>
 
         <!-- 导出长图附加水印 -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="exportImage">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.imageExportBranding') }}</span>
             <span class="setting-row__desc">{{ t('settings.imageExportBrandingHint') }}</span>

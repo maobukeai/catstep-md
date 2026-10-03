@@ -12,6 +12,8 @@ export interface UseEditorFormulaOptions {
   recordPlainHistory: () => void;
   replaceDocRange: (from: number, to: number, text: string) => void;
   emitPlainCursorAndSelection: () => void;
+  /** C16 — measured line height (getComputedStyle) for the fallback anchor math. */
+  plainLineHeightPx: () => number;
   plainLiveEnabled: Ref<boolean>;
   plainActiveBlock: Ref<number>;
   plainBlockEditors: Ref<Record<number, HTMLTextAreaElement | null> | (HTMLTextAreaElement | null)[]>;
@@ -100,7 +102,10 @@ export function useEditorFormula(options: UseEditorFormulaOptions) {
     if (mathSpan && el) {
       const elRect = el.getBoundingClientRect();
       const lineNum = docText.slice(0, caret).split('\n').length;
-      const lineY = lineTops && lineNum <= lineTops.length ? lineTops[lineNum - 1] : (lineNum - 1) * 22;
+      const lineY =
+        lineTops && lineNum <= lineTops.length
+          ? lineTops[lineNum - 1]
+          : (lineNum - 1) * options.plainLineHeightPx();
       const topPx = elRect.top + lineY - el.scrollTop;
       if (topPx < 35 || topPx > window.innerHeight - 35) {
         inPlaceFormulaState.value = { visible: false, top: 0, left: 0, latex: '', display: false, from: 0, to: 0 };

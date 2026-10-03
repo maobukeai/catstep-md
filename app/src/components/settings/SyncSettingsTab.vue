@@ -54,7 +54,7 @@ function withChord(key: string, actionId: string): string {
     <div v-if="gitBackend" class="settings-group">
       <div class="settings-group__title">{{ t('settings.groupSyncGit') }}</div>
       <div class="settings-group__card">
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="syncGithub">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.autoGitEnabled') }}</span>
             <p class="setting-row__hint">{{ withChord('settings.autoGitHelp', 'file.save') }}</p>
@@ -70,7 +70,7 @@ function withChord(key: string, actionId: string): string {
       <CloudFolderBanner />
     </div>
 
-    <div v-if="gitBackend" class="settings-subcomponent-wrap">
+    <div v-if="gitBackend" class="settings-subcomponent-wrap" data-setting-anchor="history">
       <GithubSyncSettings />
     </div>
 

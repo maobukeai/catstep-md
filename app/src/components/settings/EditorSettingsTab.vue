@@ -63,7 +63,7 @@ void refreshSpellDicts();
       <div class="settings-group__title">{{ t('settings.groupEditorHabits') }}</div>
       <div class="settings-group__card">
         <!-- Row: Word wrap -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="wordWrap">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.wordWrap') }}</span>
             <p class="setting-row__hint">{{ isZh ? '文本自动折行显示，防止水平滚动条' : 'Wrap long lines to fit editor width' }}</p>
@@ -74,7 +74,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Line numbers -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="lineNumbers">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.lineNumbers') }}</span>
             <p class="setting-row__hint">{{ isZh ? '在编辑器左侧显示行号栏' : 'Show line numbers on the left margin' }}</p>
@@ -96,7 +96,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: Live preview -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="livePreview">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.livePreview') }}</span>
             <p class="setting-row__hint">{{ isZh ? 'Typora 风格实时就地渲染，光标所在处展开语法' : 'Typora-style inline live preview' }}</p>
@@ -189,7 +189,7 @@ void refreshSpellDicts();
         </label>
 
         <!-- Row: 富文本粘贴转 Markdown -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="pasteRichText">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.pasteRichTextAsMarkdown') }}</span>
             <p class="setting-row__hint">{{ isZh ? '从网页、飞书、Notion、Word 等复制时，将剪贴板富文本（加粗、链接、列表、表格等）转换为 Markdown' : 'Convert clipboard rich text (bold, links, lists, tables…) to Markdown when pasting from browsers, Feishu, Notion, Word, etc.' }}</p>
@@ -377,7 +377,7 @@ void refreshSpellDicts();
         </div>
 
         <!-- Row: Outline marker -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="outline">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.outlineMarker') }}</label>
             <p class="setting-row__hint">{{ isZh ? '大纲各级标题前的前缀标识风格' : 'Prefix style for heading items in outline' }}</p>
@@ -449,7 +449,7 @@ void refreshSpellDicts();
       <div class="settings-group__title">{{ t('settings.groupWritingStats') }}</div>
       <div class="settings-group__card">
         <!-- Row: 字数统计 -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="stats">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('writingStats.showInStatusBar') }}</span>
             <p class="setting-row__hint">{{ isZh ? '在底部状态栏实时显示当前文章字数与预计阅读时长' : 'Display word count and reading time in status bar' }}</p>
@@ -563,7 +563,7 @@ void refreshSpellDicts();
       <div class="settings-group__title">{{ isZh ? '拼写检查与词典' : 'Spellcheck & Dictionaries' }}</div>
       <div class="settings-group__card">
         <!-- Row: 离线 Hunspell 拼写检查 -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="spellcheck">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.spellcheckEnabled') }}</span>
             <p class="setting-row__hint">{{ isZh ? '基于本地词典对英文及多语言拼写错误进行波浪线标记' : 'Highlight spelling mistakes using offline Hunspell dictionaries' }}</p>
@@ -612,7 +612,7 @@ void refreshSpellDicts();
       <div class="settings-group__title">{{ t('settings.groupAttachments') }}</div>
       <div class="settings-group__card">
         <!-- Row: 附件存储模式 -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="attachments">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.attachmentMode') }}</label>
             <p class="setting-row__hint">{{ t('settings.attachmentModeHint') }}</p>
@@ -664,7 +664,7 @@ void refreshSpellDicts();
         </div>
 
         <!-- Row: 图床服务商 -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="imageUpload">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.imageUploaderSection') }}</label>
             <p class="setting-row__hint">{{ isZh ? '配置图片粘贴或插入时自动上传到的外部云存储或 CDN' : 'Upload images to cloud storage / CDN on insert or paste' }}</p>
@@ -701,7 +701,7 @@ void refreshSpellDicts();
           </label>
 
           <!-- Row: 保留本地副本 -->
-          <label class="setting-row setting-row--clickable">
+          <label class="setting-row setting-row--clickable" data-setting-anchor="imageUploadKeepLocal">
             <div class="setting-row__info">
               <span class="setting-row__title">{{ t('settings.imageUploadKeepLocal') }}</span>
               <p class="setting-row__hint">{{ t('settings.imageUploadKeepLocalHint') }}</p>

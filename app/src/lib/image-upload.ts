@@ -12,6 +12,9 @@
  * the remaining fields are backend-specific (camelCase).
  */
 
+// Deliberate raw `invoke` — this module IS the single facade for upload_image
+// (it builds the tagged UploaderConfig the command expects); see the tail
+// note in lib/commands.ts.
 import { invoke } from '@tauri-apps/api/core';
 
 export type UploaderKind = 'none' | 'picgo' | 'command' | 'smms' | 's3' | 'github';

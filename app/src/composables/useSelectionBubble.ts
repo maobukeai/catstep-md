@@ -2,6 +2,7 @@ import { ref, type Ref } from 'vue';
 import type { EditorView } from '@codemirror/view';
 import type { EditorState } from '@codemirror/state';
 import { computeCmBubbleAnchor, computePlainBubbleAnchor } from '../lib/selection-bubble';
+import { useI18n } from '../i18n';
 
 export interface SelectionBubbleState {
   visible: boolean;
@@ -41,6 +42,8 @@ export interface UseSelectionBubbleOptions {
   plainBlockEditors: Ref<Record<number, HTMLTextAreaElement | null>>;
   plainEditor: Ref<HTMLTextAreaElement | null>;
   plainLineTops: Ref<number[] | null>;
+  /** C16 — measured line height (getComputedStyle) for the fallback anchor math. */
+  plainLineHeightPx: () => number;
   isInsideCodeContext: (state: EditorState, pos: number) => boolean;
   applyFormat: (action: string) => boolean;
   aiEnabled: () => boolean;
@@ -55,6 +58,7 @@ export interface UseSelectionBubbleOptions {
  * lives in lib/selection-bubble (unit-tested); this composable decides
  * whether the bubble may show and applies the result.
  */
+  const { t } = useI18n();
 export function useSelectionBubble(options: UseSelectionBubbleOptions) {
   let isDraggingSelection = false;
   let suppressSelectionBubbleUntil = 0;
@@ -153,7 +157,10 @@ export function useSelectionBubble(options: UseSelectionBubbleOptions) {
     const caret = el.selectionStart ?? 0;
     const lineNum = el.value.slice(0, caret).split('\n').length;
     const tops = options.plainLineTops.value;
-    const lineY = tops && lineNum <= tops.length ? tops[lineNum - 1] : (lineNum - 1) * 22;
+    const lineY =
+      tops && lineNum <= tops.length
+        ? tops[lineNum - 1]
+        : (lineNum - 1) * options.plainLineHeightPx();
     const anchor = computePlainBubbleAnchor(
       { top: elRect.top, left: elRect.left },
       lineY,
@@ -199,7 +206,7 @@ export function useSelectionBubble(options: UseSelectionBubbleOptions) {
 
   function onBubbleAiAction(actionId: SelectionBubbleAiAction): void {
     if (!options.aiEnabled()) {
-      options.toasts.info('请先在设置中启用 AI 助手并配置 API 密钥');
+      options.toasts.info(t('toast.aiNotConfigured'));
       window.dispatchEvent(
         new CustomEvent('solomd:open-settings', { detail: { section: 'integrations' } }),
       );

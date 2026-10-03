@@ -3,7 +3,7 @@ import AboutSettings from '../AboutSettings.vue';
 </script>
 
 <template>
-  <div class="settings-tab-pane">
+  <div class="settings-tab-pane" data-setting-anchor="about">
     <AboutSettings />
   </div>
 </template>

@@ -162,11 +162,7 @@ function onCleanAI() {
   const report = cleanAIArtifactsWithReport(originalText);
 
   if (report.count === 0 || report.text === originalText) {
-    toasts.info(
-      isZh.value
-        ? (isSelection ? '选中文本中未发现 AI 格式痕迹' : '未发现 AI 格式痕迹')
-        : t('toast.noAi'),
-    );
+    toasts.info(isSelection ? t('toast.noAiSelection') : t('toast.noAi'));
     return;
   }
 
@@ -198,7 +194,7 @@ function onAIRewrite() {
     return;
   }
   if (!settings.aiEnabled) {
-    toasts.info(isZh.value ? '请先在设置中启用 AI 润色 (Ctrl/⌘+,)' : 'Enable AI rewrite in Settings first (⌘,)');
+    toasts.info(t('toast.aiRewriteDisabled'));
     window.dispatchEvent(
       new CustomEvent('solomd:open-settings', { detail: { section: 'integrations' } }),
     );
@@ -225,7 +221,7 @@ function onAIRewrite() {
   }
   if (!picked) {
     const jChord = shortcutLabel('editor.aiRewrite', settings.keybindings, isMacOS()) || '—';
-    toasts.info(isZh.value ? `请先选中文本，然后再点击 AI 润色（或按 ${jChord}）。` : `Select some text first, then click AI rewrite (or press ${jChord}).`);
+    toasts.info(t('toast.aiRewriteNeedSelection', { chord: jChord }));
     return;
   }
   window.dispatchEvent(
@@ -263,10 +259,10 @@ async function onOpenExternal() {
     } catch (e) {
       const name = (e as { name?: string }).name;
       if (name === 'AbortError') return;
-      toasts.warning(`Share failed: ${e}`);
+      toasts.warning(t('toast.shareFailed', { error: String(e) }));
       return;
     }
-    toasts.info('Sharing not supported on this iOS version');
+    toasts.info(t('toast.shareUnsupported'));
     return;
   }
   try {
@@ -274,7 +270,7 @@ async function onOpenExternal() {
     // path before the OS default program opens it.
     await openPathExternal(path);
   } catch (e) {
-    toasts.warning(`Failed: ${e}`);
+    toasts.warning(t('toast.failedWithReason', { error: String(e) }));
   }
 }
 
@@ -586,7 +582,10 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'file.copyHtml', label: m('copyHtml') },
       { id: 'file.copyImage', label: m('copyImage') },
       { sep: true },
-      { id: 'view.settings', label: m('preferences'), shortcut: shortcutLabel('palette.open', settings.keybindings, macChord) ? 'Ctrl+,' : undefined },
+      // C23 — the menu opens Settings, whose chord is settings.open (Mod+,);
+      // the old palette.open probe displayed 'Ctrl+,' even when the user
+      // rebound or unbound settings.open.
+      { id: 'view.settings', label: m('preferences'), shortcut: shortcutLabel('settings.open', settings.keybindings, macChord) },
       { sep: true },
       { id: 'file.exit', label: m('exit'), shortcut: shortcutLabel('file.exit', settings.keybindings, macChord) || 'Alt+F4' },
     ],
@@ -603,13 +602,15 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'edit.replace', label: m('replace'), shortcut: 'Ctrl+H' },
     ],
     paragraph: [
-      { id: 'format.h1', label: m('h1'), shortcut: 'Ctrl+1' },
-      { id: 'format.h2', label: m('h2'), shortcut: 'Ctrl+2' },
-      { id: 'format.h3', label: m('h3'), shortcut: 'Ctrl+3' },
-      { id: 'format.h4', label: m('h4'), shortcut: 'Ctrl+4' },
-      { id: 'format.h5', label: m('h5'), shortcut: 'Ctrl+5' },
-      { id: 'format.h6', label: m('h6'), shortcut: 'Ctrl+6' },
-      { id: 'format.paragraph', label: m('paragraphText'), shortcut: 'Ctrl+0' },
+      // C23 — headings follow the rebindable table; a hardcoded 'Ctrl+1'
+      // here stayed stale after a rebind (same for everything below).
+      { id: 'format.h1', label: m('h1'), shortcut: shortcutLabel('format.h1', settings.keybindings, macChord) },
+      { id: 'format.h2', label: m('h2'), shortcut: shortcutLabel('format.h2', settings.keybindings, macChord) },
+      { id: 'format.h3', label: m('h3'), shortcut: shortcutLabel('format.h3', settings.keybindings, macChord) },
+      { id: 'format.h4', label: m('h4'), shortcut: shortcutLabel('format.h4', settings.keybindings, macChord) },
+      { id: 'format.h5', label: m('h5'), shortcut: shortcutLabel('format.h5', settings.keybindings, macChord) },
+      { id: 'format.h6', label: m('h6'), shortcut: shortcutLabel('format.h6', settings.keybindings, macChord) },
+      { id: 'format.paragraph', label: m('paragraphText'), shortcut: shortcutLabel('format.paragraph', settings.keybindings, macChord) },
       { sep: true },
       { id: 'format.ul', label: m('bulletList'), shortcut: shortcutLabel('format.bulletList', settings.keybindings, macChord) || 'Ctrl+Shift+U' },
       { id: 'format.ol', label: m('numberedList'), shortcut: shortcutLabel('format.orderedList', settings.keybindings, macChord) || 'Ctrl+Shift+O' },
@@ -633,16 +634,22 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'format.image', label: m('insertImage'), shortcut: shortcutLabel('format.image', settings.keybindings, macChord) || 'Ctrl+Shift+I' },
       { id: 'format.imageNetwork', label: m('insertWebImage') },
       { sep: true },
-      { id: 'format.aiRewrite', label: m('aiRewrite'), shortcut: 'Ctrl+J' },
+      // C12 — show the user's actual `editor.aiRewrite` chord; the old
+      // hard-coded 'Ctrl+J' was never the binding (Mod+Alt+J) and stayed
+      // stale after a rebind. Unbound → empty → no shortcut rendered.
+      { id: 'format.aiRewrite', label: m('aiRewrite'), shortcut: shortcutLabel('editor.aiRewrite', settings.keybindings, macChord) },
     ],
     view: [
       { id: 'view.modeLiveEdit', label: m('editMode') },
-      { id: 'view.modeReading', label: m('readingMode'), shortcut: macChord ? '⇧⌘R' : 'Ctrl+Shift+R' },
+      // C23 — reading mode's chord is the rebindable view.toggleReading.
+      { id: 'view.modeReading', label: m('readingMode'), shortcut: shortcutLabel('view.toggleReading', settings.keybindings, macChord) },
       { id: 'view.modeEdit', label: m('sourceMode') },
       { id: 'view.modeSplit', label: m('splitView') },
       { sep: true },
-      { id: 'view.sidebarFiles', label: m('fileTreeSidebar'), shortcut: 'Ctrl+Shift+1' },
-      { id: 'view.sidebarOutline', label: m('docOutline'), shortcut: 'Ctrl+Shift+2' },
+      // C23 — these two were hardcoded AND swapped (files showed the outline's
+      // Ctrl+Shift+1 and vice versa); the labels now follow the real bindings.
+      { id: 'view.sidebarFiles', label: m('fileTreeSidebar'), shortcut: shortcutLabel('view.sidebarFiles', settings.keybindings, macChord) },
+      { id: 'view.sidebarOutline', label: m('docOutline'), shortcut: shortcutLabel('view.sidebarOutline', settings.keybindings, macChord) },
       { id: 'view.sidebarSearch', label: m('globalSearchMenu'), shortcut: shortcutLabel('view.sidebarSearch', settings.keybindings, macChord) || 'Ctrl+Shift+3' },
       { sep: true },
       { id: 'view.toggleSourceMode', label: m('toggleSourceMode'), shortcut: shortcutLabel('view.toggleSourceMode', settings.keybindings, macChord) || 'Ctrl+/' },

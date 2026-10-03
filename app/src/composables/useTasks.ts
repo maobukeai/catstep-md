@@ -11,6 +11,7 @@ import { readNote, writeNote } from '../lib/commands';
 import { useWorkspaceIndexStore } from '../stores/workspaceIndex';
 import { useTabsStore } from '../stores/tabs';
 import { useToastsStore } from '../stores/toasts';
+import { useI18n } from '../i18n';
 import { useFiles } from './useFiles';
 import { parseTaskMeta, compareTasks, toggleTaskLine, type TaskMeta } from '../lib/tasks';
 
@@ -25,6 +26,7 @@ export interface WorkspaceTask {
   meta: TaskMeta;
 }
 
+  const { t } = useI18n();
 export function useTasks() {
   const idx = useWorkspaceIndexStore();
   const tabs = useTabsStore();
@@ -63,7 +65,7 @@ export function useTasks() {
       if (openTab) {
         const next = toggleTaskLine(openTab.content ?? '', task.line);
         if (next === null) {
-          toasts.warning('That line is no longer a task — reopen the note.');
+          toasts.warning(t('tasks.staleReopen'));
           return;
         }
         tabs.setContent(openTab.id, next);
@@ -75,7 +77,7 @@ export function useTasks() {
       if (next === null) {
         // The index is behind the file. Refusing to write is the whole point:
         // rewriting whatever now sits on that line would corrupt the note.
-        toasts.warning('That line is no longer a task — the note changed.');
+        toasts.warning(t('tasks.staleChanged'));
         return;
       }
       await writeNote(task.path, next, { encoding: read.encoding });
@@ -83,7 +85,7 @@ export function useTasks() {
         new CustomEvent('solomd:saved', { detail: { filePath: task.path } }),
       );
     } catch (e) {
-      toasts.error(`Could not update the task: ${e}`);
+      toasts.error(t('tasks.updateFailed', { error: String(e) }));
     }
   }
 

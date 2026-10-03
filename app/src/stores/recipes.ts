@@ -10,7 +10,20 @@
  */
 
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  recipesAcceptRun,
+  recipesDelete,
+  recipesGet,
+  recipesHistory,
+  recipesList,
+  recipesPendingRuns,
+  recipesReadRunMd,
+  recipesReadTrace,
+  recipesRejectRun,
+  recipesRunDiff,
+  recipesRunNow,
+  recipesSave,
+} from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { hasGitBackend } from '../lib/platform';
 
@@ -110,9 +123,9 @@ export const useRecipesStore = defineStore('recipes', {
       this.lastError = null;
       try {
         const [recipes, pending, history] = await Promise.all([
-          invoke<RecipeSummary[]>('recipes_list', { workspace }),
-          invoke<RunMeta[]>('recipes_pending_runs', { workspace }),
-          invoke<RunMeta[]>('recipes_history', { workspace }),
+          recipesList<RecipeSummary[]>(workspace),
+          recipesPendingRuns<RunMeta[]>(workspace),
+          recipesHistory<RunMeta[]>(workspace),
         ]);
         this.recipes = recipes;
         this.pendingRuns = pending;
@@ -129,7 +142,7 @@ export const useRecipesStore = defineStore('recipes', {
     async runNow(workspace: string, slug: string): Promise<string | null> {
       this.lastError = null;
       try {
-        const runId = await invoke<string>('recipes_run_now', { workspace, slug });
+        const runId = await recipesRunNow(workspace, slug);
         // Refresh on completion is already triggered by the
         // `recipes-run-finished` listener; no need to await it here.
         return runId;
@@ -147,8 +160,10 @@ export const useRecipesStore = defineStore('recipes', {
     ): Promise<string | null> {
       this.lastError = null;
       try {
-        const path = await invoke<string>('recipes_save', {
-          req: { workspace, yaml, slug: slug ?? null },
+        const path = await recipesSave({
+          workspace,
+          yaml,
+          slug: slug ?? null,
         });
         await this.refresh(workspace);
         return path;
@@ -160,7 +175,7 @@ export const useRecipesStore = defineStore('recipes', {
 
     async readYaml(workspace: string, slug: string): Promise<string | null> {
       try {
-        return await invoke<string>('recipes_get', { workspace, slug });
+        return await recipesGet(workspace, slug);
       } catch (e) {
         this.lastError = String(e);
         return null;
@@ -169,7 +184,7 @@ export const useRecipesStore = defineStore('recipes', {
 
     async delete(workspace: string, slug: string): Promise<void> {
       try {
-        await invoke('recipes_delete', { workspace, slug });
+        await recipesDelete(workspace, slug);
         await this.refresh(workspace);
       } catch (e) {
         this.lastError = String(e);
@@ -178,7 +193,7 @@ export const useRecipesStore = defineStore('recipes', {
 
     async readDiff(workspace: string, runId: string): Promise<string | null> {
       try {
-        return await invoke<string>('recipes_run_diff', { workspace, runId });
+        return await recipesRunDiff(workspace, runId);
       } catch (e) {
         this.lastError = String(e);
         return null;
@@ -187,7 +202,7 @@ export const useRecipesStore = defineStore('recipes', {
 
     async readTrace(workspace: string, runId: string): Promise<string | null> {
       try {
-        return await invoke<string>('recipes_read_trace', { workspace, runId });
+        return await recipesReadTrace(workspace, runId);
       } catch (e) {
         this.lastError = String(e);
         return null;
@@ -196,7 +211,7 @@ export const useRecipesStore = defineStore('recipes', {
 
     async readRunMd(workspace: string, runId: string): Promise<string | null> {
       try {
-        return await invoke<string>('recipes_read_run_md', { workspace, runId });
+        return await recipesReadRunMd(workspace, runId);
       } catch (e) {
         this.lastError = String(e);
         return null;
@@ -206,7 +221,7 @@ export const useRecipesStore = defineStore('recipes', {
     async accept(workspace: string, runId: string): Promise<boolean> {
       this.lastError = null;
       try {
-        await invoke('recipes_accept_run', { workspace, runId });
+        await recipesAcceptRun(workspace, runId);
         await this.refresh(workspace);
         return true;
       } catch (e) {
@@ -218,7 +233,7 @@ export const useRecipesStore = defineStore('recipes', {
     async reject(workspace: string, runId: string): Promise<boolean> {
       this.lastError = null;
       try {
-        await invoke('recipes_reject_run', { workspace, runId });
+        await recipesRejectRun(workspace, runId);
         await this.refresh(workspace);
         return true;
       } catch (e) {

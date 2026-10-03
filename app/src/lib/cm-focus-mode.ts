@@ -10,13 +10,9 @@
  */
 
 import { RangeSetBuilder } from '@codemirror/state';
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-} from '@codemirror/view';
+import { Decoration, EditorView, ViewPlugin } from '@codemirror/view';
+// DecorationSet 是纯类型导出，node --test 会真实解析具名导入，必须用 import type。
+import type { DecorationSet, ViewUpdate } from '@codemirror/view';
 
 const dimmedLine = Decoration.line({ class: 'cm-line-dimmed' });
 
@@ -99,10 +95,13 @@ const typewriterPlugin = ViewPlugin.fromClass(
     constructor(_view: EditorView) {}
 
     update(update: ViewUpdate) {
-      if (!update.selectionSet && !update.docChanged) return;
-      // Only react to selection moves (docChanged usually implies
-      // selectionSet too; filter redundant scrolls).
-      if (!update.selectionSet) return;
+      // C16 — recenter only when the DOCUMENT changed (typing, paste, drop,
+      // deletion): those transactions carry both a doc change and the cursor
+      // move. Pure selection moves — a mouse click to reposition, arrow-key
+      // navigation, drag-select — must not hijack the viewport (the browser
+      // already scrolled the caret into view); clicking around to read should
+      // never yank the line to centre.
+      if (!update.selectionSet || !update.docChanged) return;
       // IME composition guard (#108 class): a transaction dispatched while
       // `view.composing` aborts the IME composition on Windows/WebView2 —
       // the same root cause that dropped Sogou pinyin. Typing moves the

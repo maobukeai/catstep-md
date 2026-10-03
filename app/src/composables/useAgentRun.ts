@@ -84,6 +84,28 @@ export function useAgentRun(options: UseAgentRunOptions) {
   const errorMsg = ref<string | null>(null);
   const reverts = ref<Record<string, RevertEntry>>({});
 
+  /**
+   * C19 — map the raw backend error string onto a short localized sentence
+   * for the common failure shapes (bad key / unknown model / rate limit /
+   * timeout / refused connection / DNS / TLS / 5xx). The raw string is kept
+   * verbatim on a second line as the detail; unmapped errors surface as-is
+   * so nothing is ever invented on the user's behalf. Returns null when no
+   * mapping fired.
+   */
+  function mapAiError(raw: string): string | null {
+    const s = raw.toLowerCase();
+    let key: string | null = null;
+    if (/(401|unauthorized|invalid[ _-]?(api[ _-]?)?key|api key)/.test(s)) key = 'invalidKey';
+    else if (/(404|model[ _-]?not[ _-]?found|no such model)/.test(s)) key = 'modelNotFound';
+    else if (/(429|rate[ _-]?limit)/.test(s)) key = 'rateLimited';
+    else if (/(timeout|timed out|etimedout)/.test(s)) key = 'timeout';
+    else if (/(refused|econnrefused|unreachable|not reachable|failed to connect)/.test(s)) key = 'connectionRefused';
+    else if (/(getaddrinfo|enotfound|dns|temporary failure in name resolution)/.test(s)) key = 'dns';
+    else if (/(50[0234]|bad gateway|service unavailable|internal server error)/.test(s)) key = 'serverError';
+    else if (/(certificate|ssl|tls)/.test(s)) key = 'tls';
+    return key ? `${t(`aiError.${key}`)}\n${raw}` : null;
+  }
+
   /** Toggle: include the active note's content as additional context on each
    *  send. Persisted across sessions in localStorage. Off by default — costs
    *  tokens, and not every chat is about the active doc. */
@@ -204,6 +226,8 @@ export function useAgentRun(options: UseAgentRunOptions) {
     const prompt = options.draft.value.trim();
     if (!prompt || agent.isStreaming) return;
     errorMsg.value = null;
+    // C04: a fresh run supersedes the "stop requested" inline note.
+    agent.stopRequested = false;
     options.lastPrompt.value = prompt;
     resetThinkingState();
 
@@ -235,7 +259,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
 
     // Push user message + empty assistant placeholder. Chunks stream into the
     // placeholder via the `solomd://ai-chunk` listener below.
-    agent.addMessage({
+    const turnUserMsg = agent.addMessage({
       role: 'user',
       content: prompt,
       references: refsToSend.length > 0 ? refsToSend : undefined,
@@ -327,9 +351,22 @@ export function useAgentRun(options: UseAgentRunOptions) {
             return `### ${h.name} (${h.path}) 相似度 ${h.score.toFixed(2)}\n${snippet}`;
           });
           systemParts.push(ragContextBlock(parts, plang));
+          // C09: the hits are already in hand — surface them above this
+          // turn's reply by reusing the panel's reference-chip mechanism
+          // (stored on the user message so a popped assistant placeholder
+          // cannot lose them; renderBlocks forwards it to the reply block).
+          turnUserMsg.grounded = usable.map((h) => ({
+            type: 'note' as const,
+            name: h.name,
+            path: h.path,
+            preview: `${h.path} · ${h.score.toFixed(2)}`,
+          }));
         }
       } catch {
-        // No index / backend unreachable — answer ungrounded.
+        // No index / backend unreachable — answer ungrounded. C09: that used
+        // to be fully silent (bare answer, settings promised grounding) —
+        // say it once per failed send instead.
+        toasts.warning(t('agent.ragGroundingUnavailable'));
       }
     }
 
@@ -344,6 +381,12 @@ export function useAgentRun(options: UseAgentRunOptions) {
             const snippet = readRes.content.length > 8192 ? readRes.content.slice(0, 8192) + '\n…(截断)' : readRes.content;
             refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n\`\`\`markdown\n${snippet}\n\`\`\``);
           } catch (e) {
+            // C04: a failed @ reference used to be silent for the user (only
+            // the model's prompt mentioned it). Surface it immediately: toast
+            // + the chip in the sent message turns red (shared object with
+            // the message's `references`, see AgentReference.failed).
+            refItem.failed = true;
+            toasts.warning(t('agent.refReadFailed', { name: refItem.name }));
             refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n(读取失败: ${e})`);
           }
         }
@@ -449,7 +492,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
     } catch (err) {
       agent.isStreaming = false;
       agent.currentRunId = null;
-      errorMsg.value = String(err);
+      errorMsg.value = mapAiError(String(err)) ?? String(err);
       // Drop the empty placeholder when the request never reached the wire.
       const last = agent.messages[agent.messages.length - 1];
       if (last && last.role === 'assistant' && last.content === '') {
@@ -458,9 +501,23 @@ export function useAgentRun(options: UseAgentRunOptions) {
     }
   }
 
+  // C04 — detached-run bookkeeping. `stop()` only clears the UI state; the
+  // backend still finishes whatever tool dispatch is already in flight (and,
+  // before the C04 backend fix, the whole queued batch). Events for such a
+  // detached request used to be dropped by the `currentRunId` guard, which
+  // hid real side effects: writes landed on disk with no card, no revert
+  // snapshot and no tab refresh. Remember the last detached request id so
+  // late `ai-tool-call` / `ai-tool-result` events can still be folded in.
+  // The session id rides along so a retroactive card never lands in a
+  // different conversation than the one the run belonged to.
+  let detachedRequestId: string | null = null;
+  let detachedSessionId: string | null = null;
+
   async function stop() {
     const id = agent.currentRunId;
     if (id) {
+      detachedRequestId = id;
+      detachedSessionId = agent.currentSessionId;
       try {
         await aiCancel(id);
       } catch {
@@ -469,6 +526,9 @@ export function useAgentRun(options: UseAgentRunOptions) {
     }
     agent.isStreaming = false;
     agent.currentRunId = null;
+    // C04: inline notice — tools already in flight keep running to
+    // completion and their results still land below (see detachedRequestId).
+    agent.stopRequested = true;
   }
 
   // --- Stream watchdog ---------------------------------------------------------
@@ -490,6 +550,10 @@ export function useAgentRun(options: UseAgentRunOptions) {
     if (!agent.isStreaming || !agent.currentRunId) return;
     if (Date.now() - lastAgentEventAt <= AGENT_WATCHDOG_MS) return;
     const id = agent.currentRunId;
+    // Same detachment semantics as an explicit stop: late tool events for
+    // this request must still record their side effects.
+    detachedRequestId = id;
+    detachedSessionId = agent.currentSessionId;
     agent.isStreaming = false;
     agent.currentRunId = null;
     resetThinkingState();
@@ -507,6 +571,80 @@ export function useAgentRun(options: UseAgentRunOptions) {
     if (agentWatchdogTimer) {
       clearInterval(agentWatchdogTimer);
       agentWatchdogTimer = null;
+    }
+  }
+
+  /**
+   * C04 — side-effect choreography shared by the `ai-tool-result` listener
+   * for both attached runs and detached runs (events arriving after the user
+   * pressed stop or the watchdog fired): record revert snapshots, refresh the
+   * affected tab and dispatch the `solomd:saved` index refresh. A result that
+   * carries an error only completes its card (done by the listener), never
+   * triggers effects.
+   */
+  async function applyToolResultSideEffects(payload: {
+    tool_call_id: string;
+    result: unknown;
+    error?: string;
+  }): Promise<void> {
+    if (payload.error) return;
+    const payloadResult = payload.result;
+    if (!payloadResult || typeof payloadResult !== 'object') return;
+    const record = payloadResult as Record<string, unknown>;
+
+    // A write targets an open tab? (Also consults the active tab as a
+    // fallback — relative agent paths still find their tab.)
+    const writePath =
+      record.path && !record.moved ? String(record.path) : undefined;
+    const writeTab = writePath
+      ? tabs.tabs.find((tb) => matchesTabPath(tb, writePath)) ||
+        (tabs.activeTab && matchesTabPath(tabs.activeTab, writePath) ? tabs.activeTab : undefined)
+      : undefined;
+
+    const effects = describeToolResultEffects(payloadResult, writeTab ? writeTab.content : undefined);
+    if (!effects.applicable) return;
+    const toolCallId = payload.tool_call_id;
+
+    // 1. Move note handling
+    if (effects.moved) {
+      reverts.value[toolCallId] = effects.moved.revert;
+      const tab = tabs.tabs.find((tb) => matchesTabPath(tb, effects.moved!.sourcePath));
+      if (tab && typeof tab.id === 'string') {
+        tabs.renamePath(tab.id, effects.moved.targetPath);
+      }
+      window.dispatchEvent(new CustomEvent('solomd:saved'));
+    }
+
+    // 2. Folder creation / deletion handling
+    if (effects.touchedIndex) {
+      window.dispatchEvent(new CustomEvent('solomd:saved'));
+    }
+
+    // 3. Write / patch note handling
+    if (effects.write) {
+      const path = effects.write.path;
+      if (effects.write.revert) {
+        reverts.value[toolCallId] = effects.write.revert;
+      }
+
+      if (writeTab && typeof writeTab.id === 'string') {
+        try {
+          const result = await readNote(path);
+          if (result && typeof result.content === 'string') {
+            tabs.applyExternalSave(writeTab.id, result.content);
+            window.dispatchEvent(new CustomEvent('solomd:saved'));
+          }
+        } catch (err) {
+          console.error('Failed to sync file after ai write:', err);
+        }
+      } else {
+        try {
+          await files.openPath(path, { bypassNewWindow: true });
+          window.dispatchEvent(new CustomEvent('solomd:saved'));
+        } catch (err) {
+          console.error('Failed to auto-open created note:', err);
+        }
+      }
     }
   }
 
@@ -564,7 +702,13 @@ export function useAgentRun(options: UseAgentRunOptions) {
           processChunkForThinking(e.payload.chunk);
           options.autoscroll();
         }),
-        listen<{ request_id: string; full_text: string }>('solomd://ai-done', (e) => {
+        listen<{
+          request_id: string;
+          full_text: string;
+          tokens_in?: number;
+          tokens_out?: number;
+          cost_usd_estimate?: number;
+        }>('solomd://ai-done', (e) => {
           if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
           touchAgentEvent();
           const last = agent.messages[agent.messages.length - 1];
@@ -573,6 +717,14 @@ export function useAgentRun(options: UseAgentRunOptions) {
             const { pop } = foldAiDoneIntoAssistant(last, e.payload.full_text, flushed, think.startedAtMs, Date.now());
             if (pop) {
               agent.messages.pop();
+            } else if (e.payload.tokens_in !== undefined && e.payload.tokens_out !== undefined) {
+              // C21 — the backend computed per-run usage for the run meta;
+              // surface it as small print under the reply it belongs to.
+              last.usage = {
+                tokensIn: e.payload.tokens_in,
+                tokensOut: e.payload.tokens_out,
+                costUsd: e.payload.cost_usd_estimate ?? 0,
+              };
             }
           }
           resetThinkingState();
@@ -590,7 +742,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
             agent.messages.pop();
           }
           if (e.payload.error !== 'cancelled') {
-            errorMsg.value = e.payload.error;
+            errorMsg.value = mapAiError(e.payload.error) ?? e.payload.error;
           }
         }),
         listen<{
@@ -600,15 +752,27 @@ export function useAgentRun(options: UseAgentRunOptions) {
           tool: string;
           args: Record<string, unknown>;
         }>('solomd://ai-tool-call', (e) => {
-          if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-          touchAgentEvent();
+          // C04: an event for a detached run (user stop / watchdog) still
+          // inserts its card, so the result that lands later — and the
+          // revert button attached to it — stays visible. Guarded to the
+          // session the run belonged to; disk side effects (tool-result
+          // path below) apply regardless of the active session.
+          const attached = !!agent.currentRunId && e.payload.request_id === agent.currentRunId;
+          if (
+            !attached &&
+            (!detachedRequestId ||
+              e.payload.request_id !== detachedRequestId ||
+              agent.currentSessionId !== detachedSessionId)
+          )
+            return;
+          if (attached) touchAgentEvent();
           agent.insertToolCall({
             toolCallId: e.payload.tool_call_id,
             name: e.payload.tool,
             args: e.payload.args,
             runId: e.payload.run_id,
           });
-          options.autoscroll();
+          if (attached) options.autoscroll();
         }),
         listen<{
           request_id: string;
@@ -617,8 +781,14 @@ export function useAgentRun(options: UseAgentRunOptions) {
           result: unknown;
           error?: string;
         }>('solomd://ai-tool-result', async (e) => {
-          if (!agent.currentRunId || e.payload.request_id !== agent.currentRunId) return;
-          touchAgentEvent();
+          // C04: a result for a detached run (stop pressed, backend finished
+          // the in-flight dispatch) must still land — complete the card and
+          // record its side effects (reverts + tab refresh); only the
+          // streaming-UI bookkeeping (event watchdog / autoscroll) is
+          // skipped since the panel already left the streaming state.
+          const attached = !!agent.currentRunId && e.payload.request_id === agent.currentRunId;
+          if (!attached && (!detachedRequestId || e.payload.request_id !== detachedRequestId)) return;
+          if (attached) touchAgentEvent();
           let resultStr: string;
           try {
             resultStr =
@@ -633,67 +803,8 @@ export function useAgentRun(options: UseAgentRunOptions) {
             result: resultStr,
             error: e.payload.error,
           });
-          options.autoscroll();
-
-          if (e.payload.error) return;
-          const payloadResult = e.payload.result;
-          if (!payloadResult || typeof payloadResult !== 'object') return;
-          const record = payloadResult as Record<string, unknown>;
-
-          // A write targets an open tab? (Also consults the active tab as a
-          // fallback — relative agent paths still find their tab.)
-          const writePath =
-            record.path && !record.moved ? String(record.path) : undefined;
-          const writeTab = writePath
-            ? tabs.tabs.find((tb) => matchesTabPath(tb, writePath)) ||
-              (tabs.activeTab && matchesTabPath(tabs.activeTab, writePath) ? tabs.activeTab : undefined)
-            : undefined;
-
-          const effects = describeToolResultEffects(payloadResult, writeTab ? writeTab.content : undefined);
-          if (!effects.applicable) return;
-          const toolCallId = e.payload.tool_call_id;
-
-          // 1. Move note handling
-          if (effects.moved) {
-            reverts.value[toolCallId] = effects.moved.revert;
-            const tab = tabs.tabs.find((tb) => matchesTabPath(tb, effects.moved!.sourcePath));
-            if (tab && typeof tab.id === 'string') {
-              tabs.renamePath(tab.id, effects.moved.targetPath);
-            }
-            window.dispatchEvent(new CustomEvent('solomd:saved'));
-          }
-
-          // 2. Folder creation / deletion handling
-          if (effects.touchedIndex) {
-            window.dispatchEvent(new CustomEvent('solomd:saved'));
-          }
-
-          // 3. Write / patch note handling
-          if (effects.write) {
-            const path = effects.write.path;
-            if (effects.write.revert) {
-              reverts.value[toolCallId] = effects.write.revert;
-            }
-
-            if (writeTab && typeof writeTab.id === 'string') {
-              try {
-                const result = await readNote(path);
-                if (result && typeof result.content === 'string') {
-                  tabs.applyExternalSave(writeTab.id, result.content);
-                  window.dispatchEvent(new CustomEvent('solomd:saved'));
-                }
-              } catch (err) {
-                console.error('Failed to sync file after ai write:', err);
-              }
-            } else {
-              try {
-                await files.openPath(path, { bypassNewWindow: true });
-                window.dispatchEvent(new CustomEvent('solomd:saved'));
-              } catch (err) {
-                console.error('Failed to auto-open created note:', err);
-              }
-            }
-          }
+          if (attached) options.autoscroll();
+          await applyToolResultSideEffects(e.payload);
         }),
         listen<{ request_id: string; run_id: string }>('solomd://ai-run-started', (e) => {
           if (e.payload.request_id === agent.currentRunId) {
@@ -722,7 +833,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
     const original = reverts.value[toolCallId];
     if (original === undefined) return;
     if (!toolResultStr) {
-      if (!silent) toasts.error('Cannot revert: missing tool result');
+      if (!silent) toasts.error(t('toast.revertNoToolResult'));
       return;
     }
     try {
@@ -763,7 +874,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
         delete reverts.value[toolCallId];
       }
     } catch (err) {
-      if (!silent) toasts.error(`Failed to revert: ${err}`);
+      if (!silent) toasts.error(t('toast.revertFailed', { error: String(err) }));
     }
   }
 
@@ -771,7 +882,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
   async function saveAssistantAsNote(content: string) {
     if (!content || agent.isStreaming) return;
     if (!workspace.currentFolder) {
-      toasts.warning('请先打开一个工作区文件夹');
+      toasts.warning(t('toast.openFolderFirst'));
       return;
     }
     try {

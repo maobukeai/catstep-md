@@ -48,7 +48,7 @@ const defaultBtnText = computed(() => {
       </div>
       <div class="settings-group__card">
         <!-- 每日笔记文件夹 -->
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="dailyNotes">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.dailyNotesFolder') }}</label>
             <span class="setting-row__desc">
@@ -94,7 +94,7 @@ const defaultBtnText = computed(() => {
       </div>
       <div class="settings-group__card">
         <!-- 启动时恢复上次的标签页和分屏 -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="restoreSession">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.restoreSession') }}</span>
             <span class="setting-row__desc">{{ t('settings.restoreSessionHint') }}</span>
@@ -172,7 +172,7 @@ const defaultBtnText = computed(() => {
       </div>
       <div class="settings-group__card">
         <!-- 自动刷新被外部修改的文件 -->
-        <label class="setting-row setting-row--clickable">
+        <label class="setting-row setting-row--clickable" data-setting-anchor="fileBehavior">
           <div class="setting-row__info">
             <span class="setting-row__title">{{ t('settings.autoReloadExternalChanges') }}</span>
             <span class="setting-row__desc">{{ t('settings.autoReloadExternalChangesHint') }}</span>
@@ -243,7 +243,7 @@ const defaultBtnText = computed(() => {
         {{ isZh ? '系统与文件关联' : 'System & File Association' }}
       </div>
       <div class="settings-group__card">
-        <div class="setting-row">
+        <div class="setting-row" data-setting-anchor="fileAssoc">
           <div class="setting-row__info">
             <label class="setting-row__title">{{ t('settings.fileAssoc') }}</label>
             <span class="setting-row__desc">{{ t('settings.setDefaultHint') }}</span>

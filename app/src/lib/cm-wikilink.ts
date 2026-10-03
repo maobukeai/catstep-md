@@ -88,8 +88,16 @@ function isResolved(target: string): boolean {
 }
 
 class WikilinkWidget extends WidgetType {
-  constructor(readonly inner: string, readonly resolved: boolean, readonly display: string) {
+  // 显式字段赋值（等价于构造器参数属性）：node --test 的 strip-only 模式
+  // 不支持参数属性语法，lib 模块需要能被单测直接加载。
+  inner: string;
+  resolved: boolean;
+  display: string;
+  constructor(inner: string, resolved: boolean, display: string) {
     super();
+    this.inner = inner;
+    this.resolved = resolved;
+    this.display = display;
   }
   toDOM(): HTMLElement {
     const span = document.createElement('span');

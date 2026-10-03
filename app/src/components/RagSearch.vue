@@ -7,8 +7,8 @@
  * the muscle-memory carries over — but ranks by cosine similarity, not
  * substring match.
  */
-import { computed, nextTick, ref, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { ragSetEmbedder, type RagEmbedderConfig } from '../lib/commands';
 import { useRagStore, type RagHit } from '../stores/rag';
 import { useFiles } from '../composables/useFiles';
 import { useWorkspaceStore } from '../stores/workspace';
@@ -120,10 +120,10 @@ async function openHit(hit: RagHit) {
 async function onReindex() {
   await rag.reindex(workspace.currentFolder);
   if (rag.lastError) {
-    toasts.error(`RAG reindex failed: ${rag.lastError}`);
+    toasts.error(t('rag.reindexFailed', { error: String(rag.lastError) }));
     return;
   }
-  toasts.success(`Reindexed ${rag.status?.indexed_files ?? 0} files`);
+  toasts.success(t('rag.reindexed', { n: rag.status?.indexed_files ?? 0 }));
   if (query.value) doSearch();
 }
 
@@ -156,11 +156,11 @@ async function applyEmbedder() {
   switchingEmbedder.value = true;
   embedderError.value = '';
   try {
-    const config =
+    const config: RagEmbedderConfig =
       embedderChoice.value === 'hash'
         ? { kind: 'hash' }
         : { kind: 'ollama', model: embedderModel.value.trim(), base_url: null };
-    await invoke('rag_set_embedder', { folder: workspace.currentFolder, config });
+    await ragSetEmbedder(workspace.currentFolder, config);
     await rag.refreshStatus(workspace.currentFolder);
     if (query.value) doSearch();
   } catch (e) {
@@ -182,10 +182,7 @@ function onKey(e: KeyboardEvent) {
     switchToGlobal();
     return;
   }
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    emit('close');
-  } else if (e.key === 'ArrowDown') {
+  if (e.key === 'ArrowDown') {
     e.preventDefault();
     selectedIdx.value = Math.min(selectedIdx.value + 1, hits.value.length - 1);
   } else if (e.key === 'ArrowUp') {
@@ -197,6 +194,29 @@ function onKey(e: KeyboardEvent) {
     if (hit) openHit(hit);
   }
 }
+
+// Unified Esc-to-close (DsModal baseline): a document-level capture listener
+// mounted while the panel is open, so Esc works no matter where focus sits —
+// not only inside the input. IME guard per CommandPalette.vue: Esc must
+// first cancel pinyin candidates, not close the dialog.
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    emit('close');
+  }
+}
+
+watch(
+  () => props.open,
+  (v) => {
+    if (v) document.addEventListener('keydown', onDocKeydown, true);
+    else document.removeEventListener('keydown', onDocKeydown, true);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => document.removeEventListener('keydown', onDocKeydown, true));
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) =>
@@ -224,7 +244,7 @@ const scoreColor = (score: number) => {
 <template>
   <Teleport to="body">
   <div v-if="open" class="rag__backdrop" @click.self="emit('close')">
-    <div class="rag" role="dialog" aria-label="Semantic search">
+    <div class="rag" role="dialog" aria-modal="true" aria-label="Semantic search">
       <div class="rag__header">
         <span class="rag__icon" aria-hidden="true">⌕</span>
         <input

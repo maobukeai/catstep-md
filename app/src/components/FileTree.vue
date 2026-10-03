@@ -6,12 +6,14 @@ import {
   deletePath,
   dirExists,
   listDir,
+  pathExists,
   readNote,
   renamePath,
 } from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { useWorkspaceStore } from '../stores/workspace';
+import { useRecentEditsStore } from '../stores/recentEdits';
 import { useFiles } from '../composables/useFiles';
 import { useInbox } from '../composables/useInbox';
 import { useInboxView } from '../composables/useInboxView';
@@ -25,7 +27,7 @@ import { useGlobalSearch, type SearchHit } from '../composables/useGlobalSearch'
 import { useI18n } from '../i18n';
 import { isMobile, isMacOS } from '../lib/platform';
 import { usePendingDeletes, isDeletePending, UNDO_WINDOW_MS } from '../composables/usePendingDeletes';
-import { isSafPath, fromSafPath, safList, safCreate } from '../lib/saf-fs';
+import { isSafPath, fromSafPath, toSafPath, safList, safCreate, safDelete, safRename, safMove } from '../lib/saf-fs';
 import { pickFolder } from '../lib/user-pick';
 
 interface Entry {
@@ -43,6 +45,7 @@ interface Node extends Entry {
 }
 
 const workspace = useWorkspaceStore();
+const recentEdits = useRecentEditsStore();
 const files = useFiles();
 const inbox = useInbox();
 const inboxView = useInboxView();
@@ -95,6 +98,8 @@ const { t } = useI18n();
 const pendingDeletes = usePendingDeletes();
 
 const root = ref<Node | null>(null);
+/** Root <aside> element — scoping DOM queries (reveal scroll) to this tree. */
+const treeEl = ref<HTMLElement | null>(null);
 const search = useGlobalSearch();
 const tiles = useTilesStore();
 
@@ -343,11 +348,14 @@ function onFocusFileSearch() {
 
 onMounted(() => {
   window.addEventListener('solomd:focus-file-search', onFocusFileSearch);
+  window.addEventListener('solomd:reveal-in-file-tree', onRevealRequest);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('solomd:focus-file-search', onFocusFileSearch);
+  window.removeEventListener('solomd:reveal-in-file-tree', onRevealRequest);
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  if (revealFlashTimer) clearTimeout(revealFlashTimer);
 });
 
 // v2.4 inbox filter — when on, the FileTreeNode subtree below prunes
@@ -694,9 +702,30 @@ async function commitEdit() {
         return;
       }
       await pendingDeletes.flushUnder(target);
+      // #148 / C03 — SAF vault: rename via ContentResolver. fs_rename would
+      // answer "source missing" (a `saf:` id is not a filesystem path), and
+      // providers may REISSUE the documentId on rename — repoint tabs to the
+      // RETURNED id, not a re-joined path.
+      if (isSafPath(e.original) && workspace.safTreeUri) {
+        const newDocId = await safRename(workspace.safTreeUri, fromSafPath(e.original), name);
+        scheduleRefresh();
+        await repointOpenTabs(e.original, toSafPath(newDocId));
+        migrateRecentPaths(e.original, toSafPath(newDocId));
+        return;
+      }
+      // C19 — same localized clash guard as performMove: an inline rename
+      // onto an existing sibling name used to surface as the raw
+      // "target already exists: ..." error. (A rename that only changes the
+      // letter case keeps today's behavior: the exists() probe and
+      // fs_rename's own guard agree on case-insensitive filesystems.)
+      if (await pathExists(target)) {
+        toasts.warning(t('explorer.moveNameConflict', { name }));
+        return;
+      }
       await renamePath(e.original, target);
       scheduleRefresh();
       await repointOpenTabs(e.original, target);
+      migrateRecentPaths(e.original, target);
     }
   } catch (err) {
     toasts.error(String(err));
@@ -723,17 +752,37 @@ function onRenameKey(e: KeyboardEvent) {
   }
 }
 
+/** C20 — drop a deleted path (and, for folders, every tracked entry under
+ *  it) from both ⌘P indexes — the workspace MRU (recentFiles) and the MFU
+ *  counts (recentEdits). Without this the quick switcher keeps offering dead
+ *  paths; picking one errors with "Failed to open file". Only call after the
+ *  delete actually took effect. */
+function forgetRecentPaths(path: string, isDir: boolean) {
+  workspace.removeRecent(path);
+  recentEdits.forget(path);
+  if (!isDir) return;
+  const sep = path.includes('\\') && !path.includes('/') ? '\\' : '/';
+  const prefix = path.endsWith(sep) ? path : path + sep;
+  // Copy before mutating: removeRecent rewrites the array each call.
+  for (const p of [...workspace.recentFiles]) {
+    if (p.startsWith(prefix)) workspace.removeRecent(p);
+  }
+  for (const p of Object.keys(recentEdits.counts)) {
+    if (p.startsWith(prefix)) recentEdits.forget(p);
+  }
+}
+
 async function deleteNode(node: Node) {
   closeCtx();
   // #112 — desktop deletes now go to the OS trash (recoverable); mobile has
   // no user-visible trash, so keep the permanent-delete wording there.
   const suffix = isMobile()
-    ? 'This cannot be undone.'
-    : 'It will be moved to the system Trash / Recycle Bin.';
+    ? t('explorer.deleteIrreversible')
+    : t('explorer.deleteTrashSuffix');
   const ok = window.confirm(
     node.is_dir
-      ? `Delete folder "${node.name}" and everything inside?\n\n${suffix}`
-      : `Delete "${node.name}"?\n\n${suffix}`,
+      ? t('explorer.deleteFolderConfirm', { name: node.name, suffix })
+      : t('explorer.deleteFileConfirm', { name: node.name, suffix }),
   );
   if (!ok) return;
 
@@ -748,9 +797,31 @@ async function deleteNode(node: Node) {
     delayMs: UNDO_WINDOW_MS,
     commit: async () => {
       try {
-        await deletePath(path);
+        // #148 / C03 — SAF vault: delete through ContentResolver. std::fs can
+        // never see a `saf:` document id (Path::exists() is always false), so
+        // deletePath() would resolve idempotently WITHOUT deleting anything
+        // while the toast claims success — and the file "revived" on refresh.
+        if (isSafPath(path) && workspace.safTreeUri) {
+          await safDelete(workspace.safTreeUri, fromSafPath(path));
+        } else {
+          // C15 — fs_delete reports whether the trash actually took the file.
+          // A `false` means it fell back to a PERMANENT delete (no trash
+          // support on that filesystem): the confirm dialog above promised
+          // the Trash / Recycle Bin, so own up instead of letting the promise
+          // stand. (Mobile has no trash and its confirm already said
+          // "cannot be undone" — no broken promise there. The success toast's
+          // undo offer has expired by the time this deferred commit runs, so
+          // the warning replaces it; there is no undo button left to hide.)
+          const movedToTrash = await deletePath(path);
+          if (!movedToTrash && !isMobile()) {
+            toasts.warning(t('explorer.deleteNotInTrash', { name }));
+          }
+        }
+        // C20 — only once the delete took effect (a throw above leaves the
+        // file on disk, so its recent entries must survive).
+        forgetRecentPaths(path, !!node.is_dir);
       } catch (e) {
-        toasts.error(`Delete failed: ${e}`);
+        toasts.error(t('explorer.deleteFailed', { error: String(e) }));
       }
       scheduleRefresh();
     },
@@ -776,6 +847,14 @@ async function deleteNode(node: Node) {
  *  sets savedContent = content as part of its bookkeeping, so the comparison
  *  was always true and dirty tabs lost their in-memory edits to whatever was
  *  on disk. Snapshot first, reload only if it was already clean. */
+/** C20 — a move/rename must not orphan its ⌘P entries: carry the recent-file
+ *  MRU slot and the MFU edit count from the old path onto the new one, so the
+ *  quick switcher keeps tracking the file instead of offering a dead path. */
+function migrateRecentPaths(from: string, to: string) {
+  workspace.migrateRecent(from, to);
+  recentEdits.migratePath(from, to);
+}
+
 async function repointOpenTabs(original: string, target: string) {
   try {
     const tab = tabs.tabs.find((t: { filePath?: string }) => t.filePath === original);
@@ -830,9 +909,41 @@ async function performMove(node: Node, targetDir: string) {
     // A pending delete under the destination would fire later and take the
     // freshly moved file with it — same race the inline new-file guards.
     await pendingDeletes.flushUnder(target);
+    // #148 / C03 — SAF vault: move through ContentResolver's moveDocument
+    // (API 24+). Both endpoints must be `saf:` documents of the SAME tree;
+    // a real path can never name a SAF document, so fail it with the truth
+    // instead of fs_rename's misleading "source missing".
+    if (isSafPath(node.path) && workspace.safTreeUri) {
+      if (!isSafPath(targetDir)) {
+        toasts.error(t('explorer.moveNotSaf'));
+        return;
+      }
+      const parent = node.path.replace(/[\\/][^\\/]+$/, '');
+      const newDocId = await safMove(
+        workspace.safTreeUri,
+        fromSafPath(node.path),
+        fromSafPath(parent),
+        fromSafPath(targetDir),
+      );
+      scheduleRefresh();
+      await repointOpenTabs(node.path, toSafPath(newDocId));
+      migrateRecentPaths(node.path, toSafPath(newDocId));
+      toasts.success(t('explorer.moved', { name: node.name }));
+      return;
+    }
+    // C19 — pre-check the destination so a name clash surfaces as a
+    // localized, actionable message instead of fs_rename's raw
+    // "target already exists: C:\...". checkMoveTarget above only rules out
+    // no-op / self / descendant moves; it can't see what's already in the
+    // destination. (Race-safe: fs_rename still guards on its side.)
+    if (await pathExists(target)) {
+      toasts.warning(t('explorer.moveNameConflict', { name: node.name }));
+      return;
+    }
     await renamePath(node.path, target);
     scheduleRefresh();
     await repointOpenTabs(node.path, target);
+    migrateRecentPaths(node.path, target);
     toasts.success(t('explorer.moved', { name: node.name }));
   } catch (err) {
     toasts.error(String(err));
@@ -844,6 +955,14 @@ async function performMove(node: Node, targetDir: string) {
  *  then move via fs_rename. */
 async function startMoveTo(node: Node) {
   closeCtx();
+  // #148 / C03 — SAF vault: the system folder dialog hands back REAL
+  // filesystem paths, which a `saf:` document can never be moved into
+  // (moveDocument only works between documents of the same tree). The menu
+  // item is hidden for SAF nodes; this guard is the belt to that braces.
+  if (isSafPath(node.path)) {
+    toasts.error(t('explorer.moveInsideSaf'));
+    return;
+  }
   const parent = node.path.replace(/[\\/][^\\/]+$/, '');
   let dir: string | null = null;
   try {
@@ -944,6 +1063,77 @@ async function revealNode(node: Node) {
   } catch (e) {
     console.warn('reveal failed', e);
   }
+}
+
+// ---------------------------------------------------------------------------
+// C20 — reveal a path INSIDE the current tree (tab context menu "Reveal in
+// File Tree" via PaneTabBar, and the revealInFileTreeOnOpen setting via
+// useFiles.openPath; both arrive as `solomd:reveal-in-file-tree`). Expands
+// the ancestor chain within the open root, scrolls the row into view and
+// flashes a transient highlight. Deliberately never touches
+// workspace.currentFolder: the old `setFolder(parent)` approach silently
+// swapped the whole workspace whenever the file lived in a subfolder (tab
+// session reset + recentFolders churn) and never actually located anything.
+// ---------------------------------------------------------------------------
+
+/** Transient highlight target; cleared by the flash timer below. */
+const revealedPath = ref('');
+let revealFlashTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** True when `path` lives inside the open root (separator-tolerant, same
+ *  heuristic as joinPath/checkMoveTarget). */
+function isInsideRoot(path: string): boolean {
+  const r = root.value?.path;
+  if (!r) return false;
+  if (path === r) return true;
+  const sep = r.includes('\\') && !r.includes('/') ? '\\' : '/';
+  return path.startsWith(r.endsWith(sep) ? r : r + sep);
+}
+
+async function revealInTree(path: string): Promise<boolean> {
+  const rootNode = root.value;
+  if (!rootNode || !isInsideRoot(path)) return false;
+  const rootPath = rootNode.path;
+  const rel = path.slice(rootPath.length).replace(/^[\\/]+/, '');
+  const parts = rel.split(/[\\/]/).filter(Boolean);
+  if (parts.length === 0) return false;
+  // Walk down the chain, lazily loading each level; every ancestor along the
+  // way is expanded so the target row actually renders (the target itself is
+  // only highlighted, like VSCode's reveal). root.value is swapped wholesale
+  // by refreshRoot on a workspace switch — bail out if that happened
+  // mid-await (same stale-guard as refreshRoot).
+  let node = rootNode;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]!;
+    if (node.is_dir && !node.children) {
+      const { children, truncated } = await loadDir(node.path);
+      if (root.value !== rootNode) return false;
+      node.children = children;
+      node.truncated = truncated;
+    }
+    const next = node.children?.find((c) => c.name === part);
+    if (!next) return false;
+    if (i < parts.length - 1) next.expanded = true;
+    node = next;
+  }
+  // Flash + scroll into view once the newly expanded rows have rendered.
+  if (revealFlashTimer) clearTimeout(revealFlashTimer);
+  revealedPath.value = node.path;
+  await nextTick();
+  if (root.value !== rootNode || revealedPath.value !== node.path) return false;
+  treeEl.value
+    ?.querySelector<HTMLElement>(`[data-node-path="${CSS.escape(node.path)}"]`)
+    ?.scrollIntoView({ block: 'nearest' });
+  revealFlashTimer = setTimeout(() => {
+    revealFlashTimer = null;
+    revealedPath.value = '';
+  }, 2400);
+  return true;
+}
+
+function onRevealRequest(e: Event) {
+  const path = (e as CustomEvent<{ path?: string }>).detail?.path;
+  if (typeof path === 'string' && path) void revealInTree(path);
 }
 
 // v4.3.5 — workspace switcher dropdown state.
@@ -1070,8 +1260,9 @@ onBeforeUnmount(() => {
 
 <template>
   <aside
+    ref="treeEl"
     class="ftree"
-    :class="{ 'ftree--fullnames': settings.explorerFullNames }"
+    :class="{ 'ftree--fullnames': settings.explorerFullNames, 'ftree--dragging': !!dragNodePath }"
     :style="{ '--file-tree-width': settings.fileTreeWidth + 'px' }"
     @contextmenu.prevent="openCtx($event, null)"
   >
@@ -1376,6 +1567,7 @@ onBeforeUnmount(() => {
             :inbox-only="showInboxOnly"
             :inbox-paths="inbox.inboxPaths.value"
             :ctx-path="ctx?.node?.path || ''"
+            :reveal-path="revealedPath"
             :search-query="searchQuery"
             :matching-paths="matchingPaths"
             :drag-path="dragNodePath"
@@ -1416,8 +1608,11 @@ onBeforeUnmount(() => {
             <span class="ftree__ctx-kbd">{{ isMac ? 'Enter' : 'F2' }}</span>
           </button>
           <!-- S13 — move via fs_rename: the backend already follows along the
-               per-file `.assets/` folder and rewrites body links on rename. -->
-          <button v-if="ctx.node" class="ftree__ctx-item" @click="startMoveTo(ctx.node)">
+               per-file `.assets/` folder and rewrites body links on rename.
+               #148/C03 — hidden on SAF nodes: the system folder dialog can
+               only pick real paths, never a `saf:` document; move inside the
+               vault with drag & drop instead. -->
+          <button v-if="ctx.node && !isSafPath(ctx.node.path)" class="ftree__ctx-item" :title="t('explorer.moveToDragHint')" @click="startMoveTo(ctx.node)">
             <span class="ftree__ctx-label">{{ t('explorer.moveTo') }}</span>
           </button>
           <button v-if="ctx.node" class="ftree__ctx-item ftree__ctx-item--danger" @click="deleteNode(ctx.node)">
@@ -1460,6 +1655,9 @@ export const FileTreeNode = defineComponent({
     inboxOnly: { type: Boolean, default: false },
     inboxPaths: { type: Object as () => Set<string>, default: () => new Set() },
     ctxPath: { type: String, default: '' },
+    // C20 — transient highlight for the row revealed from outside the tree
+    // (tab context menu / reveal-on-open). Empty when no reveal is active.
+    revealPath: { type: String, default: '' },
     searchQuery: { type: String, default: '' },
     matchingPaths: { type: Object as () => Set<string> | null, default: null },
     // S13 drag-to-move: path of the node being dragged / the directory row
@@ -1745,6 +1943,7 @@ export const FileTreeNode = defineComponent({
               n.is_dir ? 'ftree__item--dir' : 'ftree__item--file',
               { 'ftree__item--active': isActive },
               { 'ftree__item--context-target': props.ctxPath && props.ctxPath === n.path },
+              { 'ftree__item--revealed': props.revealPath && props.revealPath === n.path },
               { 'ftree__item--drag-source': props.dragPath && props.dragPath === n.path },
               { 'ftree__item--drop-target': props.dropPath && props.dropPath === n.path },
             ],
@@ -1759,6 +1958,8 @@ export const FileTreeNode = defineComponent({
             // (and the workspace root button) advertise a drop target.
             onPointerdown: (e: PointerEvent) => emit('nodedrag', e, n),
             'data-drop-dir': n.is_dir ? n.path : null,
+            // C20 — stable hook for the reveal scroll-into-view query.
+            'data-node-path': n.path,
             title: n.path,
           },
           [
@@ -1806,6 +2007,7 @@ export const FileTreeNode = defineComponent({
               inboxOnly: props.inboxOnly,
               inboxPaths: props.inboxPaths,
               ctxPath: props.ctxPath,
+              revealPath: props.revealPath,
               searchQuery: props.searchQuery,
               matchingPaths: props.matchingPaths,
               dragPath: props.dragPath,
@@ -2318,7 +2520,9 @@ export const FileTreeNode = defineComponent({
   padding-right: 8px;
   margin: 1px 0;
   font-size: 13px;
-  cursor: pointer;
+  /* C17 — every row can start a drag-to-move (S13 pointer drag), so the
+     hover cursor should say so instead of the generic pointer. */
+  cursor: grab;
   color: var(--text);
   border-radius: 6px;
   transition: background 0.12s ease, color 0.12s ease;
@@ -2665,6 +2869,15 @@ body.dark .ftree__ctx-sep {
   background: color-mix(in srgb, var(--accent) 15%, var(--bg-hover, transparent)) !important;
 }
 
+/* C20 — transient highlight for a row revealed from outside the tree
+   (tab context menu, reveal-on-open). FileTreeNode renders its rows from a
+   render function, so the scoped selector needs :deep() to reach them
+   (same as the drag-source / drop-target rules below). */
+:deep(.ftree__item--revealed) {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-hover, transparent)) !important;
+  box-shadow: inset 0 0 0 1.5px var(--accent, #0366d6);
+}
+
 /* S13 drag-to-move: source row dims, hovered directory row (or the workspace
    root button) lights up as the drop target. */
 :deep(.ftree__item--drag-source) {
@@ -2673,6 +2886,12 @@ body.dark .ftree__ctx-sep {
 :deep(.ftree__item--drop-target) {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   box-shadow: inset 0 0 0 1.5px var(--accent, #0366d6);
+}
+/* C17 — while a row is being carried around, the whole tree switches to
+   grabbing so the pointer never flips back to grab/hover affordances on the
+   rows it passes over. dragNodePath is non-empty exactly while dragActive. */
+.ftree--dragging :deep(*) {
+  cursor: grabbing !important;
 }
 .ftree__root--drop {
   background: color-mix(in srgb, var(--accent) 14%, transparent);

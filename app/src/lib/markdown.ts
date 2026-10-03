@@ -830,15 +830,121 @@ export function preprocessMarkdown(source: string): string {
   return normalizeListIndent(s);
 }
 
-export function renderMarkdown(source: string, options?: { breaks?: boolean }): string {
+// ---- C11: shared reference env for fragment (per-block) rendering ----------
+//
+// The Windows live block editor renders each block in isolation
+// (Editor.vue renderPlainBlock). Footnote definitions and reference-style
+// link definitions live in their own blocks, so a fragment containing only a
+// reference renders the marker literally (`[^1]`, `[text][ref]`) — the
+// whole-document preview resolves them fine. The fix mirrors what
+// markdown-it itself does for a full document: parse the definitions first
+// into an env (`md.parse` fills `env.footnotes.refs` and `env.references`),
+// then inject that env into every fragment render that needs it.
+
+export interface MarkdownReferenceEnv {
+  env: Record<string, unknown>;
+  /**
+   * Fingerprint of the collected definition mappings (footnote label → number,
+   * link label → href/title). Exactly what a reference fragment's HTML depends
+   * on — callers add it to their render cache key so fragments re-render when
+   * definitions appear, disappear or reorder, and DON'T re-render on unrelated
+   * edits elsewhere in the document. Definition *body* text is deliberately
+   * excluded: it only shows up in the footnotes section, which reference
+   * fragments never render.
+   */
+  key: string;
+}
+
+// Hint-only pre-scan (same shapes markdown-it-footnote's `footnote_def` and
+// markdown-it's `reference` rule match at block level). A false positive just
+// triggers a full-document parse; a false negative would leave a fragment
+// literal, and the regexes below are supersets of the parsers' own matchers.
+const FOOTNOTE_DEF_HINT_RE = /^ {0,3}\[\^[^\]\s]+\]:/m;
+const LINK_REF_DEF_HINT_RE = /^ {0,3}\[[^\]\n]+\]:[ \t]/m;
+
+/**
+ * True when the fragment itself contains block-level definitions (footnote or
+ * link-reference). Such blocks must render WITHOUT the shared env: parsing a
+ * definition into it resets the footnote ref slot to -1 (skewing numbering of
+ * later blocks) and they render their own section via the tail rule. Note
+ * markdown-it already renders them empty today (a definition with no
+ * reference in the fragment builds no footnote list → the tail rule bails),
+ * which matches the whole-document preview, where the definition's position
+ * also produces no visible output.
+ */
+export function blockOwnsDefinitions(src: string): boolean {
+  return FOOTNOTE_DEF_HINT_RE.test(src) || LINK_REF_DEF_HINT_RE.test(src);
+}
+
+/**
+ * Parse `source` and collect the definition mappings needed to render
+ * reference fragments in isolation. Returns null for documents without any
+ * definition lines — the overwhelming majority — so the live editor pays no
+ * extra cost there.
+ */
+export function collectReferenceEnv(source: string): MarkdownReferenceEnv | null {
+  if (!source) return null;
+  if (!FOOTNOTE_DEF_HINT_RE.test(source) && !LINK_REF_DEF_HINT_RE.test(source)) return null;
+  const env: Record<string, unknown> = {};
+  md.parse(preprocessMarkdown(source), env);
+  const footnotes = env.footnotes as
+    | { refs?: Record<string, number>; list?: Array<{ count?: number; label?: string }> }
+    | undefined;
+  // The parse pass itself consumed each footnote's reference count (inline
+  // stage increments as it walks the document). Fragment renders increment
+  // again, so reset to zero — the first fragment reference must get subId 0
+  // (`[1]`), matching the whole-document preview.
+  if (footnotes && Array.isArray(footnotes.list)) {
+    for (const item of footnotes.list) item.count = 0;
+  }
+  const references = (env.references as Record<string, { href: string; title?: string }>) || {};
+  const refs = (footnotes && footnotes.refs) || {};
+  const key = JSON.stringify([
+    refs,
+    Object.keys(references)
+      .sort()
+      .map((label) => [label, references[label].href, references[label].title ?? null]),
+  ]);
+  return { env, key };
+}
+
+export interface RenderMarkdownOptions {
+  breaks?: boolean;
+  /**
+   * C11 — shared reference env for fragment rendering. The live block editor
+   * renders one block at a time, so footnote references (`[^1]`) and
+   * reference-style links (`[text][ref]`) resolve against an env that only
+   * knows THIS block — markdown-it-footnote's `footnote_ref` rule returns
+   * false when `env.footnotes.refs` lacks the label, and the text stays a
+   * literal `[^1]`. Pass the env built by `collectReferenceEnv` (parsed from
+   * the full document) so fragments resolve exactly like the whole-document
+   * preview does.
+   */
+  env?: Record<string, unknown>;
+  /**
+   * C11 — skip markdown-it-footnote's document-tail rule. With a shared env
+   * the footnote list is already populated from the full document, so the
+   * tail rule would append a footnotes `<section>` to every fragment render.
+   * Only set this for blocks that do NOT own footnote definitions (those need
+   * the tail to render their section, and must NOT share the env — parsing a
+   * definition into the shared env resets its ref slot to -1 and would skew
+   * the numbering of later blocks).
+   */
+  skipFootnoteTail?: boolean;
+}
+
+export function renderMarkdown(source: string, options?: RenderMarkdownOptions): string {
   lastFrontMatterRaw = null;
   const normalized = preprocessMarkdown(source);
   const prevBreaks = md.options.breaks;
   if (options?.breaks !== undefined) md.set({ breaks: options.breaks });
+  const tailDisabled = options?.skipFootnoteTail === true;
+  if (tailDisabled) md.core.ruler.disable('footnote_tail');
   let body = '';
   try {
-    body = md.render(normalized);
+    body = options?.env !== undefined ? md.render(normalized, options.env) : md.render(normalized);
   } finally {
+    if (tailDisabled) md.core.ruler.enable('footnote_tail');
     if (options?.breaks !== undefined) md.set({ breaks: prevBreaks });
   }
   let html: string;

@@ -34,7 +34,7 @@ const { t } = useI18n();
 // a literal baked into the translation.
 const macChord = isMacOS();
 const kbSettings = useSettingsStore();
-function withChord(key: string, actionId: string): string {
+function tChord(key: string, actionId: string): string {
   return t(key, { key: shortcutLabel(actionId, kbSettings.keybindings, macChord) || '—' });
 }
 
@@ -86,7 +86,7 @@ const mode = computed<Mode>(() => {
   if (s.dirty) {
     return {
       glyph: '●',
-      label: withChord('githubSync.pillDirty', 'file.save') || 'Uncommitted local changes — save with ⌘S',
+      label: tChord('githubSync.pillDirty', 'file.save') || 'Uncommitted local changes — save with ⌘S',
       action: 'noop',
       tone: 'warn',
     };
@@ -140,16 +140,20 @@ async function onClick() {
     case 'busy':
       // Click during an in-flight op is intentionally ignored — let it
       // finish. Toast just so the user gets feedback.
-      toasts.info(t('githubSync.pillBusy') || 'Syncing — please wait');
+      toasts.info(t('githubSync.pillBusy'));
       break;
     case 'noop':
     default:
       // Up-to-date / dirty-but-no-commit. Just confirm state in a toast
-      // so a click never feels like nothing happened.
+      // so a click never feels like nothing happened. The clean branch
+      // repeats the pill label ("matches the remote as of the last
+      // check") rather than claiming a fresh up-to-date verdict —
+      // ahead/behind comes from the locally cached origin ref, no
+      // network request happened here.
       if (status.value?.dirty) {
-        toasts.info(withChord('githubSync.pillDirty', 'file.save') || 'Save first to push.');
+        toasts.info(tChord('githubSync.pillDirty', 'file.save'));
       } else {
-        toasts.success(t('githubSync.upToDate') || 'Already up to date.');
+        toasts.success(mode.value.label);
       }
       break;
   }

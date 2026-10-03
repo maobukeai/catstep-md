@@ -21,6 +21,7 @@ import {
 } from '../stores/themes';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
+import { useI18n } from '../i18n';
 import { isValidTheme } from '../lib/themes';
 import type { Theme } from '../types';
 
@@ -30,6 +31,7 @@ const emit = defineEmits<{ (e: 'close'): void }>();
 const themes = useThemesStore();
 const settings = useSettingsStore();
 const toasts = useToastsStore();
+const { t } = useI18n();
 
 const isZh = computed(() => (settings.language || 'zh').startsWith('zh'));
 
@@ -219,7 +221,7 @@ function onActivateInstalled(id: string, path: string, tone?: 'light' | 'dark') 
     const effTone = tone || resolveThemeTone({ id, path });
     settings.setTheme(effTone === 'dark' ? 'night' : 'github-light');
   }
-  toasts.success(isZh.value ? '已启用该主题' : 'Theme activated');
+  toasts.success(t('themes.activated'));
 }
 
 // Built-in install & apply
@@ -234,9 +236,9 @@ async function onInstallBuiltin(theme: ThemeManifestEntry) {
       const tone = (theme.tags ?? []).includes('dark') ? 'dark' : 'light';
       settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
     }
-    toasts.success(isZh.value ? `已启用 ${theme.name}` : `Activated ${theme.name}`);
+    toasts.success(t('themes.activatedName', { name: theme.name }));
   } catch (e) {
-    toasts.error(isZh.value ? `安装失败: ${formatErrorMessage(e)}` : `Install failed: ${formatErrorMessage(e)}`);
+    toasts.error(t('themes.installFailed', { error: formatErrorMessage(e) }));
   }
 }
 
@@ -248,9 +250,9 @@ async function onInstallTypora(theme: TyporaThemeEntry) {
     settings.setCustomCssPath(path);
     const tone = theme.tone || (theme.tags?.includes('dark') ? 'dark' : undefined) || resolveThemeTone({ id: theme.id, name: theme.name });
     settings.setTheme(tone === 'dark' ? 'night' : 'github-light');
-    toasts.success(isZh.value ? `已从 GitHub 安装并启用 ${theme.name}` : `Installed & applied ${theme.name}`);
+    toasts.success(t('themes.installedAndApplied', { name: theme.name }));
   } catch (e) {
-    toasts.error(isZh.value ? `GitHub 下载安装失败: ${formatErrorMessage(e)}` : `Failed: ${formatErrorMessage(e)}`);
+    toasts.error(t('themes.githubInstallFailed', { error: formatErrorMessage(e) }));
   }
 }
 
@@ -264,9 +266,9 @@ async function onUninstall(id: string, name?: string) {
       settings.setCustomCssPath('');
       settings.setTheme('github-light');
     }
-    toasts.success(isZh.value ? `已卸载 ${name || id}` : `Uninstalled ${name || id}`);
+    toasts.success(t('themes.uninstalled', { name: name || id }));
   } catch (e) {
-    toasts.error(isZh.value ? `卸载失败: ${formatErrorMessage(e)}` : `Failed to uninstall: ${formatErrorMessage(e)}`);
+    toasts.error(t('themes.uninstallFailed', { error: formatErrorMessage(e) }));
   }
 }
 
@@ -278,7 +280,7 @@ async function onInstallCustomUrl() {
   try {
     const files = await themes.sniffGitHubRepo(url);
     if (!files || files.length === 0) {
-      toasts.error(isZh.value ? '未在链接中探查到 CSS 主题文件' : 'No CSS theme files found');
+      toasts.error(t('themes.noCssInLink'));
       return;
     }
     if (files.length === 1) {
@@ -287,7 +289,7 @@ async function onInstallCustomUrl() {
       settings.setActiveCustomThemeId(file.id);
       settings.setCustomCssPath(path);
       settings.setTheme(file.is_dark ? 'night' : 'github-light');
-      toasts.success(isZh.value ? `成功安装主题: ${file.name}` : `Successfully installed: ${file.name}`);
+      toasts.success(t('themes.installed', { name: file.name }));
       customUrlInput.value = '';
       showUrlModal.value = false;
       marketMode.value = 'installed';
@@ -312,7 +314,7 @@ async function onInstallCustomUrl() {
       variantModalOpen.value = true;
     }
   } catch (e) {
-    toasts.error(isZh.value ? `安装失败: ${formatErrorMessage(e)}` : `Install failed: ${formatErrorMessage(e)}`);
+    toasts.error(t('themes.installFailed', { error: formatErrorMessage(e) }));
   } finally {
     isInstallingUrl.value = false;
   }
@@ -366,7 +368,7 @@ async function onSniffAndInstallRepo(repo: GitHubRepoSummary) {
   try {
     const files = await themes.sniffGitHubRepo(repo.full_name);
     if (!files || files.length === 0) {
-      toasts.error(isZh.value ? '未在仓库中探测到独立 CSS 主题' : 'No CSS theme files detected in repository');
+      toasts.error(t('themes.noCssInRepo'));
       return;
     }
     if (files.length === 1) {
@@ -375,7 +377,7 @@ async function onSniffAndInstallRepo(repo: GitHubRepoSummary) {
       settings.setActiveCustomThemeId(file.id);
       settings.setCustomCssPath(path);
       settings.setTheme(file.is_dark ? 'night' : 'github-light');
-      toasts.success(isZh.value ? `成功从 GitHub 安装主题: ${file.name}` : `Installed: ${file.name}`);
+      toasts.success(t('themes.installed', { name: file.name }));
     } else {
       variantModalRepo.value = repo;
       variantModalFiles.value = files;
@@ -383,7 +385,7 @@ async function onSniffAndInstallRepo(repo: GitHubRepoSummary) {
       variantModalOpen.value = true;
     }
   } catch (e) {
-    toasts.error(isZh.value ? `嗅探安装失败: ${formatErrorMessage(e)}` : `Failed: ${formatErrorMessage(e)}`);
+    toasts.error(t('themes.sniffInstallFailed', { error: formatErrorMessage(e) }));
   } finally {
     isSniffingRepo.value[repo.full_name] = false;
   }
@@ -398,11 +400,11 @@ async function onConfirmVariantInstall() {
     settings.setActiveCustomThemeId(file.id);
     settings.setCustomCssPath(path);
     settings.setTheme(file.is_dark ? 'night' : 'github-light');
-    toasts.success(isZh.value ? `成功安装主题: ${file.name}` : `Successfully installed: ${file.name}`);
+    toasts.success(t('themes.installed', { name: file.name }));
     variantModalOpen.value = false;
     marketMode.value = 'installed';
   } catch (e) {
-    toasts.error(isZh.value ? `安装失败: ${formatErrorMessage(e)}` : `Install failed: ${formatErrorMessage(e)}`);
+    toasts.error(t('themes.installFailed', { error: formatErrorMessage(e) }));
   } finally {
     isInstallingVariant.value = false;
   }
@@ -433,7 +435,7 @@ async function onRefresh() {
       await triggerGitHubSearch();
     }
     await themes.refreshInstalled();
-    toasts.success(isZh.value ? '已刷新主题市场列表' : 'Marketplace refreshed');
+    toasts.success(t('themes.marketplaceRefreshed'));
   } finally {
     isRefreshing.value = false;
   }

@@ -14,6 +14,10 @@
  * their results like the normal `list_dir` / `read_file` responses.
  */
 import { invoke } from '@tauri-apps/api/core';
+// ^ Deliberate raw `invoke` — this module IS the single facade for the saf_*
+// family; see the tail note in lib/commands.ts. It already normalizes results
+// into the plain list_dir/read_file shapes, so every SAF caller is funneled
+// through here and a second bridge layer would duplicate that contract.
 import type { FileReadResult, Language } from '../types';
 
 export const SAF_PREFIX = 'saf:';
@@ -69,6 +73,45 @@ export async function safCreate(
   mime = 'text/markdown',
 ): Promise<string> {
   return await invoke<string>('saf_create', { treeUri, parentDocId, mime, name });
+}
+
+/**
+ * Delete a document (file or empty directory) through ContentResolver.
+ * NOTE: unlike desktop `fs_delete` there is no OS trash on the SAF side —
+ * `deleteDocument` is permanent — but it DOES delete, which `fs_delete` on a
+ * `saf:` path never could (the Rust `Path::exists()` guard sees no such file
+ * and resolves idempotently without touching anything). C03 fix.
+ */
+export async function safDelete(treeUri: string, docId: string): Promise<void> {
+  await invoke('saf_delete', { treeUri, docId });
+}
+
+/**
+ * Rename a document in place (display-name change within the SAME folder).
+ * SAF providers are free to reissue the documentId on rename, so the
+ * resolved value is the documentId to use from now on — repoint tabs and
+ * subsequent calls to it instead of re-joining the old id.
+ */
+export async function safRename(
+  treeUri: string,
+  docId: string,
+  newName: string,
+): Promise<string> {
+  return await invoke<string>('saf_rename', { treeUri, docId, newName });
+}
+
+/**
+ * Move a document to another folder of the SAME tree (`moveDocument`,
+ * API 24+). Same documentId-reissue caveat as {@link safRename}; moves
+ * across trees are refused by the provider and surface as rejections.
+ */
+export async function safMove(
+  treeUri: string,
+  docId: string,
+  parentDocId: string,
+  newParentDocId: string,
+): Promise<string> {
+  return await invoke<string>('saf_move', { treeUri, docId, parentDocId, newParentDocId });
 }
 
 export async function safPersistedTrees(): Promise<string[]> {

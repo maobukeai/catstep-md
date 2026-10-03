@@ -14,7 +14,28 @@
  */
 
 import { computed, onMounted, ref, watch } from 'vue';
-import { safeInvoke as invoke } from '../lib/tauri-bridge';
+// Migration note (F4 commands-facade sweep): this component used to alias
+// `safeInvoke` as `invoke`, so every command error was silently swallowed and
+// non-Tauri environments resolved `undefined`. All call sites below own a
+// try/catch (they render the error into diagnosisMap / fetchStateMap /
+// addError), so the strict wrappers in lib/commands keep the exact same
+// observable UX inside the Tauri shell — the swallowing now happens in those
+// handlers, one level up, instead of inside the bridge. Outside the shell the
+// strict wrapper reproduces a raw `invoke` rejection, which is what the
+// `__TAURI_INTERNALS__` dev-preview fallback branches (e.g. in
+// onFetchModelsForProfile) were originally written against.
+import {
+  aiClearKey,
+  aiHasKey,
+  aiListModels,
+  aiSetKey,
+  aiVerifyKey,
+  agentListRuns,
+  mcpTestServer,
+  ollamaDetect,
+  openOllamaInstallPage,
+  readNote,
+} from '../lib/commands';
 import {
   ACTIONS,
   providerById,
@@ -32,13 +53,15 @@ import ProviderSelect from './ProviderSelect.vue';
 import { useSettingsStore, type AIProviderProfile, type AgentMcpServer } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useTabsStore } from '../stores/tabs';
+import { useToastsStore } from '../stores/toasts';
 import { useI18n } from '../i18n';
 import { isMacOS } from '../lib/platform';
-import { formatEnvText, parseEnvText } from '../lib/mcp-env';
+import { formatEnvText, parseEnvTextDetailed } from '../lib/mcp-env';
 
 const settingsStore = useSettingsStore();
 const workspaceStore = useWorkspaceStore();
 const tabsStore = useTabsStore();
+const toasts = useToastsStore();
 const isMac = isMacOS();
 
 // ---------------------------------------------------------------------------
@@ -111,9 +134,9 @@ async function refreshProfileHasKey(profileId: string, provider: string): Promis
     // backend's slot resolution is explicit rather than inferred, and the
     // provider-named lookup stays only as a legacy fallback for keys saved
     // before profiles owned their credentials.
-    ok = await invoke<boolean>('ai_has_key', { provider: profileId, keyId: profileId });
+    ok = await aiHasKey(profileId, profileId);
     if (!ok && profileId !== provider) {
-      ok = await invoke<boolean>('ai_has_key', { provider });
+      ok = await aiHasKey(provider);
     }
   } catch {
     ok = false;
@@ -134,7 +157,7 @@ async function onDiagnoseProfile(profile: AIProviderProfile): Promise<void> {
   try {
     const cfg = providerById(profile.provider);
     const key = (profileKeyInputs.value[profile.id] || '').trim() || null;
-    const res = await invoke<string>('ai_verify_key', {
+    const res = await aiVerifyKey({
       provider: profile.provider,
       key,
       apiFormat: cfg?.apiFormat || 'openai',
@@ -166,7 +189,7 @@ async function onSaveKeyForProfile(profile: AIProviderProfile): Promise<void> {
   profileKeySaving.value[profile.id] = true;
   try {
     const cfg = providerById(profile.provider);
-    await invoke('ai_verify_key', {
+    await aiVerifyKey({
       provider: profile.provider,
       key,
       apiFormat: cfg?.apiFormat || 'openai',
@@ -174,7 +197,7 @@ async function onSaveKeyForProfile(profile: AIProviderProfile): Promise<void> {
       model: profile.selectedModel || profile.models[0] || cfg?.defaultModel || null,
       keyId: profile.id,
     });
-    await invoke('ai_set_key', { provider: profile.id, keyId: profile.id, key });
+    await aiSetKey(profile.id, profile.id, key);
     profileKeyInputs.value[profile.id] = '';
     await refreshProfileHasKey(profile.id, profile.provider);
     diagnosisMap.value[profile.id] = {
@@ -196,9 +219,9 @@ async function onSaveKeyForProfile(profile: AIProviderProfile): Promise<void> {
 async function onClearKeyForProfile(profile: AIProviderProfile): Promise<void> {
   profileKeySaving.value[profile.id] = true;
   try {
-    await invoke('ai_clear_key', { provider: profile.id, keyId: profile.id });
+    await aiClearKey(profile.id, profile.id);
     if (profile.id !== profile.provider) {
-      await invoke('ai_clear_key', { provider: profile.provider });
+      await aiClearKey(profile.provider);
     }
     await refreshProfileHasKey(profile.id, profile.provider);
     diagnosisMap.value[profile.id] = {
@@ -224,7 +247,7 @@ async function onFetchModelsForProfile(profile: AIProviderProfile): Promise<void
     const key = (profileKeyInputs.value[profile.id] || '').trim() || null;
     let p: ModelProbe;
     try {
-      p = await invoke<ModelProbe>('ai_list_models', {
+      p = await aiListModels<ModelProbe>({
         provider: profile.provider,
         baseUrl: profile.baseUrl || cfg?.defaultBaseUrl || null,
         key,
@@ -374,7 +397,7 @@ async function fetchModelsForNewModal(): Promise<void> {
   fetchingModalModels.value = true;
   addError.value = '';
   try {
-    const probe = await invoke<ModelProbe>('ai_list_models', {
+    const probe = await aiListModels<ModelProbe>({
       provider: newProviderTemplate.value,
       baseUrl,
       key,
@@ -428,11 +451,7 @@ async function confirmAddProvider(): Promise<void> {
     });
 
     if (newProviderKey.value.trim()) {
-      await invoke('ai_set_key', {
-        provider: profile.id,
-        keyId: profile.id,
-        key: newProviderKey.value.trim(),
-      });
+      await aiSetKey(profile.id, profile.id, newProviderKey.value.trim());
       await refreshProfileHasKey(profile.id, profile.provider);
     }
     showAddModal.value = false;
@@ -494,7 +513,7 @@ async function detectOllama(force = false): Promise<void> {
   }
   detecting.value = true;
   try {
-    const d = await invoke<OllamaDetection>('ollama_detect', { baseUrl: url });
+    const d = await ollamaDetect<OllamaDetection>({ baseUrl: url });
     if (probeUrl.value !== url) return;
     detection.value = d;
     cachedDetection = d;
@@ -514,7 +533,7 @@ async function detectOllama(force = false): Promise<void> {
 
 async function openInstallPage(): Promise<void> {
   try {
-    await invoke('open_ollama_install_page');
+    await openOllamaInstallPage();
   } catch (e) {
     console.error('failed to open ollama install page', e);
   }
@@ -556,9 +575,7 @@ async function refreshRuns(): Promise<void> {
   }
   runsLoading.value = true;
   try {
-    recentRuns.value = await invoke<AgentRunMeta[]>('agent_list_runs', {
-      workspace: ws,
-    });
+    recentRuns.value = await agentListRuns<AgentRunMeta[]>(ws);
   } catch (e) {
     console.warn('failed to load agent runs', e);
     recentRuns.value = [];
@@ -598,12 +615,7 @@ function fmtRunUsage(r: AgentRunMeta): string {
 async function openRunMd(run: AgentRunMeta): Promise<void> {
   if (!run._run_md) return;
   try {
-    const result = await invoke<{
-      content: string;
-      encoding: string;
-      language: string;
-      had_bom: boolean;
-    }>('read_file', { path: run._run_md });
+    const result = await readNote(run._run_md);
     tabsStore.openFromDisk({
       filePath: run._run_md,
       content: result.content,
@@ -670,18 +682,55 @@ function headersTextFor(id: string): string {
     .join('; ');
 }
 
-/** Parse the one-line header editor format back into a record. Entries
- *  without a colon (or with an empty key/value) are dropped. */
-function parseHeadersText(text: string): Record<string, string> {
-  const out: Record<string, string> = {};
+/** C21 — parse result that also counts dropped segments, so the UI can
+ *  tell the user what silently used to vanish. Blank segments (leftover
+ *  `;;` padding) are not counted. */
+interface ParsedHeadersText {
+  headers: Record<string, string>;
+  dropped: number;
+}
+
+/** Parse the one-line header editor format (`Key: Value; Key2: Value2`)
+ *  into a record plus a dropped count. Entries without a colon (or with
+ *  an empty key/value) are dropped. */
+function parseHeadersTextDetailed(text: string): ParsedHeadersText {
+  const headers: Record<string, string> = {};
+  let dropped = 0;
   for (const part of text.split(';')) {
     const idx = part.indexOf(':');
-    if (idx <= 0) continue;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (k && v) out[k] = v;
+    const k = idx > 0 ? part.slice(0, idx).trim() : '';
+    const v = idx > 0 ? part.slice(idx + 1).trim() : '';
+    if (k && v) headers[k] = v;
+    else if (part.trim()) dropped++;
   }
-  return out;
+  return { headers, dropped };
+}
+
+/** C21 — shared follow-up for the env/headers editors: commit the parsed
+ *  record and, when at least one entry was dropped for bad formatting,
+ *  say so once instead of silently losing it. */
+function commitMcpParsed(
+  id: string,
+  parsed: { record: Record<string, string>; dropped: number },
+  kind: 'env' | 'headers',
+) {
+  if (kind === 'env') {
+    settingsStore.updateAgentMcpServer(id, { env: parsed.record });
+    if (parsed.dropped >= 1) toasts.warning(t('agentSettings.mcpEnvDroppedLines', { n: parsed.dropped }));
+  } else {
+    settingsStore.updateAgentMcpServer(id, { headers: parsed.record });
+    if (parsed.dropped >= 1) toasts.warning(t('agentSettings.mcpHeadersDroppedEntries', { n: parsed.dropped }));
+  }
+}
+
+function onEnvInput(id: string, value: string) {
+  const { env, dropped } = parseEnvTextDetailed(value);
+  commitMcpParsed(id, { record: env, dropped }, 'env');
+}
+
+function onHeadersInput(id: string, value: string) {
+  const { headers, dropped } = parseHeadersTextDetailed(value);
+  commitMcpParsed(id, { record: headers, dropped }, 'headers');
 }
 
 /** Serialize the env record to the one `KEY=value` per line textarea
@@ -702,21 +751,25 @@ function slugifyMcpId(v: string): string {
 async function testMcpServer(s: AgentMcpServer) {
   mcpTestState.value[s.id] = { ok: false, message: '', testing: true };
   try {
-    const tools = await invoke<string[]>('mcp_test_server', {
-      config: {
-        id: s.id,
-        command: s.command.trim(),
-        args: s.args,
-        env: s.env ?? {},
-        enabled: true,
-        timeout_secs: s.timeout_secs ?? null,
-        url: s.url ?? null,
-        headers: s.headers ?? {},
-      },
+    const tools = await mcpTestServer<string[]>({
+      id: s.id,
+      command: s.command.trim(),
+      args: s.args,
+      env: s.env ?? {},
+      enabled: true,
+      timeout_secs: s.timeout_secs ?? null,
+      url: s.url ?? null,
+      headers: s.headers ?? {},
     });
     mcpTestState.value[s.id] = { ok: true, message: String(tools.length), testing: false };
   } catch (e) {
-    mcpTestState.value[s.id] = { ok: false, message: String(e), testing: false };
+    // C21 — a raw provider error alone gave no starting point; lead with
+    // the common causes, then append the original error string.
+    mcpTestState.value[s.id] = {
+      ok: false,
+      message: t('agentSettings.mcpTestFailHint', { error: String(e) }),
+      testing: false,
+    };
   }
 }
 
@@ -1338,49 +1391,69 @@ function resetAllPromptTemplates(): void {
     </div>
     <ul v-if="settingsStore.agentMcpEnabled && settingsStore.agentMcpServers.length" class="ai-settings__runs-list">
       <li v-for="s in settingsStore.agentMcpServers" :key="s.id" class="ai-settings__run ai-settings__mcp-row">
-        <input
-          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--name"
-          :value="s.id"
-          :placeholder="t('agentSettings.mcpName')"
-          spellcheck="false"
-          @change="settingsStore.updateAgentMcpServer(s.id, { id: slugifyMcpId(($event.target as HTMLInputElement).value) || s.id })"
-        />
-        <input
-          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--cmd"
-          :value="s.command"
-          :placeholder="t('agentSettings.mcpCommand')"
-          spellcheck="false"
-          @change="settingsStore.updateAgentMcpServer(s.id, { command: ($event.target as HTMLInputElement).value.trim() })"
-        />
-        <input
-          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--args"
-          :value="argsTextFor(s.id)"
-          :placeholder="t('agentSettings.mcpArgs')"
-          spellcheck="false"
-          @change="onArgsInput(s.id, ($event.target as HTMLInputElement).value)"
-        />
-        <input
-          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--url"
-          :value="s.url ?? ''"
-          :placeholder="t('agentSettings.mcpUrl')"
-          spellcheck="false"
-          @change="settingsStore.updateAgentMcpServer(s.id, { url: ($event.target as HTMLInputElement).value.trim() || null })"
-        />
-        <input
-          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--headers"
-          :value="headersTextFor(s.id)"
-          :placeholder="t('agentSettings.mcpHeaders')"
-          spellcheck="false"
-          @change="settingsStore.updateAgentMcpServer(s.id, { headers: parseHeadersText(($event.target as HTMLInputElement).value) })"
-        />
-        <textarea
-          class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-field--env"
-          :value="envTextFor(s.id)"
-          :placeholder="t('agentSettings.mcpEnv')"
-          spellcheck="false"
-          rows="2"
-          @change="settingsStore.updateAgentMcpServer(s.id, { env: parseEnvText(($event.target as HTMLTextAreaElement).value) })"
-        />
+        <!-- C21: each field gets a persistent label (placeholders alone gave
+             no clue once a value was filled in). -->
+        <label class="ai-settings__mcp-field-wrap ai-settings__mcp-field--name">
+          <span class="ai-settings__mcp-field-label">{{ t('agentSettings.mcpName') }}</span>
+          <input
+            class="ai-settings__input ai-settings__mcp-field"
+            :value="s.id"
+            :placeholder="t('agentSettings.mcpName')"
+            spellcheck="false"
+            @change="settingsStore.updateAgentMcpServer(s.id, { id: slugifyMcpId(($event.target as HTMLInputElement).value) || s.id })"
+          />
+        </label>
+        <label class="ai-settings__mcp-field-wrap ai-settings__mcp-field--cmd">
+          <span class="ai-settings__mcp-field-label">{{ t('agentSettings.mcpCommand') }}</span>
+          <input
+            class="ai-settings__input ai-settings__mcp-field"
+            :value="s.command"
+            :placeholder="t('agentSettings.mcpCommand')"
+            spellcheck="false"
+            @change="settingsStore.updateAgentMcpServer(s.id, { command: ($event.target as HTMLInputElement).value.trim() })"
+          />
+        </label>
+        <label class="ai-settings__mcp-field-wrap ai-settings__mcp-field--args">
+          <span class="ai-settings__mcp-field-label">{{ t('agentSettings.mcpArgs') }}</span>
+          <input
+            class="ai-settings__input ai-settings__mcp-field"
+            :value="argsTextFor(s.id)"
+            :placeholder="t('agentSettings.mcpArgs')"
+            spellcheck="false"
+            @change="onArgsInput(s.id, ($event.target as HTMLInputElement).value)"
+          />
+        </label>
+        <label class="ai-settings__mcp-field-wrap ai-settings__mcp-field--url">
+          <span class="ai-settings__mcp-field-label">{{ t('agentSettings.mcpUrl') }}</span>
+          <input
+            class="ai-settings__input ai-settings__mcp-field"
+            :value="s.url ?? ''"
+            :placeholder="t('agentSettings.mcpUrl')"
+            spellcheck="false"
+            @change="settingsStore.updateAgentMcpServer(s.id, { url: ($event.target as HTMLInputElement).value.trim() || null })"
+          />
+        </label>
+        <label class="ai-settings__mcp-field-wrap ai-settings__mcp-field--headers">
+          <span class="ai-settings__mcp-field-label">{{ t('agentSettings.mcpHeaders') }}</span>
+          <input
+            class="ai-settings__input ai-settings__mcp-field"
+            :value="headersTextFor(s.id)"
+            :placeholder="t('agentSettings.mcpHeaders')"
+            spellcheck="false"
+            @change="onHeadersInput(s.id, ($event.target as HTMLInputElement).value)"
+          />
+        </label>
+        <label class="ai-settings__mcp-field-wrap ai-settings__mcp-field--env">
+          <span class="ai-settings__mcp-field-label">{{ t('agentSettings.mcpEnv') }}</span>
+          <textarea
+            class="ai-settings__input ai-settings__mcp-field ai-settings__mcp-env-input"
+            :value="envTextFor(s.id)"
+            :placeholder="t('agentSettings.mcpEnv')"
+            spellcheck="false"
+            rows="2"
+            @change="onEnvInput(s.id, ($event.target as HTMLTextAreaElement).value)"
+          ></textarea>
+        </label>
         <input
           type="checkbox"
           :checked="s.enabled"
@@ -1508,12 +1581,28 @@ function resetAllPromptTemplates(): void {
 }
 .ai-settings__mcp-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 6px;
   flex-wrap: wrap;
 }
+/* C21 — persistent per-field labels: the sized wrap wraps label + control. */
+.ai-settings__mcp-field-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ai-settings__mcp-field-label {
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ai-settings__mcp-field {
   min-width: 0;
+  width: 100%;
 }
 .ai-settings__mcp-field--name { width: 110px; flex: 0 1 auto; }
 .ai-settings__mcp-field--cmd { width: 200px; flex: 1 1 160px; }
@@ -1523,6 +1612,8 @@ function resetAllPromptTemplates(): void {
 .ai-settings__mcp-field--env {
   width: 170px;
   flex: 1 1 130px;
+}
+.ai-settings__mcp-env-input {
   resize: vertical;
   font-family: var(--font-mono, monospace);
 }

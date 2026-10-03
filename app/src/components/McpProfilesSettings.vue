@@ -23,7 +23,8 @@
  */
 
 import { ref, computed, onMounted, reactive } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+// aliased: the component keeps a local `mcpPath` ref with the same name.
+import { mcpPath as mcpPathCmd } from '../lib/commands';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { pickFolder } from '../lib/user-pick';
 import { useToastsStore } from '../stores/toasts';
@@ -79,7 +80,7 @@ function syncDraftsFromStore() {
 
 onMounted(async () => {
   try {
-    mcpPath.value = await invoke<McpPath>('mcp_path');
+    mcpPath.value = await mcpPathCmd<McpPath>();
   } catch {
     mcpPath.value = { path: null, bundled: false };
   }

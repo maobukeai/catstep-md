@@ -50,6 +50,18 @@ export const useWorkspaceStore = defineStore('workspace', {
       this.recentFiles = this.recentFiles.filter((p) => p !== path);
       this.persist();
     },
+    /** C20 — a move/rename must not orphan its MRU slot: repoint the recent
+     *  entry from `from` onto `to`, keeping its recency position. No-op when
+     *  `from` isn't tracked; an already-tracked `to` is deduped (first
+     *  occurrence wins). */
+    migrateRecent(from: string, to: string) {
+      if (!from || !to || from === to) return;
+      if (!this.recentFiles.includes(from)) return;
+      this.recentFiles = this.recentFiles
+        .map((p) => (p === from ? to : p))
+        .filter((p, i, arr) => arr.indexOf(p) === i);
+      this.persist();
+    },
     clearRecent() {
       this.recentFiles = [];
       this.persist();

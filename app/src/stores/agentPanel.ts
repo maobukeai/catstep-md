@@ -34,6 +34,9 @@ export interface AgentReference {
   name: string;
   path?: string;
   preview?: string;
+  /** C04 — set when the note's content could not be read at send time; the
+   *  chip renders red so the user knows the model never saw the content. */
+  failed?: boolean;
 }
 
 export interface AgentMessage {
@@ -48,6 +51,15 @@ export interface AgentMessage {
   tool?: AgentToolPayload;
   /** Context references attached to this turn (e.g. @notes, selection). */
   references?: AgentReference[];
+  /** C09 — vault notes the RAG auto-grounding hit for this prompt (computed
+   *  in send()). Stored on the user message of the turn so it survives the
+   *  assistant placeholder being popped by tool cards; rendered as reference
+   *  chips above the turn's reply. */
+  grounded?: AgentReference[];
+  /** C21 — per-run usage from the backend `solomd://ai-done` payload
+   *  (tokens + estimated cost). Set on the final assistant message of a
+   *  turn; rendered as small print under the reply. */
+  usage?: { tokensIn: number; tokensOut: number; costUsd: number };
   /** Attached images (base64 data URL or asset URLs for vision models). */
   images?: string[];
   /** Active selection context (for targeted rewrite / in-place patch). */
@@ -84,6 +96,11 @@ interface AgentPanelState {
    *  `solomd://ai-run-started` fires so the UI can deep-link to
    *  `<workspace>/.solomd/agent-runs/<runId>/run.md`. */
   currentPersistRunId: string | null;
+  /** C04 — set when the user clicks Stop while tool dispatches are still in
+   *  flight on the backend. The panel shows an inline "stop requested" note;
+   *  late tool results keep landing via the detached-run path. Cleared when
+   *  the next run starts or the session changes. */
+  stopRequested: boolean;
 }
 
 const STORAGE_KEY = 'solomd:agent-sessions-v1';
@@ -131,6 +148,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
     agentPhaseDetail: '',
     currentRunId: null,
     currentPersistRunId: null,
+    stopRequested: false,
   }),
   actions: {
     persistSessions() {
@@ -177,6 +195,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
       this.agentPhase = 'idle';
       this.agentPhaseDetail = '';
       this.currentRunId = null;
+      this.stopRequested = false;
       this.persistSessions();
       return id;
     },
@@ -191,6 +210,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         this.agentPhase = 'idle';
         this.agentPhaseDetail = '';
         this.currentRunId = null;
+        this.stopRequested = false;
       }
     },
     deleteSession(id: string) {
@@ -331,6 +351,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
           this.agentPhase = 'idle';
           this.agentPhaseDetail = '';
           this.currentRunId = null;
+          this.stopRequested = false;
           this.syncCurrentSession();
           return { content, references, images, selectionContext };
         }
@@ -350,6 +371,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
         this.agentPhase = 'idle';
         this.agentPhaseDetail = '';
         this.currentRunId = null;
+        this.stopRequested = false;
         this.syncCurrentSession();
         return removed;
       }
@@ -388,6 +410,7 @@ export const useAgentPanelStore = defineStore('agentPanel', {
       this.isStreaming = false;
       this.agentPhase = 'idle';
       this.agentPhaseDetail = '';
+      this.stopRequested = false;
       this.syncCurrentSession();
     },
   },

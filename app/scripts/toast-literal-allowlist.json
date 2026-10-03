@@ -1,0 +1,6 @@
+{
+  "exemptFiles": [
+    "components/UpdateModal.vue"
+  ],
+  "exemptLines": {}
+}

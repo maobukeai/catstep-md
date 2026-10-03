@@ -26,6 +26,12 @@ const busy = ref<Record<string, boolean>>({});
 
 async function resolve(file: string, choice: 'local' | 'remote' | 'both') {
   if (!workspace.currentFolder) return;
+  // C06 — "Use remote" atomically overwrites the local file. The local
+  // version is already safe (the pull commits uncommitted tracked work
+  // into history before the checkout), but a mis-click shouldn't force a
+  // history dive, so confirm first — same pattern as the other destructive
+  // one-clicks: window.confirm.
+  if (choice === 'remote' && !window.confirm(t('githubSync.useRemoteConfirm', { file }))) return;
   busy.value[file] = true;
   try {
     await sync.resolveConflict(workspace.currentFolder, file, choice);

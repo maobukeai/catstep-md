@@ -1,4 +1,8 @@
 import { getVersion } from '@tauri-apps/api/app';
+// Deliberate raw `invoke` — this module IS the single facade for the updater_*
+// family; see the tail note in lib/commands.ts. Its error strings (e.g. the
+// "Command updater_start_download not found" downgrade hint below) are matched
+// verbatim by the UI, so the bridge must not re-wrap the rejection shape.
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';

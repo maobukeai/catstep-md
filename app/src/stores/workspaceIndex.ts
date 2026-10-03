@@ -13,7 +13,15 @@
  * mutation; we listen and refresh our cached `entries` array.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  workspaceIndexBacklinks,
+  workspaceIndexFiles,
+  workspaceIndexInit,
+  workspaceIndexReferencedBy,
+  workspaceIndexRescan,
+  workspaceIndexResolve,
+  workspaceIndexTags,
+} from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { isTauri } from '../lib/platform';
 
@@ -137,7 +145,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
       this.tags = [];
       if (!folder || !isTauri()) return;
       try {
-        await invoke<number>('workspace_index_init', { folder });
+        await workspaceIndexInit(folder);
         await this.refresh();
         if (!unlistenIndex) {
           unlistenIndex = await listen('solomd://index-updated', () => {
@@ -155,8 +163,8 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
       if (!isTauri()) return;
       try {
         const [files, tags] = await Promise.all([
-          invoke<IndexEntry[]>('workspace_index_files'),
-          invoke<TagCount[]>('workspace_index_tags'),
+          workspaceIndexFiles<IndexEntry[]>(),
+          workspaceIndexTags<TagCount[]>(),
         ]);
         this.entries = files;
         this.tags = tags;
@@ -168,7 +176,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     async resolve(name: string): Promise<string | null> {
       if (!isTauri()) return null;
       try {
-        return await invoke<string | null>('workspace_index_resolve', { name });
+        return await workspaceIndexResolve(name);
       } catch {
         return null;
       }
@@ -177,7 +185,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     async backlinksFor(target: string): Promise<BacklinkRef[]> {
       if (!isTauri()) return [];
       try {
-        return await invoke<BacklinkRef[]>('workspace_index_backlinks', { target });
+        return await workspaceIndexBacklinks<BacklinkRef[]>(target);
       } catch {
         return [];
       }
@@ -192,7 +200,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     async referencedBy(target: string): Promise<ReferencedByRef[]> {
       if (!isTauri()) return [];
       try {
-        return await invoke<ReferencedByRef[]>('workspace_index_referenced_by', { target });
+        return await workspaceIndexReferencedBy<ReferencedByRef[]>(target);
       } catch {
         return [];
       }
@@ -201,7 +209,7 @@ export const useWorkspaceIndexStore = defineStore('workspaceIndex', {
     async rescan(): Promise<void> {
       if (!isTauri()) return;
       try {
-        await invoke('workspace_index_rescan');
+        await workspaceIndexRescan();
         await this.refresh();
       } catch (e) {
         this.lastError = String(e);

@@ -26,7 +26,7 @@
  */
 
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { cjkProofread } from '../lib/commands';
 import { useTabsStore } from '../stores/tabs';
 import { useToastsStore } from '../stores/toasts';
 import { useTilesStore } from '../stores/tiles';
@@ -149,12 +149,12 @@ async function rescan() {
     // Crucial: normalize CRLF to LF so Rust byte offsets, JS string char indices,
     // and CodeMirror document coordinates (which are strictly LF) align 100%.
     const text = (tab.content ?? '').replace(/\r\n/g, '\n');
-    const result = await invoke<Issue[]>('cjk_proofread', { text });
+    const result = await cjkProofread<Issue[]>(text);
     issues.value = result;
     selectedIdx.value = -1;
   } catch (e) {
     console.error('cjk_proofread invoke failed', e);
-    toasts.warning(`Proofread failed: ${e}`);
+    toasts.warning(t('proofread.failed', { error: String(e) }));
     issues.value = [];
   } finally {
     loading.value = false;
@@ -203,12 +203,12 @@ const activeBuckets = computed(() => {
 
 function ignoreOne(issue: Issue) {
   ignoredKeys.value.add(issueKey(issue));
-  toasts.info('已忽略此项建议');
+  toasts.info(t('proofread.ignoredOne'));
 }
 
 function restoreIgnored() {
   ignoredKeys.value.clear();
-  toasts.info('已恢复全部已忽略项');
+  toasts.info(t('proofread.restoredAll'));
 }
 
 function categoryLabel(cat: Issue['category']): string {
@@ -381,7 +381,7 @@ function jumpAndMinimize(issue: Issue) {
   nextTick(() => {
     jumpTo(issue, idx);
   });
-  toasts.info('已定位至正文并收起面板，可直接在正文中编辑；右下角悬浮胶囊随时展开');
+  toasts.info(t('proofread.scrolledToBody'));
 }
 
 function nextIssue() {
@@ -416,7 +416,7 @@ function ignoreCategory(cat: Issue['category']) {
       count++;
     }
   }
-  toasts.info(`已忽略全部 ${count} 处「${categoryLabel(cat)}」规范建议`);
+  toasts.info(t('proofread.ignoredCategory', { count, category: categoryLabel(cat) }));
 }
 
 /** Apply ONE issue to the active tab content. */
@@ -451,7 +451,7 @@ function applyOne(issue: Issue) {
     return;
   }
 
-  toasts.warning('文本已变动，请重新扫描');
+  toasts.warning(t('proofread.textChanged'));
 }
 
 /** Apply all issues at a given severity in one batch. We walk the
@@ -663,6 +663,7 @@ void ignoreCategory;
         :class="{ 'is-peeking': isPeeking }"
         :style="{ transform: `translate(${offsetX}px, ${offsetY}px)` }"
         role="dialog"
+        aria-modal="true"
         aria-label="中文排版校对"
       >
         <!-- Modern Header (Draggable) -->

@@ -103,7 +103,7 @@ export function useDailyNotes() {
   const files = useFiles();
   const workspace = useWorkspaceStore();
   const toasts = useToastsStore();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
 
   /**
    * Resolve `(folder, fullPath, filename)` for a given date based on current
@@ -146,7 +146,7 @@ export function useDailyNotes() {
 
     const resolved = resolveDailyPath(date);
     if (!resolved) {
-      toasts.warning('Open a folder first to use daily notes.');
+      toasts.warning(t('toast.dailyNotesNeedFolder'));
       return;
     }
     const { fullPath } = resolved;
@@ -162,7 +162,7 @@ export function useDailyNotes() {
       const bytes = Array.from(new TextEncoder().encode(body));
       await writeBinaryFile(fullPath, bytes);
     } catch (e) {
-      toasts.error(`Failed to create ${filename}: ${e}`);
+      toasts.error(t('toast.dailyNoteCreateFailed', { name: filename, error: String(e) }));
       return;
     }
 

@@ -324,7 +324,7 @@ export function useContextMenu(options: UseContextMenuOptions) {
           void openExternalUrl(info.linkInfo.url);
         } else if (payload === 'copyLinkAddress' && info.linkInfo?.url) {
           await navigator.clipboard.writeText(info.linkInfo.url);
-          options.toasts.success(options.t('editorCtx.copyLinkAddress') || '已复制链接地址');
+          options.toasts.success(options.t('editorCtx.copyLinkAddress'));
         } else if (payload === 'editLink') {
           options.applyFormat('link');
         }
@@ -333,14 +333,14 @@ export function useContextMenu(options: UseContextMenuOptions) {
       case 'imageAction': {
         if (payload === 'copyImagePath' && info.imageInfo?.src) {
           await navigator.clipboard.writeText(info.imageInfo.src);
-          options.toasts.success(options.t('editorCtx.copyImagePath') || '已复制图片路径');
+          options.toasts.success(options.t('editorCtx.copyImagePath'));
         }
         break;
       }
       case 'mathAction': {
         if (payload === 'copyLatex' && info.mathInfo?.latex) {
           await navigator.clipboard.writeText(info.mathInfo.latex);
-          options.toasts.success(options.t('editorCtx.copyLatex') || '已复制 LaTeX 源码');
+          options.toasts.success(options.t('editorCtx.copyLatex'));
         } else if (payload === 'editFormula') {
           options.openFormulaAtCursor();
         }
@@ -349,7 +349,7 @@ export function useContextMenu(options: UseContextMenuOptions) {
       case 'codeAction': {
         if (payload === 'copyCode' && info.codeText) {
           await navigator.clipboard.writeText(info.codeText);
-          options.toasts.success(options.t('editorCtx.copyCodeContent') || '已复制代码块内容');
+          options.toasts.success(options.t('editorCtx.copyCodeContent'));
         }
         break;
       }

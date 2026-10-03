@@ -12,14 +12,9 @@
 
 import { syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder } from '@codemirror/state';
-import {
-  Decoration,
-  DecorationSet,
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-  WidgetType,
-} from '@codemirror/view';
+import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
+// DecorationSet/ViewUpdate 是纯类型导出，node --test 会真实解析具名导入，必须用 import type。
+import type { DecorationSet, ViewUpdate } from '@codemirror/view';
 import { frozenDuringComposition, isImeSafeFlushTransaction } from './cm-ime-guard';
 
 const TOGGLE_EVENT = 'solomd-task-toggle';
@@ -31,12 +26,20 @@ interface ToggleDetail {
 }
 
 class TaskWidget extends WidgetType {
+  // 显式字段赋值（等价于构造器参数属性）：node --test 的 strip-only 模式
+  // 不支持参数属性语法，lib 模块需要能被单测直接加载。
+  checked: boolean;
+  from: number;
+  to: number;
   constructor(
-    readonly checked: boolean,
-    readonly from: number,
-    readonly to: number,
+    checked: boolean,
+    from: number,
+    to: number,
   ) {
     super();
+    this.checked = checked;
+    this.from = from;
+    this.to = to;
   }
 
   eq(other: TaskWidget): boolean {

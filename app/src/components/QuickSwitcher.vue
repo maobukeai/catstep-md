@@ -8,7 +8,7 @@
  *
  * Lists open tabs as `extra` so an unsaved Untitled tab is reachable too.
  */
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useRecentEditsStore } from '../stores/recentEdits';
 import { useTabsStore } from '../stores/tabs';
@@ -76,10 +76,7 @@ watch(selectedIdx, async () => {
 function onKey(e: KeyboardEvent) {
   // CJK/IME guard — see CommandPalette.vue for rationale.
   if (e.isComposing || e.keyCode === 229) return;
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    emit('close');
-  } else if (e.key === 'ArrowDown') {
+  if (e.key === 'ArrowDown') {
     e.preventDefault();
     if (results.value.length === 0) return;
     selectedIdx.value = Math.min(selectedIdx.value + 1, results.value.length - 1);
@@ -92,6 +89,29 @@ function onKey(e: KeyboardEvent) {
     openIdx(selectedIdx.value);
   }
 }
+
+// Unified Esc-to-close (DsModal baseline): a document-level capture listener
+// mounted while the switcher is open, so Esc works no matter where focus
+// sits — not only inside the input. IME guard per CommandPalette.vue:
+// Esc must first cancel pinyin candidates, not close the dialog.
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    emit('close');
+  }
+}
+
+watch(
+  () => props.open,
+  (v) => {
+    if (v) document.addEventListener('keydown', onDocKeydown, true);
+    else document.removeEventListener('keydown', onDocKeydown, true);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => document.removeEventListener('keydown', onDocKeydown, true));
 
 async function openIdx(i: number) {
   const path = results.value[i];
@@ -112,7 +132,7 @@ async function openIdx(i: number) {
 <template>
   <Teleport to="body">
   <div v-if="open" class="quick-switcher__backdrop" @click.self="emit('close')">
-    <div class="quick-switcher" role="dialog" aria-label="Quick file switcher">
+    <div class="quick-switcher" role="dialog" aria-modal="true" aria-label="Quick file switcher">
       <input
         ref="inputRef"
         v-model="query"

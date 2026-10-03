@@ -1,4 +1,8 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+// Deliberate raw `invoke` — this module IS the single facade for the pip_*
+// family (+ pip_focus_main); see the tail note in lib/commands.ts. Its
+// multi-step fallback chains key on each step's own try/catch, so re-routing
+// through the bridge would add nothing but a second error surface.
 import { invoke } from '@tauri-apps/api/core';
 
 export const PIP_WINDOW_LABEL = 'solomd-pip-timer';

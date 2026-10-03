@@ -18,7 +18,7 @@
  *   2b. Ollama: detect → "Install Ollama" link if missing, "Pull qwen2.5:1.5b" if no model
  *   3. Done — closes wizard, marks `agentWizardSeen` so it doesn't re-fire.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
   aiSetKey,
   aiVerifyKey,
@@ -113,7 +113,7 @@ async function openSignupPage(): Promise<void> {
   try {
     await openUrl(url);
   } catch (e) {
-    toasts.error(`无法打开链接: ${e}`);
+    toasts.error(t('toast.openLinkFailed', { error: String(e) }));
   }
 }
 
@@ -213,7 +213,7 @@ async function detectOllama() {
       baseUrl: ollamaBaseUrl.value || undefined,
     });
   } catch (e) {
-    toasts.error(`Ollama detect: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Ollama detect', error: String(e) }));
   } finally {
     detecting.value = false;
   }
@@ -266,7 +266,7 @@ async function pullRecommended() {
     toasts.success(t('wizard.ollamaPullDone'));
     await detectOllama();
   } catch (e) {
-    toasts.error(`Pull: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Pull', error: String(e) }));
   } finally {
     pulling.value = false;
     pullRequestId = null;
@@ -342,6 +342,7 @@ onMounted(() => {
 // subscription AND best-effort cancel the pull so it doesn't keep churning
 // disk + bandwidth in the background with no UI to stop it.
 onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onDocKeydown, true);
   if (pulling.value && pullRequestId) {
     ollamaCancelPull(pullRequestId).catch(() => {});
   }
@@ -363,6 +364,27 @@ function onCloudKeyKey(e: KeyboardEvent) {
     if (!verifying.value) void saveCloudKey();
   }
 }
+
+// Unified Esc-to-close (DsModal baseline): a document-level capture listener
+// mounted while the wizard is open. IME guard per CommandPalette.vue —
+// Esc must first cancel pinyin candidates, not close the dialog.
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    finish();
+  }
+}
+
+watch(
+  () => props.open,
+  (v) => {
+    if (v) document.addEventListener('keydown', onDocKeydown, true);
+    else document.removeEventListener('keydown', onDocKeydown, true);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>

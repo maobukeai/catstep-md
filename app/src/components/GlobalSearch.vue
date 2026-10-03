@@ -54,6 +54,21 @@ const regex = ref(false);
 const pathFilter = ref('');
 const replacing = ref(false);
 const stats = ref<SearchOutcome | null>(null);
+// Per-file replace failures ("path: reason" lines from the backend), kept
+// visible in the panel until the next replace attempt (C10).
+const replaceErrors = ref<string[]>([]);
+
+/** "path: reason" rows split for display. Paths can be absolute Windows
+ * paths ("C:\…"), so split on the LAST ": " — a reason that itself contains
+ * ": " simply stays whole inside `reason`. */
+const replaceErrorRows = computed(() =>
+  replaceErrors.value.map((msg) => {
+    const idx = msg.lastIndexOf(': ');
+    return idx > 0
+      ? { file: msg.slice(0, idx), reason: msg.slice(idx + 2) }
+      : { file: msg, reason: '' };
+  }),
+);
 
 function matchOptions() {
   return {
@@ -119,18 +134,48 @@ async function doSearch() {
  * Cross-file replace (S12). Confirms first — this writes matching files to
  * disk immediately — then reports "N files, M replacements" and re-runs the
  * search so the result list reflects the new content.
+ *
+ * The confirmation states the blast radius in numbers (C10): visible hits,
+ * whether the display cap is hiding more matches, the active path filter and
+ * the Aa / W / .* toggles. The replace pass itself is never capped, so a
+ * truncated hit list must not read as "only these will change".
  */
 async function doReplace() {
   const q = query.value.trim();
   if (!q || replacing.value) return;
-  if (!window.confirm(t('search.replaceConfirm', { q, r: replaceText.value }))) return;
+  if (!hits.value.length) {
+    // The hit list is only ever capped from above — zero visible hits means
+    // the replace pass has nothing to rewrite either.
+    toasts.info(t('search.noMatches'));
+    return;
+  }
+  const lines = [
+    t('search.replaceConfirm', { q, r: replaceText.value }),
+    stats.value?.truncated
+      ? t('search.replaceConfirmHitsTruncated', { n: hits.value.length })
+      : t('search.replaceConfirmHits', { n: hits.value.length }),
+  ];
+  const filter = pathFilter.value.trim();
+  if (filter) lines.push(t('search.replaceConfirmScope', { filter }));
+  const opts = [
+    caseSensitive.value ? t('find.matchCase') : '',
+    wholeWord.value ? t('find.byWord') : '',
+    regex.value ? t('find.regexp') : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  if (opts) lines.push(t('search.replaceConfirmOptions', { opts }));
+  if (!window.confirm(lines.join('\n'))) return;
+  replaceErrors.value = [];
   replacing.value = true;
   try {
     const summary = await search.replace(q, replaceText.value, matchOptions(), pathFilter.value);
     if (!summary) return;
     if (summary.errors.length) {
+      // Keep the per-file failures visible in the panel (C10) — the toast
+      // only carries the count, the list carries file + reason.
+      replaceErrors.value = summary.errors;
       toasts.warning(t('search.replaceFailed', { n: summary.errors.length }));
-      console.warn('GlobalSearch: replace errors', summary.errors);
     }
     toasts.success(
       t('search.replaceDone', { files: summary.filesChanged, count: summary.replacements }),
@@ -398,8 +443,30 @@ function onKey(e: KeyboardEvent) {
           </div>
         </div>
       </div>
+      <!-- C10: the backend sets `truncated` when the walk stopped at the
+           display cap — surface it so a capped list never reads as complete.
+           Replace-all still covers matches beyond this list. -->
+      <div v-if="stats?.truncated" class="sp__cap-note">
+        {{ t('search.truncatedNotice', { n: hits.length }) }}
+      </div>
+      <div v-if="replaceErrorRows.length" class="sp__errors">
+        <div class="sp__errors-title">
+          {{ t('search.replaceFailed', { n: replaceErrorRows.length }) }}
+        </div>
+        <div
+          v-for="(row, i) in replaceErrorRows"
+          :key="i"
+          class="sp__error"
+          :title="row.reason ? `${row.file} — ${row.reason}` : row.file"
+        >
+          <span class="sp__error-file">{{ row.file }}</span>
+          <span v-if="row.reason" class="sp__error-reason">{{ row.reason }}</span>
+        </div>
+      </div>
       <div class="sp__footer">
-        <span>{{ t('search.hitCount', { n: hits.length }) }}</span>
+        <span :title="stats?.truncated ? t('search.truncatedNotice', { n: hits.length }) : undefined">
+          {{ stats?.truncated ? t('search.hitCountCapped', { n: hits.length }) : t('search.hitCount', { n: hits.length }) }}
+        </span>
         <span v-if="stats">{{ t('search.stats', { files: stats.filesScanned, ms: stats.elapsedMs }) }}</span>
         <span>{{ t('search.keyHint') }}</span>
       </div>
@@ -707,6 +774,53 @@ function onKey(e: KeyboardEvent) {
   color: #fff;
   padding: 0 2px;
   border-radius: 2px;
+}
+.sp__cap-note {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-top: 1px solid var(--border);
+}
+.sp__errors {
+  flex-shrink: 0;
+  max-height: 92px;
+  overflow-y: auto;
+  padding: 4px 12px 6px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--danger, #d64545) 8%, transparent);
+}
+.sp__errors-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--danger, #d64545);
+  margin-bottom: 2px;
+}
+.sp__error {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.sp__error-file {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sp__error-reason {
+  color: var(--danger, #d64545);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .sp__footer {
   display: flex;

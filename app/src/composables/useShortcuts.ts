@@ -8,6 +8,7 @@ import { useCommands } from './useCommands';
 import { useInbox } from './useInbox';
 import { usePomodoroStore, getLastPreset } from '../stores/pomodoro';
 import { eventToCombo, resolveBindings } from '../lib/keybindings';
+import { IS_APP_STORE_BUILD } from '../lib/app-build';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { toggleFullscreen } from '../lib/fullscreen';
 
@@ -267,6 +268,20 @@ export function useShortcuts(hooks: Hooks = {}) {
       return;
     }
     if (isFormInput && !isInsideEditor && (actionId.startsWith('format.') || actionId.startsWith('editor.') || actionId === 'file.closeTab')) {
+      return;
+    }
+
+    // C12 — `editor.aiRewrite` is bound both here and inside the editors
+    // (the CM keymap via aiRewriteExtension, the plain textareas via
+    // usePlainKeydown), and the editor-side handler rewrites the *current
+    // selection* while this one would only toggle the agent panel. Running
+    // the panel toggle here would preventDefault first, and CM6 ignores
+    // keydowns the page already prevented — the editor binding became a dead
+    // key. So inside a focused editor this yields: no preventDefault, the
+    // event reaches the editor's own keydown handling. App Store builds
+    // strip the AI surface (no editor-side handler at all), so there the
+    // panel toggle stays the sole consumer.
+    if (actionId === 'editor.aiRewrite' && !IS_APP_STORE_BUILD && isInsideEditor) {
       return;
     }
 

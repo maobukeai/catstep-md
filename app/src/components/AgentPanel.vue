@@ -610,6 +610,16 @@ function deleteAssistantMessage(msg: any) {
   toasts.success(t('agent.msgDeleteMsgTitle'));
 }
 
+/** C06 — the header "Clear" button wipes the whole session and persists
+ *  immediately (agent.clear() → syncCurrentSession), so ask once first,
+ *  same lightweight confirm as deleteTurn. */
+function clearChat() {
+  if (agent.isStreaming) return;
+  const ok = window.confirm(t('agent.confirmClearChat'));
+  if (!ok) return;
+  agent.clear();
+}
+
 function onAssistantMouseUp(e: MouseEvent) {
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
@@ -887,7 +897,7 @@ async function copyAssistantMessage(content: string, msgId?: string) {
     }
     toasts.success(t('agent.msgCopied'));
   } catch (e) {
-    toasts.error(`copy failed: ${e}`);
+    toasts.error(t('toast.copyFailed', { error: String(e) }));
   }
 }
 
@@ -1614,6 +1624,13 @@ interface RenderBlockAssistantTurn {
   content: string;
   isStreaming: boolean;
   idx: number;
+  /** C09 — RAG auto-grounding hits for the prompt that opened this turn
+   *  (stashed on the turn's user message by send()); rendered as chips
+   *  above the reply. */
+  grounded?: AgentReference[];
+  /** C21 — per-run usage carried on the turn's final assistant message by
+   *  the ai-done listener; rendered as small print under the reply. */
+  usage?: { tokensIn: number; tokensOut: number; costUsd: number };
 }
 
 type RenderBlock = RenderBlockUser | RenderBlockAssistantTurn;
@@ -1631,11 +1648,15 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   const blocks: RenderBlock[] = [];
   let i = 0;
   const n = agent.messages.length;
+  // C09 — remember the user message of the current turn so each assistant
+  // turn block can surface its RAG grounding chips above the reply.
+  let turnUserMsg: any = null;
 
   while (i < n) {
     const m = agent.messages[i];
 
     if (m.role === 'user') {
+      turnUserMsg = m;
       blocks.push({
         type: 'user',
         msg: m,
@@ -1691,11 +1712,26 @@ const renderBlocks = computed<RenderBlock[]>(() => {
       content: turnContent,
       isStreaming: isThisTurnStreaming,
       idx: lastAssistantIdx,
+      grounded: turnUserMsg?.grounded,
+      usage: primaryMsg.usage,
     });
   }
 
   return blocks;
 });
+
+/**
+ * C21 — format per-run usage the same way as the settings-page
+ * `fmtRunUsage`: `1.2k in · 0.4k out · $0.0012` (k for thousands, cost
+ * shown only when the pricing table knew the model).
+ */
+function fmtTurnUsage(u: { tokensIn: number; tokensOut: number; costUsd: number }): string {
+  const fmtTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+  const parts: string[] = [];
+  if (u.tokensIn || u.tokensOut) parts.push(`${fmtTokens(u.tokensIn)} in · ${fmtTokens(u.tokensOut)} out`);
+  if (u.costUsd > 0) parts.push(`$${u.costUsd.toFixed(4)}`);
+  return parts.join(' · ');
+}
 </script>
 
 <template>
@@ -1844,7 +1880,7 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             type="button"
             :disabled="agent.isStreaming"
             :title="t('agent.clearTitle')"
-            @click.stop="agent.clear()"
+            @click.stop="clearChat"
           >
             {{ t('agent.actionClear') }}
           </button>
@@ -1897,9 +1933,9 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                       v-for="r in block.msg.references"
                       :key="r.path || r.name"
                       class="agent-panel__msg-ref-pill"
-                      :class="{ 'agent-panel__msg-ref-pill--sel': r.type === 'selection' }"
+                      :class="{ 'agent-panel__msg-ref-pill--sel': r.type === 'selection', 'agent-panel__msg-ref-pill--failed': r.failed }"
                       type="button"
-                      :title="r.preview ? r.preview : t('agent.openInEditor', { name: r.name })"
+                      :title="r.failed ? t('agent.refReadFailed', { name: r.name }) : (r.preview ? r.preview : t('agent.openInEditor', { name: r.name }))"
                       @click="r.path && openReferencedNote(r.path)"
                     >
                       {{ r.type === 'selection' ? t('agent.selectionPrefix') : '' }}{{ r.name }}
@@ -1994,6 +2030,26 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             class="agent-panel__msg agent-panel__msg--assistant"
           >
             <div class="agent-panel__assistant-msg">
+              <!-- (0) C09: RAG auto-grounding sources for this reply — the
+                   same reference-chip mechanism as @ mentions, so the user
+                   can verify what the model actually read. -->
+              <div
+                v-if="block.grounded && block.grounded.length"
+                class="agent-panel__msg-refs agent-panel__grounded-refs"
+              >
+                <span class="agent-panel__grounded-label">{{ t('agent.groundedSources') }}</span>
+                <button
+                  v-for="g in block.grounded"
+                  :key="g.path || g.name"
+                  class="agent-panel__msg-ref-pill agent-panel__msg-ref-pill--grounded"
+                  type="button"
+                  :title="g.preview || g.path || g.name"
+                  @click="g.path && openReferencedNote(g.path)"
+                >
+                  {{ g.name }}
+                </button>
+              </div>
+
               <!-- (A) Single-line Rolling Thought Ticker (ONLY ONE PER TURN!) -->
               <div
                 v-if="block.combinedThought || (block.isStreaming && !block.content)"
@@ -2196,6 +2252,14 @@ const renderBlocks = computed<RenderBlock[]>(() => {
                   class="agent-panel__cursor"
                   aria-hidden="true"
                 >▋</span>
+
+                <!-- C21: per-run usage small print (backend-computed tokens
+                     + estimated cost; same shape as the settings-page
+                     fmtRunUsage) -->
+                <div
+                  v-if="block.usage && (block.usage.tokensIn || block.usage.tokensOut || block.usage.costUsd)"
+                  class="agent-panel__usage"
+                >≈ {{ fmtTurnUsage(block.usage) }}</div>
 
                 <!-- Actions on completed assistant replies -->
                 <div
@@ -2486,6 +2550,13 @@ const renderBlocks = computed<RenderBlock[]>(() => {
         </div>
       </div>
 
+      <!-- C04: stop requested — the backend finishes in-flight tool dispatches;
+           their results keep landing in the transcript above via the detached path -->
+      <div v-if="agent.stopRequested" class="agent-panel__stop-note">
+        <span class="agent-panel__stop-note-dot" aria-hidden="true" />
+        <span class="agent-panel__stop-note-text">{{ t('agent.stopRequestedNote') }}</span>
+      </div>
+
       <!-- Live Step Progress Bar -->
       <div v-if="phaseDisplay" class="agent-panel__progress-bar">
         <span class="agent-panel__progress-spinner" />
@@ -2563,7 +2634,8 @@ const renderBlocks = computed<RenderBlock[]>(() => {
             v-for="r in activeReferences"
             :key="r.path"
             class="agent-panel__ref-badge"
-            :title="r.path"
+            :class="{ 'agent-panel__ref-badge--failed': r.failed }"
+            :title="r.failed ? t('agent.refReadFailed', { name: r.name }) : r.path"
           >
             <span class="agent-panel__ref-badge-name">{{ r.name }}</span>
             <button class="agent-panel__ref-badge-del" type="button" @click="removeReference(r.path)">×</button>
@@ -3637,6 +3709,37 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   color: var(--accent, #ff9f40);
   cursor: default;
 }
+/* C04: @ reference whose content could not be read — the model never saw it. */
+.agent-panel__msg-ref-pill--failed {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(220, 38, 38, 0.07);
+  color: #dc2626;
+  text-decoration: line-through;
+  text-decoration-color: rgba(220, 38, 38, 0.6);
+}
+/* C09: RAG auto-grounding sources shown above the reply they grounded. */
+.agent-panel__grounded-refs {
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.agent-panel__grounded-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.agent-panel__msg-ref-pill--grounded {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent, #ff9f40) 45%, var(--border));
+  color: var(--text-muted);
+}
+/* C21: per-run usage small print under the reply (≈1.2k in · 0.4k out · $0.0012). */
+.agent-panel__usage {
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-family: "JetBrains Mono", Consolas, monospace;
+  text-align: right;
+}
 .agent-panel__msg-ref-pill {
   display: inline-flex;
   align-items: center;
@@ -4060,6 +4163,13 @@ const renderBlocks = computed<RenderBlock[]>(() => {
 .agent-panel__ref-badge--active-note {
   border-color: color-mix(in srgb, var(--accent, #ff9f40) 35%, var(--border));
   background: color-mix(in srgb, var(--accent, #ff9f40) 8%, var(--bg));
+}
+/* C04: composer badge for a reference that failed to read (shows again via
+   recall / edit-resend of a turn whose @ mention was unreadable). */
+.agent-panel__ref-badge--failed {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: rgba(220, 38, 38, 0.07);
+  color: #dc2626;
 }
 .agent-panel__ref-badge--img {
   padding: 2px 5px;
@@ -4952,6 +5062,35 @@ const renderBlocks = computed<RenderBlock[]>(() => {
   padding: 1px 5px;
   border-radius: 4px;
   border: 1px solid var(--border);
+}
+
+/* C04: inline "stop requested" notice — muted, sits where the progress bar
+   would; late tool results keep landing in the transcript above. */
+.agent-panel__stop-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 10px 8px;
+  padding: 6px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  box-sizing: border-box;
+}
+.agent-panel__stop-note-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+.agent-panel__stop-note-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .agent-panel__error-card {

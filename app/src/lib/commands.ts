@@ -24,6 +24,7 @@
  *    a dedicated facade module. Wrap them as their call sites migrate.
  */
 import { safeInvoke } from './tauri-bridge';
+import { hasGitBackend } from './platform';
 import type { FileReadResult } from '../types';
 
 /**
@@ -164,10 +165,14 @@ export function createDir(path: string): Promise<void> {
   return invokeCommand('fs_create_dir', { path });
 }
 
-/** Delete a file or directory. Desktop moves to the OS trash (recoverable);
- *  already-missing paths resolve (idempotent, Rust side). */
-export function deletePath(path: string): Promise<void> {
-  return invokeCommand('fs_delete', { path });
+/** Delete a file or directory. Resolves `true` when the path went to the OS
+ *  trash (desktop, recoverable) or was already gone (idempotent). `false`
+ *  means the delete was PERMANENT — no trash on this platform, or the trash
+ *  service rejected the path and the Rust side fell back to unlink. C15:
+ *  callers must surface `false`; the desktop confirm dialog promises the
+ *  Trash / Recycle Bin, so a silent downgrade would break that promise. */
+export function deletePath(path: string): Promise<boolean> {
+  return invokeCommand<boolean>('fs_delete', { path });
 }
 
 /** Rename/move a file or directory within the authorized roots. */
@@ -179,6 +184,15 @@ export function renamePath(from: string, to: string): Promise<void> {
  *  false (the Rust guard refuses to map the filesystem for injected markup). */
 export function dirExists(path: string): Promise<boolean> {
   return invokeCommand<boolean>('fs_dir_exists', { path });
+}
+
+/** Does the path exist at all (file OR directory)? Companion to
+ *  {@link dirExists}, same out-of-scope-reports-false guard. C19: used to
+ *  pre-check rename/move destinations so a name clash surfaces as a
+ *  localized, actionable toast instead of fs_rename's raw
+ *  "target already exists: C:\..." error. */
+export function pathExists(path: string): Promise<boolean> {
+  return invokeCommand<boolean>('fs_path_exists', { path });
 }
 
 /** Copy a file; the Rust side creates the destination's parent dirs. */
@@ -289,7 +303,8 @@ export function aiClearKey(provider: string, keyId?: string): Promise<void> {
 /** Verify a key against the live endpoint; returns a human-readable status. */
 export function aiVerifyKey(args: {
   provider: string;
-  key: string;
+  /** Present key to verify; null probes without one. Mirrors Rust Option. */
+  key: string | null;
   apiFormat: string;
   baseUrl: string | null;
   model: string | null;
@@ -535,22 +550,683 @@ export function setAsDefaultMarkdownEditor(args: { lang: string }): Promise<stri
 }
 
 // ---------------------------------------------------------------------------
-// Deliberately not wrapped yet — wrap when their call sites migrate:
-//  * Commands already owned by a dedicated facade module (they ARE single
-//    implementation points today): `saf_*` (lib/saf-fs.ts), `pip_*` +
-//    `pip_focus_main` (lib/pip-window.ts), `updater_*` (lib/check-update.ts),
-//    `pick_user_path` (lib/user-pick.ts), `upload_image` (lib/image-upload.ts),
-//    `pandoc_*` (composables/usePandocExport.ts).
-//  * github_*/gitea_*/proxy_*/crypto_*: stores/githubSync.ts wraps the invoke
-//    with an Android `hasGitBackend()` guard; folding them in means moving
-//    that guard here first.
-//  * Single-store/component long tail (one consumer each — ai_rewrite,
-//    ai_list_models, git_*, workspace_index_*, recipes_*, cookbook_*,
-//    capture_*, rest_*, session_*, cloud_folder_detect,
-//    device_id_get_or_create, mcp_profiles_*, mcp_test_server, cli_*,
-//    detect_ai_clients, inject_mcp, remove_mcp, open_ai_client_config,
-//    cjk_proofread): migrate the call site first, then add its
-//    wrapper here following the conventions at the top of this file.
-//    (ai_chat, rag_search and the agent_tool_* revert pair moved up into
-//    the agent section when the panel's run loop became useAgentRun.)
+// Git-backed sync family (GitHub / Gitea / crypto / proxy) — Android-guarded
+// ---------------------------------------------------------------------------
+
+/**
+ * #230 — `github_*` / `gitea_*` / `crypto_*` / `proxy_*` are registered behind
+ * `cfg(not(target_os = "android"))` in lib.rs, so on Android those commands
+ * don't exist and the raw Tauri error is the useless
+ * `Command github_has_token not found`. The guard used to live in
+ * stores/githubSync.ts (local `invoke` helper); it is sunk HERE so every call
+ * site — store, composable or component — gets the same rejection. The marker
+ * string is the stable contract the UI matches on, unchanged.
+ */
+export const SYNC_UNSUPPORTED = 'sync-unsupported-platform';
+
+/**
+ * Guarded invoke for the git-backed family: on Android / non-Tauri shells the
+ * commands are compiled out, so reject early with {@link SYNC_UNSUPPORTED}
+ * instead of letting Tauri answer `Command xxx not found`. On desktop this is
+ * exactly {@link invokeCommand} (strict rethrow — sync callers own try/catch).
+ */
+async function invokeGitCommand<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  if (!hasGitBackend()) {
+    throw new Error(SYNC_UNSUPPORTED);
+  }
+  return invokeCommand<T>(cmd, args);
+}
+
+/** Does the backend hold a GitHub PAT (keychain marker exists)? */
+export function githubHasToken(): Promise<boolean> {
+  return invokeGitCommand<boolean>('github_has_token');
+}
+
+/** Store the GitHub PAT in the OS keychain. */
+export function githubSetToken(token: string): Promise<void> {
+  return invokeGitCommand('github_set_token', { token });
+}
+
+/** Drop the stored GitHub PAT. */
+export function githubClearToken(): Promise<void> {
+  return invokeGitCommand('github_clear_token');
+}
+
+/** Authenticated GitHub user (`GitHubUser` shape at the caller). */
+export function githubUser<T = unknown>(): Promise<T> {
+  return invokeGitCommand<T>('github_user');
+}
+
+/** The PAT owner's own repos (`GitHubRepo[]` shape at the caller). */
+export function githubListRepos<T = unknown>(): Promise<T> {
+  return invokeGitCommand<T>('github_list_repos');
+}
+
+/** Create the vault repo on GitHub (`GitHubRepo` shape at the caller). */
+export function githubCreateVaultRepo<T = unknown>(args: {
+  name: string;
+  private: boolean;
+}): Promise<T> {
+  return invokeGitCommand<T>('github_create_vault_repo', args);
+}
+
+/** Link a workspace folder to a remote; returns the persisted `SyncConfig`. */
+export function githubLinkWorkspace<T = unknown>(args: {
+  folder: string;
+  remoteUrl: string;
+  encrypted: boolean;
+  provider: string;
+}): Promise<T> {
+  return invokeGitCommand<T>('github_link_workspace', args);
+}
+
+/** Update auto-push / auto-pull settings; returns the fresh `SyncConfig`. */
+export function githubSetConfig<T = unknown>(args: {
+  folder: string;
+  autoPush: boolean;
+  autoPullMinutes: number;
+}): Promise<T> {
+  return invokeGitCommand<T>('github_set_config', args);
+}
+
+/** Unlink a workspace folder from its remote. */
+export function githubUnlinkWorkspace(folder: string): Promise<void> {
+  return invokeGitCommand('github_unlink_workspace', { folder });
+}
+
+/** Cached status probe for a workspace (`SyncStatus` shape at the caller). */
+export function githubSyncStatus<T = unknown>(folder: string): Promise<T> {
+  return invokeGitCommand<T>('github_sync_status', { folder });
+}
+
+/** Commit-aware push; `commitMessage` null lets the backend default it. */
+export function githubPush(
+  folder: string,
+  commitMessage: string | null,
+): Promise<void> {
+  return invokeGitCommand('github_push', { folder, commitMessage });
+}
+
+/** Pull + merge/conflict report (`PullResult` shape at the caller). */
+export function githubPull<T = unknown>(folder: string): Promise<T> {
+  return invokeGitCommand<T>('github_pull', { folder });
+}
+
+/** Resolve a pull conflict for one file: keep local / remote / both. */
+export function githubResolveConflict(args: {
+  folder: string;
+  file: string;
+  choice: 'local' | 'remote' | 'both';
+}): Promise<void> {
+  return invokeGitCommand('github_resolve_conflict', args);
+}
+
+/** Encrypt the vault with a passphrase and force-push the ciphertext. */
+export function githubEnableEncryption(
+  folder: string,
+  passphrase: string,
+): Promise<void> {
+  return invokeGitCommand('github_enable_encryption', { folder, passphrase });
+}
+
+/** Vault encryption state (`CryptoStatus` shape at the caller). */
+export function cryptoStatus<T = unknown>(folder: string): Promise<T> {
+  return invokeGitCommand<T>('crypto_status', { folder });
+}
+
+/** Store the vault passphrase (key material is derived Rust-side). */
+export function cryptoSetPassphrase(
+  folder: string,
+  passphrase: string,
+): Promise<void> {
+  return invokeGitCommand('crypto_set_passphrase', { folder, passphrase });
+}
+
+/** Drop the stored vault passphrase. */
+export function cryptoClearPassphrase(folder: string): Promise<void> {
+  return invokeGitCommand('crypto_clear_passphrase', { folder });
+}
+
+/** Decrypt the workspace in place after a pull of encrypted content. */
+export function cryptoDecryptAfterPull(folder: string): Promise<void> {
+  return invokeGitCommand('crypto_decrypt_after_pull', { folder });
+}
+
+/** Currently persisted proxy URL (empty string when none). */
+export function proxyGet(): Promise<string> {
+  return invokeGitCommand<string>('proxy_get');
+}
+
+/** Persist the git/HTTP proxy URL (empty string clears it). */
+export function proxySet(url: string): Promise<void> {
+  return invokeGitCommand('proxy_set', { url });
+}
+
+/** Persisted Gitea / Forgejo base URL (empty string when none). */
+export function giteaGetUrl(): Promise<string> {
+  return invokeGitCommand<string>('gitea_get_url');
+}
+
+/** Persist the Gitea / Forgejo base URL. */
+export function giteaSetUrl(url: string): Promise<void> {
+  return invokeGitCommand('gitea_set_url', { url });
+}
+
+/** Reachability probe of a Gitea instance (`/api/v1/version`). */
+export function giteaValidateUrl(url: string): Promise<boolean> {
+  return invokeGitCommand<boolean>('gitea_validate_url', { url });
+}
+
+/** Does the backend hold a Gitea PAT? */
+export function giteaHasToken(): Promise<boolean> {
+  return invokeGitCommand<boolean>('gitea_has_token');
+}
+
+/** Store the Gitea PAT in the OS keychain. */
+export function giteaSetToken(token: string): Promise<void> {
+  return invokeGitCommand('gitea_set_token', { token });
+}
+
+/** Drop the stored Gitea PAT. */
+export function giteaClearToken(): Promise<void> {
+  return invokeGitCommand('gitea_clear_token');
+}
+
+/** Authenticated Gitea user (`GitHubUser` shape — same wire format). */
+export function giteaUser<T = unknown>(baseUrl: string): Promise<T> {
+  return invokeGitCommand<T>('gitea_user', { baseUrl });
+}
+
+/** The Gitea user's own repos (`GitHubRepo[]` shape — same wire format). */
+export function giteaListRepos<T = unknown>(baseUrl: string): Promise<T> {
+  return invokeGitCommand<T>('gitea_list_repos', { baseUrl });
+}
+
+/** Create the vault repo on Gitea (`GitHubRepo` shape — same wire format). */
+export function giteaCreateVaultRepo<T = unknown>(args: {
+  baseUrl: string;
+  name: string;
+  private: boolean;
+}): Promise<T> {
+  return invokeGitCommand<T>('gitea_create_vault_repo', args);
+}
+
+// ---------------------------------------------------------------------------
+// AutoGit per-note history (git_history — Android-gated like the sync family,
+// but the guard lives at the store/action level, not here: these wrappers stay
+// plain strict invokes so desktop behavior is byte-for-byte what it was).
+// ---------------------------------------------------------------------------
+
+/** Cached workspace git status (`WorkspaceStatus` shape at the caller). */
+export function gitWorkspaceStatus<T = unknown>(folder: string): Promise<T> {
+  return invokeCommand<T>('git_workspace_status', { folder });
+}
+
+/** `git init` + initial commit for a workspace folder. */
+export function gitInitWorkspace(
+  folder: string,
+  initialMessage: string | null,
+  excludeAssets: boolean,
+): Promise<void> {
+  return invokeCommand('git_init_workspace', {
+    folder,
+    initialMessage,
+    excludeAssets,
+  });
+}
+
+/** Stage + commit. Returns the new SHA, or null when nothing changed. */
+export function gitAutoCommit(
+  folder: string,
+  filePath: string | null,
+  message: string | null,
+): Promise<string | null> {
+  return invokeCommand<string | null>('git_auto_commit', {
+    folder,
+    filePath,
+    message,
+  });
+}
+
+/** Per-file commit list (`CommitMeta[]` shape at the caller). */
+export function gitFileHistory<T = unknown>(
+  folder: string,
+  filePath: string,
+  limit: number,
+): Promise<T> {
+  return invokeCommand<T>('git_file_history', { folder, filePath, limit });
+}
+
+/** Unified diff of a file at a commit (`DiffResult` shape at the caller). */
+export function gitFileDiff<T = unknown>(
+  folder: string,
+  filePath: string,
+  sha: string,
+): Promise<T> {
+  return invokeCommand<T>('git_file_diff', { folder, filePath, sha });
+}
+
+/** Full file content at a commit. */
+export function gitFileAtVersion(
+  folder: string,
+  filePath: string,
+  sha: string,
+): Promise<string> {
+  return invokeCommand<string>('git_file_at_version', { folder, filePath, sha });
+}
+
+/** Roll a file back to a commit (writes through the atomic-save pipeline). */
+export function gitRollbackFile(
+  folder: string,
+  filePath: string,
+  sha: string,
+): Promise<void> {
+  return invokeCommand('git_rollback_file', { folder, filePath, sha });
+}
+
+// ---------------------------------------------------------------------------
+// Recipes (recipe_runner — Android-gated; guards live at the store level)
+// ---------------------------------------------------------------------------
+
+/** Recipes defined in `<workspace>/.solomd/agents/` (`RecipeSummary[]`). */
+export function recipesList<T = unknown>(workspace: string): Promise<T> {
+  return invokeCommand<T>('recipes_list', { workspace });
+}
+
+/** Pending-review runs (`RunMeta[]` shape at the caller). */
+export function recipesPendingRuns<T = unknown>(workspace: string): Promise<T> {
+  return invokeCommand<T>('recipes_pending_runs', { workspace });
+}
+
+/** Finished runs, newest first (`RunMeta[]` shape at the caller). */
+export function recipesHistory<T = unknown>(workspace: string): Promise<T> {
+  return invokeCommand<T>('recipes_history', { workspace });
+}
+
+/** Run a recipe manually; returns the new run id. */
+export function recipesRunNow(workspace: string, slug: string): Promise<string> {
+  return invokeCommand<string>('recipes_run_now', { workspace, slug });
+}
+
+/** Save a recipe yaml (the Rust `SaveRecipeRequest` envelope). */
+export function recipesSave(req: {
+  workspace: string;
+  yaml: string;
+  slug: string | null;
+}): Promise<string> {
+  return invokeCommand<string>('recipes_save', { req });
+}
+
+/** Read a recipe's raw yaml. */
+export function recipesGet(workspace: string, slug: string): Promise<string> {
+  return invokeCommand<string>('recipes_get', { workspace, slug });
+}
+
+/** Delete a recipe file. */
+export function recipesDelete(workspace: string, slug: string): Promise<void> {
+  return invokeCommand('recipes_delete', { workspace, slug });
+}
+
+/** Agent-branch vs main diff for a run (unified diff text). */
+export function recipesRunDiff(workspace: string, runId: string): Promise<string> {
+  return invokeCommand<string>('recipes_run_diff', { workspace, runId });
+}
+
+/** Raw trace jsonl for a run. */
+export function recipesReadTrace(workspace: string, runId: string): Promise<string> {
+  return invokeCommand<string>('recipes_read_trace', { workspace, runId });
+}
+
+/** Human-readable run.md for a run. */
+export function recipesReadRunMd(workspace: string, runId: string): Promise<string> {
+  return invokeCommand<string>('recipes_read_run_md', { workspace, runId });
+}
+
+/** Accept a run — merge the agent branch into main. */
+export function recipesAcceptRun(workspace: string, runId: string): Promise<void> {
+  return invokeCommand('recipes_accept_run', { workspace, runId });
+}
+
+/** Reject a run — drop the agent branch. */
+export function recipesRejectRun(workspace: string, runId: string): Promise<void> {
+  return invokeCommand('recipes_reject_run', { workspace, runId });
+}
+
+// ---------------------------------------------------------------------------
+// Workspace index (wikilinks / tags / backlinks — NOT Android-gated)
+// ---------------------------------------------------------------------------
+
+/** (Re)build the Rust index for a folder; returns the indexed file count. */
+export function workspaceIndexInit(folder: string): Promise<number> {
+  return invokeCommand<number>('workspace_index_init', { folder });
+}
+
+/** Cached entries (`IndexEntry[]` shape at the caller). */
+export function workspaceIndexFiles<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('workspace_index_files');
+}
+
+/** Tag counts (`TagCount[]` shape at the caller). */
+export function workspaceIndexTags<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('workspace_index_tags');
+}
+
+/** Resolve a wikilink target to a vault path, or null. */
+export function workspaceIndexResolve(name: string): Promise<string | null> {
+  return invokeCommand<string | null>('workspace_index_resolve', { name });
+}
+
+/** Notes linking to `target` (`BacklinkRef[]` shape at the caller). */
+export function workspaceIndexBacklinks<T = unknown>(target: string): Promise<T> {
+  return invokeCommand<T>('workspace_index_backlinks', { target });
+}
+
+/** Typed-relationship reverse edges (`ReferencedByRef[]` at the caller). */
+export function workspaceIndexReferencedBy<T = unknown>(target: string): Promise<T> {
+  return invokeCommand<T>('workspace_index_referenced_by', { target });
+}
+
+/** Force a full rescan; returns the indexed file count. */
+export function workspaceIndexRescan(): Promise<number> {
+  return invokeCommand<number>('workspace_index_rescan');
+}
+
+// ---------------------------------------------------------------------------
+// RAG index (semantic search) — companions to {@link ragSearch} above
+// ---------------------------------------------------------------------------
+
+/** Index status for a folder (`RagStatus` shape at the caller). */
+export function ragIndexStatus<T = unknown>(folder: string): Promise<T> {
+  return invokeCommand<T>('rag_index_status', { folder });
+}
+
+/** Toggle RAG indexing; triggers a scan when enabling. */
+export function ragSetEnabled<T = unknown>(
+  folder: string,
+  enabled: boolean,
+): Promise<T> {
+  return invokeCommand<T>('rag_set_enabled', { folder, enabled });
+}
+
+/** Force a full reindex. */
+export function ragReindex<T = unknown>(folder: string): Promise<T> {
+  return invokeCommand<T>('rag_reindex', { folder });
+}
+
+/** Embedder selection for a vault. Mirrors the Rust `EmbedderConfig` tag. */
+export type RagEmbedderConfig =
+  | { kind: 'hash' }
+  | { kind: 'ollama'; model: string; base_url: string | null };
+
+/** Switch the embedder for a vault (rebuilds the index lazily). */
+export function ragSetEmbedder<T = unknown>(
+  folder: string,
+  config: RagEmbedderConfig,
+): Promise<T> {
+  return invokeCommand<T>('rag_set_embedder', { folder, config });
+}
+
+/** Single-file rescan after a save (watcher-driven). */
+export function ragReindexFile(folder: string, filePath: string): Promise<void> {
+  return invokeCommand('rag_reindex_file', { folder, filePath });
+}
+
+// ---------------------------------------------------------------------------
+// Cloud-folder detection + cross-device sessions
+// ---------------------------------------------------------------------------
+
+/** Is `folder` inside iCloud/Dropbox/OneDrive/Drive? (`CloudFolderInfo`.) */
+export function cloudFolderDetect<T = unknown>(folder: string): Promise<T> {
+  return invokeCommand<T>('cloud_folder_detect', { folder });
+}
+
+/** Stable per-machine device id (created on first call). */
+export function deviceIdGetOrCreate(): Promise<string> {
+  return invokeCommand<string>('device_id_get_or_create');
+}
+
+/** Write this device's session file into `<folder>/.solomd/`. */
+export function sessionSave(folder: string, payload: object): Promise<void> {
+  return invokeCommand('session_save', { folder, payload });
+}
+
+/** Read another device's session file (`SessionPayload | null`). */
+export function sessionLoad<T = unknown>(
+  folder: string,
+  deviceId: string,
+): Promise<T> {
+  return invokeCommand<T>('session_load', { folder, deviceId });
+}
+
+/** Sibling devices that saved a session here, excluding ours. */
+export function sessionListOthers<T = unknown>(
+  folder: string,
+  ourDeviceId: string,
+): Promise<T> {
+  return invokeCommand<T>('session_list_others', { folder, ourDeviceId });
+}
+
+// ---------------------------------------------------------------------------
+// MCP federation profiles (Settings → Integrations)
+// ---------------------------------------------------------------------------
+
+/** Saved profiles (`McpProfile[]` shape at the caller). */
+export function mcpProfilesList<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('mcp_profiles_list');
+}
+
+/** Upsert a profile by name; returns the canonical list. */
+export function mcpProfilesSave<T = unknown>(profile: object): Promise<T> {
+  return invokeCommand<T>('mcp_profiles_save', { profile });
+}
+
+/** Delete a profile by name; returns the canonical list. */
+export function mcpProfilesDelete<T = unknown>(name: string): Promise<T> {
+  return invokeCommand<T>('mcp_profiles_delete', { name });
+}
+
+/** Render one profile as a Claude-Desktop-style config snippet. */
+export function mcpProfilesExportConfig(
+  name: string,
+  mcpPath: string | null,
+): Promise<string> {
+  return invokeCommand<string>('mcp_profiles_export_config', { name, mcpPath });
+}
+
+// ---------------------------------------------------------------------------
+// Cookbook (bundled recipe gallery)
+// ---------------------------------------------------------------------------
+
+/** Bundled cookbook entries (`CookbookEntry[]` shape at the caller). */
+export function cookbookList<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('cookbook_list');
+}
+
+/** Install a cookbook entry into the workspace; returns the recipe path. */
+export function cookbookInstall(
+  workspace: string,
+  fileStem: string,
+): Promise<string> {
+  return invokeCommand<string>('cookbook_install', { workspace, fileStem });
+}
+
+// ---------------------------------------------------------------------------
+// Localhost endpoints: capture (quick capture HTTP) + REST API
+// ---------------------------------------------------------------------------
+
+/** Capture endpoint state (`CaptureState` shape at the caller). */
+export function captureGetState<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('capture_get_state');
+}
+
+/** Toggle the capture listener; returns the fresh state. */
+export function captureSetEnabled<T = unknown>(
+  enabled: boolean,
+  port: number | null,
+): Promise<T> {
+  return invokeCommand<T>('capture_set_enabled', { enabled, port });
+}
+
+/**
+ * Push the active workspace folder into the capture server's view of the
+ * world (null = none open → the server 503s). Fire-and-forget callers keep
+ * their own `.catch(() => {})` — this wrapper is strict.
+ */
+export function captureSetWorkspace(folder: string | null): Promise<void> {
+  return invokeCommand('capture_set_workspace', { folder });
+}
+
+/** Mint a new capture bearer token; returns the fresh state. */
+export function captureRegenerateToken<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('capture_regenerate_token');
+}
+
+/** Set the inbox sub-folder (relative to the workspace). */
+export function captureSetInboxFolder<T = unknown>(folder: string): Promise<T> {
+  return invokeCommand<T>('capture_set_inbox_folder', { folder });
+}
+
+/** REST endpoint state (`RestState` shape at the caller). */
+export function restGetState<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('rest_get_state');
+}
+
+/** Toggle the REST listener; returns the fresh state. */
+export function restSetEnabled<T = unknown>(
+  enabled: boolean,
+  port: number | null,
+): Promise<T> {
+  return invokeCommand<T>('rest_set_enabled', { enabled, port });
+}
+
+/** Push the active workspace folder into the REST server (null = 503 mode). */
+export function restSetWorkspace(folder: string | null): Promise<void> {
+  return invokeCommand('rest_set_workspace', { folder });
+}
+
+/** Toggle the REST server's write-enabled tools. */
+export function restSetAllowWrite<T = unknown>(allow: boolean): Promise<T> {
+  return invokeCommand<T>('rest_set_allow_write', { allow });
+}
+
+/** Mint a new REST bearer token; returns the fresh state. */
+export function restRegenerateToken<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('rest_regenerate_token');
+}
+
+// ---------------------------------------------------------------------------
+// CLI shim + MCP auto-install across AI clients (integrations.rs)
+// ---------------------------------------------------------------------------
+
+/** `solomd` shim status (`CliStatus` shape at the caller). */
+export function cliStatus<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('cli_status');
+}
+
+/** Install the `solomd` CLI shim. */
+export function cliInstall<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('cli_install');
+}
+
+/** Remove the `solomd` CLI shim. */
+export function cliUninstall<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('cli_uninstall');
+}
+
+/** Detect installed AI clients (`AiClient[]` shape at the caller). */
+export function detectAiClients<T = unknown>(): Promise<T> {
+  return invokeCommand<T>('detect_ai_clients');
+}
+
+/** Merge a solomd entry into one client's MCP config; returns its path. */
+export function injectMcp(args: {
+  clientId: string;
+  workspace: string;
+  allowWrite: boolean;
+}): Promise<string> {
+  return invokeCommand<string>('inject_mcp', args);
+}
+
+/** Remove the solomd entry from one client's MCP config. */
+export function removeMcp(clientId: string): Promise<void> {
+  return invokeCommand('remove_mcp', { clientId });
+}
+
+/** Open (or reveal) an AI client's MCP config file. */
+export function openAiClientConfig(clientId: string): Promise<void> {
+  return invokeCommand('open_ai_client_config', { clientId });
+}
+
+// ---------------------------------------------------------------------------
+// AI long tail + agent panel helpers
+// ---------------------------------------------------------------------------
+
+/** Probe a provider for its model list (`ModelProbe` shape at the caller). */
+export function aiListModels<T = unknown>(args: {
+  provider: string;
+  baseUrl: string | null;
+  key: string | null;
+  keyId: string | null;
+}): Promise<T> {
+  return invokeCommand<T>('ai_list_models', args);
+}
+
+/**
+ * One-shot selection rewrite (the overlay's streaming path — progress still
+ * streams via `solomd://ai-*`). The request envelope mirrors the Rust
+ * `RewriteRequest`; the overlay owns the shape.
+ */
+export function aiRewrite<T = unknown>(
+  request: Record<string, unknown>,
+): Promise<T> {
+  return invokeCommand<T>('ai_rewrite', { request });
+}
+
+/** Recent agent runs for a workspace (`AgentRunMeta[]` at the caller). */
+export function agentListRuns<T = unknown>(workspace: string): Promise<T> {
+  return invokeCommand<T>('agent_list_runs', { workspace });
+}
+
+/** Replay a run from a step; returns the new run id. */
+export function agentTraceReplayFrom(args: {
+  workspace: string;
+  runId: string;
+  seq: number;
+}): Promise<string> {
+  return invokeCommand<string>('agent_trace_replay_from', args);
+}
+
+/**
+ * Spawn one MCP server and list its tools. Same wire shape as
+ * {@link AiChatMcpServer} (the Rust `McpServerConfig`).
+ */
+export function mcpTestServer<T = unknown>(
+  config: AiChatMcpServer,
+): Promise<T> {
+  return invokeCommand<T>('mcp_test_server', { config });
+}
+
+/** CJK punctuation/spacing proofread pass (`Issue[]` at the caller). */
+export function cjkProofread<T = unknown>(text: string): Promise<T> {
+  return invokeCommand<T>('cjk_proofread', { text });
+}
+
+// ---------------------------------------------------------------------------
+// Deliberately NOT wrapped — dedicated facade modules (each IS the single
+// implementation point for its command family, with the reason stated at its
+// raw-invoke import):
+//  * `saf_*` — lib/saf-fs.ts (Android SAF virtual paths)
+//  * `pip_*` + `pip_focus_main` — lib/pip-window.ts (multi-fallback PIP logic)
+//  * `updater_*` — lib/check-update.ts (unit-tested pure helpers + updater)
+//  * `pick_user_path` — lib/user-pick.ts (Rust-side dialog registration)
+//  * `upload_image` — lib/image-upload.ts (tagged UploaderConfig builder)
+//  * `pandoc_*` — composables/usePandocExport.ts (export pipeline owner)
+// Everything else now routes through this file. Payload object types keep
+// living with their owning store/component (the `<T = unknown>` convention
+// used by searchInDir / spellcheckCheck / mcpPath) — wrap-in-place, don't
+// relocate types. No `#[tauri::command]` names were added or renamed here;
+// the lib.rs / runner.rs drift-guard lists are untouched.
 // ---------------------------------------------------------------------------

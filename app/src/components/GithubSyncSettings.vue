@@ -13,7 +13,7 @@
  */
 import { ref, computed, onMounted, watch } from 'vue';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { useGithubSyncStore, classifyPushError, classifyPullError } from '../stores/githubSync';
+import { useGithubSyncStore, classifyPushError, classifyPullError, type CryptoStatus } from '../stores/githubSync';
 import { useSettingsStore } from '../stores/settings';
 import { useWorkspaceStore } from '../stores/workspace';
 import { useToastsStore } from '../stores/toasts';
@@ -58,6 +58,24 @@ const giteaRepoPrivate = ref(true);
 const giteaCreatingRepo = ref(false);
 const giteaLinking = ref(false);
 const commitMsg = ref('');
+// C05 — per-device E2EE key state from `crypto_status` (marker-file check,
+// no keychain access). `status.encrypted` says the LINK is encrypted, but a
+// freshly linked device has no passphrase yet — without this line the panel
+// can't show that pulled ciphertext was never decrypted here.
+const localCrypto = ref<CryptoStatus | null>(null);
+
+async function refreshLocalCrypto() {
+  if (!isTauri() || !hasGitBackend() || !workspace.currentFolder) {
+    localCrypto.value = null;
+    return;
+  }
+  try {
+    localCrypto.value = await sync.cryptoStatus(workspace.currentFolder);
+  } catch {
+    // A local marker-file probe failing is not actionable; leave the last
+    // known state (or null) and let push/pull errors speak for themselves.
+  }
+}
 // v3.0 note: proxy URL UI lives in its own ProxySettings.vue card, sibling
 // to this one in the Sync category. We don't store proxy state here anymore.
 
@@ -107,6 +125,7 @@ async function commitE2eeUpgrade() {
   try {
     await sync.enableEncryption(workspace.currentFolder, upgradePassphrase.value);
     toasts.success(t('githubSync.upgradeDoneToast'));
+    void refreshLocalCrypto();
     cancelE2eeUpgrade();
   } catch (e) {
     toasts.error(`${t('githubSync.upgradeFailed')}: ${e}`);
@@ -132,6 +151,9 @@ onMounted(async () => {
   if (sync.status?.provider === 'gitea' || providerChoice.value === 'gitea') {
     await initGiteaState();
   }
+  // C05 — show this device's E2EE key state alongside the (link-level)
+  // encrypted flag.
+  void refreshLocalCrypto();
   // GitHub-specific preloading only when GitHub is the active provider.
   if (providerChoice.value === 'github' && sync.hasToken && !sync.isLinked) {
     await Promise.all([sync.refreshUser(), sync.listRepos().catch(() => {})]);
@@ -150,6 +172,17 @@ watch(
   () => workspace.currentFolder,
   (f) => {
     void sync.refreshStatus(f);
+    void refreshLocalCrypto();
+  },
+);
+
+// The key marker only appears after the user sets a passphrase (or after
+// link-with-encryption on a fresh device), so re-probe when the encrypted
+// flag flips.
+watch(
+  () => sync.status?.encrypted,
+  () => {
+    void refreshLocalCrypto();
   },
 );
 
@@ -262,9 +295,10 @@ async function savePassphrase() {
   if (!pw) return;
   passphraseSaving.value = true;
   try {
-    await sync.setPassphrase(workspace.currentFolder, pw);
+    await sync.setPassphrase(workspace.currentFolder, passphraseInput.value);
     passphraseInput.value = '';
     toasts.success(t('githubSync.passphraseSavedToast'));
+    void refreshLocalCrypto();
   } catch (e) {
     toasts.error(`${t('githubSync.passphraseFailed')}: ${e}`);
   } finally {
@@ -278,6 +312,7 @@ async function decryptNow() {
   try {
     await sync.decryptNow(workspace.currentFolder);
     toasts.success(t('githubSync.decryptedToast'));
+    void refreshLocalCrypto();
     window.dispatchEvent(new CustomEvent('solomd:remote-pulled'));
   } catch (e) {
     toasts.error(`${t('githubSync.decryptFailed')}: ${e}`);
@@ -288,6 +323,11 @@ async function decryptNow() {
 
 async function unlink() {
   if (!workspace.currentFolder) return;
+  // C06 — one click drops the whole sync chain (link + auto-push/pull +
+  // last-synced timestamps). Re-linking is easy, but a mis-click also
+  // silently stops backups, so confirm first (same pattern as the other
+  // destructive one-clicks: window.confirm).
+  if (!window.confirm(t('githubSync.unlinkConfirm'))) return;
   try {
     await sync.unlink(workspace.currentFolder);
     toasts.info(t('githubSync.unlinkedToast'));
@@ -320,14 +360,30 @@ async function pushNow() {
 
 async function pullNow() {
   if (!workspace.currentFolder) return;
+  // Same guard as the command-palette / status-pill pull: with unresolved
+  // conflicts the backend skips its pre-pull safety commit, so the merge
+  // would just fail. The conflict panel is the way out.
+  if (sync.hasConflicts) {
+    toasts.warning(t('githubSync.pullBlockedByConflicts'));
+    return;
+  }
   try {
     const r = await sync.pull(workspace.currentFolder);
     if (r.kind === 'up_to_date') {
-      toasts.info(t('githubSync.upToDate'));
+      if (r.pending_decryption) {
+        // E2EE fresh-device bootstrap: "up to date" would hide that the
+        // notes were never decrypted on this device.
+        toasts.warning(t('githubSync.pullPendingDecryption'), 8000);
+      } else {
+        toasts.info(t('githubSync.upToDate'));
+      }
     } else if (r.kind === 'conflicts') {
       toasts.warning(t('githubSync.pullConflicts', { n: String(r.conflicts.length) }));
     } else {
       toasts.success(tSync('pulledToast'));
+      if (r.pending_decryption) {
+        toasts.warning(t('githubSync.pullPendingDecryption'), 8000);
+      }
       window.dispatchEvent(new CustomEvent('solomd:remote-pulled'));
     }
   } catch (e) {
@@ -406,7 +462,7 @@ async function saveGiteaUrl() {
       await sync.setGiteaUrl(url);
       giteaStep.value = 'token';
     } else {
-      toasts.warning('Could not reach this Gitea server — check the URL');
+      toasts.warning(t('githubSync.giteaUnreachable'));
     }
   } catch (e) {
     toasts.error(String(e));
@@ -951,6 +1007,18 @@ const linkedRepoLabel = computed(() => {
            workspace is linked WITH encryption on. -->
       <div v-if="sync.status?.encrypted" class="ghs-subblock">
         <div class="ghs-sub-title">{{ t('githubSync.e2eeSection') }}</div>
+        <!-- C05 — this device's own key state (crypto_status.has_key).
+             The link being "encrypted" doesn't mean THIS device can
+             decrypt: a freshly linked device has no passphrase yet and
+             pulls land as ciphertext until it sets one. -->
+        <p v-if="localCrypto" class="ghs-help">
+          <template v-if="localCrypto.has_key">
+            {{ t('githubSync.localKeySet') }}
+          </template>
+          <template v-else>
+            <span style="color: #b45309;">⚠ {{ t('githubSync.localKeyMissing') }}</span>
+          </template>
+        </p>
         <p class="ghs-help">{{ t('githubSync.e2eePromptHint') }}</p>
         <div class="ghs-row">
           <input

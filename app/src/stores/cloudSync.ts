@@ -10,7 +10,13 @@
  * status" object keeps the UI banner straightforward.
  */
 import { defineStore } from 'pinia';
-import { invoke } from '@tauri-apps/api/core';
+import {
+  cloudFolderDetect,
+  deviceIdGetOrCreate,
+  sessionListOthers,
+  sessionLoad,
+  sessionSave,
+} from '../lib/commands';
 import { isTauri } from '../lib/platform';
 
 export type CloudProvider = 'none' | 'icloud' | 'dropbox' | 'onedrive' | 'google_drive';
@@ -85,7 +91,7 @@ export const useCloudSyncStore = defineStore('cloudSync', {
         return this.deviceId;
       }
       try {
-        this.deviceId = await invoke<string>('device_id_get_or_create');
+        this.deviceId = await deviceIdGetOrCreate();
       } catch (e) {
         console.warn('[cloudSync] device_id_get_or_create failed:', e);
         this.deviceId = 'fallback-device';
@@ -100,12 +106,9 @@ export const useCloudSyncStore = defineStore('cloudSync', {
         return;
       }
       try {
-        this.cloud = await invoke<CloudFolderInfo>('cloud_folder_detect', { folder });
+        this.cloud = await cloudFolderDetect<CloudFolderInfo>(folder);
         const id = await this.ensureDeviceId();
-        this.siblings = await invoke<SiblingSession[]>('session_list_others', {
-          folder,
-          ourDeviceId: id,
-        });
+        this.siblings = await sessionListOthers<SiblingSession[]>(folder, id);
       } catch (e) {
         console.warn('[cloudSync] refresh failed:', e);
       }
@@ -114,7 +117,7 @@ export const useCloudSyncStore = defineStore('cloudSync', {
     async saveSession(folder: string, payload: SessionPayload): Promise<void> {
       if (!isTauri()) return;
       try {
-        await invoke('session_save', { folder, payload });
+        await sessionSave(folder, payload);
       } catch (e) {
         console.warn('[cloudSync] saveSession failed:', e);
       }
@@ -123,7 +126,7 @@ export const useCloudSyncStore = defineStore('cloudSync', {
     async loadSession(folder: string, deviceId: string): Promise<SessionPayload | null> {
       if (!isTauri()) return null;
       try {
-        return await invoke<SessionPayload | null>('session_load', { folder, deviceId });
+        return await sessionLoad<SessionPayload | null>(folder, deviceId);
       } catch (e) {
         console.warn('[cloudSync] loadSession failed:', e);
         return null;

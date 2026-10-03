@@ -1152,9 +1152,11 @@ export const useSettingsStore = defineStore('settings', {
       this.showFileTree = !this.showFileTree;
       this.persist();
     },
+    // C23 — was a verbatim copy of toggleFileTree (both flip showFileTree,
+    // the left sidebar's visibility). It stays as the alias behind
+    // view.toggleSidebar, but delegates so the toggle has one owner.
     toggleLeftSidebar() {
-      this.showFileTree = !this.showFileTree;
-      this.persist();
+      this.toggleFileTree();
     },
     setLeftSidebarTab(tab: 'files' | 'outline' | 'search') {
       this.leftSidebarTab = tab === 'search' ? 'files' : tab;

@@ -14,7 +14,7 @@
  */
 
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { agentTraceReplayFrom, cookbookInstall, cookbookList } from '../lib/commands';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useRecipesStore, type RecipeSummary, type RunMeta } from '../stores/recipes';
 import { useWorkspaceStore } from '../stores/workspace';
@@ -224,7 +224,7 @@ async function toggleHistory(run: RunMeta) {
 async function onReplayFromStep(runId: string, payload: { seq: number; runId: string }) {
   if (!folder.value) return;
   try {
-    const newRunId = await invoke<string>('agent_trace_replay_from', {
+    const newRunId = await agentTraceReplayFrom({
       workspace: folder.value,
       runId: payload.runId ?? runId,
       seq: payload.seq,
@@ -363,9 +363,9 @@ const installing = ref<string | null>(null);
 async function openCookbook() {
   if (cookbookEntries.value.length === 0) {
     try {
-      cookbookEntries.value = await invoke<CookbookEntry[]>('cookbook_list');
+      cookbookEntries.value = await cookbookList<CookbookEntry[]>();
     } catch (e) {
-      toasts.error(`Cookbook: ${e}`);
+      toasts.error(t('toast.moduleError', { module: 'Cookbook', error: String(e) }));
       return;
     }
   }
@@ -379,16 +379,13 @@ async function installCookbookEntry(entry: CookbookEntry) {
   }
   installing.value = entry.file_stem;
   try {
-    const path = await invoke<string>('cookbook_install', {
-      workspace: folder.value,
-      fileStem: entry.file_stem,
-    });
+    const path = await cookbookInstall(folder.value, entry.file_stem);
     toasts.success(t('cookbook.installedToast', { name: entry.name }));
     await store.refresh(folder.value);
     showCookbook.value = false;
     void openPath(path);
   } catch (e) {
-    toasts.error(`Cookbook install: ${e}`);
+    toasts.error(t('toast.moduleError', { module: 'Cookbook install', error: String(e) }));
   } finally {
     installing.value = null;
   }

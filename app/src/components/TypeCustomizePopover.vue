@@ -14,7 +14,7 @@
  *   types.pinnedEmpty, types.templateLabel, types.save, types.cancel,
  *   types.patchFailed
  */
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import Icons from './Icons.vue';
 import { useTypesStore } from '../stores/types';
 import { useToastsStore } from '../stores/toasts';
@@ -89,6 +89,29 @@ const popoverStyle = computed(() => {
   return { left: `${Math.max(8, x)}px`, top: `${Math.max(8, y)}px` };
 });
 
+// Unified Esc-to-close (DsModal baseline): a document-level capture listener
+// mounted while the popover is open, so Esc works no matter where focus sits.
+// IME guard per CommandPalette.vue: Esc must first cancel pinyin candidates,
+// not close the popover.
+function onDocKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    emit('close');
+  }
+}
+
+watch(
+  () => props.open,
+  (v) => {
+    if (v) document.addEventListener('keydown', onDocKeydown, true);
+    else document.removeEventListener('keydown', onDocKeydown, true);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => document.removeEventListener('keydown', onDocKeydown, true));
+
 async function save() {
   if (busy.value) return;
   busy.value = true;
@@ -114,7 +137,7 @@ async function save() {
   <Teleport to="body">
     <template v-if="open">
       <div class="tcp__backdrop" @click="emit('close')" />
-      <div class="tcp" role="dialog" :style="popoverStyle" @keydown.esc="emit('close')">
+      <div class="tcp" role="dialog" aria-modal="true" :style="popoverStyle">
         <header class="tcp__head">
           <span class="tcp__title">{{ t('types.customize') }} · {{ typeName }}</span>
           <button class="tcp__x" @click="emit('close')" aria-label="Cancel">×</button>
