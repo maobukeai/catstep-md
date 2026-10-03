@@ -216,8 +216,10 @@ jobs:
   # Linux x64:    catstep-mcp-linux-x64.tar.gz
   # Linux arm64:  catstep-mcp-linux-arm64.tar.gz
   # Windows x64:  catstep-mcp-win-x64.zip
-  # macOS:        produced locally via scripts/build-mcp.sh, since
-  #               macOS isn't in this matrix anymore.
+  # macOS arm64:  catstep-mcp-mac-arm64.tar.gz (macos-latest leg of the
+  #               matrix above). Intel Macs get no asset: install-mcp.sh
+  #               refuses them with manual-install guidance instead of a
+  #               URL that would 404.
   # ----------------------------------------------------------------------
       - name: Pack catstep-mcp tarball (Linux)
         if: startsWith(matrix.platform, 'ubuntu-')
@@ -587,8 +589,9 @@ jobs:
       # 404'd while the workflow comments still claimed the two agreed. This
       # step derives the expected names from install-mcp.sh ITSELF (fake
       # uname, no second copy of the mapping to drift) and fails the release
-      # when one is missing. macOS is intentionally unchecked — see the
-      # script header for why.
+      # when one is missing. macOS's arm64 pair is checked like the rest;
+      # Intel macs get no asset, so the check pins install-mcp.sh's refusal
+      # for them instead — see the script header.
       # ----------------------------------------------------------------------
       - name: Drift check - install-mcp.sh expected assets vs release
         env:

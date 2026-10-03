@@ -37,20 +37,15 @@ case "$uname_s" in
         ;;
 esac
 
+# Per-arch mac naming: the release matrix builds macos-latest (Apple
+# Silicon) and uploads catstep-mcp-mac-arm64.tar.gz — see the macOS leg in
+# .github/workflows/release.yml. There is no universal binary to pretend at.
 case "$uname_m" in
     arm64|aarch64)
-        if [[ "$platform" == "mac" ]]; then
-            arch="universal"
-        else
-            arch="arm64"
-        fi
+        arch="arm64"
         ;;
     x86_64|amd64)
-        if [[ "$platform" == "mac" ]]; then
-            arch="universal"
-        else
-            arch="x64"
-        fi
+        arch="x64"
         ;;
     *)
         echo "Error: unsupported architecture: $uname_m" >&2
@@ -61,6 +56,20 @@ esac
 asset="catstep-mcp-${platform}-${arch}.tar.gz"
 if [[ "$platform" == "win" ]]; then
     asset="catstep-mcp-${platform}-${arch}.zip"
+fi
+
+# Intel Macs: the release matrix only builds the Apple Silicon leg, so
+# 'catstep-mcp-mac-x64.tar.gz' is never uploaded and the download would 404.
+# Fail loudly with a way out instead of dying on a bare curl error.
+if [[ "$platform" == "mac" && "$arch" == "x64" ]]; then
+    echo "Error: no catstep-mcp asset is published for Intel Macs (x86_64)." >&2
+    echo "'$asset' is not built by the release workflow — only the Apple" >&2
+    echo "Silicon (arm64) build is. Install manually instead:" >&2
+    echo "  1. Check https://github.com/$REPO/releases for a mac-x64 tarball," >&2
+    echo "     or" >&2
+    echo "  2. Build from source:" >&2
+    echo "       cargo install --git https://github.com/$REPO catstep-mcp" >&2
+    exit 1
 fi
 
 # ---------------------------------------------------------------------------
