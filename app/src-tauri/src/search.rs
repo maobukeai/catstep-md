@@ -47,12 +47,21 @@ pub struct MatchOptions {
 /// the walker visited (read attempts included), `elapsed_ms` times the whole
 /// blocking pass — surfaced in the GlobalSearch footer so a slow full-vault
 /// walk never looks like a hang.
+///
+/// `truncated` is set when the walk stopped early because `max_results` hits
+/// were already in hand: the returned list is then a *prefix* of the real
+/// match set (and `files_scanned` only counts files inspected up to that
+/// point — the early stop is the whole point of the cap). The GlobalSearch
+/// panel surfaces this so a big vault never mistakes the capped list for the
+/// full result set, and so the replace confirmation can say out loud that
+/// matches beyond the displayed list are rewritten too.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchOutcome {
     pub hits: Vec<SearchHit>,
     pub files_scanned: usize,
     pub elapsed_ms: u64,
+    pub truncated: bool,
 }
 
 /// Summary of a cross-file replace pass. `errors` carries per-file reasons
@@ -131,6 +140,11 @@ pub fn search_in_dir_scoped(
     let matcher = build_matcher(&query, options)?;
     let mut hits: Vec<SearchHit> = Vec::new();
     let mut files_scanned: usize = 0;
+    // Set exactly when the walk stops *because* the cap bound — there were
+    // still uninspected candidate files or (mid-file) unread lines when
+    // `max_results` filled up. A walk that finishes with exactly
+    // `max_results` matches and nothing left over stays `false`.
+    let mut truncated = false;
 
     // The candidate set is materialized up-front (path walk only — no file
     // reads) so search and replace share one walker. The extra walk cost is
@@ -138,6 +152,7 @@ pub fn search_in_dir_scoped(
     // `max_results` hits are in hand.
     for path in collect_files(Path::new(&root), path_filter) {
         if hits.len() >= max_results {
+            truncated = true;
             break;
         }
         files_scanned += 1;
@@ -155,6 +170,7 @@ pub fn search_in_dir_scoped(
         }
         for (i, line) in det.content.lines().enumerate() {
             if hits.len() >= max_results {
+                truncated = true;
                 break;
             }
             if !matcher.find_spans(line).is_empty() {
@@ -167,12 +183,16 @@ pub fn search_in_dir_scoped(
                 });
             }
         }
+        if truncated {
+            break;
+        }
     }
 
     Ok(SearchOutcome {
         hits,
         files_scanned,
         elapsed_ms: started.elapsed().as_millis() as u64,
+        truncated,
     })
 }
 

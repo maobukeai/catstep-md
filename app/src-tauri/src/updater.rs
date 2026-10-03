@@ -399,10 +399,17 @@ pub async fn updater_start_download(
                 } else {
                     let _ = tokio::fs::remove_file(&target_file_path).await;
                     *active = false;
+                    // C19 — keep the message honest and actionable: name the
+                    // failure, state that the bad file is gone and nothing ran,
+                    // and give the retry / manual-download way out. Hashes are
+                    // truncated to 12 hex chars — enough to correlate a bug
+                    // report without two 64-char lines of noise.
                     let err_msg = format!(
-                        "Installer integrity check FAILED: sha256 {actual} does not match the \
-                         release manifest ({expected}). The download was deleted and nothing \
-                         will be executed."
+                        "Installer integrity check failed (SHA-256 mismatch, expected {}…, got {}…). \
+                         The downloaded file was deleted and nothing was executed — retry the update, \
+                         or download the installer manually from the release page in a browser.",
+                        &expected[..12.min(expected.len())],
+                        &actual[..12.min(actual.len())],
                     );
                     let _ = app.emit(
                         "updater-progress",

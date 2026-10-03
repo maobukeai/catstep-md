@@ -166,6 +166,33 @@ class MainActivity : TauriActivity() {
       envelope { put("v", ok) }
     } catch (e: Exception) { err(e) } }
 
+    /** Rename a document in place (display-name change within the SAME
+     *  folder). Returns its NEW documentId: providers may reissue ids on
+     *  rename, so callers must repoint to the returned value. */
+    @JvmStatic
+    fun renameDoc(treeUri: String, docId: String, newName: String): String { return try {
+      val uri = DocumentsContract.buildDocumentUriUsingTree(Uri.parse(treeUri), docId)
+      val r = resolver() ?: return err2("no resolver")
+      val renamed = DocumentsContract.renameDocument(r, uri, newName)
+        ?: return err2("renameDocument null")
+      envelope { put("v", DocumentsContract.getDocumentId(renamed)) }
+    } catch (e: Exception) { err(e) } }
+
+    /** Move a document to another folder of the SAME tree (moveDocument,
+     *  API 24+). Returns its NEW documentId — same reissue caveat as
+     *  renameDoc. Cross-tree moves are refused by the provider. */
+    @JvmStatic
+    fun moveDoc(treeUri: String, docId: String, parentDocId: String, newParentDocId: String): String { return try {
+      val tree = Uri.parse(treeUri)
+      val r = resolver() ?: return err2("no resolver")
+      val src = DocumentsContract.buildDocumentUriUsingTree(tree, docId)
+      val srcParent = DocumentsContract.buildDocumentUriUsingTree(tree, parentDocId)
+      val dstParent = DocumentsContract.buildDocumentUriUsingTree(tree, newParentDocId)
+      val moved = DocumentsContract.moveDocument(r, src, srcParent, dstParent)
+        ?: return err2("moveDocument null")
+      envelope { put("v", DocumentsContract.getDocumentId(moved)) }
+    } catch (e: Exception) { err(e) } }
+
     private inline fun envelope(fill: JSONObject.() -> Unit): String =
       JSONObject().apply { put("ok", true); fill() }.toString()
 

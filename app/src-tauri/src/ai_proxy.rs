@@ -543,6 +543,15 @@ struct ChunkEvent {
 struct DoneEvent {
     request_id: String,
     full_text: String,
+    /// C21 — per-run usage for the tool-loop chat path (already computed for
+    /// the run meta, now also surfaced to the panel). `None` on the
+    /// single-turn rewrite path, which has no token accounting yet.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tokens_in: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tokens_out: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cost_usd_estimate: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1335,6 +1344,9 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
                     DoneEvent {
                         request_id: id_for_task.clone(),
                         full_text: full_text.clone(),
+                        tokens_in: Some(*tokens_in),
+                        tokens_out: Some(*tokens_out),
+                        cost_usd_estimate: Some(cost),
                     },
                 );
             }
@@ -1435,6 +1447,11 @@ pub async fn ai_rewrite(app: AppHandle, request: RewriteRequest) -> Result<Strin
                     DoneEvent {
                         request_id: id_for_task.clone(),
                         full_text,
+                        // Single-turn rewrite path — no token accounting yet
+                        // (see the `v4-fix/tokens` note in recipe_runner.rs).
+                        tokens_in: None,
+                        tokens_out: None,
+                        cost_usd_estimate: None,
                     },
                 );
             }
@@ -2366,6 +2383,12 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
         // result string; `tool_name` is included for newer server versions
         // that require the pairing.
         for (id, name, args) in outcome.tool_uses.iter() {
+            // C04: poll the stop flag before EACH dispatch — same rationale
+            // as the OpenAI/Anthropic loops; the loop head only checks
+            // between model turns.
+            if cancel.load(Ordering::SeqCst) {
+                return Err(cancelled());
+            }
             let _ = app.emit(
                 "solomd://ai-tool-call",
                 ToolCallEvent {
@@ -2952,6 +2975,11 @@ pub async fn run_chat_anthropic_loop(
         // tool_result blocks (Anthropic's expected pairing).
         let mut result_blocks: Vec<Value> = Vec::new();
         for (id, name, args) in outcome.tool_uses.iter() {
+            // C04: poll the stop flag before EACH dispatch — same rationale
+            // as the OpenAI loop; the loop head only checks between turns.
+            if cancel.load(Ordering::SeqCst) {
+                return Err(cancelled());
+            }
             // Emit tool-call event.
             let _ = app.emit(
                 "solomd://ai-tool-call",
@@ -3535,6 +3563,14 @@ pub async fn run_chat_openai_loop(
 
         // Dispatch each tool, append one `tool` role message per call.
         for (id, name, args) in outcome.tool_uses.iter() {
+            // C04: poll the stop flag before EACH dispatch. The loop head
+            // only checks between model turns, so a batch of tool calls that
+            // already arrived would otherwise all run to completion after the
+            // user pressed stop. In-flight dispatches still finish; queued
+            // ones are skipped and the run ends as `cancelled`.
+            if cancel.load(Ordering::SeqCst) {
+                return Err(cancelled());
+            }
             let _ = app.emit(
                 "solomd://ai-tool-call",
                 ToolCallEvent {

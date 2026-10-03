@@ -9,9 +9,11 @@
 //! Rust integration test the panel agent ships with.
 
 use app_lib::agent_tools::dispatch_tool_inner;
+use app_lib::commands::read_text_detected;
+use encoding_rs::GBK;
 use serde_json::{json, Value};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn make_workspace(label: &str) -> PathBuf {
     let stamp = std::time::SystemTime::now()
@@ -267,5 +269,218 @@ fn semantic_search_e2e_fallback_and_indexed() {
     assert!(hits[0]["score"].as_f64().is_some());
     assert!(hits[0]["snippet"].as_str().is_some());
 
+    let _ = fs::remove_dir_all(&ws);
+}
+
+// ---------------------------------------------------------------------------
+// S09 — encoding everywhere, agent-tool side. Style mirrors
+// tests/encoding_detection_test.rs: write raw legacy bytes, drive the tool,
+// and pin down that the FILE stays in the encoding it was found in — the
+// pre-fix tools wrote plain UTF-8 bytes, so a GBK archive note was invisible
+// to the agent (read) or silently transcoded (append / overwrite).
+// ---------------------------------------------------------------------------
+
+fn write_raw_note(ws: &Path, name: &str, bytes: &[u8]) -> PathBuf {
+    let p = ws.join(name);
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    fs::write(&p, bytes).unwrap();
+    p
+}
+
+/// write_note with `encoding: "GBK"` must put GBK bytes on disk (not UTF-8),
+/// and the result must be readable again by both the editor-side detector and
+/// the agent's own read_note.
+#[test]
+fn write_note_gbk_encoding_roundtrips_byte_exactly() {
+    let ws = make_workspace("write-gbk");
+    let text = "# 存档\n\n这条笔记用 GBK 编码由 agent 直接写入，足够长以让编码检测稳定锁定。\
+                不再出现读侧贯通后写侧静默转码的问题。\n";
+    let res: Value = dispatch_tool_inner(
+        &ws,
+        "write_note",
+        json!({"path": "archive/gbk.md", "content": text, "encoding": "GBK"}),
+    )
+    .unwrap();
+    assert_eq!(res["ok"], true);
+
+    let raw = fs::read(ws.join("archive/gbk.md")).unwrap();
+    assert!(
+        std::str::from_utf8(&raw).is_err(),
+        "file was written as UTF-8 despite encoding=GBK"
+    );
+
+    let det = read_text_detected(Path::new(&ws.join("archive/gbk.md"))).unwrap();
+    assert_eq!(det.content, text);
+    assert!(!det.had_errors);
+    // chardetng may label GBK input GBK or GB18030 (a superset — same bytes
+    // for GBK-range characters); either must re-encode identically.
+    assert!(
+        det.encoding == "GBK" || det.encoding == "GB18030",
+        "unexpected label: {}",
+        det.encoding
+    );
+
+    // And the agent's own read path must see it — this used to be an
+    // "invalid utf-8 sequence" hard error.
+    let read: Value =
+        dispatch_tool_inner(&ws, "read_note", json!({"path": "archive/gbk.md"})).unwrap();
+    assert_eq!(read["content"].as_str().unwrap(), text);
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// No `encoding` argument → UTF-8, byte-identical to the old behavior.
+#[test]
+fn write_note_default_encoding_stays_utf8() {
+    let ws = make_workspace("write-default");
+    let res: Value = dispatch_tool_inner(
+        &ws,
+        "write_note",
+        json!({"path": "plain.md", "content": "# 你好\n默认编码不变。\n"}),
+    )
+    .unwrap();
+    assert_eq!(res["ok"], true);
+    assert_eq!(
+        fs::read(ws.join("plain.md")).unwrap(),
+        "# 你好\n默认编码不变。\n".as_bytes()
+    );
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// Content the target encoding cannot represent fails loudly instead of
+/// writing U+FFFD litter — and creates nothing.
+#[test]
+fn write_note_gbk_rejects_unrepresentable_characters() {
+    let ws = make_workspace("write-gbk-unrep");
+    let err = dispatch_tool_inner(
+        &ws,
+        "write_note",
+        json!({"path": "e.md", "content": "emoji 😀", "encoding": "GBK"}),
+    )
+    .unwrap_err();
+    assert!(err.contains("cannot be represented"), "got: {err}");
+    assert!(!ws.join("e.md").exists(), "failed write must not create the file");
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// An unknown encoding label is an explicit error — silently falling back to
+/// UTF-8 would be exactly the silent-transcode behavior this pipeline exists
+/// to prevent.
+#[test]
+fn write_note_rejects_unknown_encoding_label() {
+    let ws = make_workspace("write-badlabel");
+    let err = dispatch_tool_inner(
+        &ws,
+        "write_note",
+        json!({"path": "x.md", "content": "hi", "encoding": "iso-9999-unknown"}),
+    )
+    .unwrap_err();
+    assert!(err.contains("unknown encoding label"), "got: {err}");
+    assert!(!ws.join("x.md").exists(), "must fail before creating anything");
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// Appending to a GBK note must leave the FILE in GBK: read with detection,
+/// append, write the whole thing back re-encoded (with the original BOM).
+#[test]
+fn append_to_note_preserves_gbk_encoding() {
+    let ws = make_workspace("append-gbk");
+    let original = "# 会议纪要\n\n今天讨论了 GBK 编码存档的旧笔记在 agent 追加后如何保持编码不变。\
+                    这段正文需要足够长，让检测器稳定锁定编码。\n";
+    let (gbk_bytes, _, _) = GBK.encode(original);
+    let path = write_raw_note(&ws, "gbk.md", gbk_bytes.as_ref());
+
+    let appended = "\n## 新增段落\n\n这是 agent 追加的一行中文。\n";
+    let res: Value = dispatch_tool_inner(
+        &ws,
+        "append_to_note",
+        json!({"path": "gbk.md", "content": appended}),
+    )
+    .unwrap();
+    assert_eq!(res["ok"], true);
+
+    let raw = fs::read(&path).unwrap();
+    assert!(
+        std::str::from_utf8(&raw).is_err(),
+        "file was silently transcoded to UTF-8 by append_to_note"
+    );
+    let det = read_text_detected(Path::new(&path)).unwrap();
+    assert_eq!(det.content, format!("{original}{appended}"));
+    assert!(!det.had_errors);
+    assert!(det.encoding == "GBK" || det.encoding == "GB18030");
+    // Byte-exact: re-encoding with the detected label reproduces the file.
+    let (re, _, _) = encoding_rs::Encoding::for_label(det.encoding.as_bytes())
+        .unwrap()
+        .encode(&det.content);
+    assert_eq!(re.as_ref(), &raw[..], "re-encoding changed the bytes");
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// BOM fidelity: a UTF-8-BOM note keeps its BOM through an append.
+#[test]
+fn append_to_note_preserves_utf8_bom() {
+    let ws = make_workspace("append-bom");
+    let mut bytes = vec![0xEF, 0xBB, 0xBF];
+    bytes.extend_from_slice("# BOM note\n\nbody\n".as_bytes());
+    let path = write_raw_note(&ws, "bom.md", &bytes);
+
+    let res: Value = dispatch_tool_inner(
+        &ws,
+        "append_to_note",
+        json!({"path": "bom.md", "content": "\nappended\n"}),
+    )
+    .unwrap();
+    assert_eq!(res["ok"], true);
+
+    let raw = fs::read(&path).unwrap();
+    assert!(raw.starts_with(&[0xEF, 0xBB, 0xBF]), "BOM lost");
+    let det = read_text_detected(Path::new(&path)).unwrap();
+    assert!(det.had_bom);
+    assert!(det.content.contains("appended"));
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// A file whose bytes never decode cleanly (0xFF is illegal in GBK) must be
+/// refused, not silently rewritten as the lossy rendering.
+#[test]
+fn append_to_note_refuses_undecodable_file() {
+    let ws = make_workspace("append-bad");
+    // chardetng needs ≥ ~100 bytes to lock on GBK (see
+    // tests/encoding_detection_test.rs); with a shorter sample it falls back
+    // to windows-1252, where almost anything still decodes. 0xFF is illegal
+    // in GBK, so the detected GBK decode fails → `had_errors`.
+    let text = "今天的会议记录，讨论了下个版本的排期与测试资源不足的问题。\
+                这段时间团队集中处理编码检测贯通的遗留任务，确保 GBK 存档笔记在 agent \
+                读写两侧都保持字节级保真，不再出现静默转码或不可见的情况。\
+                检测器需要足够的上下文才能给出稳定的判定结果。\n";
+    let mut gbk_bytes = GBK.encode(text).0.into_owned();
+    gbk_bytes.push(0xFF); // illegal GBK byte — malformed under the detected encoding
+    let path = write_raw_note(&ws, "broken.md", &gbk_bytes);
+
+    let err = dispatch_tool_inner(
+        &ws,
+        "append_to_note",
+        json!({"path": "broken.md", "content": "x"}),
+    )
+    .unwrap_err();
+    assert!(err.contains("not decodable"), "got: {err}");
+    // The broken file is untouched by the refused append.
+    assert_eq!(fs::read(&path).unwrap(), gbk_bytes);
+    let _ = fs::remove_dir_all(&ws);
+}
+
+/// Back-compat: a missing target is still created, as UTF-8.
+#[test]
+fn append_to_note_missing_file_created_as_utf8() {
+    let ws = make_workspace("append-new");
+    let res: Value = dispatch_tool_inner(
+        &ws,
+        "append_to_note",
+        json!({"path": "new.md", "content": "# New\n"}),
+    )
+    .unwrap();
+    assert_eq!(res["ok"], true);
+    assert_eq!(fs::read(ws.join("new.md")).unwrap(), "# New\n".as_bytes());
     let _ = fs::remove_dir_all(&ws);
 }

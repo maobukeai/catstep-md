@@ -1072,8 +1072,19 @@ fn workdir_has_uncommitted_tracked_changes(repo: &Repository) -> bool {
 fn commit_shadow_if_dirty(repo_dir: &Path, message: &str) -> Result<(), String> {
     let repo = Repository::open(repo_dir).map_err(|e| e.to_string())?;
     let mut index = repo.index().map_err(|e| e.to_string())?;
+    // F3 — skip the per-device `.solomd/` metadata dir (recovery snapshots
+    // included) during whole-tree staging, same as git_history::stage. For
+    // the plaintext pull path the repo IS the workspace; for the E2EE
+    // shadow the shadow's own .gitignore already excludes `.solomd/`
+    // (github_link_workspace), but the callback keeps the filter
+    // independent of ignore-file state.
+    let mut skip = super::git_history::skip_workspace_metadata_cb();
     index
-        .add_all(["."].iter(), git2::IndexAddOption::DEFAULT, None)
+        .add_all(
+            ["."].iter(),
+            git2::IndexAddOption::DEFAULT,
+            Some(&mut skip),
+        )
         .map_err(|e| e.to_string())?;
     index.write().map_err(|e| e.to_string())?;
     let tree_oid = index.write_tree().map_err(|e| e.to_string())?;
@@ -1208,6 +1219,13 @@ pub struct PullResult {
     /// "fast_forward" | "up_to_date" | "conflicts"
     pub kind: String,
     pub conflicts: Vec<String>,
+    /// True when the workspace is E2EE but this device has no passphrase
+    /// set yet: the pull itself succeeded, but the shadow ciphertext was
+    /// not mirrored back to plaintext, so the user's notes are NOT visible
+    /// in the workspace. `finalize_decrypt` soft-skips that case (fresh
+    /// device learns the salt by pulling first), and this flag is how the
+    /// frontend tells the user instead of toasting a normal "pulled".
+    pub pending_decryption: bool,
 }
 
 /// Sync core for pull — exposed for integration tests.
@@ -1335,10 +1353,14 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
             stamp_pull(&workspace);
             // No remote changes to decrypt back, but if E2EE is on and the
             // workspace had local edits we just committed in the shadow,
-            // they're already in the shadow — no action needed.
+            // they're already in the shadow — no action needed. Still
+            // report the bootstrap state: a fresh device re-pulling before
+            // setting its passphrase lands here, and "up to date" alone
+            // would hide that its notes were never decrypted.
             return Ok(PullResult {
                 kind: "up_to_date".into(),
                 conflicts: vec![],
+                pending_decryption: pending_encrypted_decryption(&cfg, &workspace),
             });
         }
 
@@ -1360,6 +1382,9 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
             return Ok(PullResult {
                 kind: "fast_forward".into(),
                 conflicts: vec![],
+                // finalize_decrypt soft-skipped (no key) iff the marker is
+                // absent — same predicate, cheap to re-check.
+                pending_decryption: pending_encrypted_decryption(&cfg, &workspace),
             });
         }
 
@@ -1390,6 +1415,9 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
             return Ok(PullResult {
                 kind: "conflicts".into(),
                 conflicts,
+                // The conflict panel is the action item here; decryption
+                // happens after the user resolves on the shadow side.
+                pending_decryption: false,
             });
         }
 
@@ -1418,7 +1446,18 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
     Ok(PullResult {
         kind: "merged".into(),
         conflicts: vec![],
+        pending_decryption: pending_encrypted_decryption(&cfg, &workspace),
     })
+}
+
+/// True when the vault is E2EE but this device has no passphrase set yet —
+/// the fresh-device bootstrap state. `finalize_decrypt` soft-skips in that
+/// case, so the pull reports success while the workspace still holds no
+/// plaintext; callers fold this into `PullResult.pending_decryption` so the
+/// frontend can tell the user instead of toasting a normal "pulled".
+/// Marker-file check only, no keychain access.
+fn pending_encrypted_decryption(cfg: &SyncConfig, workspace: &Path) -> bool {
+    cfg.encrypted && !super::crypto::encryption_key_is_set(workspace)
 }
 
 /// On every clean (non-conflicting) pull, mirror the freshly-fetched

@@ -339,6 +339,15 @@ fn key_marker_path(workspace: &Path) -> PathBuf {
     workspace.join(".solomd/encryption.key-set")
 }
 
+/// Cheap "is the encryption key set on this device?" check — marker file
+/// only, no keychain access (same rationale as `crypto_status`). Used by
+/// the sync pull path to flag the fresh-device bootstrap state: the pull
+/// itself succeeds, but the shadow ciphertext can't be mirrored back to
+/// plaintext until the user sets the passphrase on this device.
+pub fn encryption_key_is_set(workspace: &Path) -> bool {
+    key_marker_path(workspace).exists()
+}
+
 #[tauri::command]
 pub fn crypto_status(folder: String) -> Result<CryptoStatus, String> {
     // Caller-supplied vault path — prove it is inside an authorized root.

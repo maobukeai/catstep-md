@@ -53,6 +53,11 @@ pub struct CaptureState {
     pub port: u16,
     pub token: String,
     pub inbox_folder: String,
+    /// Last fatal boot error (e.g. the port was already taken). `None` while
+    /// healthy. Surfaced by the settings panel as an inline error + toast so
+    /// a failed bind is never silently swallowed (C18).
+    #[serde(default)]
+    pub last_error: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +73,9 @@ struct InnerState {
     inbox_folder: String,
     /// Set when the active server should stop accepting new connections.
     shutdown_gen: u64,
+    /// Last fatal boot error (bind failure). Cleared on a successful bind
+    /// and on every toggle so the panel never shows a stale failure.
+    last_error: Option<String>,
 }
 
 static STATE: Lazy<Mutex<InnerState>> = Lazy::new(|| {
@@ -79,6 +87,7 @@ static STATE: Lazy<Mutex<InnerState>> = Lazy::new(|| {
         workspace: None,
         inbox_folder: "inbox".to_string(),
         shutdown_gen: 0,
+        last_error: None,
     })
 });
 
@@ -121,6 +130,7 @@ pub fn capture_get_state() -> CaptureState {
         port: s.port,
         token: s.token.clone(),
         inbox_folder: s.inbox_folder.clone(),
+        last_error: s.last_error.clone(),
     }
 }
 
@@ -142,6 +152,9 @@ pub async fn capture_set_enabled(
         if enabled && s.token.is_empty() {
             s.token = random_token();
         }
+        // A fresh toggle clears any stale boot error so the panel never
+        // shows last run's failure next to this one.
+        s.last_error = None;
         if !enabled {
             // Bumping the shutdown generation makes the running accept loop
             // notice on its next iteration (we poll a short timeout).
@@ -225,6 +238,9 @@ fn spawn_if_needed(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         if let Err(e) = serve(app).await {
             eprintln!("[capture_endpoint] fatal: {e}");
+            // Record the failure in state so the frontend can tell
+            // "starting" from "broken" when it polls for the status pill.
+            STATE.lock().expect("capture state lock").last_error = Some(e);
         }
         SERVER_RUNNING.store(false, Ordering::SeqCst);
     });
@@ -240,6 +256,7 @@ async fn serve(app: AppHandle) -> Result<(), String> {
         let mut s = STATE.lock().expect("capture state lock");
         s.port = bound_port;
         s.running = true;
+        s.last_error = None;
     }
 
     let my_gen = STATE.lock().expect("capture state lock").shutdown_gen;

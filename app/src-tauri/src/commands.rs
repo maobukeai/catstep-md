@@ -975,29 +975,42 @@ pub fn fs_create_dir(path: String) -> Result<(), String> {
     fs::create_dir_all(p).map_err(|e| format!("mkdir failed: {e}"))
 }
 
+/// #112 / C15 — Delete a file or directory. Returns whether the path ended
+/// up in the OS trash:
+///   `true`  — moved to trash (desktop, recoverable), OR the path was
+///             already gone (idempotent delete: nothing happened, so there
+///             is nothing to warn about);
+///   `false` — PERMANENT delete: the platform has no trash at all (mobile),
+///             or the desktop trash service rejected the path (e.g. a
+///             filesystem without trash support) and we fell back to unlink.
+/// The caller MUST surface `false`: the desktop confirm dialog promises
+/// "moved to the Trash / Recycle Bin", so a silent downgrade would break
+/// that promise and leave the user believing a gone file is recoverable.
 #[tauri::command]
-pub fn fs_delete(path: String) -> Result<(), String> {
+pub fn fs_delete(path: String) -> Result<bool, String> {
     authorize(&path)?;
     let p = Path::new(&path);
     if !p.exists() {
-        return Ok(()); // idempotent — already gone is fine
+        return Ok(true); // idempotent — already gone is fine
     }
     // #112 — on desktop, deleting moves to the OS trash (Finder 废纸篓 /
     // Windows recycle bin / XDG trash) so a mis-click is recoverable; a user
     // permanently lost a file to the old unlink behavior. Fall back to the
     // permanent path only if the trash service errors (e.g. a filesystem
-    // without trash support), so delete still works everywhere.
+    // without trash support), so delete still works everywhere — but report
+    // the downgrade (Ok(false)) instead of hiding it (C15).
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         if trash::delete(p).is_ok() {
-            return Ok(());
+            return Ok(true);
         }
     }
-    if p.is_dir() {
+    let permanent = if p.is_dir() {
         fs::remove_dir_all(p).map_err(|e| format!("delete dir failed: {e}"))
     } else {
         fs::remove_file(p).map_err(|e| format!("delete file failed: {e}"))
-    }
+    };
+    permanent.map(|_| false)
 }
 
 /// Does this path exist and is it a directory?
@@ -1015,6 +1028,18 @@ pub fn fs_dir_exists(path: String) -> bool {
         return false;
     }
     Path::new(&path).is_dir()
+}
+
+/// Does the path exist at all — file OR directory? Companion to
+/// `fs_dir_exists`, same guard. C19 uses it to pre-check rename/move
+/// destinations so a name clash surfaces as a localized, actionable toast
+/// instead of `fs_rename`'s raw `target already exists: C:\...` error.
+#[tauri::command]
+pub fn fs_path_exists(path: String) -> bool {
+    if authorize(&path).is_err() {
+        return false;
+    }
+    Path::new(&path).exists()
 }
 
 #[tauri::command]

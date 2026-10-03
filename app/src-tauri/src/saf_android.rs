@@ -169,6 +169,43 @@ pub fn saf_delete(tree_uri: String, doc_id: String) -> Result<(), String> {
     }
 }
 
+/// Rename a document in place (SAF renameDocument — display-name change
+/// within the SAME folder). Returns the NEW documentId: providers are free
+/// to reissue ids on rename, so callers MUST repoint to the returned value.
+#[tauri::command]
+pub fn saf_rename(tree_uri: String, doc_id: String, new_name: String) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    {
+        imp::rename(&tree_uri, &doc_id, &new_name)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (tree_uri, doc_id, new_name);
+        Err("SAF is Android-only".into())
+    }
+}
+
+/// Move a document to another folder of the SAME tree (SAF moveDocument,
+/// API 24+). Returns the NEW documentId — same reissue caveat as
+/// saf_rename. Cross-tree moves are refused by the provider.
+#[tauri::command]
+pub fn saf_move(
+    tree_uri: String,
+    doc_id: String,
+    parent_doc_id: String,
+    new_parent_doc_id: String,
+) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    {
+        imp::move_doc(&tree_uri, &doc_id, &parent_doc_id, &new_parent_doc_id)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (tree_uri, doc_id, parent_doc_id, new_parent_doc_id);
+        Err("SAF is Android-only".into())
+    }
+}
+
 #[cfg(target_os = "android")]
 mod imp {
     use super::SafEntry;
@@ -361,6 +398,51 @@ mod imp {
                 &[JValue::Object(&a), JValue::Object(&b)],
             )?;
             unwrap_env(&json).map(|_| ())
+        })
+    }
+
+    pub fn rename(tree: &str, doc: &str, new_name: &str) -> Result<String, String> {
+        with_env(|env| {
+            let a = jstr(env, tree)?;
+            let b = jstr(env, doc)?;
+            let c = jstr(env, new_name)?;
+            let json = call_str(
+                "renameDoc",
+                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+                &[JValue::Object(&a), JValue::Object(&b), JValue::Object(&c)],
+            )?;
+            unwrap_env(&json)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| "renameDoc: not a string".into())
+        })
+    }
+
+    pub fn move_doc(
+        tree: &str,
+        doc: &str,
+        parent: &str,
+        new_parent: &str,
+    ) -> Result<String, String> {
+        with_env(|env| {
+            let a = jstr(env, tree)?;
+            let b = jstr(env, doc)?;
+            let c = jstr(env, parent)?;
+            let d = jstr(env, new_parent)?;
+            let json = call_str(
+                "moveDoc",
+                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
+                &[
+                    JValue::Object(&a),
+                    JValue::Object(&b),
+                    JValue::Object(&c),
+                    JValue::Object(&d),
+                ],
+            )?;
+            unwrap_env(&json)?
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| "moveDoc: not a string".into())
         })
     }
 }

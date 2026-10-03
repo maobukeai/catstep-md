@@ -1374,9 +1374,17 @@ fn commit_branch_changes(
     let mut index = repo.index().map_err(|e| format!("index: {e}"))?;
     // Stage everything (new + modified + deleted) under the workspace
     // root. We don't honour `.gitignore` exclusions explicitly — the
-    // existing repo config already covers that.
+    // existing repo config already covers that — except the per-device
+    // `.solomd/` metadata dir (F3 recovery snapshots included), which the
+    // skip-callback filters regardless of ignore-file state. Same contract
+    // as git_history::stage / github_sync::commit_shadow_if_dirty.
+    let mut skip = super::git_history::skip_workspace_metadata_cb();
     index
-        .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+        .add_all(
+            ["*"].iter(),
+            git2::IndexAddOption::DEFAULT,
+            Some(&mut skip),
+        )
         .map_err(|e| format!("index add_all: {e}"))?;
     index.write().map_err(|e| format!("index write: {e}"))?;
     let tree_oid = index

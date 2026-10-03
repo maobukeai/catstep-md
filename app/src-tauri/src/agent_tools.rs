@@ -276,7 +276,8 @@ pub fn tool_descriptor(name: &str) -> Option<(&'static str, Value)> {
                 "properties": {
                     "path": { "type": "string", "description": "Workspace-relative path (e.g. 'weekly/2026-W17.md')." },
                     "content": { "type": "string" },
-                    "allow_overwrite": { "type": "boolean", "description": "If false (default), fail when the file already exists." }
+                    "allow_overwrite": { "type": "boolean", "description": "If false (default), fail when the file already exists." },
+                    "encoding": { "type": "string", "description": "Target file encoding label: 'UTF-8' (default), 'GBK', 'Big5', 'Shift_JIS', 'EUC-KR', 'UTF-16LE', ... Use when the note must live in a legacy encoding. Fails if content has characters the encoding cannot represent." }
                 }
             }),
         ),
@@ -1308,8 +1309,21 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .get("allow_overwrite")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // Optional target encoding (S09): default UTF-8 so existing callers are
+    // unchanged, but the agent CAN create / rewrite a note in the legacy
+    // encoding it belongs in. The label is validated explicitly — silently
+    // falling back to UTF-8 here would be exactly the silent-transcode
+    // behavior this pipeline exists to prevent. Unrepresentable characters
+    // fail loudly in `atomic_write_encoded`.
+    let encoding_name = match args.get("encoding").and_then(|v| v.as_str()) {
+        None | Some("") => "UTF-8".to_string(),
+        Some(label) => match encoding_rs::Encoding::for_label(label.as_bytes()) {
+            Some(enc) => enc.name().to_string(),
+            None => return Err(format!("encoding: unknown encoding label '{label}'")),
+        },
+    };
     let abs = resolve_in_workspace(workspace, path_arg)?;
-    
+
     let mut backup_path_str = None;
     if abs.exists() {
         if !allow_overwrite {
@@ -1318,7 +1332,11 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
                 abs.to_string_lossy()
             ));
         }
-        if let Ok(original) = fs::read_to_string(&abs) {
+        // Raw byte copy: the old `read_to_string` path silently transcoded
+        // the backup to UTF-8 and produced NO backup at all for a GBK /
+        // Big5 note (it hard-fails on non-UTF-8 bytes) right before an
+        // overwrite.
+        if let Ok(original) = fs::read(&abs) {
             let backup_dir = workspace.join(".backup");
             let _ = fs::create_dir_all(&backup_dir);
             let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
@@ -1333,20 +1351,23 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
     // Atomic write — a crash mid-write must not truncate the note on disk.
-    super::commands::atomic_write(&abs, content.as_bytes()).map_err(|e| format!("write: {e}"))?;
+    // Encoded write-back honors the requested `encoding`; `had_bom` is false
+    // because this is a fresh overwrite, not an edit of existing bytes.
+    super::commands::atomic_write_encoded(&abs, content, &encoding_name, false)
+        .map_err(|e| format!("write: {e}"))?;
     let lines_count = content.lines().count();
     Ok(json!({
         "ok": true,
         "bytes_written": content.len(),
         "lines_count": lines_count,
         "new_content": content,
+        "encoding": encoding_name,
         "path": normalize_path_str(&abs),
         "backup_path": backup_path_str.map(|s| normalize_path_str(Path::new(&s)))
     }))
 }
 
 fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> {
-    use std::io::Write;
     let path_arg = args
         .get("path")
         .and_then(|v| v.as_str())
@@ -1359,22 +1380,51 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
-    let prev_lines = fs::read_to_string(&abs).map(|s| s.lines().count()).unwrap_or(0);
+
+    if !abs.exists() {
+        // Back-compat: a missing target is created as UTF-8, same bytes the
+        // old append-only stream wrote. Existing files keep THEIR encoding.
+        super::commands::atomic_write(&abs, content.as_bytes())
+            .map_err(|e| format!("write: {e}"))?;
+        let added_count = content.lines().count();
+        return Ok(json!({
+            "ok": true,
+            "bytes_written": content.len(),
+            "start_line": 1,
+            "added_count": added_count,
+            "new_content": content,
+            "path": normalize_path_str(&abs),
+        }));
+    }
+
+    // Detection read — appending must not transcode: read the file in the
+    // encoding it was found in, append, and write the WHOLE thing back in
+    // that same encoding (BOM included). `had_errors` means the bytes never
+    // decoded cleanly — refuse rather than persist the lossy rendering over
+    // the file; characters the appended text adds that the encoding cannot
+    // represent fail loudly in `atomic_write_encoded`.
+    let det = super::commands::read_text_detected(&abs).map_err(|e| format!("read: {e}"))?;
+    if det.had_errors {
+        return Err(format!(
+            "file is not decodable as {} text; refusing to append to avoid corrupting it",
+            det.encoding
+        ));
+    }
+    let prev_lines = det.content.lines().count();
+    let mut combined = det.content;
+    combined.push_str(content);
+
+    super::commands::atomic_write_encoded(&abs, &combined, &det.encoding, det.had_bom)
+        .map_err(|e| format!("write: {e}"))?;
     let start_line = prev_lines + 1;
     let added_count = content.lines().count();
-    let mut f = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&abs)
-        .map_err(|e| format!("open: {e}"))?;
-    f.write_all(content.as_bytes())
-        .map_err(|e| format!("append: {e}"))?;
     Ok(json!({
         "ok": true,
         "bytes_written": content.len(),
         "start_line": start_line,
         "added_count": added_count,
         "new_content": content,
+        "encoding": det.encoding,
         "path": normalize_path_str(&abs),
     }))
 }

@@ -230,6 +230,11 @@ fn write_default_gitignore(folder: &Path, exclude_assets: bool) -> std::io::Resu
          *.tmp\n\
          *~\n",
     );
+    // .solomd/ is per-device app metadata (sync binding, cloud session
+    // files, F3 crash-recovery snapshots) — never part of the vault
+    // history. The add_all skip-callback filters it from our own staging
+    // regardless; this entry also covers the user's own git usage here.
+    body.push_str(".solomd/\n");
     if exclude_assets {
         body.push_str("_assets/\n");
     }
@@ -257,12 +262,52 @@ fn stage(repo: &Repository, pathspec: Option<&str>) -> Result<(), String> {
                 .map_err(|e| format!("index add: {}", e))?;
         }
     } else {
+        // F3 (crash recovery) — whole-tree staging must never sweep the
+        // per-device `.solomd/` metadata dir. libgit2's add_all only honours
+        // .gitignore when one exists WITH the entry, but the AutoGit default
+        // (write_default_gitignore) predates the entry and users bring their
+        // own .gitignore too. The no-pathspec pass is reachable in normal
+        // use: `git_auto_commit_inner(folder, None, …)` runs for untitled-tab
+        // saves (useAutoCommit.ts passes `filePath ?? undefined`), the
+        // pre-pull commit (github_sync.rs `git_auto_commit_inner(folder,
+        // None, Some(msg))`), and git_init_workspace. Without the filter,
+        // every `.solomd/recovery/` crash-recovery snapshot would ride those
+        // commits. Callback semantics: >0 skips the path.
+        let mut skip = skip_workspace_metadata_cb();
         index
-            .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+            .add_all(["*"].iter(), IndexAddOption::DEFAULT, Some(&mut skip))
             .map_err(|e| format!("index add_all: {}", e))?;
     }
     index.write().map_err(|e| format!("index write: {}", e))?;
     Ok(())
+}
+
+/// Skip-callback factory shared by every whole-tree `index.add_all` site:
+/// `stage` (here), `commit_shadow_if_dirty` (github_sync.rs) and
+/// `commit_branch_changes` (recipe_runner.rs). Returns 1 (libgit2 "skip")
+/// for any path carrying a `.solomd` component — the per-device metadata
+/// dir (sync.json, cloud session files, F3 `.solomd/recovery/` snapshots).
+///
+/// Loop-risk audit for recovery writes (F3 evidence):
+///   * watcher.rs only emits events for whitelisted note paths
+///     (`watched_files`, per-parent-dir watch) — a snapshot write under
+///     `<ws>/.solomd/recovery/` never matches and is dropped;
+///   * workspace_index.rs indexes only .md/.markdown/.mdown in both
+///     `scan_into` and the recursive watcher's `handle_event` — .json is
+///     filtered before any rescan;
+///   * cloud_folder.rs has no upload engine (OS cloud providers sync
+///     `.solomd/` like any other file — same as the existing session files).
+///
+/// AutoGit staging was the one chain that could pull `.solomd/` in; this
+/// callback (plus the `write_default_gitignore` entry) is the fix.
+pub fn skip_workspace_metadata_cb() -> impl FnMut(&Path, &[u8]) -> i32 {
+    |path: &Path, _matched: &[u8]| -> i32 {
+        if path.components().any(|c| c.as_os_str() == ".solomd") {
+            1
+        } else {
+            0
+        }
+    }
 }
 
 /// Shared "create commit from staged tree" helper. Returns `None` if the

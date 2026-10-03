@@ -1,4 +1,4 @@
-use app_lib::search::{search_in_dir_inner as search_in_dir, SearchHit};
+use app_lib::search::{search_in_dir_inner as search_in_dir, search_in_dir_scoped, MatchOptions, SearchHit};
 use std::fs;
 use std::sync::Once;
 
@@ -53,4 +53,39 @@ fn respects_max_results() {
     ensure_fixture();
     let hits = search_in_dir("/tmp/solomd-search-test".to_string(), "the".to_string(), 2).unwrap();
     assert!(hits.len() <= 2);
+}
+
+/// C10: the outcome must say out loud when the walk stopped early at the
+/// cap — the frontend shows "list capped, replace-all covers more" based on
+/// this flag. "the" matches well past 2 lines across the fixture files.
+#[test]
+fn truncated_flag_set_when_cap_binds() {
+    ensure_fixture();
+    let outcome = search_in_dir_scoped(
+        "/tmp/solomd-search-test".to_string(),
+        "the".to_string(),
+        2,
+        &MatchOptions::default(),
+        None,
+    )
+    .unwrap();
+    assert_eq!(outcome.hits.len(), 2);
+    assert!(outcome.truncated, "cap bound with files left uninspected");
+}
+
+/// And equally important: a walk that ends with the cap NOT binding must
+/// not flag truncation — otherwise every query would read as "incomplete".
+#[test]
+fn truncated_flag_clear_below_cap() {
+    ensure_fixture();
+    let outcome = search_in_dir_scoped(
+        "/tmp/solomd-search-test".to_string(),
+        "needle".to_string(),
+        100,
+        &MatchOptions::default(),
+        None,
+    )
+    .unwrap();
+    assert!(outcome.hits.len() >= 3, "fixture has >=3 needle hits");
+    assert!(!outcome.truncated);
 }
