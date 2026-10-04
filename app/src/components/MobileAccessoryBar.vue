@@ -592,7 +592,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 38px;
+  height: 48px;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
@@ -631,12 +631,12 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  min-width: 32px;
-  padding: 0 6px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0 8px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
@@ -722,10 +722,10 @@ onBeforeUnmount(() => {
 .accessory-cursor-group {
   display: inline-flex;
   align-items: center;
-  height: 32px;
+  height: 40px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 0 2px;
   flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -735,13 +735,14 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   color: var(--text);
-  width: 26px;
-  height: 28px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 7px;
   transition: all 0.12s ease;
   padding: 0;
 }
@@ -754,18 +755,19 @@ onBeforeUnmount(() => {
 
 .accessory-cursor-divider {
   width: 1px;
-  height: 14px;
+  height: 18px;
   background: var(--border);
 }
 
 /* Keyboard dismiss button */
 .accessory-btn--dismiss {
-  height: 32px;
-  width: 34px;
+  height: 40px;
+  width: 40px;
+  min-width: 40px;
   background: var(--bg-hover);
   border-color: transparent;
   color: var(--text-muted);
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 0;
 }
 

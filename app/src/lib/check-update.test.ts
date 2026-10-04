@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compareSemver, pickBestAsset, type ReleaseAsset } from './check-update.ts';
 
@@ -69,4 +69,13 @@ test('pickBestAsset matches correct assets for Desktop platforms', () => {
   const linuxMatch = pickBestAsset(assets, { os: 'linux', arch: 'x86_64' });
   assert.ok(linuxMatch);
   assert.equal(linuxMatch.name, 'catstep-md-v4.3.5-linux-x86_64.AppImage');
+
+  // iOS returns null because updates are managed by the App Store
+  const iosMatch = pickBestAsset(assets, { os: 'ios', arch: 'arm64' });
+  assert.equal(iosMatch, null);
+
+  // Unknown OS returns null
+  const unknownMatch = pickBestAsset(assets, { os: 'unknown', arch: 'x86_64' });
+  assert.equal(unknownMatch, null);
 });
+

@@ -17,7 +17,8 @@ export type SelectionBubbleFormatAction =
   | 'underline'
   | 'strikethrough'
   | 'inlineCode'
-  | 'link';
+  | 'link'
+  | 'comment';
 
 export type SelectionBubbleAiAction =
   | 'catstepPolish'

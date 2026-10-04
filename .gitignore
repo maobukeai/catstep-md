@@ -25,6 +25,7 @@ Thumbs.db
 .vscode/
 .idea/
 .workbuddy/
+.zcodeignore
 *.swp
 
 # Logs

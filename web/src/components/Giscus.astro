@@ -1,6 +1,6 @@
 ---
 /**
- * Giscus inline-comments widget.
+ * Giscus inline-comments & discussions widget.
  *
  * Drops onto any page (blog post, doc, what's-new). Reuses GitHub Discussions
  * as the comment store — same backend that powers /community.
@@ -10,15 +10,10 @@
  *   2. Enter repo: maobukeai/catstep-md
  *   3. Pick "Discussion title contains page pathname" mapping
  *   4. Pick category "General"
- *   5. Copy the data-repo-id and data-category-id values into the
- *      DEFAULTS below (or override via props on a per-page basis).
+ *   5. Copy data-repo-id and data-category-id into GISCUS_REPO_ID and GISCUS_CATEGORY_ID.
  *
- * Until those IDs are filled in we render a graceful placeholder with a
- * link to GitHub Discussions and a TODO note.
- *
- * Theming: we use giscus's `preferred_color_scheme` for light/dark
- * sync, and a custom CSS file at /giscus-solomd.css that overrides
- * accent-coloured tokens to Catstep MD orange (#ff9f40).
+ * When IDs are not yet configured, renders an elegant, first-class Community
+ * Discussion Card with direct links to GitHub Discussions and category tags.
  */
 
 import { getT, type Lang } from '../i18n/translations';
@@ -43,33 +38,58 @@ const {
 const tr = getT(lang);
 
 // === giscus configuration ===
-// These four constants are the only things the maintainer needs to fill in
-// once via giscus.app. Repo + repo-id are stable; category-id depends on
-// which category you pick (General).
 const GISCUS_REPO = 'maobukeai/catstep-md';
-const GISCUS_REPO_ID = ''; // <-- TODO: paste from giscus.app after running their wizard
+const GISCUS_REPO_ID = ''; // Populated from giscus.app wizard
 const GISCUS_CATEGORY = category;
-const GISCUS_CATEGORY_ID = ''; // <-- TODO: paste from giscus.app after running their wizard
+const GISCUS_CATEGORY_ID = ''; // Populated from giscus.app wizard
 
 const isConfigured = GISCUS_REPO_ID !== '' && GISCUS_CATEGORY_ID !== '';
 const giscusLang = ({ en: 'en', zh: 'zh-CN', ja: 'ja', ko: 'ko', de: 'de', fr: 'fr', es: 'es', pt: 'pt', it: 'it', pl: 'pl', nl: 'nl', tr: 'tr', sv: 'sv', uk: 'uk' } as const)[lang];
+
 const openLabel = {
-  en: 'Open on GitHub Discussions →',
-  zh: '前往 GitHub Discussions →',
-  ja: 'GitHub Discussions を開く →',
-  ko: 'GitHub Discussions 열기 →',
-  de: 'Auf GitHub Discussions öffnen →',
-  fr: 'Ouvrir sur GitHub Discussions →',
-  es: 'Abrir en GitHub Discussions →',
-  pt: 'Abrir no GitHub Discussions →',
-  it: 'Apri su GitHub Discussions →',
-  pl: 'Otwórz na GitHub Discussions →',
-  nl: 'Open op GitHub Discussions →',
-  tr: 'GitHub Discussions\'da aç →',
-  sv: 'Öppna på GitHub Discussions →',
-  uk: 'Відкрити на GitHub Discussions →',
-}[lang];
+  en: 'Join Discussion on GitHub Discussions →',
+  zh: '前往 GitHub Discussions 参与讨论 →',
+  ja: 'GitHub Discussions で議論に参加する →',
+  ko: 'GitHub Discussions에서 토론 참여하기 →',
+  de: 'An Diskussion auf GitHub teilnehmen →',
+  fr: 'Participer à la discussion sur GitHub →',
+  es: 'Unirse a la discusión en GitHub →',
+  pt: 'Participar da discussão no GitHub →',
+  it: 'Partecipa alla discussione su GitHub →',
+  pl: 'Dołącz do dyskusji na GitHub Discussions →',
+  nl: 'Deelnemen aan discussie op GitHub →',
+  tr: 'GitHub Tartışmalarına Katıl →',
+  sv: 'Delta i diskussionen på GitHub →',
+  uk: 'Приєднатися до обговорення на GitHub →',
+}[lang] || 'Join Discussion on GitHub Discussions →';
+
+const exploreAllLabel = {
+  en: 'Browse all community topics',
+  zh: '浏览全部社区版块',
+  ja: 'コミュニティの全トピックを見る',
+  ko: '커뮤니티 전체 주제 보기',
+  de: 'Alle Community-Themen durchsuchen',
+  fr: 'Explorer tous les sujets communautaires',
+  es: 'Explorar todos los temas de la comunidad',
+  pt: 'Ver todos os tópicos da comunidade',
+  it: 'Esplora tutti gli argomenti della community',
+  pl: 'Przeglądaj wszystkie tematy społeczności',
+  nl: 'Bekijk alle community-onderwerpen',
+  tr: 'Tüm topluluk başlıklarına göz atın',
+  sv: 'Bläddra bland alla community-ämnen',
+  uk: 'Переглянути всі теми спільноти',
+}[lang] || 'Browse all community topics';
+
+const isZh = lang.startsWith('zh');
 const discussionsUrl = `https://github.com/${GISCUS_REPO}/discussions`;
+const communityPath = isZh ? '/zh/community' : '/community';
+
+const categoryBadges = [
+  { emoji: '💡', name: isZh ? '功能建议' : 'Ideas', slug: 'ideas' },
+  { emoji: '❓', name: isZh ? '使用问答' : 'Q&A', slug: 'q-a' },
+  { emoji: '🎉', name: isZh ? '作品分享' : 'Show & Tell', slug: 'show-and-tell' },
+  { emoji: '💬', name: isZh ? '自由交流' : 'General', slug: 'general' },
+];
 ---
 
 {enabled && (
@@ -92,21 +112,64 @@ const discussionsUrl = `https://github.com/${GISCUS_REPO}/discussions`;
           data-reactions-enabled="1"
           data-emit-metadata="0"
           data-input-position="bottom"
-          data-theme="preferred_color_scheme"
+          data-theme="/giscus-catstep.css"
           data-lang={giscusLang}
           data-loading="lazy"
         ></div>
       ) : (
         <div
-          class="giscus-placeholder"
+          class="giscus-hub-card"
           data-repo={GISCUS_REPO}
           data-category={GISCUS_CATEGORY}
           data-mapping={mapping}
         >
-          <p class="giscus-placeholder__msg">{tr.giscus.placeholder}</p>
-          <a class="giscus-placeholder__cta" href={discussionsUrl} target="_blank" rel="noopener">
-            {openLabel}
-          </a>
+          <div class="giscus-hub__icon-col">
+            <div class="giscus-hub__icon-circle">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="giscus-hub__content">
+            <h3 class="giscus-hub__title">
+              {isZh ? '在 GitHub Discussions 中参与讨论' : 'Join the conversation on GitHub Discussions'}
+            </h3>
+            <p class="giscus-hub__desc">
+              {isZh
+                ? 'Catstep MD 采用开放式社区讨论区。无需注册额外账号，使用 GitHub 即可发表反馈、提问或分享使用体验。'
+                : 'Catstep MD uses GitHub Discussions for open feedback and community conversations. Sign in with GitHub to share your thoughts, questions, or ideas.'}
+            </p>
+
+            <div class="giscus-hub__badges">
+              {categoryBadges.map((badge) => (
+                <a
+                  class="giscus-hub__badge"
+                  href={`${discussionsUrl}/categories/${badge.slug}`}
+                  target="_blank"
+                  rel="noopener"
+                  title={`${badge.name}`}
+                >
+                  <span class="badge__emoji">{badge.emoji}</span>
+                  <span class="badge__name">{badge.name}</span>
+                </a>
+              ))}
+            </div>
+
+            <div class="giscus-hub__actions">
+              <a class="btn btn--primary giscus-hub__cta" href={discussionsUrl} target="_blank" rel="noopener">
+                <svg class="github-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                </svg>
+                <span>{openLabel}</span>
+              </a>
+
+              <a class="giscus-hub__secondary" href={communityPath}>
+                <span>{exploreAllLabel}</span>
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -132,36 +195,150 @@ const discussionsUrl = `https://github.com/${GISCUS_REPO}/discussions`;
   .giscus-head h2 {
     font-size: 1.25rem;
     margin: 0 0 6px;
+    font-weight: 700;
+    color: var(--text);
   }
   .giscus-head p {
     color: var(--text-muted);
     font-size: 13.5px;
     margin: 0;
+    line-height: 1.5;
   }
-  .giscus-placeholder {
-    border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border));
-    border-radius: 12px;
-    padding: 22px 24px;
+
+  /* Discussion Hub Card */
+  .giscus-hub-card {
+    display: flex;
+    gap: 20px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+    border-radius: 16px;
+    padding: 24px 26px;
     background: var(--bg-elev);
+    box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
-  .giscus-placeholder__msg {
-    color: var(--text-muted);
-    font-size: 13.5px;
-    margin: 0 0 12px;
-    line-height: 1.6;
+  .giscus-hub-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+    box-shadow: 0 8px 24px -4px rgba(255, 159, 64, 0.08);
   }
-  .giscus-placeholder__cta {
-    display: inline-block;
-    padding: 8px 16px;
-    background: var(--accent);
-    color: #1a1a1a;
+
+  .giscus-hub__icon-col {
+    flex-shrink: 0;
+  }
+  .giscus-hub__icon-circle {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 14%, var(--bg-elev));
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .giscus-hub__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .giscus-hub__title {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
     font-weight: 600;
-    border-radius: 8px;
-    font-size: 13px;
+    color: var(--text);
+    line-height: 1.35;
+  }
+
+  .giscus-hub__desc {
+    margin: 0 0 16px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+
+  .giscus-hub__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .giscus-hub__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px;
+    border-radius: 99px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+  .giscus-hub__badge:hover {
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-soft));
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    color: var(--accent);
+    transform: translateY(-1px);
+  }
+
+  .giscus-hub__actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .giscus-hub__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 10px;
     text-decoration: none;
   }
-  .giscus-placeholder__cta:hover {
-    background: var(--accent-deep);
+  .github-icon {
+    flex-shrink: 0;
+  }
+
+  .giscus-hub__secondary {
+    font-size: 13px;
+    color: var(--text-muted);
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s ease;
+  }
+  .giscus-hub__secondary:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .giscus-wrap {
+      padding: 32px 0 48px;
+    }
+    .giscus-hub-card {
+      flex-direction: column;
+      padding: 18px 16px;
+      gap: 14px;
+    }
+    .giscus-hub__actions {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .giscus-hub__cta {
+      justify-content: center;
+      width: 100%;
+    }
+    .giscus-hub__secondary {
+      justify-content: center;
+      text-align: center;
+    }
   }
 </style>

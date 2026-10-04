@@ -397,7 +397,7 @@ fn build_app_menu<R: tauri::Runtime>(
     let import_docs = accel!(
         MenuItemBuilder::with_id("file.import", s.import_docs),
         "file.import",
-        "CmdOrCtrl+Shift+L"
+        "CmdOrCtrl+Alt+O"
     )
     .build(app)?;
     let save = accel!(MenuItemBuilder::with_id("file.save", s.save), "file.save", "CmdOrCtrl+S")
@@ -469,11 +469,11 @@ fn build_app_menu<R: tauri::Runtime>(
         .build()?;
 
     let toggle_theme = MenuItemBuilder::with_id("view.toggleTheme", s.toggle_theme).build(app)?;
-    let toggle_sidebar = accel!(MenuItemBuilder::with_id("view.toggleFileTree", s.toggle_sidebar), "view.toggleFileTree", "CmdOrCtrl+B")
+    let toggle_sidebar = accel!(MenuItemBuilder::with_id("view.toggleFileTree", s.toggle_sidebar), "view.toggleFileTree", "CmdOrCtrl+Shift+L")
         .build(app)?;
     let toggle_outline = accel!(MenuItemBuilder::with_id("view.toggleOutline", s.toggle_outline), "view.toggleOutline", "CmdOrCtrl+Shift+O")
         .build(app)?;
-    let cycle_view = accel!(MenuItemBuilder::with_id("view.cycleView", s.cycle_view), "view.cycleView", "CmdOrCtrl+Shift+P")
+    let cycle_view = accel!(MenuItemBuilder::with_id("view.cycleView", s.cycle_view), "view.cycleView", "CmdOrCtrl+Alt+V")
         .build(app)?;
     // v4.3.0 PR #74 — three independent zoom axes wired through native
     // menu accelerators (more reliable than JS keyboard handlers on macOS,
@@ -497,7 +497,7 @@ fn build_app_menu<R: tauri::Runtime>(
         .build(app)?;
     let preview_zoom_reset = accel!(MenuItemBuilder::with_id("view.zoomPreviewReset", s.preview_zoom_reset), "view.zoomPreviewReset", "CmdOrCtrl+Control+0")
         .build(app)?;
-    let palette = accel!(MenuItemBuilder::with_id("view.cmdPalette", s.palette), "view.cmdPalette", "CmdOrCtrl+Shift+K")
+    let palette = accel!(MenuItemBuilder::with_id("palette.open", s.palette), "palette.open", "CmdOrCtrl+Shift+P")
         .build(app)?;
     let global_search = accel!(MenuItemBuilder::with_id("search.global", s.global_search), "search.global", "CmdOrCtrl+Shift+F")
         .build(app)?;

@@ -6,7 +6,7 @@
  * Features elegant typographic hierarchy, real-time reading position indicator,
  * clean empty state, and smooth touch feedback.
  */
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { extractOutline, type OutlineItem } from '../lib/markdown';
@@ -42,6 +42,75 @@ const filteredItems = computed<OutlineItem[]>(() => {
   return items.value.filter((it) => it.text.toLowerCase().includes(q));
 });
 
+const dragOffsetY = ref(0);
+const isDragging = ref(false);
+let startPointerY = 0;
+let hasDragged = false;
+let capturedEl: HTMLElement | null = null;
+
+function onHandlePointerDown(e: PointerEvent) {
+  if (e.button !== 0) return;
+  isDragging.value = true;
+  hasDragged = false;
+  startPointerY = e.clientY;
+  dragOffsetY.value = 0;
+  capturedEl = e.currentTarget as HTMLElement;
+  try {
+    capturedEl?.setPointerCapture?.(e.pointerId);
+  } catch {}
+  window.addEventListener('pointermove', onHandlePointerMove);
+  window.addEventListener('pointerup', onHandlePointerUp);
+  window.addEventListener('pointercancel', onHandlePointerUp);
+}
+
+function onHandlePointerMove(e: PointerEvent) {
+  if (!isDragging.value) return;
+  const deltaY = e.clientY - startPointerY;
+  if (Math.abs(deltaY) > 6) {
+    hasDragged = true;
+  }
+  dragOffsetY.value = deltaY > 0 ? deltaY : 0;
+}
+
+function onHandlePointerUp(e: PointerEvent) {
+  if (!isDragging.value) return;
+  isDragging.value = false;
+  if (capturedEl) {
+    try {
+      if (capturedEl.hasPointerCapture(e.pointerId)) {
+        capturedEl.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+    capturedEl = null;
+  }
+  window.removeEventListener('pointermove', onHandlePointerMove);
+  window.removeEventListener('pointerup', onHandlePointerUp);
+  window.removeEventListener('pointercancel', onHandlePointerUp);
+
+  const shouldClose = dragOffsetY.value > 60;
+  if (shouldClose) {
+    emit('close');
+  }
+  dragOffsetY.value = 0;
+  setTimeout(() => {
+    hasDragged = false;
+  }, 50);
+}
+
+function onDragZoneClick() {
+  if (hasDragged) return;
+  emit('close');
+}
+
+onBeforeUnmount(() => {
+  if (capturedEl) {
+    capturedEl = null;
+  }
+  window.removeEventListener('pointermove', onHandlePointerMove);
+  window.removeEventListener('pointerup', onHandlePointerUp);
+  window.removeEventListener('pointercancel', onHandlePointerUp);
+});
+
 function onSelect(line: number) {
   emit('goto', line);
   emit('close');
@@ -60,11 +129,20 @@ function onSelect(line: number) {
       v-if="open"
       class="mobile-outline-sheet"
       :class="{ 'is-empty': !items.length }"
+      :style="{
+        transform: dragOffsetY > 0 ? `translateY(${dragOffsetY}px)` : undefined,
+        transition: isDragging ? 'none' : 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+      }"
       role="dialog"
       aria-label="Document Outline"
     >
       <!-- Top drag handle / tap to close -->
-      <div class="mobile-outline-sheet__drag-zone" @click="emit('close')" :title="isZh ? '点击收起' : 'Tap to dismiss'">
+      <div
+        class="mobile-outline-sheet__drag-zone"
+        @click="onDragZoneClick"
+        @pointerdown="onHandlePointerDown"
+        :title="isZh ? '点击收起' : 'Tap to dismiss'"
+      >
         <div class="mobile-outline-sheet__pill"></div>
       </div>
 
@@ -216,7 +294,8 @@ function onSelect(line: number) {
   justify-content: center;
   padding-top: 10px;
   padding-bottom: 6px;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
 

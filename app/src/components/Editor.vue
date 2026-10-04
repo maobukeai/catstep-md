@@ -4151,6 +4151,7 @@ function applyFormat(action: string, _options?: any): boolean {
       case 'code':
         applyPlainInlineFormat(el, '`'); break;
       case 'link': applyPlainInlineFormat(el, '[', '](url)'); break;
+      case 'comment': applyPlainInlineFormat(el, '{>> ', ' <<}'); break;
       case 'image': applyPlainInlineFormat(el, '![', '](url)'); break;
       case 'h1': applyPlainHeading(el, 1); break;
       case 'h2': applyPlainHeading(el, 2); break;
@@ -4217,6 +4218,7 @@ function applyFormat(action: string, _options?: any): boolean {
     case 'code':
       return applyCmInlineFormat(view, '`');
     case 'link': return applyCmLink(view);
+    case 'comment': return applyCmInlineFormat(view, '{>> ', ' <<}');
     case 'image': return applyCmImage(view);
     case 'h1': return applyCmHeading(view, 1);
     case 'h2': return applyCmHeading(view, 2);

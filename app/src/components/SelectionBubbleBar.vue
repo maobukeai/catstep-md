@@ -16,7 +16,7 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'action', action: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'inlineCode' | 'link'): void;
+  (e: 'action', action: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'inlineCode' | 'link' | 'comment'): void;
   (e: 'ai-action', actionId: 'catstepPolish' | 'catstepExpand' | 'catstepFix' | 'catstepDeAI' | 'custom'): void;
   (e: 'close'): void;
 }>();
@@ -27,7 +27,7 @@ function toggleAiMenu() {
   aiMenuOpen.value = !aiMenuOpen.value;
 }
 
-function handleAction(act: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'inlineCode' | 'link') {
+function handleAction(act: 'bold' | 'italic' | 'underline' | 'strikethrough' | 'inlineCode' | 'link' | 'comment') {
   aiMenuOpen.value = false;
   emit('action', act);
 }
@@ -128,6 +128,18 @@ onBeforeUnmount(() => {
           @click="handleAction('link')"
         >
           <Icon name="link" :size="13" />
+        </button>
+
+        <!-- Comment / Annotation ({>> 批注 <<}) -->
+        <button
+          class="bubble-btn bubble-btn--comment"
+          :title="t('toolbar.comment') || 'Comment ({>> comment <<})'"
+          aria-label="Comment"
+          @click="handleAction('comment')"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
         </button>
 
         <div v-if="aiEnabled ?? true" class="bubble-sep"></div>

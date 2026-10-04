@@ -22,6 +22,20 @@ export function applyCmInlineFormat(
   }
 
   const selectedText = view.state.sliceDoc(sel.from, sel.to);
+  const isCriticComment = markerStart === '{>> ' && markerEnd === ' <<}';
+
+  if (isCriticComment && selectedText.startsWith('{>>') && selectedText.endsWith('<<}') && selectedText.length >= 6) {
+    let unwrapped = selectedText.slice(3, -3);
+    if (unwrapped.startsWith(' ') && unwrapped.endsWith(' ') && unwrapped.length >= 2) {
+      unwrapped = unwrapped.slice(1, -1);
+    }
+    view.dispatch({
+      changes: { from: sel.from, to: sel.to, insert: unwrapped },
+      selection: { anchor: sel.from, head: sel.from + unwrapped.length },
+    });
+    view.focus();
+    return true;
+  }
 
   // Check if selection itself starts and ends with the markers
   if (
@@ -36,6 +50,19 @@ export function applyCmInlineFormat(
     });
     view.focus();
     return true;
+  }
+
+  if (isCriticComment) {
+    const before3 = view.state.sliceDoc(Math.max(0, sel.from - 3), sel.from);
+    const after3 = view.state.sliceDoc(sel.to, Math.min(view.state.doc.length, sel.to + 3));
+    if (before3 === '{>>' && after3 === '<<}') {
+      view.dispatch({
+        changes: { from: sel.from - 3, to: sel.to + 3, insert: selectedText },
+        selection: { anchor: sel.from - 3, head: sel.from - 3 + selectedText.length },
+      });
+      view.focus();
+      return true;
+    }
   }
 
   // Check if markers immediately surround the selection
@@ -239,6 +266,19 @@ export function applyPlainInlineFormat(
   }
 
   const selected = val.slice(start, end);
+  const isCriticComment = markerStart === '{>> ' && markerEnd === ' <<}';
+
+  if (isCriticComment && selected.startsWith('{>>') && selected.endsWith('<<}') && selected.length >= 6) {
+    let unwrapped = selected.slice(3, -3);
+    if (unwrapped.startsWith(' ') && unwrapped.endsWith(' ') && unwrapped.length >= 2) {
+      unwrapped = unwrapped.slice(1, -1);
+    }
+    el.value = val.slice(0, start) + unwrapped + val.slice(end);
+    el.setSelectionRange(start, start + unwrapped.length);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+
   if (
     selected.startsWith(markerStart) &&
     selected.endsWith(markerEnd) &&
@@ -249,6 +289,17 @@ export function applyPlainInlineFormat(
     el.setSelectionRange(start, start + unwrapped.length);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     return;
+  }
+
+  if (isCriticComment) {
+    const before3 = val.slice(Math.max(0, start - 3), start);
+    const after3 = val.slice(end, Math.min(val.length, end + 3));
+    if (before3 === '{>>' && after3 === '<<}') {
+      el.value = val.slice(0, start - 3) + selected + val.slice(end + 3);
+      el.setSelectionRange(start - 3, start - 3 + selected.length);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
   }
 
   // Check if markers immediately surround the selection

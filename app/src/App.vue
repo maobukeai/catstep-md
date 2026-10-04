@@ -1119,6 +1119,7 @@ function dispatchMenuAction(id: string) {
     case 'view.zoomPreviewReset':
       settings.resetPreviewFontSize();
       break;
+    case 'palette.open':
     case 'view.cmdPalette':
       paletteOpen.value = true;
       break;
@@ -1175,6 +1176,7 @@ function dispatchMenuAction(id: string) {
     case 'format.code':
     case 'format.link':
     case 'format.image':
+    case 'format.comment':
     case 'format.h1':
     case 'format.h2':
     case 'format.h3':
@@ -2120,7 +2122,7 @@ function onFocusOut(e: FocusEvent) {
   }
 }
 
-const isOverlayLayout = computed(() => isMobile() && (isNarrow.value || isTablet.value || isCompactTablet.value));
+const isOverlayLayout = computed(() => isNarrow.value || (isMobile() && (isTablet.value || isCompactTablet.value)));
 
 /**
  * #168 — which side pane, if any, is floating over the editor on a phone or compact tablet.

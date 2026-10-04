@@ -9,7 +9,7 @@
  * 3. Text & Writing Assistants (Clean AI Artifacts, CJK Proofreading, Outline)
  * 4. Help & About Quick Links
  */
-import { computed } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { cjkWordCount } from '../lib/chinese';
@@ -59,6 +59,75 @@ const lineCount = computed(() => {
 });
 const readingTime = computed(() => Math.max(1, Math.ceil(stats.value.total / 300)));
 
+const dragOffsetY = ref(0);
+const isDragging = ref(false);
+let startPointerY = 0;
+let hasDragged = false;
+let capturedEl: HTMLElement | null = null;
+
+function onHandlePointerDown(e: PointerEvent) {
+  if (e.button !== 0) return;
+  isDragging.value = true;
+  hasDragged = false;
+  startPointerY = e.clientY;
+  dragOffsetY.value = 0;
+  capturedEl = e.currentTarget as HTMLElement;
+  try {
+    capturedEl?.setPointerCapture?.(e.pointerId);
+  } catch {}
+  window.addEventListener('pointermove', onHandlePointerMove);
+  window.addEventListener('pointerup', onHandlePointerUp);
+  window.addEventListener('pointercancel', onHandlePointerUp);
+}
+
+function onHandlePointerMove(e: PointerEvent) {
+  if (!isDragging.value) return;
+  const deltaY = e.clientY - startPointerY;
+  if (Math.abs(deltaY) > 6) {
+    hasDragged = true;
+  }
+  dragOffsetY.value = deltaY > 0 ? deltaY : 0;
+}
+
+function onHandlePointerUp(e: PointerEvent) {
+  if (!isDragging.value) return;
+  isDragging.value = false;
+  if (capturedEl) {
+    try {
+      if (capturedEl.hasPointerCapture(e.pointerId)) {
+        capturedEl.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+    capturedEl = null;
+  }
+  window.removeEventListener('pointermove', onHandlePointerMove);
+  window.removeEventListener('pointerup', onHandlePointerUp);
+  window.removeEventListener('pointercancel', onHandlePointerUp);
+
+  const shouldClose = dragOffsetY.value > 60;
+  if (shouldClose) {
+    emit('close');
+  }
+  dragOffsetY.value = 0;
+  setTimeout(() => {
+    hasDragged = false;
+  }, 50);
+}
+
+function onHandleClick() {
+  if (hasDragged) return;
+  emit('close');
+}
+
+onBeforeUnmount(() => {
+  if (capturedEl) {
+    capturedEl = null;
+  }
+  window.removeEventListener('pointermove', onHandlePointerMove);
+  window.removeEventListener('pointerup', onHandlePointerUp);
+  window.removeEventListener('pointercancel', onHandlePointerUp);
+});
+
 function handleAction(callback: () => void) {
   emit('close');
   // Defer slightly for smooth sheet dismiss animation
@@ -81,12 +150,20 @@ function handleAction(callback: () => void) {
       <aside
         v-if="open"
         class="mobile-sheet"
+        :style="{
+          transform: dragOffsetY > 0 ? `translateY(${dragOffsetY}px)` : undefined,
+          transition: isDragging ? 'none' : 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+        }"
         role="dialog"
         aria-modal="true"
         aria-label="更多操作"
       >
         <!-- Drag Handle Indicator -->
-        <div class="mobile-sheet__handle-wrap">
+        <div
+          class="mobile-sheet__handle-wrap"
+          @click="onHandleClick"
+          @pointerdown="onHandlePointerDown"
+        >
           <div class="mobile-sheet__handle" />
         </div>
 
@@ -300,7 +377,9 @@ function handleAction(callback: () => void) {
 .mobile-sheet-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 9998;
 }
 
@@ -309,10 +388,12 @@ function handleAction(callback: () => void) {
   left: 0;
   right: 0;
   bottom: 0;
-  max-height: 82vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--bg-elev) 92%, var(--bg));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
   border-top: 1px solid var(--border);
@@ -326,9 +407,10 @@ function handleAction(callback: () => void) {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 22px;
+  height: 28px;
   flex-shrink: 0;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
 }
 
 .mobile-sheet__handle {

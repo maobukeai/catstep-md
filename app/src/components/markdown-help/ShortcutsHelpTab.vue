@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { combosFor, formatCombo } from '../../lib/keybindings';
+import { parseShortcutChords, isModKey } from '../../lib/shortcut-chords';
 import { useSettingsStore } from '../../stores/settings';
+import { useI18n } from '../../i18n';
 import {
   CATEGORIES,
   renderCategoryIcon,
@@ -20,6 +22,8 @@ const emit = defineEmits<{
 
 const activeCategory = ref<string>('all');
 const kbSettings = useSettingsStore();
+const { lang } = useI18n();
+const isZh = computed(() => (lang.value || '').startsWith('zh'));
 
 function resolveShortcutString(item: ShortcutDef, isMac: boolean): string {
   if (item.action) {
@@ -41,31 +45,7 @@ function resolveShortcutString(item: ShortcutDef, isMac: boolean): string {
 function getChords(item: ShortcutDef): string[][] {
   const isMac = props.targetPlatform === 'mac';
   const str = resolveShortcutString(item, isMac);
-  const alternatives = str.split(/\s*\/\s*/);
-  return alternatives.map((alt) => parseKeys(alt, isMac));
-}
-
-function parseKeys(chordStr: string, isMac: boolean): string[] {
-  const trimmed = chordStr.trim();
-  if (!trimmed) return [];
-  if (trimmed.includes('+')) {
-    return trimmed.split('+').map((s) => s.trim());
-  }
-  if (isMac) {
-    const keys: string[] = [];
-    let rem = trimmed;
-    while (rem.length > 0 && (rem.startsWith('⌘') || rem.startsWith('⌥') || rem.startsWith('⇧') || rem.startsWith('⌃'))) {
-      keys.push(rem[0]);
-      rem = rem.slice(1);
-    }
-    if (rem.length > 0) keys.push(rem);
-    return keys.length > 0 ? keys : [trimmed];
-  }
-  return [trimmed];
-}
-
-function isModKey(k: string): boolean {
-  return ['Ctrl', 'Alt', 'Shift', 'Mod', '⌘', '⌥', '⇧', '⌃', 'Cmd', 'Option'].includes(k);
+  return parseShortcutChords(str, isMac);
 }
 
 function categoryCount(catId: string): number {
@@ -75,40 +55,38 @@ function categoryCount(catId: string): number {
 
 const groupedShortcuts = computed(() => {
   const q = props.searchQuery.trim().toLowerCase();
-  const cat = activeCategory.value;
-  const isMac = props.targetPlatform === 'mac';
+  const filterCat = activeCategory.value;
 
-  const relevantCats = cat === 'all'
-    ? CATEGORIES.filter((c) => c.id !== 'all')
-    : CATEGORIES.filter((c) => c.id === cat);
+  const filtered = ALL_SHORTCUTS.filter((item) => {
+    if (filterCat !== 'all' && item.category !== filterCat) return false;
+    if (!q) return true;
+    return (
+      item.zh.toLowerCase().includes(q) ||
+      item.en.toLowerCase().includes(q) ||
+      item.winFallback.toLowerCase().includes(q) ||
+      item.macFallback.toLowerCase().includes(q) ||
+      (item.tag && item.tag.toLowerCase().includes(q))
+    );
+  });
 
-  const groups: { id: string; zh: string; en: string; items: ShortcutDef[] }[] = [];
-
-  for (const c of relevantCats) {
-    const matched = ALL_SHORTCUTS.filter((item) => {
-      if (item.category !== c.id) return false;
-      if (!q) return true;
-      const chordStr = resolveShortcutString(item, isMac).toLowerCase();
-      const hay = `${item.zh} ${item.en} ${item.tag ?? ''} ${chordStr}`.toLowerCase();
-      return q.split(/\s+/).every((tok) => hay.includes(tok));
-    });
-
-    if (matched.length > 0) {
-      groups.push({
-        id: c.id,
-        zh: c.zh,
-        en: c.en,
-        items: matched,
-      });
-    }
+  const catMap = new Map<string, ShortcutDef[]>();
+  for (const it of filtered) {
+    const arr = catMap.get(it.category) || [];
+    arr.push(it);
+    catMap.set(it.category, arr);
   }
 
-  return groups;
+  return CATEGORIES.filter((c) => c.id !== 'all' && catMap.has(c.id)).map((c) => ({
+    id: c.id,
+    zh: c.zh,
+    en: c.en,
+    items: catMap.get(c.id) || [],
+  }));
 });
 
-const totalMatches = computed(() => {
-  return groupedShortcuts.value.reduce((acc, g) => acc + g.items.length, 0);
-});
+const totalMatches = computed(() =>
+  groupedShortcuts.value.reduce((acc, g) => acc + g.items.length, 0),
+);
 
 function onClearFilters() {
   activeCategory.value = 'all';
@@ -128,7 +106,7 @@ function onClearFilters() {
         @click="activeCategory = cat.id"
       >
         <component :is="renderCategoryIcon(cat.id)" class="cat-pill__icon" />
-        <span class="cat-pill__label">{{ cat.zh }}</span>
+        <span class="cat-pill__label">{{ isZh ? cat.zh : cat.en }}</span>
         <span class="cat-pill__count">{{ categoryCount(cat.id) }}</span>
       </button>
     </div>
@@ -141,9 +119,9 @@ function onClearFilters() {
       >
         <div v-if="activeCategory === 'all'" class="shortcut-group__header">
           <component :is="renderCategoryIcon(g.id)" class="shortcut-group__icon" />
-          <span class="shortcut-group__title">{{ g.zh }}</span>
-          <span class="shortcut-group__en">{{ g.en }}</span>
-          <span class="shortcut-group__count">{{ g.items.length }} 项</span>
+          <span class="shortcut-group__title">{{ isZh ? g.zh : g.en }}</span>
+          <span class="shortcut-group__en">{{ isZh ? g.en : g.zh }}</span>
+          <span class="shortcut-group__count">{{ isZh ? `${g.items.length} 项` : `${g.items.length} items` }}</span>
         </div>
 
         <div class="shortcuts-grid">
@@ -152,9 +130,9 @@ function onClearFilters() {
             :key="s.id"
             class="shortcut-card"
           >
-            <div class="shortcut-card__info">
+            <div class="shortcut-card__info" :title="`${isZh ? s.zh : s.en} (${isZh ? s.en : s.zh})`">
               <div class="shortcut-card__title-row">
-                <span class="shortcut-card__title">{{ s.zh }}</span>
+                <span class="shortcut-card__title">{{ isZh ? s.zh : s.en }}</span>
                 <span
                   v-if="s.tag"
                   class="shortcut-card__tag"
@@ -163,18 +141,20 @@ function onClearFilters() {
                   {{ s.tag }}
                 </span>
               </div>
-              <div class="shortcut-card__en">{{ s.en }}</div>
+              <div class="shortcut-card__en">{{ isZh ? s.en : s.zh }}</div>
             </div>
 
             <div class="shortcut-card__keys">
               <template v-for="(chord, cIdx) in getChords(s)" :key="cIdx">
-                <span v-if="cIdx > 0" class="keycap-or">或</span>
-                <span class="keycap-chord">
-                  <template v-for="(k, kIdx) in chord" :key="kIdx">
-                    <span v-if="kIdx > 0" class="keycap-plus">+</span>
-                    <kbd class="keycap" :class="{ 'keycap--mod': isModKey(k) }">{{ k }}</kbd>
-                  </template>
-                </span>
+                <div class="shortcut-card__chord-wrap">
+                  <span v-if="cIdx > 0" class="keycap-or">{{ isZh ? '或' : 'or' }}</span>
+                  <span class="keycap-chord">
+                    <template v-for="(k, kIdx) in chord" :key="kIdx">
+                      <span v-if="kIdx > 0" class="keycap-plus">+</span>
+                      <kbd class="keycap" :class="{ 'keycap--mod': isModKey(k) }">{{ k }}</kbd>
+                    </template>
+                  </span>
+                </div>
               </template>
             </div>
           </div>
@@ -189,9 +169,9 @@ function onClearFilters() {
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
       </div>
-      <div class="help-empty__text">未找到与 "{{ searchQuery }}" 匹配的快捷键</div>
+      <div class="help-empty__text">{{ isZh ? `未找到与 "${searchQuery}" 匹配的快捷键` : `No shortcuts matching "${searchQuery}"` }}</div>
       <button class="help-empty__btn" @click="onClearFilters">
-        清空筛选条件
+        {{ isZh ? '清空筛选条件' : 'Clear search' }}
       </button>
     </div>
   </div>

@@ -5,8 +5,8 @@
  *
  * Auth: looks for GITHUB_TOKEN in process.env. On Cloudflare Pages /
  * Vercel set it as a build-time env var. If unset (e.g. local
- * `pnpm build` without auth), we silently fall back to the empty
- * state — page still renders, no build error.
+ * `pnpm build` without auth), we gracefully render a full, interactive
+ * category navigation hub with direct links to each category on GitHub.
  *
  * Categories supported (per the live repo):
  *   Announcements · General · Ideas · Polls · Q&A · Show and tell
@@ -17,6 +17,7 @@ import { getT, type Lang } from '../i18n/translations';
 interface Props { lang: Lang }
 const { lang } = Astro.props;
 const tr = getT(lang);
+const isZh = lang.startsWith('zh');
 
 const REPO_OWNER = 'maobukeai';
 const REPO_NAME = 'catstep-md';
@@ -94,8 +95,7 @@ if (token) {
   }
 }
 
-// Canonical category order (matches Notion-style story ordering: announcements
-// first, then conversational categories, then polls / Q&A / show-and-tell).
+// Canonical category order (matches Notion-style story ordering)
 const CATEGORY_ORDER = [
   'Announcements',
   'Q&A',
@@ -104,6 +104,33 @@ const CATEGORY_ORDER = [
   'Polls',
   'General',
 ];
+
+const categoryDescriptions: Record<string, { zh: string; en: string }> = {
+  'Announcements': {
+    zh: '官方版本更新、重大功能发布与项目动态通知',
+    en: 'Official release announcements, updates, and project news',
+  },
+  'Ideas': {
+    zh: '新功能提案、交互构想与未来路线图探讨',
+    en: 'Feature proposals, UX brainstorms, and roadmap discussions',
+  },
+  'Q&A': {
+    zh: '使用技巧、常见疑问与跨平台配置互助',
+    en: 'Questions, troubleshooting, and cross-platform tips',
+  },
+  'Show and tell': {
+    zh: '展示个人笔记系统、主题设计或自动化插件搭配',
+    en: 'Showcase your note setup, custom themes, or workflows',
+  },
+  'Polls': {
+    zh: '参与新特性偏好投票与社区调研',
+    en: 'Vote on feature preferences and community surveys',
+  },
+  'General': {
+    zh: '随时随地自由畅聊 Markdown、知识管理与书写思考',
+    en: 'Casual chat about Markdown, PKM, and writing habits',
+  },
+};
 
 const grouped: Record<string, Discussion[]> = {};
 for (const d of discussions) {
@@ -136,13 +163,10 @@ function categoryDeeplink(name: string): string {
   // GitHub uses lowercased, hyphenated slugs for category URLs.
   const fromApi = categoriesFromApi.find((c) => c.name === name);
   if (fromApi?.slug) return `${DISCUSSIONS_URL}/categories/${fromApi.slug}`;
-  const slug = name.toLowerCase().replace(/&/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+  const slug = name.toLowerCase().replace(/&/g, '-').replace(/\s+/g, '-').replace(/-+/g, '-');
   return `${DISCUSSIONS_URL}/categories/${slug}`;
 }
 
-// Pre-build category metadata per visible category so the JSX below stays
-// expression-free (Astro / esbuild trips on `as Record<string, string>`
-// generic syntax inside an embedded {.map()} arrow.)
 const emojiMap = tr.community.categoryEmoji as { [k: string]: string };
 const nameMap = tr.community.categoryNames as { [k: string]: string };
 
@@ -150,78 +174,103 @@ interface CategoryView {
   key: string;
   emoji: string;
   localized: string;
+  description: string;
   deeplink: string;
+  count: number;
   threads: Discussion[];
 }
 
-const visibleCategories: CategoryView[] = CATEGORY_ORDER
-  .filter((name) => grouped[name]?.length)
-  .map((name) => ({
+const allCategories: CategoryView[] = CATEGORY_ORDER.map((name) => {
+  const descObj = categoryDescriptions[name] || { zh: '', en: '' };
+  return {
     key: name,
     emoji: emojiMap[name] || '💬',
     localized: nameMap[name] || name,
+    description: isZh ? descObj.zh : descObj.en,
     deeplink: categoryDeeplink(name),
-    threads: grouped[name],
-  }));
+    count: grouped[name]?.length || 0,
+    threads: grouped[name] || [],
+  };
+});
+
+const visibleCategories = allCategories.filter((c) => c.threads.length > 0);
 const hasAnyDiscussions = discussions.length > 0;
 ---
 
 <section class="community-hero">
   <div class="container">
+    <div class="hero-badge-wrap">
+      <span class="hero-badge">GITHUB DISCUSSIONS</span>
+    </div>
     <h1>{tr.community.heading}</h1>
     <p class="lead">{tr.community.lead}</p>
-    <a class="btn btn--primary btn--lg" href={DISCUSSIONS_URL} target="_blank" rel="noopener">
-      {tr.community.ctaLabel}
-    </a>
+    <div class="community-hero__buttons">
+      <a class="btn btn--primary btn--lg" href={DISCUSSIONS_URL} target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+        </svg>
+        <span>{tr.community.ctaLabel}</span>
+      </a>
+      <a class="btn btn--secondary btn--lg" href={NEW_DISCUSSION_URL} target="_blank" rel="noopener">
+        <span>{tr.community.askButton || (isZh ? '发起新讨论' : 'Ask on GitHub Discussions →')}</span>
+      </a>
+    </div>
   </div>
 </section>
 
 <section class="community-list">
   <div class="container">
-    {!hasAnyDiscussions && (
-      <div class="community-empty">
-        <p>{tr.community.loading}</p>
-        <p class="community-empty__note">{tr.community.fallbackNote}</p>
-        {fetchError && <p class="community-empty__err">build-time fetch error: {fetchError}</p>}
-      </div>
-    )}
-
-    {visibleCategories.map((cat) => (
-        <div class="cat">
-          <div class="cat__head">
-            <h2 class="cat__title">
-              <span class="cat__emoji">{cat.emoji}</span>
-              {cat.localized}
-              <span class="cat__count">{cat.threads.length}</span>
-            </h2>
-            <a class="cat__more" href={cat.deeplink} target="_blank" rel="noopener">
-              {tr.community.categoryAsk}
-            </a>
+    <!-- Category Hub Grid: Always visible for intuitive exploration -->
+    <div class="category-grid">
+      {allCategories.map((cat) => (
+        <a class="category-card" href={cat.deeplink} target="_blank" rel="noopener">
+          <div class="category-card__head">
+            <span class="category-card__emoji">{cat.emoji}</span>
+            <span class="category-card__title">{cat.localized}</span>
+            <span class="category-card__arrow">→</span>
           </div>
-          <ul class="thread-list">
-            {cat.threads.map((d) => (
-              <li class="thread">
-                <a class="thread__link" href={d.url} target="_blank" rel="noopener">
-                  <div class="thread__title">{d.title}</div>
-                  <div class="thread__meta">
-                    {d.author && (
-                      <span class="thread__author">
-                        <img class="thread__avatar" src={d.author.avatarUrl} alt={d.author.login} width="20" height="20" loading="lazy" />
-                        <span>{d.author.login}</span>
-                      </span>
-                    )}
-                    <span class="thread__sep">·</span>
-                    <span class="thread__when">{relativeFromNow(d.createdAt)}</span>
-                    <span class="thread__sep">·</span>
-                    <span class="thread__count">
-                      {d.comments.totalCount === 1 ? tr.community.countOne : `${d.comments.totalCount} ${tr.community.countMany}`}
-                    </span>
-                  </div>
-                </a>
-              </li>
-            ))}
-          </ul>
+          <p class="category-card__desc">{cat.description}</p>
+        </a>
+      ))}
+    </div>
+
+    <!-- Render live thread lists if available -->
+    {visibleCategories.map((cat) => (
+      <div class="cat">
+        <div class="cat__head">
+          <h2 class="cat__title">
+            <span class="cat__emoji">{cat.emoji}</span>
+            <span>{cat.localized}</span>
+            <span class="cat__count">{cat.threads.length}</span>
+          </h2>
+          <a class="cat__more" href={cat.deeplink} target="_blank" rel="noopener">
+            {tr.community.categoryAsk} →
+          </a>
         </div>
+        <ul class="thread-list">
+          {cat.threads.map((d) => (
+            <li class="thread">
+              <a class="thread__link" href={d.url} target="_blank" rel="noopener">
+                <div class="thread__title">{d.title}</div>
+                <div class="thread__meta">
+                  {d.author && (
+                    <span class="thread__author">
+                      <img class="thread__avatar" src={d.author.avatarUrl} alt={d.author.login} width="20" height="20" loading="lazy" />
+                      <span>{d.author.login}</span>
+                    </span>
+                  )}
+                  <span class="thread__sep">·</span>
+                  <span class="thread__when">{relativeFromNow(d.createdAt)}</span>
+                  <span class="thread__sep">·</span>
+                  <span class="thread__count">
+                    {d.comments.totalCount === 1 ? tr.community.countOne : `${d.comments.totalCount} ${tr.community.countMany}`}
+                  </span>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     ))}
   </div>
 </section>
@@ -241,33 +290,129 @@ const hasAnyDiscussions = discussions.length > 0;
 
 <style>
   .community-hero {
-    padding: 80px 0 36px;
+    padding: 72px 0 36px;
     text-align: center;
-    background: radial-gradient(ellipse at top, var(--accent-soft) 0%, transparent 60%);
+    background: radial-gradient(ellipse at top, var(--accent-soft) 0%, transparent 65%);
+  }
+  .hero-badge-wrap {
+    margin-bottom: 14px;
+  }
+  .hero-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    padding: 4px 12px;
+    border-radius: 99px;
+    display: inline-block;
   }
   .community-hero h1 {
     font-size: clamp(2rem, 4vw, 2.8rem);
     margin: 0 0 14px;
+    color: var(--text);
+    font-weight: 700;
   }
   .community-hero .lead {
     margin: 0 auto 24px;
     max-width: 660px;
+    font-size: 1.05rem;
+    color: var(--text-muted);
+    line-height: 1.6;
   }
-  .btn--lg { padding: 14px 28px; font-size: 15px; border-radius: 10px; }
-
-  .community-list { padding: 36px 0 60px; }
-  .community-empty {
+  .community-hero__buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .btn--lg {
+    padding: 12px 24px;
+    font-size: 14.5px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .btn--secondary {
     background: var(--bg-elev);
-    border: 1px dashed color-mix(in srgb, var(--accent) 40%, var(--border));
-    border-radius: 12px;
-    padding: 28px 24px;
-    text-align: center;
+    color: var(--text);
+    border: 1px solid var(--border);
   }
-  .community-empty p { margin: 0 0 6px; color: var(--text-muted); font-size: 14px; }
-  .community-empty__note { font-size: 12.5px !important; color: var(--text-faint) !important; }
-  .community-empty__err { font-family: var(--font-mono); font-size: 11.5px !important; color: var(--text-faint) !important; }
+  .btn--secondary:hover {
+    background: var(--bg-soft);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  }
 
-  .cat { margin-bottom: 32px; }
+  .community-list {
+    padding: 24px 0 60px;
+  }
+
+  /* Category Grid */
+  .category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 42px;
+  }
+  .category-card {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .category-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.06);
+  }
+  .category-card__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .category-card__emoji {
+    font-size: 22px;
+    line-height: 1;
+  }
+  .category-card__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  .category-card:hover .category-card__title {
+    color: var(--accent);
+  }
+  .category-card__arrow {
+    font-size: 14px;
+    color: var(--text-faint);
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  .category-card:hover .category-card__arrow {
+    transform: translateX(3px);
+    color: var(--accent);
+  }
+  .category-card__desc {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .cat {
+    margin-bottom: 32px;
+  }
   .cat__head {
     display: flex;
     align-items: center;
@@ -281,8 +426,12 @@ const hasAnyDiscussions = discussions.length > 0;
     gap: 10px;
     font-size: 1.15rem;
     margin: 0;
+    font-weight: 600;
+    color: var(--text);
   }
-  .cat__emoji { font-size: 1.2rem; }
+  .cat__emoji {
+    font-size: 1.2rem;
+  }
   .cat__count {
     display: inline-block;
     padding: 2px 8px;
@@ -301,7 +450,9 @@ const hasAnyDiscussions = discussions.length > 0;
     text-decoration: none;
     white-space: nowrap;
   }
-  .cat__more:hover { text-decoration: underline; }
+  .cat__more:hover {
+    text-decoration: underline;
+  }
 
   .thread-list {
     list-style: none;
@@ -312,8 +463,12 @@ const hasAnyDiscussions = discussions.length > 0;
     overflow: hidden;
     background: var(--bg-elev);
   }
-  .thread { border-bottom: 1px solid var(--border); }
-  .thread:last-child { border-bottom: none; }
+  .thread {
+    border-bottom: 1px solid var(--border);
+  }
+  .thread:last-child {
+    border-bottom: none;
+  }
   .thread__link {
     display: block;
     padding: 14px 18px;
@@ -331,7 +486,9 @@ const hasAnyDiscussions = discussions.length > 0;
     margin-bottom: 4px;
     line-height: 1.4;
   }
-  .thread__link:hover .thread__title { color: var(--accent); }
+  .thread__link:hover .thread__title {
+    color: var(--accent);
+  }
   .thread__meta {
     display: flex;
     align-items: center;
@@ -351,9 +508,13 @@ const hasAnyDiscussions = discussions.length > 0;
     border-radius: 999px;
     border: 1px solid var(--border);
   }
-  .thread__sep { opacity: 0.5; }
+  .thread__sep {
+    opacity: 0.5;
+  }
 
-  .community-cta { padding: 40px 0 80px; }
+  .community-cta {
+    padding: 30px 0 70px;
+  }
   .cta-card {
     background: var(--bg-elev);
     border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
@@ -363,7 +524,40 @@ const hasAnyDiscussions = discussions.length > 0;
     max-width: 620px;
     margin: 0 auto;
   }
-  .cta-card__icon { font-size: 30px; line-height: 1; margin-bottom: 8px; }
-  .cta-card h3 { margin: 0 0 8px; font-size: 1.2rem; }
-  .cta-card p { color: var(--text-muted); font-size: 14px; margin: 0 0 18px; }
+  .cta-card__icon {
+    font-size: 30px;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .cta-card h3 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    color: var(--text);
+  }
+  .cta-card p {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin: 0 0 18px;
+  }
+
+  @media (max-width: 640px) {
+    .community-hero {
+      padding: 48px 0 24px;
+    }
+    .community-hero__buttons {
+      flex-direction: column;
+      width: 100%;
+    }
+    .community-hero__buttons .btn {
+      width: 100%;
+      justify-content: center;
+    }
+    .category-grid {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .cta-card {
+      padding: 24px 18px;
+    }
+  }
 </style>

@@ -42,7 +42,7 @@ const emit = defineEmits<{
           <path d="M19 16L20.2 19L23 20L20.2 21L19 24L17.8 21L15 20L17.8 19L19 16Z" opacity="0.88" />
         </svg>
       </div>
-      <span class="mobile-bottom-dock__label mobile-bottom-dock__label--ai">猫步 AI</span>
+      <span class="mobile-bottom-dock__label mobile-bottom-dock__label--ai">{{ t('toolbar.aiAssistant') || '猫步 AI' }}</span>
     </button>
 
     <!-- 3. 设置 -->
@@ -67,7 +67,7 @@ const emit = defineEmits<{
   width: calc(100% - 40px);
   max-width: 320px;
   height: 54px;
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--bg-elev) 90%, transparent);
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: 0 8px 24px -3px rgba(0, 0, 0, 0.16), 0 3px 8px rgba(0, 0, 0, 0.06);
@@ -82,9 +82,15 @@ const emit = defineEmits<{
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
 }
 
-[data-theme="dark"] .mobile-bottom-dock {
-  background: rgba(35, 34, 31, 0.95);
-  box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 165, 77, 0.16);
+:root[data-theme="dark"] .mobile-bottom-dock,
+:root[data-theme="dracula"] .mobile-bottom-dock,
+:root[data-theme="night"] .mobile-bottom-dock,
+:root[data-theme="catppuccin-mocha"] .mobile-bottom-dock,
+:root[data-theme="forest"] .mobile-bottom-dock,
+:root[data-theme="frost-blue"] .mobile-bottom-dock,
+:root[data-theme="pure-black-oled"] .mobile-bottom-dock {
+  background: color-mix(in srgb, var(--bg-elev) 90%, transparent);
+  box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.65), 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 .mobile-bottom-dock__btn {

@@ -68,6 +68,72 @@ test('applyCmInlineFormat: inserts empty markers when selection is empty', () =>
   assert.equal(view.state.selection.main.anchor, 8);
 });
 
+test('applyCmInlineFormat: wraps text with CriticMarkup comment markers', () => {
+  const view = createMockView('Review this section please', 7, 19);
+  applyCmInlineFormat(view, '{>> ', ' <<}');
+  assert.equal(view.state.doc.toString(), 'Review {>> this section <<} please');
+});
+
+test('applyCmInlineFormat: unwraps CriticMarkup comment when selected', () => {
+  const view = createMockView('Review {>> this section <<} please', 7, 27);
+  applyCmInlineFormat(view, '{>> ', ' <<}');
+  assert.equal(view.state.doc.toString(), 'Review this section please');
+});
+
+test('applyCmInlineFormat: unwraps CriticMarkup comment without spaces when selected', () => {
+  const view = createMockView('Review {>>this section<<} please', 7, 25);
+  applyCmInlineFormat(view, '{>> ', ' <<}');
+  assert.equal(view.state.doc.toString(), 'Review this section please');
+});
+
+test('applyCmInlineFormat: unwraps surrounding CriticMarkup comment without spaces', () => {
+  const view = createMockView('Review {>>this section<<} please', 10, 22);
+  applyCmInlineFormat(view, '{>> ', ' <<}');
+  assert.equal(view.state.doc.toString(), 'Review this section please');
+});
+
+test('applyCmInlineFormat: wraps and unwraps text containing nested CriticMarkup tags', () => {
+  const view = createMockView('Review {==highlighted text==} please', 7, 29);
+  applyCmInlineFormat(view, '{>> ', ' <<}');
+  assert.equal(view.state.doc.toString(), 'Review {>> {==highlighted text==} <<} please');
+  applyCmInlineFormat(view, '{>> ', ' <<}');
+  assert.equal(view.state.doc.toString(), 'Review {==highlighted text==} please');
+});
+
+test('applyPlainInlineFormat: wraps and unwraps CriticMarkup comment', () => {
+  const textarea = {
+    value: 'Important note here',
+    selectionStart: 10,
+    selectionEnd: 14,
+    focus() {},
+    dispatchEvent() { return true; },
+    setSelectionRange(s, e) {
+      this.selectionStart = s;
+      this.selectionEnd = e;
+    },
+  };
+  applyPlainInlineFormat(textarea, '{>> ', ' <<}');
+  assert.equal(textarea.value, 'Important {>> note <<} here');
+  applyPlainInlineFormat(textarea, '{>> ', ' <<}');
+  assert.equal(textarea.value, 'Important note here');
+});
+
+test('applyPlainInlineFormat: unwraps CriticMarkup comment without spaces', () => {
+  const textarea = {
+    value: 'Important {>>note<<} here',
+    selectionStart: 10,
+    selectionEnd: 20,
+    focus() {},
+    dispatchEvent() { return true; },
+    setSelectionRange(s, e) {
+      this.selectionStart = s;
+      this.selectionEnd = e;
+    },
+  };
+  applyPlainInlineFormat(textarea, '{>> ', ' <<}');
+  assert.equal(textarea.value, 'Important note here');
+});
+
 test('applyCmHeading: converts plain text to H1', () => {
   const view = createMockView('Title line', 0, 0);
   applyCmHeading(view, 1);
@@ -245,6 +311,21 @@ test('keybindings: Typora shortcuts and Catstep MD Agent shortcuts parity', asyn
 
   // Mod+B MUST NOT be toggleFileTree
   assert.notEqual(bindings.get('Mod+B'), 'view.toggleFileTree');
+});
+
+test('nativeMenuAccelerators: maps view.toggleSidebar and settings.open overrides correctly', async () => {
+  const { nativeMenuAccelerators } = await import('./keybindings.ts');
+
+  // Test default mappings
+  const accels = nativeMenuAccelerators({
+    'view.toggleSidebar': 'Mod+Alt+S',
+    'settings.open': 'Mod+Shift+Comma',
+    'palette.open': 'Mod+Shift+P',
+  });
+
+  assert.equal(accels['view.toggleFileTree'], 'CmdOrCtrl+Alt+S');
+  assert.equal(accels['view.settings'], 'CmdOrCtrl+Shift+Comma');
+  assert.equal(accels['palette.open'], 'CmdOrCtrl+Shift+P');
 });
 
 test('applyCmList: toggles bullet list, numbered list, and task list', () => {

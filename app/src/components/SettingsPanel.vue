@@ -447,7 +447,7 @@ onMounted(async () => {
     appVersion.value = await getVersion();
   } catch {
     // non-Tauri (web preview) — keep the same fallback as AboutSettings
-    appVersion.value = '1.0.6';
+    appVersion.value = '1.0.7';
   }
 });
 

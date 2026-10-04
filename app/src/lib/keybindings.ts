@@ -340,13 +340,15 @@ const MENU_ITEM_BY_ACTION: Record<string, string> = {
   'window.new': 'window.new',
   'file.exit': 'file.exit',
   'export.pdfPrint': 'file.print',
+  'view.toggleSidebar': 'view.toggleFileTree',
   'view.toggleFileTree': 'view.toggleFileTree',
   'view.toggleRightSidebar': 'view.toggleRightSidebar',
   'view.toggleOutline': 'view.toggleOutline',
   'view.cycleView': 'view.cycleView',
   'search.global': 'search.global',
-  'settings.open': 'app.settings',
+  'settings.open': 'view.settings',
   'help.markdown': 'help.markdown',
+  'palette.open': 'palette.open',
 };
 
 /** `Mod+Shift+K` → `CmdOrCtrl+Shift+K` (Tauri's accelerator grammar). */
