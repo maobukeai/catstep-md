@@ -81,6 +81,7 @@ export interface AgentSession {
 export type AgentPhase = 'idle' | 'analyzing' | 'thinking' | 'calling_tool' | 'organizing';
 
 interface AgentPanelState {
+  currentWorkspaceFolder: string | null;
   currentSessionId: string;
   sessions: AgentSession[];
   messages: AgentMessage[];
@@ -103,7 +104,27 @@ interface AgentPanelState {
   stopRequested: boolean;
 }
 
-const STORAGE_KEY = 'solomd:agent-sessions-v1';
+export const AGENT_STORAGE_KEY_BASE = 'solomd:agent-sessions-v1';
+export const AGENT_STORAGE_MIGRATED_KEY = 'solomd:agent-sessions-v1::migrated';
+
+export function getAgentSessionStorageKey(folder: string | null): string {
+  if (!folder) return AGENT_STORAGE_KEY_BASE;
+  const trimmed = folder.trim();
+  if (!trimmed) return AGENT_STORAGE_KEY_BASE;
+  const norm = trimmed.replace(/\\/g, '/').replace(/(?<=.)\/+$/, '');
+  return `${AGENT_STORAGE_KEY_BASE}::${norm}`;
+}
+
+export function currentWorkspaceFolder(): string | null {
+  try {
+    const raw = localStorage.getItem('solomd.workspace.v1');
+    if (raw) {
+      const w = JSON.parse(raw);
+      if (w && typeof w.currentFolder === 'string') return w.currentFolder;
+    }
+  } catch {}
+  return null;
+}
 
 function newId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -112,9 +133,27 @@ function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function loadSavedSessions(): { sessions: AgentSession[]; activeId: string } {
+export function loadSavedSessions(folder: string | null = currentWorkspaceFolder()): { sessions: AgentSession[]; activeId: string } {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getAgentSessionStorageKey(folder);
+    let raw = localStorage.getItem(key);
+    // Backward compatibility: migrate legacy global sessions to active workspace once
+    if (!raw && folder && !localStorage.getItem(AGENT_STORAGE_MIGRATED_KEY)) {
+      const legacy = localStorage.getItem(AGENT_STORAGE_KEY_BASE);
+      if (legacy) {
+        try {
+          const parsed = JSON.parse(legacy);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            localStorage.setItem(key, legacy);
+            localStorage.removeItem(AGENT_STORAGE_KEY_BASE);
+            raw = legacy;
+          }
+        } catch {}
+      }
+      try {
+        localStorage.setItem(AGENT_STORAGE_MIGRATED_KEY, 'true');
+      } catch {}
+    }
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -135,28 +174,66 @@ function loadSavedSessions(): { sessions: AgentSession[]; activeId: string } {
   return { sessions: [initialSession], activeId: initialId };
 }
 
-const { sessions: initialSessions, activeId: initialActiveId } = loadSavedSessions();
-const activeSession = initialSessions.find((s) => s.id === initialActiveId) || initialSessions[0];
-
 export const useAgentPanelStore = defineStore('agentPanel', {
-  state: (): AgentPanelState => ({
-    currentSessionId: activeSession.id,
-    sessions: initialSessions,
-    messages: activeSession.messages || [],
-    isStreaming: false,
-    agentPhase: 'idle',
-    agentPhaseDetail: '',
-    currentRunId: null,
-    currentPersistRunId: null,
-    stopRequested: false,
-  }),
+  state: (): AgentPanelState => {
+    const folder = currentWorkspaceFolder();
+    const { sessions, activeId } = loadSavedSessions(folder);
+    const active = sessions.find((s) => s.id === activeId) || sessions[0];
+    return {
+      currentWorkspaceFolder: folder,
+      currentSessionId: active.id,
+      sessions,
+      messages: active.messages ? [...active.messages] : [],
+      isStreaming: false,
+      agentPhase: 'idle',
+      agentPhaseDetail: '',
+      currentRunId: null,
+      currentPersistRunId: null,
+      stopRequested: false,
+    };
+  },
   actions: {
-    persistSessions() {
+    persistSessions(targetFolder?: string | null) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.sessions.slice(0, 30)));
+        const folder = targetFolder !== undefined ? targetFolder : this.currentWorkspaceFolder;
+        const key = getAgentSessionStorageKey(folder);
+        localStorage.setItem(key, JSON.stringify(this.sessions.slice(0, 30)));
       } catch {
         /* storage exceeded / unavailable */
       }
+    },
+    loadForWorkspace(folder: string | null, prevFolder?: string | null) {
+      if (this.currentWorkspaceFolder === folder) return;
+      const effectivePrev = prevFolder !== undefined ? prevFolder : this.currentWorkspaceFolder;
+      if (
+        effectivePrev &&
+        folder &&
+        getAgentSessionStorageKey(effectivePrev) === getAgentSessionStorageKey(folder)
+      ) {
+        this.currentWorkspaceFolder = folder;
+        return;
+      }
+      const s = this.sessions.find((item) => item.id === this.currentSessionId);
+      if (s) {
+        s.messages = [...this.messages];
+        s.updatedAt = Date.now();
+      }
+      this.persistSessions(effectivePrev);
+      if (this.isStreaming) {
+        this.stopRequested = true;
+        this.isStreaming = false;
+      }
+      this.currentWorkspaceFolder = folder;
+      const { sessions, activeId } = loadSavedSessions(folder);
+      this.sessions = sessions;
+      this.currentSessionId = activeId;
+      const target = sessions.find((item) => item.id === activeId) || sessions[0];
+      this.messages = target ? [...target.messages] : [];
+      this.agentPhase = 'idle';
+      this.agentPhaseDetail = '';
+      this.currentRunId = null;
+      this.currentPersistRunId = null;
+      this.stopRequested = false;
     },
     syncCurrentSession() {
       const s = this.sessions.find((item) => item.id === this.currentSessionId);

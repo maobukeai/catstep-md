@@ -33,29 +33,111 @@ export function systemPrompt(lang: PromptLang, overrides?: PromptOverrides | nul
   return effectivePromptText(AGENT_SYSTEM_TEMPLATE_ID, DEFAULT_AGENT_SYSTEM_PROMPT, lang, overrides);
 }
 
-/** One-line summary of a write-ish tool action, for the replayed history. */
+/** One-line summary of a tool action, for the replayed history. */
 export function toolActionSummary(
   toolName: string,
   args: Record<string, unknown> | undefined,
   lang: PromptLang,
+  result?: string,
 ): string {
   const a = args ?? {};
   const tPath = (a.target_path || a.path || a.source_path || '') as string;
   const tFileName = tPath ? tPath.replace(/\\/g, '/').split('/').pop() : '';
   const zh = lang === 'zh';
+
+  let resultSummary = '';
+  if (result) {
+    try {
+      const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+      if (toolName === 'read_note') {
+        const content = typeof parsed?.content === 'string' ? parsed.content : '';
+        if (content) {
+          const preview = content.slice(0, 300).replace(/\s+/g, ' ');
+          resultSummary = zh
+            ? ` -> 读取成功 (${content.length} 字符): "${preview}…"`
+            : ` -> Read ok (${content.length} chars): "${preview}…"`;
+        }
+      } else if (toolName === 'search' || toolName === 'semantic_search') {
+        const hits = Array.isArray(parsed?.hits)
+          ? parsed.hits
+          : (Array.isArray(parsed?.matches) ? parsed.matches : (Array.isArray(parsed) ? parsed : []));
+        const count = typeof parsed?.count === 'number' ? parsed.count : hits.length;
+        const topHits = hits
+          .slice(0, 3)
+          .map((m: any) => m.file || m.path || m.name || '')
+          .filter(Boolean)
+          .join(', ');
+        resultSummary = zh
+          ? ` -> 找到 ${count} 条结果${topHits ? `: [${topHits}${count > 3 ? '…' : ''}]` : ''}`
+          : ` -> Found ${count} results${topHits ? `: [${topHits}${count > 3 ? '…' : ''}]` : ''}`;
+      } else if (toolName === 'list_notes') {
+        const notes = Array.isArray(parsed?.notes) ? parsed.notes : (Array.isArray(parsed) ? parsed : []);
+        resultSummary = zh ? ` -> 共 ${notes.length} 篇笔记` : ` -> ${notes.length} notes found`;
+      } else if (toolName === 'get_outline') {
+        const outline = Array.isArray(parsed?.outline) ? parsed.outline : [];
+        resultSummary = zh ? ` -> 共 ${outline.length} 个标题大纲` : ` -> ${outline.length} headings`;
+      } else if (toolName === 'get_backlinks') {
+        const bl = Array.isArray(parsed?.backlinks) ? parsed.backlinks : [];
+        resultSummary = zh ? ` -> 共 ${bl.length} 条反向链接` : ` -> ${bl.length} backlinks`;
+      } else if (toolName === 'list_tags') {
+        const tags = Array.isArray(parsed?.tags) ? parsed.tags : (parsed && typeof parsed === 'object' ? Object.keys(parsed) : []);
+        resultSummary = zh ? ` -> 共 ${tags.length} 个标签` : ` -> ${tags.length} tags`;
+      } else if (toolName === 'patch_note' || toolName === 'write_note' || toolName === 'append_to_note') {
+        if (parsed?.error) {
+          resultSummary = zh ? ` -> 失败: ${parsed.error}` : ` -> Error: ${parsed.error}`;
+        } else {
+          resultSummary = zh ? ` -> 成功` : ` -> Success`;
+        }
+      }
+    } catch {
+      const preview = result.slice(0, 100).replace(/\s+/g, ' ');
+      if (preview) {
+        resultSummary = ` -> ${preview}…`;
+      }
+    }
+  }
+
   switch (toolName) {
+    case 'read_note':
+      return zh
+        ? `- 读取笔记 [read_note]: ${tPath || tFileName}${resultSummary}`
+        : `- Read note [read_note]: ${tPath || tFileName}${resultSummary}`;
+    case 'search':
+      return zh
+        ? `- 搜索关键字 [search]: "${a.query || a.q || ''}"${resultSummary}`
+        : `- Search [search]: "${a.query || a.q || ''}"${resultSummary}`;
+    case 'list_notes':
+      return zh
+        ? `- 列出笔记列表 [list_notes]: "${a.folder || '根目录'}"${resultSummary}`
+        : `- Listed notes in [list_notes]: "${a.folder || 'root'}"${resultSummary}`;
+    case 'list_folders':
+      return zh
+        ? `- 列出文件夹 [list_folders]: "${a.folder || '根目录'}"${resultSummary}`
+        : `- Listed folders in [list_folders]: "${a.folder || 'root'}"${resultSummary}`;
+    case 'get_outline':
+      return zh
+        ? `- 获取大纲 [get_outline]: ${tPath || tFileName}${resultSummary}`
+        : `- Got outline [get_outline]: ${tPath || tFileName}${resultSummary}`;
+    case 'get_backlinks':
+      return zh
+        ? `- 获取反向链接 [get_backlinks]: ${a.target || tPath || tFileName}${resultSummary}`
+        : `- Got backlinks [get_backlinks]: ${a.target || tPath || tFileName}${resultSummary}`;
+    case 'list_tags':
+      return zh
+        ? `- 列出标签列表 [list_tags]${resultSummary}`
+        : `- Listed tags [list_tags]${resultSummary}`;
     case 'write_note':
       return zh
-        ? `- 新建/写入笔记: ${tPath} (${tFileName})`
-        : `- Wrote note: ${tPath} (${tFileName})`;
+        ? `- 新建/写入笔记: ${tPath} (${tFileName})${resultSummary}`
+        : `- Wrote note: ${tPath} (${tFileName})${resultSummary}`;
     case 'patch_note':
       return zh
-        ? `- 局部修改笔记: ${tPath} (${tFileName})`
-        : `- Patched note: ${tPath} (${tFileName})`;
+        ? `- 局部修改笔记: ${tPath} (${tFileName})${resultSummary}`
+        : `- Patched note: ${tPath} (${tFileName})${resultSummary}`;
     case 'append_to_note':
       return zh
-        ? `- 追加内容至笔记: ${tPath} (${tFileName})`
-        : `- Appended to note: ${tPath} (${tFileName})`;
+        ? `- 追加内容至笔记: ${tPath} (${tFileName})${resultSummary}`
+        : `- Appended to note: ${tPath} (${tFileName})${resultSummary}`;
     case 'delete_note':
       return zh
         ? `- 删除笔记: ${tPath} (${tFileName})`
@@ -78,8 +160,8 @@ export function toolActionSummary(
         : `- Copied note: ${a.source_path} → ${a.target_path}`;
     default:
       return zh
-        ? `- 执行了工具: ${toolName}`
-        : `- Ran tool: ${toolName}`;
+        ? `- 执行了工具: ${toolName}${resultSummary}`
+        : `- Ran tool: ${toolName}${resultSummary}`;
   }
 }
 
@@ -136,10 +218,10 @@ export function writeDirective(activeRel: string | null, lang: PromptLang): stri
   if (lang === 'zh') {
     return (
       '你具备修改笔记库的物理权限。\n' +
-      (activeRel ? `当前活动的笔记相对路径为: \`${activeRel}\`。\n` : '') +
+      (activeRel ? `当前用户正在查看与编辑的活动笔记相对路径为: \`${activeRel}\`。若用户的请求针对当前笔记，请在修改时使用该路径。\n` : '') +
       '1. 当用户要求修改、优化当前已有笔记的局部内容时，使用 `patch_note`。严禁在修改已有文件时使用 `write_note` 覆盖全文件！\n' +
       '2. 只有当用户明确要求创建新笔记、新建文件时，才调用 `write_note`。\n' +
-      '3. 一旦文件修改或创建成功，切勿重复调用工具，立即向用户总结结果并结束回复。'
+      '3. 一旦文件修改或创建成功，切勿对同一文件重复调用工具；若所有文件操作均已完成，立即向用户总结结果并结束回复。'
     );
   }
   return (
@@ -147,7 +229,7 @@ export function writeDirective(activeRel: string | null, lang: PromptLang): stri
     (activeRel ? `The active note's relative path is: \`${activeRel}\`.\n` : '') +
     '1. When the user asks to modify or improve part of an existing note, use `patch_note`. Never overwrite a whole existing file with `write_note`!\n' +
     '2. Call `write_note` only when the user explicitly asks for a new note or file.\n' +
-    '3. Once a file is modified or created, do not repeat tool calls — summarize the result for the user and end the reply.'
+    '3. Once file modifications are done, do not repeatedly call tools on the same file — summarize the result for the user and end the reply.'
   );
 }
 
@@ -192,12 +274,12 @@ export function readonlyDirective(isOllama: boolean, lang: PromptLang): string {
 export function ragContextBlock(parts: string[], lang: PromptLang): string {
   if (lang === 'zh') {
     return (
-      '【自动检索的笔记片段】以下是与用户问题语义最相关的笔记片段（系统自动检索，非用户显式引用）。回答时优先依据这些内容，并在引用处用 [[相对路径]] 链接标注来源；若片段不足以回答问题，请明确说明而不是编造。\n\n' +
+      '【自动检索的背景知识片段】以下是与用户问题相关的知识库片段（系统自动检索，仅供补充参考；用户当前活动笔记及显式引用的笔记始终具备最高优先级）。若需引用请用 [[相对路径]] 标注；若片段不足以回答问题，请依据活动笔记或如实说明：\n\n' +
       parts.join('\n\n')
     );
   }
   return (
-    '[Automatically retrieved note snippets] These are the semantically most relevant note fragments for the question (auto-retrieved by the system, not explicitly referenced by the user). Prefer this material when answering and cite sources as [[relative/path]] links; if the snippets do not actually answer the question, say so instead of inventing content.\n\n' +
+    '[Automatically retrieved background context] These are vault background fragments (for supplemental reference only; the active note and explicitly referenced notes always take strict precedence). Cite sources as [[relative/path]] links if helpful; do not fabricate content:\n\n' +
     parts.join('\n\n')
   );
 }
@@ -218,3 +300,36 @@ export function selectionBlock(truncatedSel: string, lang: PromptLang): string {
   }
   return `[The user's current selection]\n${fence}markdown\n${truncatedSel}\n${fence}`;
 }
+
+/**
+ * Extract note names / paths referenced via `@mention` or `[[wikilink]]` in prompt text.
+ * Strips Chinese and ASCII trailing punctuation so that mentions like
+ * `@比较结构，请分析` or `@README.md, please review` cleanly extract `比较结构` and `README.md`.
+ */
+export function extractMentionTargets(prompt: string): string[] {
+  if (!prompt) return [];
+  const targets: string[] = [];
+
+  // Match either @mention or [[wikilink]] in document order
+  const regex = /@([^\s@#，。、：:;,；!?！？（）()\[\]{}《》〈〉【】「」『』"'“”‘’—…～~<>]+)|\[\[([^\]|#\n]+)(?:[|#][^\]\n]*)?\]\]/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(prompt)) !== null) {
+    if (match[1]) {
+      // @ mention
+      const raw = match[1].replace(/[，。、：:;,；!?！？（）()\[\]{}《》〈〉【】「」『』"'“”‘’—…～~<>\s]+$/, '').trim();
+      if (raw && !targets.includes(raw)) {
+        targets.push(raw);
+      }
+    } else if (match[2]) {
+      // [[wikilink]]
+      const raw = match[2].trim();
+      if (raw && !targets.includes(raw)) {
+        targets.push(raw);
+      }
+    }
+  }
+
+  return targets;
+}
+

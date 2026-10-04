@@ -367,3 +367,62 @@ fn windows_path_comparison_is_case_insensitive() {
         Path::new(r"D:\vault\notes\a.md"),
     ));
 }
+
+#[test]
+fn early_in_memory_approvals_survive_load_approved_roots() {
+    let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let dir = scratch("early-store");
+    let store = dir.join("security").join("approved-roots.json");
+    let initial_vault = scratch("initial-vault");
+    let disk_vault = scratch("disk-vault");
+
+    path_guard::_test_reset(None, &[]);
+    path_guard::_test_set_store(Some(store.as_path()));
+
+    // Suppose disk store already has disk_vault
+    path_guard::approve_root(&disk_vault).unwrap();
+
+    // Reset memory only. Before prime_app_roots runs on cold start, APPROVED_STORE is None:
+    path_guard::_test_reset(None, &[]);
+    path_guard::_test_set_store(None);
+    path_guard::approve_from_os_drop(&initial_vault.join("note.md"));
+    assert!(path_guard::is_authorized(&as_str(&initial_vault.join("note.md"))));
+
+    // prime_app_roots sets APPROVED_STORE and runs load_approved_roots:
+    path_guard::_test_set_store(Some(store.as_path()));
+    path_guard::load_approved_roots();
+
+    // BOTH the early approved root AND the roots loaded from disk must be authorized!
+    assert!(
+        path_guard::is_authorized(&as_str(&initial_vault.join("note.md"))),
+        "early approval must NOT be wiped by load_approved_roots"
+    );
+    assert!(
+        path_guard::is_authorized(&as_str(&disk_vault.join("other.md"))),
+        "disk store roots must be loaded"
+    );
+
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn os_opened_file_with_cjk_characters_and_spaces_is_authorized() {
+    let _g = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let dir = scratch("临时文件夹");
+    let file = dir.join("Blender 学习总目录.md");
+    fs::write(&file, b"# Blender \xe5\xad\xa6\xe4\xb9\xa0").unwrap();
+
+    path_guard::_test_reset(None, &[]);
+
+    // Before approval, it must be rejected
+    assert!(!path_guard::is_authorized(&as_str(&file)));
+
+    // When OS hands the file via CLI args, double click or drag-drop
+    path_guard::approve_from_os_drop(&file);
+
+    // After approval, file must be authorized
+    assert!(path_guard::is_authorized(&as_str(&file)));
+    assert!(path_guard::ensure_authorized(&as_str(&file)).is_ok());
+
+    let _ = fs::remove_dir_all(&dir);
+}

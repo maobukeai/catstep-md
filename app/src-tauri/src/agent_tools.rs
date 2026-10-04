@@ -434,8 +434,9 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
         workspace_canon.join(&raw)
     };
 
-    // If candidate does NOT exist, check if it's a relative path or filename that exists uniquely in workspace
-    if !candidate.exists() {
+    // If candidate does NOT exist, check if it's a bare filename that exists uniquely in workspace
+    let is_bare_filename = !trimmed.contains('/') && !trimmed.contains('\\');
+    if !candidate.exists() && is_bare_filename {
         if let Some(target_file_name) = candidate.file_name().map(|n| n.to_os_string()) {
             let target_str = target_file_name.to_string_lossy().to_lowercase();
             let mut matches: Vec<PathBuf> = Vec::new();

@@ -14,6 +14,7 @@ import {
   ragContextBlock,
   refsBlock,
   selectionBlock,
+  extractMentionTargets,
 } from './agent-prompts.ts';
 
 test('promptLang maps app locales to zh/en prompt languages', () => {
@@ -60,6 +61,32 @@ test('toolActionSummary covers every write tool and the fallback', () => {
   // Undefined args must not throw (tool messages are attacker-shaped).
   assert.doesNotThrow(() => toolActionSummary('write_note', undefined, 'zh'));
   assert.match(toolActionSummary('write_note', undefined, 'zh'), /\(\)/);
+
+  // Result parsing verification (hits format from Rust search and semantic_search tools)
+  const searchRes = JSON.stringify({
+    hits: [{ file: 'Daily/2026-04-30.md', line: 5, snippet: 'banana' }],
+    count: 1,
+  });
+  assert.match(
+    toolActionSummary('search', { query: 'banana' }, 'zh', searchRes),
+    /找到 1 条结果: \[Daily\/2026-04-30\.md\]/,
+  );
+  assert.match(
+    toolActionSummary('semantic_search', { query: 'banana' }, 'en', searchRes),
+    /Found 1 results: \[Daily\/2026-04-30\.md\]/,
+  );
+
+  const outlineRes = JSON.stringify({ outline: [{ level: 1, text: 'Title' }] });
+  assert.match(
+    toolActionSummary('get_outline', { path: 'a.md' }, 'zh', outlineRes),
+    /共 1 个标题大纲/,
+  );
+
+  const blRes = JSON.stringify({ backlinks: [{ from_path: 'b.md' }] });
+  assert.match(
+    toolActionSummary('get_backlinks', { note_name: 'a' }, 'zh', blRes),
+    /共 1 条反向链接/,
+  );
 });
 
 test('toolLogBlock and fallbackAssistantTurn switch languages', () => {
@@ -108,3 +135,36 @@ test('context blocks keep their citation instructions', () => {
   assert.ok(selectionBlock('text', 'en').includes('```markdown\ntext\n```'));
   assert.ok(selectionBlock('text', 'zh').includes('```markdown\ntext\n```'));
 });
+
+test('extractMentionTargets: extracts @ and [[wikilinks]] targets cleanly stripping punctuation', () => {
+  // Empty / null handling
+  assert.deepEqual(extractMentionTargets(''), []);
+
+  // Bare @ mention
+  assert.deepEqual(extractMentionTargets('@README.md'), ['README.md']);
+  assert.deepEqual(extractMentionTargets('@比较结构'), ['比较结构']);
+
+  // Mention followed by Chinese punctuation without spaces
+  assert.deepEqual(extractMentionTargets('@比较结构，请帮我分析一下'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('@比较结构。这是一篇重要笔记'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('@比较结构：分析优缺点'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('@比较结构；请总结'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('【@比较结构】重要笔记'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('「@比较结构」请提炼核心观点'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('@比较结构——继续深入'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('@比较结构…请展开'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('@比较结构～相关背景'), ['比较结构']);
+
+  // Mention followed by English punctuation
+  assert.deepEqual(extractMentionTargets('@README.md, please review'), ['README.md']);
+  assert.deepEqual(extractMentionTargets('Look at @notes/todo.md: check item 1'), ['notes/todo.md']);
+
+  // Markdown wikilink syntax
+  assert.deepEqual(extractMentionTargets('请查看 [[比较结构]] 中的定义'), ['比较结构']);
+  assert.deepEqual(extractMentionTargets('参考 [[比较结构|结构别名]] 与 [[README.md#Usage]]'), ['比较结构', 'README.md']);
+
+  // Mixed multiple mentions
+  const mixed = '请结合 @README.md，对比 [[比较结构]] 与 @docs/spec.md。';
+  assert.deepEqual(extractMentionTargets(mixed), ['README.md', '比较结构', 'docs/spec.md']);
+});
+

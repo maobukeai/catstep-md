@@ -18,6 +18,7 @@ import {
   ragContextBlock,
   refsBlock,
   selectionBlock,
+  extractMentionTargets,
 } from '../lib/agent-prompts';
 import {
   aiChat,
@@ -180,6 +181,17 @@ export function useAgentRun(options: UseAgentRunOptions) {
     const activeRel = getActiveNoteRelativePath();
     const activeFile = tabs.activeTab?.filePath || '(no active file)';
     const noteCount = workspaceIndex.entries.length;
+    const plang = promptLang(settings.language);
+    if (plang === 'zh') {
+      const lines = [
+        `当前工作区/笔记库根目录为: ${folder}`,
+        `当前活动编辑中的笔记相对路径: ${activeRel || activeFile}`,
+      ];
+      if (noteCount > 0) {
+        lines.push(`工作区共包含 ${noteCount} 篇已索引笔记。`);
+      }
+      return lines.join('\n');
+    }
     const lines = [
       `User's vault is at: ${folder}`,
       `Active file relative path: ${activeRel || activeFile}`,
@@ -209,7 +221,19 @@ export function useAgentRun(options: UseAgentRunOptions) {
         ? options.activeSelectionText.value.trim()
         : '');
     const relPath = getActiveNoteRelativePath() || tab.fileName || '(untitled)';
-    const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(truncated)' : content;
+    const truncatedContent = content.length > ACTIVE_NOTE_CHAR_LIMIT ? content.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(截断/truncated)' : content;
+    const plang = promptLang(settings.language);
+
+    if (plang === 'zh') {
+      if (rawSel.length > 0) {
+        const truncatedSelection =
+          rawSel.length > ACTIVE_NOTE_CHAR_LIMIT
+            ? rawSel.slice(0, ACTIVE_NOTE_CHAR_LIMIT) + '\n…(截断)'
+            : rawSel;
+        return `【当前活动笔记正文】(${relPath}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\`\n\n【用户在 ${relPath} 中当前划选的片段】:\n\`\`\`markdown\n${truncatedSelection}\n\`\`\``;
+      }
+      return `【当前活动笔记正文】(${relPath}):\n\`\`\`markdown\n${truncatedContent}\n\`\`\``;
+    }
 
     if (rawSel.length > 0) {
       const truncatedSelection =
@@ -246,6 +270,67 @@ export function useAgentRun(options: UseAgentRunOptions) {
     const plang = promptLang(settings.language);
     const refsToSend = [...options.activeReferences.value];
     const imagesToSend = [...options.activeImages.value];
+
+    // Auto-detect @ mentions and [[wikilinks]] in prompt (e.g. "@README.md", "@比较结构", "[[比较结构]]")
+    const detectedTargets = extractMentionTargets(prompt);
+
+    if (detectedTargets.length > 0) {
+      for (const rawTarget of detectedTargets) {
+        const q = rawTarget.toLowerCase();
+        // Check workspaceIndex.entries
+        const foundInIndex = workspaceIndex.entries.find((e) => {
+          const normP = e.path.replace(/\\/g, '/').toLowerCase();
+          return (
+            e.name.toLowerCase() === q ||
+            e.name.toLowerCase() === `${q}.md` ||
+            e.stem.toLowerCase() === q ||
+            (e.title && e.title.toLowerCase() === q) ||
+            normP.endsWith('/' + q) ||
+            normP.endsWith('/' + q + '.md') ||
+            normP === q
+          );
+        });
+
+        if (foundInIndex) {
+          if (!refsToSend.some((r) => r.path === foundInIndex.path)) {
+            refsToSend.push({
+              type: 'note',
+              name: foundInIndex.name,
+              path: foundInIndex.path,
+              preview: foundInIndex.summary || '',
+            });
+          }
+          continue;
+        }
+
+        // Check open editor tabs (tabs.tabs)
+        const foundInTabs = tabs.tabs.find((t) => {
+          const fn = t.fileName.toLowerCase();
+          const stem = t.fileName.replace(/\.md$/i, '').toLowerCase();
+          const fp = (t.filePath || '').replace(/\\/g, '/').toLowerCase();
+          return (
+            fn === q ||
+            fn === `${q}.md` ||
+            stem === q ||
+            fp.endsWith('/' + q) ||
+            fp.endsWith('/' + q + '.md') ||
+            fp === q
+          );
+        });
+
+        if (foundInTabs) {
+          const p = foundInTabs.filePath || foundInTabs.fileName;
+          if (!refsToSend.some((r) => r.path === p)) {
+            refsToSend.push({
+              type: 'note',
+              name: foundInTabs.fileName,
+              path: p,
+              preview: foundInTabs.content ? foundInTabs.content.slice(0, 100).replace(/\s+/g, ' ') : '',
+            });
+          }
+        }
+      }
+    }
 
     const activeSel = (!options.isSelectionDismissed.value && options.activeSelectionText.value) ? options.activeSelectionText.value.trim() : '';
     const hasActiveSel = !!activeSel;
@@ -331,17 +416,19 @@ export function useAgentRun(options: UseAgentRunOptions) {
     // (and cites [[path]] links) instead of either guessing or having to
     // think of calling the semantic_search tool itself. Best-effort: any
     // failure (index off, not built, embedder down) just skips the block.
-    if (settings.ragEnabled && settings.agentRagGrounding && workspace.currentFolder) {
+    // Automatic semantic retrieval over the vault (RAG).
+    // If the user already provided explicit note references (@note), skip auto-RAG to prevent
+    // distracting the model with unrelated vault notes and polluting grounded chips.
+    const hasExplicitNoteRefs = refsToSend.some((r) => r.type === 'note');
+    if (!hasExplicitNoteRefs && settings.ragEnabled && settings.agentRagGrounding && workspace.currentFolder) {
       try {
         const ragHits = await ragSearch<{ path: string; name: string; score: number; snippet: string }[]>({
           folder: workspace.currentFolder,
           query: prompt,
           limit: 4,
         });
-        // Floor drops pure-noise matches; no per-backend tuning exists, so it
-        // is deliberately loose — the prompt below tells the model to say so
-        // when the snippets don't actually answer the question.
-        const usable = ragHits.filter((h) => h.score >= 0.25);
+        // Floor drops noise matches
+        const usable = ragHits.filter((h) => h.score >= 0.45);
         if (usable.length > 0) {
           const parts = usable.map((h) => {
             const snippet = (h.snippet.length > 300 ? h.snippet.slice(0, 300) + '…' : h.snippet)
@@ -375,11 +462,42 @@ export function useAgentRun(options: UseAgentRunOptions) {
       const refTexts: string[] = [];
       for (const refItem of refsToSend) {
         if (refItem.path) {
+          const refPath = refItem.path;
           try {
-            const fullPath = workspace.currentFolder ? `${workspace.currentFolder}/${refItem.path}` : refItem.path;
-            const readRes = await readNote(fullPath);
-            const snippet = readRes.content.length > 8192 ? readRes.content.slice(0, 8192) + '\n…(截断)' : readRes.content;
-            refTexts.push(`### 引用笔记: ${refItem.name} (${refItem.path})\n\`\`\`markdown\n${snippet}\n\`\`\``);
+            let content = '';
+            // 1. If tab is open in editor, grab in-memory content first
+            const openTab = tabs.tabs.find((t) =>
+              matchesTabPath(t, refPath) ||
+              t.fileName.toLowerCase() === refItem.name.toLowerCase() ||
+              (t.filePath && t.filePath.replace(/\\/g, '/').toLowerCase() === refPath.replace(/\\/g, '/').toLowerCase())
+            );
+
+            if (openTab && typeof openTab.content === 'string' && openTab.content.length > 0) {
+              content = openTab.content;
+            } else {
+              const isAbs = /^[a-zA-Z]:[/\\]|^[/\\]{2}|^\//.test(refItem.path);
+              let fullPath = refItem.path;
+              if (!isAbs && workspace.currentFolder) {
+                const base = workspace.currentFolder.replace(/[/\\]+$/, '');
+                const rel = refItem.path.replace(/^[/\\]+/, '');
+                fullPath = `${base}/${rel}`;
+              }
+              const readRes = await readNote(fullPath);
+              content = readRes.content;
+            }
+
+            const snippet = content.length > 8192 ? content.slice(0, 8192) + '\n…(截断)' : content;
+
+            // Compute relative display path for the model prompt
+            let displayPath = refItem.path;
+            if (workspace.currentFolder) {
+              const normBase = workspace.currentFolder.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
+              const normFull = refItem.path.replace(/\\/g, '/');
+              if (normFull.toLowerCase().startsWith(normBase + '/')) {
+                displayPath = normFull.slice(normBase.length + 1);
+              }
+            }
+            refTexts.push(`### 引用笔记: ${refItem.name} (${displayPath})\n\`\`\`markdown\n${snippet}\n\`\`\``);
           } catch (e) {
             // C04: a failed @ reference used to be silent for the user (only
             // the model's prompt mentioned it). Surface it immediately: toast

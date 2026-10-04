@@ -118,7 +118,7 @@ export function foldAiDoneIntoAssistant(
 export interface HistoryMessageLike {
   role: string;
   content?: string;
-  tool?: { name: string; args: Record<string, unknown> } | null;
+  tool?: { name: string; args: Record<string, unknown>; result?: string } | null;
 }
 
 /**
@@ -161,7 +161,7 @@ export function buildConversationHistory(
         currentTurnAssistantParts.push(m.content.trim());
       }
     } else if (m.role === 'tool' && m.tool) {
-      currentTurnToolSummaries.push(toolActionSummary(m.tool.name, m.tool.args, plang));
+      currentTurnToolSummaries.push(toolActionSummary(m.tool.name, m.tool.args, plang, m.tool.result));
     }
   }
 

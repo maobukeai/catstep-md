@@ -1526,6 +1526,11 @@ fn stream_ended_early(provider: &str) -> String {
 /// before the panel detaches with the generic watchdog message.
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// Maximum successful note writes permitted in one agent run before tool cutoff.
+const MAX_NOTE_WRITES_PER_RUN: usize = 5;
+/// Maximum writes permitted to the same note path in one run to break infinite loops.
+const MAX_SAME_FILE_WRITES: usize = 2;
+
 /// Error for the per-chunk idle timeout (`STREAM_IDLE_TIMEOUT`) firing.
 ///
 /// A stop click only lands as a cancel flag that is polled on chunk arrival,
@@ -2286,7 +2291,9 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
     merge_mcp_tools(&mut tools, req, false).await;
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
-    let mut has_written_note = false;
+    let mut write_tools_exhausted = false;
+    let mut successful_writes_total: usize = 0;
+    let mut file_write_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     // Anti-loop trackers — parity with the OpenAI/Anthropic loops.
@@ -2297,7 +2304,7 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
         if cancel.load(Ordering::SeqCst) {
             return Err(cancelled());
         }
-        let current_tools = if has_written_note {
+        let current_tools = if write_tools_exhausted {
             &empty_tools
         } else {
             &tools
@@ -2308,7 +2315,7 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
                 provider: Some("ollama".to_string()),
                 model: Some(req.model.clone()),
                 messages_n: Some(history.len() as u64),
-                tools_n: Some(if has_written_note { 0 } else { tools_n }),
+                tools_n: Some(if write_tools_exhausted { 0 } else { tools_n }),
                 ..Default::default()
             });
         }
@@ -2449,11 +2456,29 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
             };
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
-                    has_written_note = true;
+                    successful_writes_total += 1;
+                    let raw_path = args
+                        .get("path")
+                        .or_else(|| args.get("target_path"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let target_path = raw_path
+                        .replace('\\', "/")
+                        .trim_start_matches("./")
+                        .trim_start_matches('/')
+                        .to_lowercase();
+                    let count_for_file = {
+                        let entry = file_write_counts.entry(target_path).or_insert(0);
+                        *entry += 1;
+                        *entry
+                    };
+                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN || count_for_file >= MAX_SAME_FILE_WRITES {
+                        write_tools_exhausted = true;
+                    }
                 } else {
                     write_fail_count += 1;
                     if write_fail_count >= 2 {
-                        has_written_note = true;
+                        write_tools_exhausted = true;
                     }
                 }
             }
@@ -2462,7 +2487,11 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
             let mut preview = cap_for_history(&json_preview(&result_value));
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
-                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                    if write_tools_exhausted {
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed. Write quota reached for this session. Do NOT call write/patch tools again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                    } else {
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. If all requested changes are done, summarize your modifications and finish your reply. If additional files still need to be modified per user request, you may proceed, but avoid repeatedly editing the same file.]");
+                    }
                 } else if write_fail_count >= 2 {
                     preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
                 }
@@ -2862,7 +2891,9 @@ pub async fn run_chat_anthropic_loop(
     merge_mcp_tools(&mut tools, req, true).await;
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
-    let mut has_written_note = false;
+    let mut write_tools_exhausted = false;
+    let mut successful_writes_total: usize = 0;
+    let mut file_write_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     // Anti-loop trackers — parity with the OpenAI loop, which had them from
@@ -2874,7 +2905,7 @@ pub async fn run_chat_anthropic_loop(
         if cancel.load(Ordering::SeqCst) {
             return Err(cancelled());
         }
-        let current_tools = if has_written_note {
+        let current_tools = if write_tools_exhausted {
             &empty_tools
         } else {
             &tools
@@ -2885,7 +2916,7 @@ pub async fn run_chat_anthropic_loop(
                 provider: Some("anthropic".to_string()),
                 model: Some(req.model.clone()),
                 messages_n: Some(history.len() as u64),
-                tools_n: Some(if has_written_note { 0 } else { tools_n }),
+                tools_n: Some(if write_tools_exhausted { 0 } else { tools_n }),
                 ..Default::default()
             });
         }
@@ -3029,11 +3060,29 @@ pub async fn run_chat_anthropic_loop(
             };
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
-                    has_written_note = true;
+                    successful_writes_total += 1;
+                    let raw_path = args
+                        .get("path")
+                        .or_else(|| args.get("target_path"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let target_path = raw_path
+                        .replace('\\', "/")
+                        .trim_start_matches("./")
+                        .trim_start_matches('/')
+                        .to_lowercase();
+                    let count_for_file = {
+                        let entry = file_write_counts.entry(target_path).or_insert(0);
+                        *entry += 1;
+                        *entry
+                    };
+                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN || count_for_file >= MAX_SAME_FILE_WRITES {
+                        write_tools_exhausted = true;
+                    }
                 } else {
                     write_fail_count += 1;
                     if write_fail_count >= 2 {
-                        has_written_note = true;
+                        write_tools_exhausted = true;
                     }
                 }
             }
@@ -3042,14 +3091,13 @@ pub async fn run_chat_anthropic_loop(
             let mut preview = cap_for_history(&json_preview(&result_value));
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
-                    has_written_note = true;
-                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
-                } else {
-                    write_fail_count += 1;
-                    if write_fail_count >= 2 {
-                        has_written_note = true;
-                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
+                    if write_tools_exhausted {
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed. Write quota reached for this session. Do NOT call write/patch tools again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                    } else {
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. If all requested changes are done, summarize your modifications and finish your reply. If additional files still need to be modified per user request, you may proceed, but avoid repeatedly editing the same file.]");
                     }
+                } else if write_fail_count >= 2 {
+                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
                 }
             }
             if consecutive_duplicate_count == 1 {
@@ -3447,7 +3495,9 @@ pub async fn run_chat_openai_loop(
     merge_mcp_tools(&mut tools, req, false).await;
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
-    let mut has_written_note = false;
+    let mut write_tools_exhausted = false;
+    let mut successful_writes_total: usize = 0;
+    let mut file_write_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     let mut last_tool_sig: Option<String> = None;
@@ -3457,7 +3507,7 @@ pub async fn run_chat_openai_loop(
         if cancel.load(Ordering::SeqCst) {
             return Err(cancelled());
         }
-        let current_tools = if has_written_note {
+        let current_tools = if write_tools_exhausted {
             &empty_tools
         } else {
             &tools
@@ -3468,7 +3518,7 @@ pub async fn run_chat_openai_loop(
                 provider: Some("openai".to_string()),
                 model: Some(req.model.clone()),
                 messages_n: Some(history.len() as u64),
-                tools_n: Some(if has_written_note { 0 } else { tools_n }),
+                tools_n: Some(if write_tools_exhausted { 0 } else { tools_n }),
                 ..Default::default()
             });
         }
@@ -3622,21 +3672,48 @@ pub async fn run_chat_openai_loop(
             let mut preview = cap_for_history(&json_preview(&result_value));
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
-                    has_written_note = true;
-                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. Do NOT call patch_note, write_note, or read_note again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                    successful_writes_total += 1;
+                    let raw_path = args
+                        .get("path")
+                        .or_else(|| args.get("target_path"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let target_path = raw_path
+                        .replace('\\', "/")
+                        .trim_start_matches("./")
+                        .trim_start_matches('/')
+                        .to_lowercase();
+                    let count_for_file = {
+                        let entry = file_write_counts.entry(target_path).or_insert(0);
+                        *entry += 1;
+                        *entry
+                    };
+                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN || count_for_file >= MAX_SAME_FILE_WRITES {
+                        write_tools_exhausted = true;
+                    }
                 } else {
                     write_fail_count += 1;
                     if write_fail_count >= 2 {
-                        has_written_note = true;
-                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
+                        write_tools_exhausted = true;
                     }
                 }
             }
             if consecutive_duplicate_count >= 2 {
-                has_written_note = true;
+                write_tools_exhausted = true;
                 preview.push_str("\n\n[SYSTEM DIRECTIVE: Repeated tool calls detected. Tool calls are now halted. Please synthesize your response directly to the user.]");
             } else if consecutive_duplicate_count == 1 {
                 preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
+            }
+            if name == "patch_note" || name == "write_note" || name == "append_to_note" {
+                if error_str.is_none() {
+                    if write_tools_exhausted {
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed. Write quota reached for this session. Do NOT call write/patch tools again for this request. Please provide your summary of the changes to the user and finish your reply.]");
+                    } else {
+                        preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification completed and physically synced to the editor. If all requested changes are done, summarize your modifications and finish your reply. If additional files still need to be modified per user request, you may proceed, but avoid repeatedly editing the same file.]");
+                    }
+                } else if write_fail_count >= 2 {
+                    preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
+                }
             }
             let _ = app.emit(
                 "solomd://ai-tool-result",

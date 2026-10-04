@@ -293,15 +293,17 @@ pub mod path_guard {
         let Ok(list) = serde_json::from_slice::<Vec<String>>(&bytes) else {
             return;
         };
-        let mut roots = APPROVED_ROOTS.write().unwrap_or_else(|e| e.into_inner());
-        roots.clear();
-        for raw in list {
-            let p = canonicalize_best_effort(&PathBuf::from(&raw));
-            if p.is_absolute() && !roots.iter().any(|r| r == &p) {
-                roots.push(p);
+        {
+            let mut roots = APPROVED_ROOTS.write().unwrap_or_else(|e| e.into_inner());
+            for raw in list {
+                let p = canonicalize_best_effort(&PathBuf::from(&raw));
+                if p.is_absolute() && !roots.iter().any(|r| r == &p) {
+                    roots.push(p);
+                }
             }
+            roots.truncate(MAX_APPROVED_ROOTS);
         }
-        roots.truncate(MAX_APPROVED_ROOTS);
+        save_approved_roots();
     }
 
     /// Record a directory the *user* just picked in a native dialog and make it

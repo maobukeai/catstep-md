@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { useTabsStore } from './tabs';
+import { useAgentPanelStore } from './agentPanel';
 
 const LS_KEY = 'solomd.workspace.v1';
 const MAX_RECENT = 12;
@@ -94,6 +95,9 @@ export const useWorkspaceStore = defineStore('workspace', {
       if (folder !== prev) {
         try {
           useTabsStore().onWorkspaceSwitched(prev, folder);
+        } catch {}
+        try {
+          useAgentPanelStore().loadForWorkspace(folder, prev);
         } catch {}
       }
     },

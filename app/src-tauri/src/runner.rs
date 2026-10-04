@@ -640,7 +640,11 @@ pub struct PendingOpen(pub Mutex<Vec<String>>);
 #[tauri::command]
 fn drain_pending_opens(state: tauri::State<PendingOpen>) -> Vec<String> {
     let mut guard = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    std::mem::take(&mut *guard)
+    let paths = std::mem::take(&mut *guard);
+    for p in &paths {
+        commands::path_guard::approve_from_os_drop(std::path::Path::new(p));
+    }
+    paths
 }
 
 /// One-shot guard so the size/position fit-up only runs once per launch.
@@ -754,6 +758,9 @@ fn clamp_window_to_monitor(win: &tauri::WebviewWindow) {
 }
 
 pub fn run_with(initial_file: Option<String>) {
+    if let Some(ref file) = initial_file {
+        commands::path_guard::approve_from_os_drop(std::path::Path::new(file));
+    }
     let pending: Vec<String> = initial_file.into_iter().collect();
 
     // IMPORTANT: must be called BEFORE NSApplication loads (i.e. before
@@ -781,11 +788,23 @@ pub fn run_with(initial_file: Option<String>) {
             }
             for arg in argv.iter().skip(1) {
                 if !arg.is_empty() && !arg.starts_with('-') {
+                    commands::path_guard::approve_from_os_drop(std::path::Path::new(arg));
                     let _ = app.emit("solomd://opened-file", arg.clone());
                 }
             }
         },
     ));
+
+    // Drag-and-drop on desktop webviews must authorize dropped files/folders
+    // across all windows (main and auxiliary) so the path guard accepts them.
+    #[cfg(desktop)]
+    let builder = builder.on_webview_event(|_webview, event| {
+        if let tauri::WebviewEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+            for p in paths {
+                commands::path_guard::approve_from_os_drop(p);
+            }
+        }
+    });
 
     let builder = builder
         .plugin(tauri_plugin_opener::init())
@@ -825,6 +844,7 @@ pub fn run_with(initial_file: Option<String>) {
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
 
+    let pending_for_setup = pending.clone();
     let app = builder
         .manage(PendingOpen(Mutex::new(pending)))
         .manage(watcher::WatcherState::new())
@@ -1044,12 +1064,15 @@ pub fn run_with(initial_file: Option<String>) {
             let id = event.id().0.clone();
             let _ = app_handle.emit("solomd://menu", id);
         })
-        .setup(|app| {
+        .setup(move |app| {
             // Path guard: register the app's own config / data / temp dirs as
             // authorized roots once, before any path-taking command runs. The
             // workspace root is registered separately, when a vault is opened
             // (`workspace_index_init`). See `commands::path_guard`.
             commands::path_guard::prime_app_roots(app.handle());
+            for p in &pending_for_setup {
+                commands::path_guard::approve_from_os_drop(std::path::Path::new(p));
+            }
             // Build initial menu in English — the frontend will call
             // `set_menu_language` on mount to apply the user's saved preference.
             // Windows: no native menu — the frameless window renders its own
@@ -1219,6 +1242,7 @@ pub fn run_with(initial_file: Option<String>) {
                         Some(url.to_string())
                     };
                     if let Some(p) = path {
+                        commands::path_guard::approve_from_os_drop(std::path::Path::new(&p));
                         if let Some(state) = app_handle.try_state::<PendingOpen>() {
                             state.0.lock().unwrap().push(p.clone());
                         }

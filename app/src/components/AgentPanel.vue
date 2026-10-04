@@ -716,10 +716,33 @@ async function checkOllama() {
   ollamaStatus.value = { online: false, models: [] };
 }
 
-// Filtered notes for @ mention
+// Filtered notes for @ mention (merging open editor tabs and workspace index)
 const filteredMentions = computed(() => {
   const q = mentionQuery.value.toLowerCase().trim();
-  const entries = workspaceIndex.entries || [];
+  const entriesMap = new Map<string, { name: string; path: string; summary?: string; stem?: string; tags?: string[]; title?: string | null }>();
+
+  // Include open tabs first so currently open notes are always immediately available
+  for (const t of tabs.tabs) {
+    const p = t.filePath || t.fileName;
+    entriesMap.set(p.toLowerCase(), {
+      name: t.fileName,
+      path: p,
+      stem: t.fileName.replace(/\.md$/i, ''),
+      summary: t.content ? t.content.slice(0, 100).replace(/\s+/g, ' ') : '',
+      tags: [],
+      title: null,
+    });
+  }
+
+  // Include indexed entries
+  for (const e of workspaceIndex.entries || []) {
+    const key = e.path.toLowerCase();
+    if (!entriesMap.has(key)) {
+      entriesMap.set(key, e);
+    }
+  }
+
+  const entries = Array.from(entriesMap.values());
   if (!q) {
     return entries.slice(0, 15);
   }
@@ -727,7 +750,7 @@ const filteredMentions = computed(() => {
     .filter((e) => {
       const nameMatch = e.name.toLowerCase().includes(q);
       const pathMatch = e.path.toLowerCase().includes(q);
-      const stemMatch = e.stem.toLowerCase().includes(q);
+      const stemMatch = (e.stem || '').toLowerCase().includes(q);
       const tagMatch = e.tags && e.tags.some((t) => t.toLowerCase().includes(q));
       const titleMatch = e.title && e.title.toLowerCase().includes(q);
       return nameMatch || pathMatch || stemMatch || tagMatch || titleMatch;
@@ -1007,9 +1030,9 @@ async function applyPolishedTextToDoc(assistantMsgContent: string, targetContext
   if (targetPath) {
     targetTab = tabs.tabs.find((t) => matchesTabPath(t, targetPath));
     if (!targetTab) {
-      // If target tab is not currently open, try to open it
-      const fullPath = workspace.currentFolder && !targetPath.includes(':') && !targetPath.startsWith('/')
-        ? `${workspace.currentFolder}/${targetPath}`
+      const isAbs = /^[a-zA-Z]:[/\\]|^[/\\]{2}|^\//.test(targetPath);
+      const fullPath = workspace.currentFolder && !isAbs
+        ? `${workspace.currentFolder.replace(/[/\\]+$/, '')}/${targetPath.replace(/^[/\\]+/, '')}`
         : targetPath;
       await files.openPath(fullPath);
       targetTab = tabs.tabs.find((t) => matchesTabPath(t, targetPath)) || tabs.activeTab;

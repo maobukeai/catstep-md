@@ -28,7 +28,8 @@
     "lib/htmlToMarkdown.test.ts",
     "lib/math-block.test.ts",
     "lib/shortcut-chords.ts",
-    "lib/shortcut-chords.test.ts"
+    "lib/shortcut-chords.test.ts",
+    "lib/agent-session-isolation.test.ts"
   ],
   "exemptLines": {
     "components/settings/GeneralSettingsTab.vue": [
@@ -69,7 +70,7 @@
     "App.vue": 9,
     "components/SelectionBubbleBar.vue": 9,
     "components/settings/ShortcutRecorder.vue": 9,
-    "composables/useAgentRun.ts": 9,
+    "composables/useAgentRun.ts": 16,
     "components/RestApiSettings.vue": 8,
     "components/MobileOutlineSheet.vue": 7,
     "components/MobileBottomDock.vue": 6,

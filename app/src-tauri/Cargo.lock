@@ -592,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "catstep-md"
-version = "1.0.7"
+version = "1.0.8"
 dependencies = [
  "argon2",
  "async-stream",
