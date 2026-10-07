@@ -136,6 +136,7 @@ interface Settings {
   autoCheckUpdate: boolean;
   autoDownloadUpdate: boolean;
   autoInstallUpdate: boolean;
+  autoUpdateV109Migrated?: boolean;
   // Preview layout
   previewFitWidth: boolean;
   /** v4.10 issue #165 — preview/reading content column width in px (was a
@@ -615,7 +616,8 @@ function defaults(): Settings {
     uiFontSize: 13,
     autoCheckUpdate: true,
     autoDownloadUpdate: true,
-    autoInstallUpdate: false,
+    autoInstallUpdate: true,
+    autoUpdateV109Migrated: true,
     language: (() => {
       // Detect browser language on first run. Maps navigator BCP-47 tag
       // to one of the 14 shipped UI locales; everything else → 'en'.
@@ -923,6 +925,13 @@ function load(): Settings {
           merged.quickCaptureShortcut = 'CmdOrCtrl+Alt+C';
         }
         merged.quickCaptureConflictMigrated = true;
+      }
+      // Auto-update migration: ensure startup auto-check, silent download, and auto-install are active
+      if (!parsed.autoUpdateV109Migrated) {
+        merged.autoCheckUpdate = true;
+        merged.autoDownloadUpdate = true;
+        merged.autoInstallUpdate = true;
+        merged.autoUpdateV109Migrated = true;
       }
       if (merged.leftSidebarTab === 'search') {
         merged.leftSidebarTab = 'files';

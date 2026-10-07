@@ -13,11 +13,38 @@ import { processMermaidBlocks } from '../lib/mermaid-lazy';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
+import { usePandocExport } from './usePandocExport';
 import {
   resolvePdfOptions,
   userTouchedPdfDefaults,
   buildPrintStyle,
 } from '../lib/pdf-options';
+
+type ExportKind =
+  | 'pdf'
+  | 'html'
+  | 'htmlPlain'
+  | 'image'
+  | 'docx'
+  | 'markdown'
+  | 'odt'
+  | 'rtf'
+  | 'epub'
+  | 'latex'
+  | 'pdfPrint';
+
+let lastExportRecord: { kind: ExportKind; path?: string } | null = null;
+
+const PLAIN_HTML_TEMPLATE = (title: string, body: string) => `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+</head>
+<body>
+${body}
+</body>
+</html>`;
 
 const HTML_TEMPLATE = (title: string, body: string) => `<!doctype html>
 <html lang="en">
@@ -81,7 +108,14 @@ const HTML_TEMPLATE = (title: string, body: string) => `<!doctype html>
   a:hover { border-bottom-color: var(--brand); }
   strong { color: var(--ink); }
   em { color: var(--ink); }
-  code {
+  code:not(pre code) {
+    display: inline-block;
+    vertical-align: baseline;
+    max-width: 100%;
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
     font-family: "JetBrains Mono", "SF Mono", "Menlo", "Consolas",
       "Liberation Mono", monospace;
     font-size: .9em;
@@ -100,6 +134,7 @@ const HTML_TEMPLATE = (title: string, body: string) => `<!doctype html>
     border: 1px solid var(--rule);
   }
   pre code {
+    display: block;
     background: transparent;
     padding: 0;
     color: var(--ink);
@@ -399,11 +434,11 @@ export function useExport() {
       && typeof (window as unknown as { ClipboardItem?: unknown }).ClipboardItem !== 'undefined';
   }
 
-  async function exportHtml() {
+  async function exportHtml(destPath?: string) {
     const ctx = activeOr();
     if (!ctx) return;
     const filename = `${ctx.baseName}.html`;
-    const path = await pickWritePath(filename, [{ name: 'HTML', extensions: ['html'] }]);
+    const path = destPath ?? (await pickWritePath(filename, [{ name: 'HTML', extensions: ['html'] }]));
     if (!path) return;
     // Rewrite links to file:// URLs, and convert local images to Base64/Data URLs
     // so exported standalone HTML files don't leak broken asset:// protocols.
@@ -417,17 +452,56 @@ export function useExport() {
     const html = HTML_TEMPLATE(ctx.baseName, body);
     try {
       await writeNote(path, html);
+      lastExportRecord = { kind: 'html', path };
       toasts.success(isIOS() ? iosSavedToast(filename) : t('toast.exportedHtml'));
     } catch (e) {
       toasts.error(t('toast.exportFailedReason', { error: String(e) }));
     }
   }
 
-  async function exportDocx() {
+  async function exportHtmlPlain(destPath?: string) {
+    const ctx = activeOr();
+    if (!ctx) return;
+    const filename = `${ctx.baseName}-plain.html`;
+    const path = destPath ?? (await pickWritePath(filename, [{ name: 'HTML', extensions: ['html'] }]));
+    if (!path) return;
+    const imageRoot = extractImageRoot(ctx.content);
+    let body = rewriteLinkUrls(
+      renderMarkdown(ctx.content),
+      imageRoot,
+      ctx.filePath,
+    );
+    body = await embedLocalImagesAsDataUrls(body, imageRoot, ctx.filePath);
+    const html = PLAIN_HTML_TEMPLATE(ctx.baseName, body);
+    try {
+      await writeNote(path, html);
+      lastExportRecord = { kind: 'htmlPlain', path };
+      toasts.success(isIOS() ? iosSavedToast(filename) : t('toast.exportedHtmlPlain'));
+    } catch (e) {
+      toasts.error(t('toast.exportFailedReason', { error: String(e) }));
+    }
+  }
+
+  async function exportMarkdown(destPath?: string) {
+    const ctx = activeOr();
+    if (!ctx) return;
+    const filename = `${ctx.baseName}.md`;
+    const path = destPath ?? (await pickWritePath(filename, [{ name: 'Markdown', extensions: ['md'] }]));
+    if (!path) return;
+    try {
+      await writeNote(path, ctx.content);
+      lastExportRecord = { kind: 'markdown', path };
+      toasts.success(isIOS() ? iosSavedToast(filename) : t('toast.exportedMarkdown'));
+    } catch (e) {
+      toasts.error(t('toast.exportFailedReason', { error: String(e) }));
+    }
+  }
+
+  async function exportDocx(destPath?: string) {
     const ctx = activeOr();
     if (!ctx) return;
     const filename = `${ctx.baseName}.docx`;
-    const path = await pickWritePath(filename, [{ name: 'Word Document', extensions: ['docx'] }]);
+    const path = destPath ?? (await pickWritePath(filename, [{ name: 'Word Document', extensions: ['docx'] }]));
     if (!path) return;
     const tid = toasts.info(t('toast.generatingDocx'), 0);
     try {
@@ -442,6 +516,7 @@ export function useExport() {
       const buffer = new Uint8Array(await blob.arrayBuffer());
       // Tauri 2 serializes Uint8Array as a number array which Rust accepts as Vec<u8>.
       await writeBinaryFile(path, Array.from(buffer));
+      lastExportRecord = { kind: 'docx', path };
       toasts.dismiss(tid);
       toasts.success(isIOS() ? iosSavedToast(filename) : t('toast.exportedDocx'));
     } catch (e) {
@@ -452,11 +527,11 @@ export function useExport() {
   }
 
   /** Native-feel PDF export: build a real .pdf file via html2pdf.js. */
-  async function exportPdf() {
+  async function exportPdf(destPath?: string) {
     const ctx = activeOr();
     if (!ctx) return;
     const filename = `${ctx.baseName}.pdf`;
-    const path = await pickWritePath(filename, [{ name: 'PDF', extensions: ['pdf'] }]);
+    const path = destPath ?? (await pickWritePath(filename, [{ name: 'PDF', extensions: ['pdf'] }]));
     if (!path) return;
     const tid = toasts.info(t('toast.generatingPdf'), 0);
     try {
@@ -471,6 +546,7 @@ export function useExport() {
       const blob = await markdownToPdfBlob(ctx.content, ctx.baseName, pdfOpts, ctx.filePath, skin);
       const buffer = new Uint8Array(await blob.arrayBuffer());
       await writeBinaryFile(path, Array.from(buffer));
+      lastExportRecord = { kind: 'pdf', path };
       toasts.dismiss(tid);
       toasts.success(isIOS() ? iosSavedToast(filename) : t('toast.exportedPdf'));
     } catch (e) {
@@ -515,9 +591,12 @@ export function useExport() {
       overlay.id = 'solomd-print-overlay';
       document.body.appendChild(overlay);
     }
+    const isReading = settings.viewMode === 'reading' || Boolean(document.querySelector('.reading-view, .preview-content--reading'));
+    const readingClass = isReading ? ' preview-content--reading' : '';
     overlay.innerHTML = `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<div class="solomd-print-content preview-content">${body}</div>`;
+<div class="solomd-print-content preview-content${readingClass}">${body}</div>`;
     await processMermaidBlocks(overlay);
+    lastExportRecord = { kind: 'pdfPrint' };
     // Print palette, independent of the app theme. The overlay sits outside
     // #app but still inherits :root's tokens, so a dark theme used to put a
     // dark code slab on paper. `follow` adds no class and keeps that.
@@ -637,7 +716,7 @@ export function useExport() {
    * region, save as image" produces an image of *just that region* instead
    * of the whole document.
    */
-  async function exportImage() {
+  async function exportImage(destPath?: string) {
     const ctx = activeOr();
     if (!ctx) return;
     const sel = getEditorSelectionMd(ctx.content);
@@ -646,7 +725,7 @@ export function useExport() {
     const filename = isSelection
       ? `${ctx.baseName}-selection.png`
       : `${ctx.baseName}.png`;
-    const path = await pickWritePath(filename, [{ name: 'PNG Image', extensions: ['png'] }]);
+    const path = destPath ?? (await pickWritePath(filename, [{ name: 'PNG Image', extensions: ['png'] }]));
     if (!path) return;
     const tid = toasts.info(isSelection ? t('toast.generatingSelectionImage') : t('toast.generatingImage'), 0);
     const isReading = settings.viewMode === 'reading' || Boolean(document.querySelector('.reading-view, .preview-content--reading'));
@@ -659,6 +738,7 @@ export function useExport() {
       });
       const buffer = new Uint8Array(await blob.arrayBuffer());
       await writeBinaryFile(path, Array.from(buffer));
+      lastExportRecord = { kind: 'image', path };
       toasts.dismiss(tid);
       const msg = isIOS()
         ? iosSavedToast(filename)
@@ -670,6 +750,69 @@ export function useExport() {
       console.error(e);
       toasts.dismiss(tid);
       toasts.error(t('toast.imageExportFailed', { error: String(e) }));
+    }
+  }
+
+  const pandoc = usePandocExport();
+
+  async function exportOdt(destPath?: string) {
+    const p = await pandoc.exportTo('odt', undefined, destPath ? { outputPath: destPath } : {});
+    if (p) lastExportRecord = { kind: 'odt', path: p };
+  }
+
+  async function exportRtf(destPath?: string) {
+    const p = await pandoc.exportTo('rtf', undefined, destPath ? { outputPath: destPath } : {});
+    if (p) lastExportRecord = { kind: 'rtf', path: p };
+  }
+
+  async function exportEpub(destPath?: string) {
+    const p = await pandoc.exportTo('epub', undefined, destPath ? { outputPath: destPath } : {});
+    if (p) lastExportRecord = { kind: 'epub', path: p };
+  }
+
+  async function exportLatex(destPath?: string) {
+    const p = await pandoc.exportTo('latex', undefined, destPath ? { outputPath: destPath } : {});
+    if (p) lastExportRecord = { kind: 'latex', path: p };
+  }
+
+  async function exportLast() {
+    if (!lastExportRecord) {
+      toasts.info(t('toast.noPreviousExport'));
+      return;
+    }
+    switch (lastExportRecord.kind) {
+      case 'pdf': return exportPdf();
+      case 'html': return exportHtml();
+      case 'htmlPlain': return exportHtmlPlain();
+      case 'image': return exportImage();
+      case 'docx': return exportDocx();
+      case 'markdown': return exportMarkdown();
+      case 'odt': return exportOdt();
+      case 'rtf': return exportRtf();
+      case 'epub': return exportEpub();
+      case 'latex': return exportLatex();
+      case 'pdfPrint': return exportPdfPrint();
+    }
+  }
+
+  async function exportOverwriteLast() {
+    if (!lastExportRecord || !lastExportRecord.path) {
+      toasts.info(t('toast.noPreviousExport'));
+      return;
+    }
+    const dest = lastExportRecord.path;
+    switch (lastExportRecord.kind) {
+      case 'pdf': return exportPdf(dest);
+      case 'html': return exportHtml(dest);
+      case 'htmlPlain': return exportHtmlPlain(dest);
+      case 'image': return exportImage(dest);
+      case 'docx': return exportDocx(dest);
+      case 'markdown': return exportMarkdown(dest);
+      case 'odt': return exportOdt(dest);
+      case 'rtf': return exportRtf(dest);
+      case 'epub': return exportEpub(dest);
+      case 'latex': return exportLatex(dest);
+      case 'pdfPrint': return exportPdfPrint();
     }
   }
 
@@ -740,10 +883,18 @@ export function useExport() {
 
   return {
     exportHtml,
+    exportHtmlPlain,
+    exportMarkdown,
     exportDocx,
     exportPdf,
     exportPdfPrint,
     exportImage,
+    exportOdt,
+    exportRtf,
+    exportEpub,
+    exportLatex,
+    exportLast,
+    exportOverwriteLast,
     copyAsHtml,
     copyAsPlainText,
     copyAsMarkdown,

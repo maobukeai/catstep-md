@@ -18,7 +18,7 @@ import { processMermaidBlocks } from './mermaid-lazy';
 
 const EXPORT_TIMEOUT_MS = 30_000;
 
-const PDF_CSS = `
+export const PDF_CSS = `
   body { margin: 0; }
   .pdf-page {
     box-sizing: border-box;
@@ -135,7 +135,14 @@ const PDF_CSS = `
     text-decoration: none;
     border-bottom: 1px solid color-mix(in srgb, var(--accent, #0366d6) 25%, transparent);
   }
-  .pdf-page code {
+  .pdf-page code:not(pre code) {
+    display: inline-block;
+    vertical-align: baseline;
+    max-width: 100%;
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
     font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
     font-size: .88em;
     background: var(--bg-elev, #f3efe7);
@@ -160,7 +167,8 @@ const PDF_CSS = `
     break-inside: avoid;
   }
   .pdf-page pre code {
-    background: transparent;
+    display: block;
+    background: transparent !important;
     padding: 0;
     font-size: .86em;
     color: var(--text, #1f1d1a);
@@ -350,6 +358,37 @@ export function sanitizeModernColors(root: HTMLElement): void {
   }
 }
 
+/**
+ * Prepares the DOM tree for html2canvas capture in PDF and image exports.
+ * Fixes a severe html2canvas bug: inline elements with background colors (like <code>)
+ * that wrap across lines cause html2canvas to compute element.getBoundingClientRect(),
+ * which is the union bounding box across both lines. html2canvas then draws a giant
+ * solid background rectangle across both lines, obliterating preceding text.
+ * Enforcing `display: inline-block` ensures code pills are rendered as atomic boxes.
+ */
+export function prepareExportDom(root: HTMLElement): void {
+  try {
+    const codes = root.querySelectorAll('code');
+    codes.forEach((code) => {
+      if (code.closest('pre')) {
+        code.style.display = 'block';
+        code.style.backgroundColor = 'transparent';
+        code.style.padding = '0';
+      } else {
+        code.style.display = 'inline-block';
+        code.style.verticalAlign = 'baseline';
+        code.style.maxWidth = '100%';
+        code.style.boxSizing = 'border-box';
+        code.style.wordBreak = 'break-word';
+        code.style.overflowWrap = 'break-word';
+        code.style.lineHeight = '1.4';
+      }
+    });
+  } catch {
+    /* never let DOM preparation break the export */
+  }
+}
+
 function camelToKebab(s: string): string {
   return s.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 }
@@ -395,9 +434,13 @@ export async function markdownToPdfBlob(
       : '';
     const codeOverride =
       pdfOpts.codeTheme === 'light'
-        ? `.pdf-page pre, .pdf-page code { background: #f3efe7 !important; color: #1f1d1a !important; }`
+        ? `.pdf-page pre { background: #f3efe7 !important; }
+           .pdf-page code:not(pre code) { background: #f3efe7 !important; color: #1f1d1a !important; }
+           .pdf-page pre code { background: transparent !important; color: #1f1d1a !important; }`
         : pdfOpts.codeTheme === 'dark'
-        ? `.pdf-page pre, .pdf-page code { background: #1f1d1a !important; color: #eee !important; }`
+        ? `.pdf-page pre { background: #1f1d1a !important; }
+           .pdf-page code:not(pre code) { background: #1f1d1a !important; color: #eee !important; }
+           .pdf-page pre code { background: transparent !important; color: #eee !important; }`
         : '';
     extraStyle.textContent = `
       .pdf-page {
@@ -462,6 +505,7 @@ export async function markdownToPdfBlob(
       // and KaTeX are in the tree. Runs on the live (offscreen) node so
       // getComputedStyle sees the cascade.
       sanitizeModernColors(page);
+      prepareExportDom(page);
 
       // v2.5 F3: derive jsPDF / margin args from the resolved opts. When
       // the caller didn't customize anything, fall back to the legacy

@@ -908,7 +908,14 @@ defineExpose({ scrollToLine, openSearch });
   text-decoration: none;
 }
 :where(.preview-content) a:hover { text-decoration: underline; }
-:where(.preview-content) code {
+:where(.preview-content) code:not(pre code) {
+  display: inline-block;
+  vertical-align: baseline;
+  max-width: 100%;
+  box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.4;
   font-family: var(--font-mono);
   font-size: 0.9em;
   background: var(--bg-hover);

@@ -333,3 +333,67 @@ export function extractMentionTargets(prompt: string): string[] {
   return targets;
 }
 
+export interface VaultContextOptions {
+  folder: string | null;
+  activeRel?: string;
+  activeFile?: string;
+  noteCount?: number;
+  openTabNames?: string[];
+}
+
+/** Vault context block with single-file and open-tabs awareness. */
+export function vaultContextBlock(opts: VaultContextOptions, lang: PromptLang): string {
+  const { folder, activeRel, activeFile, noteCount = 0, openTabNames = [] } = opts;
+  const currentTarget = activeRel || activeFile || '(no active file)';
+  const zh = lang === 'zh';
+
+  if (!folder) {
+    if (activeFile) {
+      if (zh) {
+        const lines = [
+          '当前处于单文件编辑模式（未打开工作区文件夹）。',
+          `当前活动编辑文档: ${activeFile}`,
+        ];
+        if (openTabNames.length > 1) {
+          lines.push(`当前已打开标签页 (${openTabNames.length}): ${openTabNames.join(', ')}`);
+        }
+        return lines.join('\n');
+      }
+      const lines = [
+        'Single-file mode (no workspace folder opened).',
+        `Active document: ${activeFile}`,
+      ];
+      if (openTabNames.length > 1) {
+        lines.push(`Open tabs (${openTabNames.length}): ${openTabNames.join(', ')}`);
+      }
+      return lines.join('\n');
+    }
+    return '';
+  }
+
+  if (zh) {
+    const lines = [
+      `当前工作区/笔记库根目录为: ${folder}`,
+      `当前活动编辑中的笔记相对路径: ${currentTarget}`,
+    ];
+    if (openTabNames.length > 0) {
+      lines.push(`当前已打开标签页 (${openTabNames.length}): ${openTabNames.join(', ')}`);
+    }
+    if (noteCount > 0) {
+      lines.push(`工作区共包含 ${noteCount} 篇已索引笔记。`);
+    }
+    return lines.join('\n');
+  }
+
+  const lines = [
+    `User's vault is at: ${folder}`,
+    `Active file relative path: ${currentTarget}`,
+  ];
+  if (openTabNames.length > 0) {
+    lines.push(`Open tabs (${openTabNames.length}): ${openTabNames.join(', ')}`);
+  }
+  if (noteCount > 0) {
+    lines.push(`Workspace contains ${noteCount} indexed note${noteCount === 1 ? '' : 's'}.`);
+  }
+  return lines.join('\n');
+}

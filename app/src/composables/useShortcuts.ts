@@ -82,6 +82,7 @@ export function useShortcuts(hooks: Hooks = {}) {
       if (tabs.activeId) files.closeTabSafe(tabs.activeId);
     },
     'tab.reopenClosed': () => void tabs.reopenLastClosedTab(),
+    'file.exportLast': () => void exporter.exportLast(),
     'file.openExternal': () => runById('file.openExternal'),
     'window.new': () => runById('window.new'),
     'file.exit': () => {

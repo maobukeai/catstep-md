@@ -716,46 +716,119 @@ async function checkOllama() {
   ollamaStatus.value = { online: false, models: [] };
 }
 
-// Filtered notes for @ mention (merging open editor tabs and workspace index)
-const filteredMentions = computed(() => {
-  const q = mentionQuery.value.toLowerCase().trim();
-  const entriesMap = new Map<string, { name: string; path: string; summary?: string; stem?: string; tags?: string[]; title?: string | null }>();
+export interface MentionResourceItem {
+  id: string;
+  name: string;
+  path: string;
+  displayPath?: string;
+  source: 'tab' | 'vault';
+  isActiveTab?: boolean;
+  isDraft?: boolean;
+  stem: string;
+  summary?: string;
+  tags?: string[];
+  title?: string | null;
+}
 
-  // Include open tabs first so currently open notes are always immediately available
-  for (const t of tabs.tabs) {
-    const p = t.filePath || t.fileName;
-    entriesMap.set(p.toLowerCase(), {
-      name: t.fileName,
+// Filtered notes for @ mention (prioritizing active editor tabs, then workspace index)
+const filteredMentions = computed<MentionResourceItem[]>(() => {
+  const q = mentionQuery.value.toLowerCase().trim();
+  const openTabItems: MentionResourceItem[] = [];
+  const vaultItems: MentionResourceItem[] = [];
+
+  const knownPaths = new Set<string>();
+  const knownStems = new Set<string>();
+
+  const currentFolderNorm = workspace.currentFolder
+    ? workspace.currentFolder.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '')
+    : '';
+
+  // 1. Process Open Tabs in Editor (Highest Priority)
+  for (const tab of tabs.tabs) {
+    const isActive = tab.id === tabs.activeId || tab === tabs.activeTab;
+    const isDraft = !tab.filePath;
+    const p = tab.filePath || tab.fileName;
+    const normP = p.replace(/\\/g, '/').toLowerCase();
+    const stem = tab.fileName.replace(/\.(md|markdown)$/i, '');
+
+    knownPaths.add(normP);
+    knownStems.add(stem.toLowerCase());
+    knownStems.add(tab.fileName.toLowerCase());
+
+    let displayPath = '';
+    if (isDraft) {
+      displayPath = t('agent.mentionDraftHint');
+    } else if (currentFolderNorm && normP.startsWith(currentFolderNorm + '/')) {
+      displayPath = p.replace(/\\/g, '/').slice(currentFolderNorm.length + 1);
+      knownPaths.add(displayPath.toLowerCase());
+    } else {
+      displayPath = p.replace(/\\/g, '/');
+    }
+
+    const item: MentionResourceItem = {
+      id: `tab:${tab.id || p}`,
+      name: tab.fileName,
       path: p,
-      stem: t.fileName.replace(/\.md$/i, ''),
-      summary: t.content ? t.content.slice(0, 100).replace(/\s+/g, ' ') : '',
+      displayPath,
+      source: 'tab',
+      isActiveTab: isActive,
+      isDraft,
+      stem,
+      summary: tab.content ? tab.content.slice(0, 120).replace(/\s+/g, ' ') : '',
       tags: [],
       title: null,
-    });
-  }
+    };
 
-  // Include indexed entries
-  for (const e of workspaceIndex.entries || []) {
-    const key = e.path.toLowerCase();
-    if (!entriesMap.has(key)) {
-      entriesMap.set(key, e);
+    if (isActive) {
+      openTabItems.unshift(item); // Active tab always at the top!
+    } else {
+      openTabItems.push(item);
     }
   }
 
-  const entries = Array.from(entriesMap.values());
-  if (!q) {
-    return entries.slice(0, 15);
+  // 2. Process Indexed Vault Entries
+  for (const e of workspaceIndex.entries || []) {
+    const eNormP = e.path.replace(/\\/g, '/').toLowerCase();
+    const eStem = (e.stem || e.name.replace(/\.(md|markdown)$/i, '')).toLowerCase();
+
+    // Check if this vault file is already open as a tab (avoid duplicate entries)
+    if (
+      knownPaths.has(eNormP) ||
+      (currentFolderNorm && knownPaths.has(`${currentFolderNorm}/${eNormP}`)) ||
+      (knownStems.has(eStem) && knownPaths.has(eNormP))
+    ) {
+      continue;
+    }
+
+    vaultItems.push({
+      id: `vault:${e.path}`,
+      name: e.name,
+      path: e.path,
+      displayPath: e.path.replace(/\\/g, '/'),
+      source: 'vault',
+      isActiveTab: false,
+      isDraft: false,
+      stem: e.stem || '',
+      summary: e.summary || '',
+      tags: e.tags || [],
+      title: e.title || null,
+    });
   }
-  return entries
-    .filter((e) => {
-      const nameMatch = e.name.toLowerCase().includes(q);
-      const pathMatch = e.path.toLowerCase().includes(q);
-      const stemMatch = (e.stem || '').toLowerCase().includes(q);
-      const tagMatch = e.tags && e.tags.some((t) => t.toLowerCase().includes(q));
-      const titleMatch = e.title && e.title.toLowerCase().includes(q);
-      return nameMatch || pathMatch || stemMatch || tagMatch || titleMatch;
-    })
-    .slice(0, 15);
+
+  const matchItem = (item: MentionResourceItem) => {
+    if (!q) return true;
+    const nameMatch = item.name.toLowerCase().includes(q);
+    const pathMatch = item.path.toLowerCase().includes(q);
+    const stemMatch = item.stem.toLowerCase().includes(q);
+    const tagMatch = item.tags && item.tags.some((t) => t.toLowerCase().includes(q));
+    const titleMatch = item.title && item.title.toLowerCase().includes(q);
+    return nameMatch || pathMatch || stemMatch || tagMatch || titleMatch;
+  };
+
+  const matchedTabs = openTabItems.filter(matchItem);
+  const matchedVault = vaultItems.filter(matchItem);
+
+  return [...matchedTabs, ...matchedVault].slice(0, 20);
 });
 
 function toggleMentionMenu() {
@@ -2614,16 +2687,30 @@ function fmtTurnUsage(u: { tokensIn: number; tokensOut: number; costUsd: number 
           <div class="agent-panel__mention-list">
             <button
               v-for="(item, idx) in filteredMentions"
-              :key="item.path"
+              :key="item.id || item.path"
               type="button"
               class="agent-panel__mention-item"
               :class="{ 'is-selected': idx === mentionIndex }"
               @mouseenter="mentionIndex = idx"
               @click="selectMention(item)"
             >
+              <div class="agent-panel__mention-icon">
+                {{ item.source === 'tab' ? '📄' : '📁' }}
+              </div>
               <div class="agent-panel__mention-info">
-                <span class="agent-panel__mention-name">{{ item.name }}</span>
-                <span class="agent-panel__mention-path">{{ item.path }}</span>
+                <div class="agent-panel__mention-name-row">
+                  <span class="agent-panel__mention-name">{{ item.name }}</span>
+                  <span v-if="item.isActiveTab" class="agent-panel__mention-badge is-active">
+                    {{ t('agent.mentionActiveBadge') }}
+                  </span>
+                  <span v-else-if="item.source === 'tab'" class="agent-panel__mention-badge is-open">
+                    {{ t('agent.mentionOpenBadge') }}
+                  </span>
+                  <span v-if="item.isDraft" class="agent-panel__mention-badge is-draft">
+                    {{ t('agent.mentionDraftBadge') }}
+                  </span>
+                </div>
+                <span class="agent-panel__mention-path">{{ item.displayPath || item.path }}</span>
               </div>
               <span v-if="item.tags && item.tags.length" class="agent-panel__mention-tag">
                 #{{ item.tags[0] }}
@@ -4134,6 +4221,12 @@ function fmtTurnUsage(u: { tokensIn: number; tokensOut: number; costUsd: number 
   display: flex;
   flex-direction: column;
 }
+.agent-panel__mention-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 .agent-panel__mention-name {
   font-size: 12px;
   font-weight: 500;
@@ -4141,6 +4234,29 @@ function fmtTurnUsage(u: { tokensIn: number; tokensOut: number; costUsd: number 
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.agent-panel__mention-badge {
+  font-size: 9.5px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.agent-panel__mention-badge.is-active {
+  background: color-mix(in srgb, var(--accent, #0366d6) 18%, transparent);
+  color: var(--accent, #0366d6);
+  border: 1px solid color-mix(in srgb, var(--accent, #0366d6) 35%, transparent);
+}
+.agent-panel__mention-badge.is-open {
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.agent-panel__mention-badge.is-draft {
+  background: color-mix(in srgb, #e36209 15%, transparent);
+  color: #e36209;
+  border: 1px solid color-mix(in srgb, #e36209 30%, transparent);
 }
 .agent-panel__mention-path {
   font-size: 10px;

@@ -19,6 +19,7 @@ import {
   refsBlock,
   selectionBlock,
   extractMentionTargets,
+  vaultContextBlock,
 } from '../lib/agent-prompts';
 import {
   aiChat,
@@ -176,30 +177,16 @@ export function useAgentRun(options: UseAgentRunOptions) {
   }
 
   function buildVaultContext(): string {
-    const folder = workspace.currentFolder;
-    if (!folder) return '';
-    const activeRel = getActiveNoteRelativePath();
-    const activeFile = tabs.activeTab?.filePath || '(no active file)';
-    const noteCount = workspaceIndex.entries.length;
-    const plang = promptLang(settings.language);
-    if (plang === 'zh') {
-      const lines = [
-        `当前工作区/笔记库根目录为: ${folder}`,
-        `当前活动编辑中的笔记相对路径: ${activeRel || activeFile}`,
-      ];
-      if (noteCount > 0) {
-        lines.push(`工作区共包含 ${noteCount} 篇已索引笔记。`);
-      }
-      return lines.join('\n');
-    }
-    const lines = [
-      `User's vault is at: ${folder}`,
-      `Active file relative path: ${activeRel || activeFile}`,
-    ];
-    if (noteCount > 0) {
-      lines.push(`Workspace contains ${noteCount} indexed note${noteCount === 1 ? '' : 's'}.`);
-    }
-    return lines.join('\n');
+    return vaultContextBlock(
+      {
+        folder: workspace.currentFolder,
+        activeRel: getActiveNoteRelativePath(),
+        activeFile: tabs.activeTab?.filePath || tabs.activeTab?.fileName,
+        noteCount: workspaceIndex.entries.length,
+        openTabNames: tabs.tabs.map((t) => t.fileName).filter(Boolean),
+      },
+      promptLang(settings.language),
+    );
   }
 
   /**
@@ -276,18 +263,59 @@ export function useAgentRun(options: UseAgentRunOptions) {
 
     if (detectedTargets.length > 0) {
       for (const rawTarget of detectedTargets) {
-        const q = rawTarget.toLowerCase();
-        // Check workspaceIndex.entries
+        const q = rawTarget.toLowerCase().trim();
+        const qStem = q.replace(/\.(md|markdown)$/i, '');
+
+        // 1. Check open editor tabs FIRST (prioritizing activeTab, then other tabs)
+        const candidateTabs = tabs.activeTab
+          ? [tabs.activeTab, ...tabs.tabs.filter((t) => t.id !== tabs.activeTab?.id)]
+          : tabs.tabs;
+
+        const foundInTabs = candidateTabs.find((t) => {
+          if (matchesTabPath(t, rawTarget)) return true;
+          const fn = t.fileName.toLowerCase();
+          const stem = fn.replace(/\.(md|markdown)$/i, '');
+          const fp = (t.filePath || '').replace(/\\/g, '/').toLowerCase();
+          const fpStem = fp.replace(/\.(md|markdown)$/i, '');
+          return (
+            fn === q ||
+            stem === q ||
+            stem === qStem ||
+            fp === q ||
+            fpStem === qStem ||
+            fp.endsWith('/' + q) ||
+            fpStem.endsWith('/' + qStem)
+          );
+        });
+
+        if (foundInTabs) {
+          const p = foundInTabs.filePath || foundInTabs.fileName;
+          if (!refsToSend.some((r) => r.path === p || matchesTabPath({ filePath: r.path, fileName: r.name }, p))) {
+            refsToSend.push({
+              type: 'note',
+              name: foundInTabs.fileName,
+              path: p,
+              preview: foundInTabs.content ? foundInTabs.content.slice(0, 100).replace(/\s+/g, ' ') : '',
+            });
+          }
+          continue;
+        }
+
+        // 2. Fallback: check workspaceIndex.entries
         const foundInIndex = workspaceIndex.entries.find((e) => {
           const normP = e.path.replace(/\\/g, '/').toLowerCase();
+          const normStem = normP.replace(/\.(md|markdown)$/i, '');
+          const eName = e.name.toLowerCase();
+          const eStem = (e.stem || e.name.replace(/\.(md|markdown)$/i, '')).toLowerCase();
           return (
-            e.name.toLowerCase() === q ||
-            e.name.toLowerCase() === `${q}.md` ||
-            e.stem.toLowerCase() === q ||
+            eName === q ||
+            eStem === q ||
+            eStem === qStem ||
             (e.title && e.title.toLowerCase() === q) ||
+            normP === q ||
+            normStem === qStem ||
             normP.endsWith('/' + q) ||
-            normP.endsWith('/' + q + '.md') ||
-            normP === q
+            normStem.endsWith('/' + qStem)
           );
         });
 
@@ -301,33 +329,6 @@ export function useAgentRun(options: UseAgentRunOptions) {
             });
           }
           continue;
-        }
-
-        // Check open editor tabs (tabs.tabs)
-        const foundInTabs = tabs.tabs.find((t) => {
-          const fn = t.fileName.toLowerCase();
-          const stem = t.fileName.replace(/\.md$/i, '').toLowerCase();
-          const fp = (t.filePath || '').replace(/\\/g, '/').toLowerCase();
-          return (
-            fn === q ||
-            fn === `${q}.md` ||
-            stem === q ||
-            fp.endsWith('/' + q) ||
-            fp.endsWith('/' + q + '.md') ||
-            fp === q
-          );
-        });
-
-        if (foundInTabs) {
-          const p = foundInTabs.filePath || foundInTabs.fileName;
-          if (!refsToSend.some((r) => r.path === p)) {
-            refsToSend.push({
-              type: 'note',
-              name: foundInTabs.fileName,
-              path: p,
-              preview: foundInTabs.content ? foundInTabs.content.slice(0, 100).replace(/\s+/g, ' ') : '',
-            });
-          }
         }
       }
     }
@@ -465,20 +466,27 @@ export function useAgentRun(options: UseAgentRunOptions) {
           const refPath = refItem.path;
           try {
             let content = '';
-            // 1. If tab is open in editor, grab in-memory content first
-            const openTab = tabs.tabs.find((t) =>
-              matchesTabPath(t, refPath) ||
-              t.fileName.toLowerCase() === refItem.name.toLowerCase() ||
-              (t.filePath && t.filePath.replace(/\\/g, '/').toLowerCase() === refPath.replace(/\\/g, '/').toLowerCase())
-            );
+            // 1. If tab is open in editor, grab in-memory content first (prioritize active tab)
+            const candidateTabs = tabs.activeTab
+              ? [tabs.activeTab, ...tabs.tabs.filter((t) => t.id !== tabs.activeTab?.id)]
+              : tabs.tabs;
+            const refNameStem = refItem.name.replace(/\.(md|markdown)$/i, '').toLowerCase();
+            const openTab = candidateTabs.find((t) => {
+              if (matchesTabPath(t, refPath) || matchesTabPath(t, refItem.name)) return true;
+              const tStem = t.fileName.replace(/\.(md|markdown)$/i, '').toLowerCase();
+              if (tStem === refNameStem) return true;
+              const fp = (t.filePath || '').replace(/\\/g, '/').toLowerCase();
+              return fp === refPath.replace(/\\/g, '/').toLowerCase() || t.fileName.toLowerCase() === refItem.name.toLowerCase();
+            });
 
-            if (openTab && typeof openTab.content === 'string' && openTab.content.length > 0) {
+            if (openTab && typeof openTab.content === 'string') {
               content = openTab.content;
             } else {
               const isAbs = /^[a-zA-Z]:[/\\]|^[/\\]{2}|^\//.test(refItem.path);
               let fullPath = refItem.path;
-              if (!isAbs && workspace.currentFolder) {
-                const base = workspace.currentFolder.replace(/[/\\]+$/, '');
+              const wsRoot = workspace.currentFolder || (tabs.activeTab?.filePath ? tabs.activeTab.filePath.replace(/[\\/][^\\/]+$/, '') : null);
+              if (!isAbs && wsRoot) {
+                const base = wsRoot.replace(/[/\\]+$/, '');
                 const rel = refItem.path.replace(/^[/\\]+/, '');
                 fullPath = `${base}/${rel}`;
               }
@@ -490,8 +498,9 @@ export function useAgentRun(options: UseAgentRunOptions) {
 
             // Compute relative display path for the model prompt
             let displayPath = refItem.path;
-            if (workspace.currentFolder) {
-              const normBase = workspace.currentFolder.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
+            const wsRoot = workspace.currentFolder || (tabs.activeTab?.filePath ? tabs.activeTab.filePath.replace(/[\\/][^\\/]+$/, '') : null);
+            if (wsRoot) {
+              const normBase = wsRoot.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
               const normFull = refItem.path.replace(/\\/g, '/');
               if (normFull.toLowerCase().startsWith(normBase + '/')) {
                 displayPath = normFull.slice(normBase.length + 1);
@@ -604,7 +613,10 @@ export function useAgentRun(options: UseAgentRunOptions) {
                 headers: s.headers ?? {},
               }))
           : null,
-        workspace: workspace.currentFolder,
+        workspace:
+          workspace.currentFolder ||
+          (tabs.activeTab?.filePath ? tabs.activeTab.filePath.replace(/[\\/][^\\/]+$/, '') : null) ||
+          (tabs.tabs.find((t) => t.filePath)?.filePath?.replace(/[\\/][^\\/]+$/, '') ?? null),
         request_id: requestId,
       });
     } catch (err) {
@@ -999,7 +1011,12 @@ export function useAgentRun(options: UseAgentRunOptions) {
   // Save Assistant reply as a new note (F15)
   async function saveAssistantAsNote(content: string) {
     if (!content || agent.isStreaming) return;
-    if (!workspace.currentFolder) {
+    const targetFolder =
+      workspace.currentFolder ||
+      (tabs.activeTab?.filePath ? tabs.activeTab.filePath.replace(/[\\/][^\\/]+$/, '') : null) ||
+      (tabs.tabs.find((t) => t.filePath)?.filePath?.replace(/[\\/][^\\/]+$/, '') ?? null);
+
+    if (!targetFolder) {
       toasts.warning(t('toast.openFolderFirst'));
       return;
     }
@@ -1010,20 +1027,20 @@ export function useAgentRun(options: UseAgentRunOptions) {
       const timeStr = `${pad(now.getHours())}${pad(now.getMinutes())}`;
 
       const firstLine = content.split('\n')[0].replace(/^[#\s*`]+/, '').trim();
-      const safeTitle = (firstLine.slice(0, 24).replace(/[\\/:*?"<>|]/g, '') || '智能体沉淀').trim();
+      const safeTitle = (firstLine.slice(0, 24).replace(/[\\/:*?"<>|]/g, '') || 'Note').trim();
       const fileName = `Agent-${safeTitle}-${dateStr}_${timeStr}.md`;
-      const fullPath = `${workspace.currentFolder}/${fileName}`;
+      const fullPath = `${targetFolder}/${fileName}`;
 
       const frontmatter = `---\ntitle: "${safeTitle}"\ndate: "${now.toISOString()}"\ntags:\n  - agent\n  - ai-archive\n---\n\n`;
       const finalContent = frontmatter + content;
 
       // `workspace` enables the on-save recipe triggers for the vault.
-      await writeNote(fullPath, finalContent, { workspace: workspace.currentFolder });
+      await writeNote(fullPath, finalContent, { workspace: targetFolder });
 
       toasts.success(t('agent.msgSavedAsNote'));
       await files.openPath(fullPath);
     } catch (err) {
-      toasts.error(`沉淀笔记失败: ${err}`);
+      toasts.error(t('toast.saveFailed', { error: String(err) }));
     }
   }
 

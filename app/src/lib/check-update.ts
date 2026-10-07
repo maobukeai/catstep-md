@@ -26,6 +26,8 @@ const RELEASES_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases`;
 const LATEST_RELEASE_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
 const GITHUB_API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
 const JSDELIVR_MIRROR_URL = `https://fastly.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@main/app/package.json`;
+const JSDELIVR_CDN_URL = `https://cdn.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@main/app/package.json`;
+const GHFAST_RAW_URL = `https://ghfast.top/https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/app/package.json`;
 const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/app/package.json`;
 
 export interface ReleaseAsset {
@@ -350,10 +352,10 @@ interface GitHubReleaseJson {
 /** Fetch latest release info from GitHub official Releases API */
 async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.9');
+    const current = await getVersion().catch(() => '1.0.10');
     const res = await fetch(GITHUB_API_URL, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3500),
       headers: {
         Accept: 'application/vnd.github.v3+json',
         'User-Agent': 'CatstepMD-App',
@@ -407,11 +409,11 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
 /** Fetch latest release by following GitHub's web release redirect (fallback) */
 async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.9');
+    const current = await getVersion().catch(() => '1.0.10');
     const res = await fetch(LATEST_RELEASE_PAGE, {
       cache: 'no-store',
       redirect: 'follow',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) return null;
     const tagMatch = res.url.match(/\/releases\/tag\/v?([^/?#]+)/);
@@ -439,15 +441,15 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   }
 }
 
-/** Fetch repository latest package version from GitHub Raw / jsDelivr mirror (fallback) */
+/** Fetch repository latest package version from GitHub Raw / jsDelivr / proxy mirror (fallback) */
 async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
-  const current = await getVersion().catch(() => '1.0.9');
-  // Prioritize jsDelivr CDN over raw GitHub (which is blocked by GFW in mainland China)
-  for (const url of [JSDELIVR_MIRROR_URL, GITHUB_RAW_URL]) {
+  const current = await getVersion().catch(() => '1.0.10');
+  // Prioritize jsDelivr & proxy CDN over raw GitHub (which is blocked by GFW in mainland China)
+  for (const url of [JSDELIVR_MIRROR_URL, JSDELIVR_CDN_URL, GHFAST_RAW_URL, GITHUB_RAW_URL]) {
     try {
       const res = await fetch(url, {
         cache: 'no-store',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(3500),
       });
       if (res.ok) {
         const pkg = (await res.json()) as { version?: string };
@@ -478,15 +480,15 @@ async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '1.0.9');
+  const current = await getVersion().catch(() => '1.0.10');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }
 
-  // Multi-tier check: GitHub API (full assets + notes) -> Web Redirect -> Fast Mirror
+  // Multi-tier check: GitHub API (full assets + notes) -> Fast Repo Mirror (instant) -> Web Redirect
   let info = await fetchFromGitHubApi();
-  if (!info) info = await fetchFromGitHubWebRedirect();
   if (!info) info = await fetchFromRepoMirror();
+  if (!info) info = await fetchFromGitHubWebRedirect();
 
   if (!info) {
     return {
@@ -597,19 +599,22 @@ export async function openReleaseUrl(url?: string): Promise<void> {
   }
 }
 
-/** Store the last-checked timestamp so we don't query excessively on launch */
+/** Store the last-checked timestamp */
 const LS_KEY = 'catstep.update.last-check';
-const CHECK_INTERVAL = 24 * 3600 * 1000; // 24 hours
+// 10s debounce to prevent double-invocation during rapid re-mounts / hot reloads
+const CHECK_MIN_INTERVAL = 10 * 1000;
 
-export async function checkForUpdateOnStartup(): Promise<UpdateResult | null> {
+export async function checkForUpdateOnStartup(force: boolean = true): Promise<UpdateResult | null> {
   if (MAS_BUILD) return null;
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const ts = Number(raw);
-      if (Date.now() - ts < CHECK_INTERVAL) return null;
-    }
-  } catch {}
+  if (!force) {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const ts = Number(raw);
+        if (Date.now() - ts < CHECK_MIN_INTERVAL) return null;
+      }
+    } catch {}
+  }
   const result = await checkForUpdate();
   if (!result.error) {
     try {

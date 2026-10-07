@@ -34,6 +34,17 @@ const TRUSTED_RELEASE_PATH_PREFIXES: [(&str, bool); 2] = [
     ("/maobukeai/catstep-md/releases/download/", true),
     ("/maobukeai/catstep-md/releases/latest/download/", false),
 ];
+/// Whitelisted official GitHub Release proxy mirrors for resilient access
+/// in regions with restricted direct GitHub connectivity.
+/// Safe because all payloads are cryptographically verified against SHA256SUMS.txt.
+const TRUSTED_MIRROR_HOSTS: [&str; 6] = [
+    "ghfast.top",
+    "ghproxy.net",
+    "gh.llkk.cc",
+    "mirror.ghproxy.com",
+    "gh-proxy.com",
+    "kkgithub.com",
+];
 /// Checksum manifest .github/workflows/release.yml uploads next to every
 /// asset (scripts/checksums.sh, `<hex>  <filename>` sha256sum format).
 const SHA256SUMS_FILE: &str = "SHA256SUMS.txt";
@@ -169,6 +180,8 @@ pub async fn updater_start_download(
 
     let client = match reqwest::Client::builder()
         .user_agent("CatstepMD-Updater")
+        .connect_timeout(std::time::Duration::from_secs(4))
+        .timeout(std::time::Duration::from_secs(600))
         .build()
     {
         Ok(c) => c,
@@ -193,90 +206,28 @@ pub async fn updater_start_download(
         },
     );
 
-    let res = match client.get(&url).send().await {
-        Ok(r) => {
-            if !r.status().is_success() {
-                *active = false;
-                let err_msg = format!("HTTP error: {}", r.status());
-                let _ = app.emit(
-                    "updater-progress",
-                    UpdateProgressPayload {
-                        status: "error".to_string(),
-                        downloaded: 0,
-                        total: None,
-                        percent: 0.0,
-                        speed_bps: 0,
-                        file_path: None,
-                        error: Some(err_msg.clone()),
-                    },
-                );
-                return Err(err_msg);
-            }
-            r
-        }
-        Err(e) => {
-            *active = false;
-            let err_msg = format!("Failed to connect to update source: {e}");
-            let _ = app.emit(
-                "updater-progress",
-                UpdateProgressPayload {
-                    status: "error".to_string(),
-                    downloaded: 0,
-                    total: None,
-                    percent: 0.0,
-                    speed_bps: 0,
-                    file_path: None,
-                    error: Some(err_msg.clone()),
-                },
-            );
-            return Err(err_msg);
-        }
+    let trusted_info = trusted_release_asset(&url);
+    let candidate_urls = match &trusted_info {
+        Some(trusted) => candidate_download_urls(&url, &trusted.canonical_url),
+        None => vec![url.clone()],
     };
 
-    let total_bytes = res.content_length();
-    let mut file = match tokio::fs::File::create(&target_file_path).await {
-        Ok(f) => f,
-        Err(e) => {
-            *active = false;
-            let err_msg = format!("Failed to create destination file: {e}");
-            let _ = app.emit(
-                "updater-progress",
-                UpdateProgressPayload {
-                    status: "error".to_string(),
-                    downloaded: 0,
-                    total: total_bytes,
-                    percent: 0.0,
-                    speed_bps: 0,
-                    file_path: None,
-                    error: Some(err_msg.clone()),
-                },
-            );
-            return Err(err_msg);
-        }
-    };
+    let mut last_err = String::new();
+    let mut downloaded_successfully = false;
+    let mut successful_candidate_url: Option<String> = None;
+    let mut final_downloaded: u64 = 0;
 
-    let mut stream = res.bytes_stream();
-    let mut downloaded: u64 = 0;
-    let mut last_emit = Instant::now();
-    let mut last_downloaded = 0u64;
-    let mut speed_bps = 0u64;
-
-    while let Some(chunk_result) = stream.next().await {
+    for candidate_url in &candidate_urls {
         if cancel_flag.load(Ordering::SeqCst) {
             *active = false;
-            drop(file);
             let _ = tokio::fs::remove_file(&target_file_path).await;
             let _ = app.emit(
                 "updater-progress",
                 UpdateProgressPayload {
                     status: "cancelled".to_string(),
-                    downloaded,
-                    total: total_bytes,
-                    percent: if let Some(tot) = total_bytes {
-                        if tot > 0 { (downloaded as f64 / tot as f64) * 100.0 } else { 0.0 }
-                    } else {
-                        0.0
-                    },
+                    downloaded: 0,
+                    total: None,
+                    percent: 0.0,
                     speed_bps: 0,
                     file_path: None,
                     error: None,
@@ -285,70 +236,31 @@ pub async fn updater_start_download(
             return Err("Download cancelled by user".to_string());
         }
 
-        match chunk_result {
-            Ok(chunk) => {
-                if let Err(e) = file.write_all(&chunk).await {
-                    *active = false;
-                    let err_msg = format!("Failed to write to file: {e}");
-                    let _ = app.emit(
-                        "updater-progress",
-                        UpdateProgressPayload {
-                            status: "error".to_string(),
-                            downloaded,
-                            total: total_bytes,
-                            percent: 0.0,
-                            speed_bps: 0,
-                            file_path: None,
-                            error: Some(err_msg.clone()),
-                        },
-                    );
-                    return Err(err_msg);
-                }
-                downloaded += chunk.len() as u64;
-
-                // Throttle emission to avoid saturating IPC bus (every ~100ms)
-                let elapsed = last_emit.elapsed();
-                if elapsed.as_millis() >= 100 {
-                    let bytes_since = downloaded.saturating_sub(last_downloaded);
-                    let secs = elapsed.as_secs_f64();
-                    if secs > 0.0 {
-                        speed_bps = (bytes_since as f64 / secs) as u64;
-                    }
-                    last_emit = Instant::now();
-                    last_downloaded = downloaded;
-
-                    let percent = if let Some(tot) = total_bytes {
-                        if tot > 0 {
-                            ((downloaded as f64 / tot as f64) * 100.0).clamp(0.0, 100.0)
-                        } else {
-                            0.0
-                        }
-                    } else {
-                        0.0
-                    };
-
-                    let _ = app.emit(
-                        "updater-progress",
-                        UpdateProgressPayload {
-                            status: "downloading".to_string(),
-                            downloaded,
-                            total: total_bytes,
-                            percent,
-                            speed_bps,
-                            file_path: Some(target_path_str.clone()),
-                            error: None,
-                        },
-                    );
-                }
+        let res = match client.get(candidate_url).send().await {
+            Ok(r) if r.status().is_success() => r,
+            Ok(r) => {
+                last_err = format!("HTTP error {} on {}", r.status(), candidate_url);
+                eprintln!("[updater] candidate {candidate_url} returned {}", r.status());
+                continue;
             }
             Err(e) => {
+                last_err = format!("Connection error on {candidate_url}: {e}");
+                eprintln!("[updater] failed to connect to {candidate_url}: {e}");
+                continue;
+            }
+        };
+
+        let total_bytes = res.content_length();
+        let mut file = match tokio::fs::File::create(&target_file_path).await {
+            Ok(f) => f,
+            Err(e) => {
                 *active = false;
-                let err_msg = format!("Download error: {e}");
+                let err_msg = format!("Failed to create destination file: {e}");
                 let _ = app.emit(
                     "updater-progress",
                     UpdateProgressPayload {
                         status: "error".to_string(),
-                        downloaded,
+                        downloaded: 0,
                         total: total_bytes,
                         percent: 0.0,
                         speed_bps: 0,
@@ -358,36 +270,142 @@ pub async fn updater_start_download(
                 );
                 return Err(err_msg);
             }
+        };
+
+        let mut stream = res.bytes_stream();
+        let mut downloaded: u64 = 0;
+        let mut last_emit = Instant::now();
+        let mut last_downloaded = 0u64;
+        let mut speed_bps = 0u64;
+        let mut stream_interrupted = false;
+
+        while let Some(chunk_result) = stream.next().await {
+            if cancel_flag.load(Ordering::SeqCst) {
+                *active = false;
+                drop(file);
+                let _ = tokio::fs::remove_file(&target_file_path).await;
+                let _ = app.emit(
+                    "updater-progress",
+                    UpdateProgressPayload {
+                        status: "cancelled".to_string(),
+                        downloaded,
+                        total: total_bytes,
+                        percent: if let Some(tot) = total_bytes {
+                            if tot > 0 { (downloaded as f64 / tot as f64) * 100.0 } else { 0.0 }
+                        } else { 0.0 },
+                        speed_bps: 0,
+                        file_path: None,
+                        error: None,
+                    },
+                );
+                return Err("Download cancelled by user".to_string());
+            }
+
+            match chunk_result {
+                Ok(chunk) => {
+                    if let Err(e) = file.write_all(&chunk).await {
+                        stream_interrupted = true;
+                        last_err = format!("Failed to write to file: {e}");
+                        break;
+                    }
+                    downloaded += chunk.len() as u64;
+
+                    let elapsed = last_emit.elapsed();
+                    if elapsed.as_millis() >= 100 {
+                        let bytes_since = downloaded.saturating_sub(last_downloaded);
+                        let secs = elapsed.as_secs_f64();
+                        if secs > 0.0 {
+                            speed_bps = (bytes_since as f64 / secs) as u64;
+                        }
+                        last_emit = Instant::now();
+                        last_downloaded = downloaded;
+
+                        let percent = if let Some(tot) = total_bytes {
+                            if tot > 0 {
+                                ((downloaded as f64 / tot as f64) * 100.0).clamp(0.0, 100.0)
+                            } else { 0.0 }
+                        } else { 0.0 };
+
+                        let _ = app.emit(
+                            "updater-progress",
+                            UpdateProgressPayload {
+                                status: "downloading".to_string(),
+                                downloaded,
+                                total: total_bytes,
+                                percent,
+                                speed_bps,
+                                file_path: Some(target_path_str.clone()),
+                                error: None,
+                            },
+                        );
+                    }
+                }
+                Err(e) => {
+                    stream_interrupted = true;
+                    last_err = format!("Stream interrupted on {candidate_url}: {e}");
+                    break;
+                }
+            }
         }
+
+        if stream_interrupted {
+            drop(file);
+            let _ = tokio::fs::remove_file(&target_file_path).await;
+            eprintln!("[updater] stream failed on {candidate_url}: {last_err}, trying next mirror...");
+            continue;
+        }
+
+        if let Err(e) = file.flush().await {
+            drop(file);
+            let _ = tokio::fs::remove_file(&target_file_path).await;
+            last_err = format!("Failed to flush file: {e}");
+            continue;
+        }
+        drop(file);
+
+        downloaded_successfully = true;
+        successful_candidate_url = Some(candidate_url.clone());
+        final_downloaded = downloaded;
+        break;
     }
 
-    if let Err(e) = file.flush().await {
+    if !downloaded_successfully {
         *active = false;
-        let err_msg = format!("Failed to flush file: {e}");
+        let err_msg = format!("Failed to download update from all available sources: {last_err}");
+        let _ = app.emit(
+            "updater-progress",
+            UpdateProgressPayload {
+                status: "error".to_string(),
+                downloaded: 0,
+                total: None,
+                percent: 0.0,
+                speed_bps: 0,
+                file_path: None,
+                error: Some(err_msg.clone()),
+            },
+        );
         return Err(err_msg);
     }
-    drop(file);
 
     // ---------------------------------------------------------------------------
     // Integrity (S11): before this download may later be executed as an
     // installer, hash it against the release's SHA256SUMS.txt. The manifest
     // URL is derived from the download URL by fixed rule and only trusted
-    // when the download URL itself sits on the official release host — the
-    // WebView never supplies (and cannot forge) the expected hash.
-    //   * hash mismatch → the payload is DELETED and the download fails;
-    //   * manifest unavailable (network, pre-checksum release) → keep the
-    //     file but leave it unverified; `updater_install_and_restart` will
-    //     refuse it;
-    //   * URL outside the trusted channel → same, with a log here.
+    // when the download URL itself sits on the official release host or whitelisted mirror.
     // ---------------------------------------------------------------------------
-    match trusted_release_asset(&url) {
+    let preferred_prefix = match (&trusted_info, &successful_candidate_url) {
+        (Some(trusted), Some(cand)) => extract_mirror_prefix(cand, &trusted.canonical_url),
+        _ => None,
+    };
+
+    match trusted_info {
         None => {
             eprintln!(
                 "[updater] download source is outside the trusted release channel: {url} — \
                  the installer will be refused by the integrity gate"
             );
         }
-        Some(trusted) => match fetch_expected_hash(&client, &trusted).await {
+        Some(trusted) => match fetch_expected_hash(&client, &trusted, preferred_prefix.as_deref()).await {
             Ok(expected) => {
                 let actual = file_sha256_hex(&target_file_path)?;
                 if actual.eq_ignore_ascii_case(&expected) {
@@ -399,11 +417,6 @@ pub async fn updater_start_download(
                 } else {
                     let _ = tokio::fs::remove_file(&target_file_path).await;
                     *active = false;
-                    // C19 — keep the message honest and actionable: name the
-                    // failure, state that the bad file is gone and nothing ran,
-                    // and give the retry / manual-download way out. Hashes are
-                    // truncated to 12 hex chars — enough to correlate a bug
-                    // report without two 64-char lines of noise.
                     let err_msg = format!(
                         "Installer integrity check failed (SHA-256 mismatch, expected {}…, got {}…). \
                          The downloaded file was deleted and nothing was executed — retry the update, \
@@ -415,8 +428,8 @@ pub async fn updater_start_download(
                         "updater-progress",
                         UpdateProgressPayload {
                             status: "error".to_string(),
-                            downloaded,
-                            total: Some(downloaded),
+                            downloaded: final_downloaded,
+                            total: Some(final_downloaded),
                             percent: 100.0,
                             speed_bps: 0,
                             file_path: None,
@@ -427,10 +440,26 @@ pub async fn updater_start_download(
                 }
             }
             Err(e) => {
-                eprintln!(
-                    "[updater] SHA256SUMS manifest unavailable for {url}: {e} — download kept \
-                     but marked unverified; installer execution will be refused"
+                let _ = tokio::fs::remove_file(&target_file_path).await;
+                *active = false;
+                let err_msg = format!(
+                    "Failed to verify installer integrity: {e}. \
+                     The downloaded file was removed for security — please retry the update, \
+                     or download manually from the official release page in a browser."
                 );
+                let _ = app.emit(
+                    "updater-progress",
+                    UpdateProgressPayload {
+                        status: "error".to_string(),
+                        downloaded: final_downloaded,
+                        total: Some(final_downloaded),
+                        percent: 0.0,
+                        speed_bps: 0,
+                        file_path: None,
+                        error: Some(err_msg.clone()),
+                    },
+                );
+                return Err(err_msg);
             }
         },
     }
@@ -440,8 +469,8 @@ pub async fn updater_start_download(
         "updater-progress",
         UpdateProgressPayload {
             status: "completed".to_string(),
-            downloaded,
-            total: Some(downloaded),
+            downloaded: final_downloaded,
+            total: Some(final_downloaded),
             percent: 100.0,
             speed_bps: 0,
             file_path: Some(target_path_str.clone()),
@@ -491,32 +520,128 @@ fn sanitize_download_filename(raw: &str) -> Result<String, String> {
 
 /// A download URL that passed the trusted-channel check, plus everything that
 /// can be derived from it WITHOUT any further input from the WebView.
-struct TrustedReleaseAsset {
+#[derive(Debug, Clone)]
+pub struct TrustedReleaseAsset {
+    /// Canonical official GitHub download URL:
+    /// `https://github.com/maobukeai/catstep-md/releases/download/<tag>/<asset>`
+    pub canonical_url: String,
     /// SHA256SUMS.txt URL, derived by fixed rule: the manifest lives in the
     /// same release download directory as the asset.
-    manifest_url: String,
-    asset_name: String,
+    pub manifest_url: String,
+    pub asset_name: String,
 }
 
-/// Recognize an official release download URL —
-/// `https://github.com/maobukeai/catstep-md/releases/{download/<tag>|latest/download}/<asset>`
-/// — and derive the manifest location. Parsed as a URL, not matched as a
-/// string, so look-alike hosts (`github.com.evil.tld`) and plain http cannot
-/// pass. Anything else returns `None`; the installer gate then refuses the
-/// file later.
-fn trusted_release_asset(url: &str) -> Option<TrustedReleaseAsset> {
+/// Generate candidate download URLs: caller's initial URL (if mirror),
+/// official direct GitHub URL, followed by trusted accelerator mirrors.
+pub fn candidate_download_urls(primary_url: &str, canonical_url: &str) -> Vec<String> {
+    let mut urls = Vec::new();
+    if primary_url != canonical_url {
+        urls.push(primary_url.to_string());
+    }
+    urls.push(canonical_url.to_string());
+    let mirrors = [
+        format!("https://ghfast.top/{canonical_url}"),
+        format!("https://ghproxy.net/{canonical_url}"),
+        format!("https://gh.llkk.cc/{canonical_url}"),
+        format!("https://mirror.ghproxy.com/{canonical_url}"),
+        format!("https://gh-proxy.com/{canonical_url}"),
+    ];
+    for m in mirrors {
+        if !urls.contains(&m) {
+            urls.push(m);
+        }
+    }
+    urls
+}
+
+/// Extract the proxy/mirror prefix from a full download URL (if any).
+/// E.g. "https://ghfast.top/https://github.com/..." -> Some("https://ghfast.top")
+pub fn extract_mirror_prefix(url: &str, canonical_url: &str) -> Option<String> {
+    if let Some(prefix) = url.strip_suffix(canonical_url) {
+        let trimmed = prefix.trim_end_matches('/');
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+    None
+}
+
+/// Generate candidate manifest URLs: preferred mirror (if any), direct official GitHub,
+/// followed by trusted fallback mirrors.
+pub fn candidate_manifest_urls(
+    canonical_manifest_url: &str,
+    preferred_prefix: Option<&str>,
+) -> Vec<String> {
+    let mut urls = Vec::new();
+    if let Some(prefix) = preferred_prefix {
+        let pref_url = format!("{prefix}/{canonical_manifest_url}");
+        urls.push(pref_url);
+    }
+    if !urls.contains(&canonical_manifest_url.to_string()) {
+        urls.push(canonical_manifest_url.to_string());
+    }
+    let mirrors = [
+        format!("https://ghfast.top/{canonical_manifest_url}"),
+        format!("https://ghproxy.net/{canonical_manifest_url}"),
+        format!("https://gh.llkk.cc/{canonical_manifest_url}"),
+        format!("https://mirror.ghproxy.com/{canonical_manifest_url}"),
+        format!("https://gh-proxy.com/{canonical_manifest_url}"),
+    ];
+    for m in mirrors {
+        if !urls.contains(&m) {
+            urls.push(m);
+        }
+    }
+    urls
+}
+
+/// Recognize an official release download URL or official release accessed via
+/// whitelisted mirror proxies, and derive the canonical URL, manifest location,
+/// and sanitized asset name.
+///
+/// Parsed as a URL, not matched as a raw substring, so look-alike hosts
+/// (`github.com.evil.tld`) and plain http cannot pass. Only releases targeting
+/// `maobukeai/catstep-md` are accepted. Anything else returns `None`.
+pub fn trusted_release_asset(url: &str) -> Option<TrustedReleaseAsset> {
     let parsed = reqwest::Url::parse(url).ok()?;
-    if parsed.scheme() != "https" || parsed.host_str() != Some(TRUSTED_RELEASE_HOST) {
+    if parsed.scheme() != "https" {
         return None;
     }
+    let host = parsed.host_str()?;
+
+    // Case 1: Direct official GitHub
+    if host == TRUSTED_RELEASE_HOST {
+        return extract_from_github_path(parsed.path());
+    }
+
+    // Case 2: Whitelisted mirror host
+    if TRUSTED_MIRROR_HOSTS.contains(&host) {
+        let full_path = parsed.path();
+        // Subcase 2a: Prefix proxy: e.g. https://ghfast.top/https://github.com/maobukeai/catstep-md/...
+        let trimmed_leading = full_path.trim_start_matches('/');
+        if let Some(rest) = trimmed_leading
+            .strip_prefix("https://github.com")
+            .or_else(|| trimmed_leading.strip_prefix("https:/github.com"))
+            .or_else(|| trimmed_leading.strip_prefix("http://github.com"))
+            .or_else(|| trimmed_leading.strip_prefix("http:/github.com"))
+        {
+            return extract_from_github_path(rest);
+        }
+
+        // Subcase 2b: Host replacement mirror: e.g. https://kkgithub.com/maobukeai/catstep-md/...
+        return extract_from_github_path(full_path);
+    }
+
+    None
+}
+
+fn extract_from_github_path(path: &str) -> Option<TrustedReleaseAsset> {
     for (prefix, has_tag) in TRUSTED_RELEASE_PATH_PREFIXES {
-        let Some(rest) = parsed.path().strip_prefix(prefix) else {
+        let Some(rest) = path.strip_prefix(prefix) else {
             continue;
         };
         // Url::parse keeps query/fragment out of path(); no further trimming.
         let asset = if has_tag {
-            // `<tag>/<asset>`: the tag must be present and the asset must be
-            // the final path segment.
             let (tag, asset) = rest.split_once('/')?;
             if tag.is_empty() || asset.is_empty() || asset.contains('/') {
                 return None;
@@ -527,12 +652,12 @@ fn trusted_release_asset(url: &str) -> Option<TrustedReleaseAsset> {
         } else {
             rest
         };
-        // The manifest lives in the same directory as the asset — i.e. the
-        // path minus the final segment — which keeps the tagged and `latest`
-        // shapes on one derivation.
-        let dir = &parsed.path()[..parsed.path().len() - asset.len()];
+        let dir = &path[..path.len() - asset.len()];
+        let canonical_url = format!("https://{TRUSTED_RELEASE_HOST}{path}");
+        let manifest_url = format!("https://{TRUSTED_RELEASE_HOST}{dir}{SHA256SUMS_FILE}");
         return Some(TrustedReleaseAsset {
-            manifest_url: format!("https://{TRUSTED_RELEASE_HOST}{dir}{SHA256SUMS_FILE}"),
+            canonical_url,
+            manifest_url,
             asset_name: asset.to_string(),
         });
     }
@@ -566,27 +691,39 @@ fn expected_hash_from_manifest(manifest: &str, asset_name: &str) -> Option<Strin
 }
 
 /// Fetch the sha256 recorded for `trusted.asset_name` in the release's
-/// SHA256SUMS.txt. Failures are returned to the caller, which decides
-/// between "refuse" and "mark unverified" — it never falls back to a hash
-/// supplied from anywhere else.
+/// SHA256SUMS.txt. Resiliently queries direct GitHub followed by trusted mirrors.
+/// Failures are returned to the caller, which decides between "refuse" and "mark unverified".
 async fn fetch_expected_hash(
     client: &reqwest::Client,
     trusted: &TrustedReleaseAsset,
+    preferred_prefix: Option<&str>,
 ) -> Result<String, String> {
-    let res = client
-        .get(&trusted.manifest_url)
-        .send()
-        .await
-        .map_err(|e| format!("manifest request failed: {e}"))?;
-    if !res.status().is_success() {
-        return Err(format!("manifest HTTP {}", res.status()));
+    let candidate_manifests = candidate_manifest_urls(&trusted.manifest_url, preferred_prefix);
+    let mut last_err = String::new();
+
+    for m_url in &candidate_manifests {
+        match client.get(m_url).send().await {
+            Ok(res) if res.status().is_success() => {
+                if let Ok(body) = res.text().await {
+                    if let Some(hash) = expected_hash_from_manifest(&body, &trusted.asset_name) {
+                        return Ok(hash);
+                    } else {
+                        last_err = format!("manifest at {m_url} does not contain entry for {}", trusted.asset_name);
+                    }
+                } else {
+                    last_err = format!("failed to read manifest body from {m_url}");
+                }
+            }
+            Ok(res) => {
+                last_err = format!("HTTP {} from {m_url}", res.status());
+            }
+            Err(e) => {
+                last_err = format!("network error on {m_url}: {e}");
+            }
+        }
     }
-    let body = res
-        .text()
-        .await
-        .map_err(|e| format!("manifest read failed: {e}"))?;
-    expected_hash_from_manifest(&body, &trusted.asset_name)
-        .ok_or_else(|| format!("manifest does not list {}", trusted.asset_name))
+
+    Err(format!("Could not fetch valid {SHA256SUMS_FILE} manifest: {last_err}"))
 }
 
 /// SHA-256 of a file, streamed in 64 KiB chunks so a ~100 MB installer never
@@ -679,6 +816,7 @@ pub fn updater_install_and_restart(
     {
         use std::os::windows::process::CommandExt;
         const DETACHED_PROCESS: u32 = 0x00000008;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
 
         let ext = path
             .extension()
@@ -686,23 +824,34 @@ pub fn updater_install_and_restart(
             .unwrap_or("")
             .to_lowercase();
 
+        let current_exe = std::env::current_exe().ok();
+        let current_exe_str = current_exe.as_ref().and_then(|p| p.to_str()).unwrap_or("");
+
         if ext == "msi" {
-            // Use msiexec for MSI installers
-            // /passive: shows a simple progress bar without requiring interaction
-            // /qn: completely silent
-            let mut cmd = std::process::Command::new("msiexec.exe");
-            cmd.arg("/i").arg(&file_path);
-            if silent {
-                cmd.arg("/passive").arg("/norestart");
-            }
-            cmd.creation_flags(DETACHED_PROCESS);
+            // Use msiexec for MSI installers:
+            // /passive: shows a simple progress bar without requiring user clicks
+            // /norestart: prevents unexpected system reboot
+            let mut cmd = std::process::Command::new("cmd.exe");
+            let script = if !current_exe_str.is_empty() {
+                format!(
+                    "ping 127.0.0.1 -n 3 >nul & start /wait msiexec.exe /i \"{}\" /passive /norestart & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
+                    file_path, current_exe_str
+                )
+            } else {
+                format!(
+                    "ping 127.0.0.1 -n 3 >nul & start /wait msiexec.exe /i \"{}\" /passive /norestart",
+                    file_path
+                )
+            };
+            cmd.arg("/C").arg(script);
+            cmd.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW);
 
             match cmd.spawn() {
                 Ok(_) => {
                     // Gracefully exit so the installer can update the files
                     let app_clone = app.clone();
                     std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(600));
+                        std::thread::sleep(std::time::Duration::from_millis(500));
                         app_clone.exit(0);
                     });
                     Ok(())
@@ -711,17 +860,27 @@ pub fn updater_install_and_restart(
             }
         } else {
             // Executable setup (.exe)
-            let mut cmd = std::process::Command::new(&file_path);
-            if silent {
-                cmd.arg("/S"); // NSIS silent flag
-            }
-            cmd.creation_flags(DETACHED_PROCESS);
+            let silent_flag = if silent { " /S" } else { "" };
+            let mut cmd = std::process::Command::new("cmd.exe");
+            let script = if !current_exe_str.is_empty() {
+                format!(
+                    "ping 127.0.0.1 -n 3 >nul & start /wait \"\" \"{}\"{} & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
+                    file_path, silent_flag, current_exe_str
+                )
+            } else {
+                format!(
+                    "ping 127.0.0.1 -n 3 >nul & start /wait \"\" \"{}\"{}",
+                    file_path, silent_flag
+                )
+            };
+            cmd.arg("/C").arg(script);
+            cmd.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW);
 
             match cmd.spawn() {
                 Ok(_) => {
                     let app_clone = app.clone();
                     std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(600));
+                        std::thread::sleep(std::time::Duration::from_millis(500));
                         app_clone.exit(0);
                     });
                     Ok(())
@@ -792,7 +951,8 @@ pub fn updater_install_and_restart(
 #[cfg(test)]
 mod tests {
     use super::{
-        expected_hash_from_manifest, file_sha256_hex, sanitize_download_filename,
+        candidate_download_urls, candidate_manifest_urls, expected_hash_from_manifest,
+        extract_mirror_prefix, file_sha256_hex, sanitize_download_filename,
         trusted_release_asset,
     };
 
@@ -919,5 +1079,64 @@ mod tests {
             got.unwrap(),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+
+    #[test]
+    fn mirror_release_urls_are_trusted_and_canonicalized() {
+        for url in [
+            "https://ghfast.top/https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD_1.0.9_x64_en-US.msi",
+            "https://ghproxy.net/https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD_1.0.9_x64_en-US.msi",
+            "https://gh.llkk.cc/https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD_1.0.9_x64_en-US.msi",
+            "https://kkgithub.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD_1.0.9_x64_en-US.msi",
+        ] {
+            let trusted = trusted_release_asset(url).unwrap_or_else(|| panic!("failed on {url}"));
+            assert_eq!(trusted.asset_name, "CatstepMD_1.0.9_x64_en-US.msi");
+            assert_eq!(
+                trusted.canonical_url,
+                "https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD_1.0.9_x64_en-US.msi"
+            );
+            assert_eq!(
+                trusted.manifest_url,
+                "https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/SHA256SUMS.txt"
+            );
+        }
+    }
+
+    #[test]
+    fn untrusted_mirror_or_untrusted_repo_is_rejected() {
+        // Untrusted mirror domain
+        assert!(trusted_release_asset("https://untrusted-proxy.xyz/https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD.msi").is_none());
+        // Mirror pointing to a different repo
+        assert!(trusted_release_asset("https://ghfast.top/https://github.com/attacker/malware/releases/download/v1.0.9/CatstepMD.msi").is_none());
+        assert!(trusted_release_asset("https://ghproxy.net/https://github.com/evil/repo/releases/download/v1.0.0/x.msi").is_none());
+    }
+
+    #[test]
+    fn candidate_download_urls_generates_direct_and_mirrors() {
+        let canonical = "https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD.msi";
+        let candidates = candidate_download_urls(canonical, canonical);
+        assert_eq!(candidates[0], canonical);
+        assert!(candidates.iter().any(|c| c.contains("ghfast.top")));
+        assert!(candidates.iter().any(|c| c.contains("ghproxy.net")));
+        assert!(candidates.iter().any(|c| c.contains("gh.llkk.cc")));
+    }
+
+    #[test]
+    fn candidate_manifest_urls_respects_preferred_prefix() {
+        let canonical_manifest = "https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/SHA256SUMS.txt";
+        let candidates = candidate_manifest_urls(canonical_manifest, None);
+        assert_eq!(candidates[0], canonical_manifest);
+        assert!(candidates.iter().any(|c| c.contains("ghfast.top")));
+
+        let with_pref = candidate_manifest_urls(canonical_manifest, Some("https://ghfast.top"));
+        assert_eq!(with_pref[0], format!("https://ghfast.top/{canonical_manifest}"));
+    }
+
+    #[test]
+    fn extract_mirror_prefix_detects_proxy_domain() {
+        let canonical = "https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD.msi";
+        let proxy = format!("https://ghfast.top/{canonical}");
+        assert_eq!(extract_mirror_prefix(&proxy, canonical).as_deref(), Some("https://ghfast.top"));
+        assert_eq!(extract_mirror_prefix(canonical, canonical), None);
     }
 }

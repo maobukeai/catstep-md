@@ -221,7 +221,7 @@ async function handleInstall() {
   }
   try {
     toasts.info(t('settings.updateInstalling'));
-    await installUpdateAndRestart(undefined, settings.autoInstallUpdate);
+    await installUpdateAndRestart(undefined, true);
   } catch (e) {
     toasts.error(t('settings.installUpdateFailed', { error: String(e) }));
   }

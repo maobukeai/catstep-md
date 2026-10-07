@@ -1260,6 +1260,9 @@ function dispatchMenuAction(id: string) {
     case 'file.exportHtml':
       exporter.exportHtml();
       break;
+    case 'file.exportHtmlPlain':
+      exporter.exportHtmlPlain();
+      break;
     case 'file.exportDocx':
       exporter.exportDocx();
       break;
@@ -1271,6 +1274,30 @@ function dispatchMenuAction(id: string) {
       break;
     case 'file.exportImage':
       exporter.exportImage();
+      break;
+    case 'file.exportMarkdown':
+      exporter.exportMarkdown();
+      break;
+    case 'file.exportOdt':
+      exporter.exportOdt();
+      break;
+    case 'file.exportRtf':
+      exporter.exportRtf();
+      break;
+    case 'file.exportEpub':
+      exporter.exportEpub();
+      break;
+    case 'file.exportLatex':
+      exporter.exportLatex();
+      break;
+    case 'file.exportLast':
+      exporter.exportLast();
+      break;
+    case 'file.exportOverwriteLast':
+      exporter.exportOverwriteLast();
+      break;
+    case 'file.exportSettings':
+      openSettingsAt('export');
       break;
     case 'file.copyHtml':
       exporter.copyAsHtml();
@@ -1703,7 +1730,7 @@ onMounted(async () => {
         resolveMatchedAsset,
       } = await import('./lib/check-update');
       await initUpdaterEventListener();
-      const result = await checkForUpdateOnStartup();
+      const result = await checkForUpdateOnStartup(true);
       if (result && result.hasUpdate) {
         startupUpdateResult.value = result;
         const toastsStore = (await import('./stores/toasts')).useToastsStore();
@@ -1712,11 +1739,16 @@ onMounted(async () => {
 
         const asset = result.matchedAsset || resolveMatchedAsset(result);
         if (settings.autoDownloadUpdate && asset && !isMobile()) {
-          // Zero-distraction: silently download update in background (desktop only)
+          // Notify user that background download is starting
+          toastsStore.info(
+            tr('settings.updateDownloadingBackground'),
+            5000,
+            () => { updateModalOpen.value = true; },
+          );
           void startUpdateDownload(asset, result.latest || '').then(() => {
             if (settings.autoInstallUpdate) {
               toastsStore.info(
-                tr('settings.updateInstalling') || '更新已下载完成，正在重启进入新版…',
+                tr('settings.updateInstalling'),
                 4000,
               );
               setTimeout(() => {
@@ -1724,13 +1756,18 @@ onMounted(async () => {
               }, 2500);
             } else {
               toastsStore.success(
-                tr('settings.downloadComplete') || '新版已在后台下载完成，点击立即重启升级',
+                tr('settings.downloadComplete'),
                 16000,
-                () => { void installUpdateAndRestart(); },
+                () => { void installUpdateAndRestart(undefined, true); },
               );
             }
           }).catch((err) => {
             console.warn('Background auto-update download failed:', err);
+            toastsStore.error(
+              tr('settings.downloadFailed'),
+              8000,
+              () => { updateModalOpen.value = true; },
+            );
           });
         } else {
           // Normal mode: toast notification opens in-app UpdateModal

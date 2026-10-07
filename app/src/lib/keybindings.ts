@@ -70,7 +70,8 @@ export const KEY_ACTIONS: KeyActionDef[] = [
   { id: 'file.saveAs', label: 'Save As…', category: 'file', defaults: ['Mod+Shift+S'] },
   { id: 'file.closeTab', label: 'Close Tab', category: 'file', defaults: ['Mod+W'] },
   { id: 'tab.reopenClosed', label: 'Reopen Closed Tab', category: 'file', defaults: ['Mod+Shift+T'] },
-  { id: 'file.openExternal', label: 'Open in External Editor', category: 'file', defaults: ['Mod+Shift+E'] },
+  { id: 'file.exportLast', label: 'Export with Previous Settings', category: 'file', defaults: ['Mod+Shift+E'] },
+  { id: 'file.openExternal', label: 'Open in External Editor', category: 'file', defaults: ['Mod+Alt+E'] },
   { id: 'window.new', label: 'New Window', category: 'file', defaults: ['Mod+Shift+N'] },
   // #272 — not on macOS: Quit ⌘Q belongs to the OS app menu, and the native
   // Exit item is built `#[cfg(target_os = "linux")]`, so a rebind here could
@@ -336,6 +337,7 @@ const MENU_ITEM_BY_ACTION: Record<string, string> = {
   'file.save': 'file.save',
   'file.saveAs': 'file.saveAs',
   'file.closeTab': 'file.closeTab',
+  'file.exportLast': 'file.exportLast',
   'file.openExternal': 'file.openExternal',
   'window.new': 'window.new',
   'file.exit': 'file.exit',

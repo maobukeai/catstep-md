@@ -52,14 +52,14 @@ export const useToastsStore = defineStore('toasts', {
     success(message: string, timeout = 2200, onClick?: () => void) {
       return this.push(message, 'success', timeout, onClick);
     },
-    error(message: string, timeout = 5000) {
-      return this.push(message, 'error', timeout);
+    error(message: string, timeout = 5000, onClick?: () => void) {
+      return this.push(message, 'error', timeout, onClick);
     },
-    info(message: string, timeout = 2800) {
-      return this.push(message, 'info', timeout);
+    info(message: string, timeout = 2800, onClick?: () => void) {
+      return this.push(message, 'info', timeout, onClick);
     },
-    warning(message: string, timeout = 3500) {
-      return this.push(message, 'warning', timeout);
+    warning(message: string, timeout = 3500, onClick?: () => void) {
+      return this.push(message, 'warning', timeout, onClick);
     },
     dismiss(id: number) {
       const gone = this.items.find((t) => t.id === id);

@@ -915,6 +915,15 @@ mark {
     word-break: break-word;
     overflow-x: visible !important;
   }
+  body.solomd-printing .solomd-print-content code:not(pre code) {
+    display: inline-block;
+    vertical-align: baseline;
+    max-width: 100%;
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
+  }
 }
 /* On-screen the overlay must be invisible — @media print flips it. */
 #solomd-print-overlay {

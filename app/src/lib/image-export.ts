@@ -10,7 +10,7 @@
 import { renderMarkdown, extractImageRoot } from './markdown';
 import { rewriteImageUrls } from './image-resolve';
 import { processMermaidBlocks } from './mermaid-lazy';
-import { sanitizeModernColors } from './pdf-export';
+import { sanitizeModernColors, prepareExportDom } from './pdf-export';
 
 export interface ImageExportOptions {
   /** When true, append a "Created with 猫步 MD · Catstep MD" footer.
@@ -134,9 +134,19 @@ const IMAGE_CSS = `
     font-style: italic;
   }
   .img-page a { color: var(--accent, #0366d6); text-decoration: none; }
-  .img-page code {
+  .img-page code:not(pre code) {
+    display: inline-block;
+    vertical-align: baseline;
+    max-width: 100%;
+    box-sizing: border-box;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
     font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
-    font-size: .88em; background: var(--bg-elev, #f3efe7); padding: .15em .45em; border-radius: 4px;
+    font-size: .88em;
+    background: var(--bg-elev, #f3efe7);
+    padding: .15em .45em;
+    border-radius: 4px;
     color: var(--accent, #8a4a00);
   }
   .img-page pre {
@@ -144,7 +154,12 @@ const IMAGE_CSS = `
     overflow-x: auto; margin: 1.1em 0; line-height: 1.55;
     border: 1px solid var(--border, #e6e2d8);
   }
-  .img-page pre code { background: transparent; padding: 0; color: var(--text, #1f1d1a); }
+  .img-page pre code {
+    display: block;
+    background: transparent !important;
+    padding: 0;
+    color: var(--text, #1f1d1a);
+  }
   /* Syntax highlighting */
   .img-page .hljs { display: block; background: transparent; color: var(--syn-variable, var(--text, #1f1d1a)); }
   .img-page .hljs-comment,
@@ -270,6 +285,7 @@ export async function markdownToImageBlob(
     await processMermaidBlocks(page);
     await new Promise((r) => setTimeout(r, 60));
     sanitizeModernColors(page);
+    prepareExportDom(page);
 
     // Let html2canvas auto-size to the element's natural bounding box.
     const html2canvasMod = await import('html2canvas');

@@ -25,6 +25,10 @@ test('matchesTabPath: exact, prefix and suffix matches on normalized paths', () 
   assert.equal(matchesTabPath({ filePath: 'C:\\Vault\\Note.md' }, 'C:/Vault/Note.md'), true);
   assert.equal(matchesTabPath({ filePath: 'C:/Vault/Note.md' }, 'note.md'), true);
   assert.equal(matchesTabPath({ fileName: 'Note.md' }, 'C:/vault/note.md'), true);
+  assert.equal(matchesTabPath({ fileName: 'untitled' }, 'untitled.md'), true);
+  assert.equal(matchesTabPath({ fileName: 'Untitled.md' }, 'untitled'), true);
+  assert.equal(matchesTabPath({ filePath: 'C:/Vault/Untitled.md' }, 'untitled'), true);
+  assert.equal(matchesTabPath({ fileName: '比较结构' }, '比较结构.md'), true);
   assert.equal(matchesTabPath({ filePath: 'C:/Other/X.md' }, 'C:/Vault/Note.md'), false);
   assert.equal(matchesTabPath({ filePath: '' }, 'note.md'), false);
   assert.equal(matchesTabPath({ fileName: 'note.md' }, ''), false);

@@ -15,6 +15,7 @@ import {
   refsBlock,
   selectionBlock,
   extractMentionTargets,
+  vaultContextBlock,
 } from './agent-prompts.ts';
 
 test('promptLang maps app locales to zh/en prompt languages', () => {
@@ -166,5 +167,38 @@ test('extractMentionTargets: extracts @ and [[wikilinks]] targets cleanly stripp
   // Mixed multiple mentions
   const mixed = '请结合 @README.md，对比 [[比较结构]] 与 @docs/spec.md。';
   assert.deepEqual(extractMentionTargets(mixed), ['README.md', '比较结构', 'docs/spec.md']);
+});
+
+test('vaultContextBlock handles single-file mode and reports open tabs', () => {
+  // Single-file mode without folder
+  const singleZh = vaultContextBlock(
+    { folder: null, activeFile: 'C:/Vault/Untitled.md', openTabNames: ['Untitled.md', 'draft.md'] },
+    'zh',
+  );
+  assert.ok(singleZh.includes('单文件编辑模式'));
+  assert.ok(singleZh.includes('C:/Vault/Untitled.md'));
+  assert.ok(singleZh.includes('当前已打开标签页 (2): Untitled.md, draft.md'));
+
+  const singleEn = vaultContextBlock(
+    { folder: null, activeFile: 'C:/Vault/Untitled.md', openTabNames: ['Untitled.md'] },
+    'en',
+  );
+  assert.ok(singleEn.includes('Single-file mode'));
+  assert.ok(singleEn.includes('Active document: C:/Vault/Untitled.md'));
+
+  // Workspace folder mode
+  const wsZh = vaultContextBlock(
+    {
+      folder: 'C:/Vault',
+      activeRel: 'Notes/Ideas.md',
+      noteCount: 42,
+      openTabNames: ['Ideas.md'],
+    },
+    'zh',
+  );
+  assert.ok(wsZh.includes('当前工作区/笔记库根目录为: C:/Vault'));
+  assert.ok(wsZh.includes('当前活动编辑中的笔记相对路径: Notes/Ideas.md'));
+  assert.ok(wsZh.includes('当前已打开标签页 (1): Ideas.md'));
+  assert.ok(wsZh.includes('工作区共包含 42 篇已索引笔记'));
 });
 

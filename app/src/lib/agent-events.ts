@@ -48,7 +48,14 @@ export function matchesTabPath(tab: PathTabLike, targetPath: string): boolean {
   const tp = normalizePath(tab.filePath || tab.fileName || '');
   const np = normalizePath(targetPath);
   if (!tp || !np) return false;
-  return tp === np || tp.endsWith('/' + np) || np.endsWith('/' + tp);
+  if (tp === np || tp.endsWith('/' + np) || np.endsWith('/' + tp)) return true;
+
+  // Extension-agnostic stem comparison (e.g. "untitled" matches "untitled.md")
+  const tpStem = tp.replace(/\.(md|markdown)$/i, '');
+  const npStem = np.replace(/\.(md|markdown)$/i, '');
+  if (tpStem === npStem || tpStem.endsWith('/' + npStem) || npStem.endsWith('/' + tpStem)) return true;
+
+  return false;
 }
 
 // ---------------------------------------------------------------------------

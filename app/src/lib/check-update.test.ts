@@ -205,3 +205,25 @@ test('resolveMatchedAsset recovers matchedAsset when missing from update result'
   assert.equal(resolveMatchedAsset(null), null);
 });
 
+test('checkForUpdateOnStartup function runs and defaults force to true', async () => {
+  const store = new Map<string, string>();
+  (globalThis as any).localStorage = {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => store.set(k, String(v)),
+    removeItem: (k: string) => store.delete(k),
+    clear: () => store.clear(),
+  };
+  try {
+    const { checkForUpdateOnStartup } = await import('./check-update.ts');
+    assert.equal(typeof checkForUpdateOnStartup, 'function');
+    localStorage.setItem('catstep.update.last-check', String(Date.now()));
+    const skipped = await checkForUpdateOnStartup(false);
+    assert.equal(skipped, null);
+    const forced = await checkForUpdateOnStartup(true);
+    assert.ok(forced);
+    assert.equal(typeof forced.hasUpdate, 'boolean');
+  } finally {
+    delete (globalThis as any).localStorage;
+  }
+});
+

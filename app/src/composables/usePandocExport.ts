@@ -50,6 +50,8 @@ interface ExportOptions {
   template?: string;
   /** Extra pandoc CLI args appended verbatim. */
   extraArgs?: string[];
+  /** Destination output path (overrides file picker if provided). */
+  outputPath?: string;
 }
 
 interface FormatSpec {
@@ -181,9 +183,9 @@ export function usePandocExport() {
     format: PandocFormat,
     activeContent?: string,
     opts: ExportOptions = {}
-  ): Promise<void> {
+  ): Promise<string | null> {
     const ctx = activeContext();
-    if (!ctx) return;
+    if (!ctx) return null;
     // Gitee IJXS8V — run the same leniency preprocessors the preview uses
     // before handing the source to pandoc. `preprocessMarkdown` documents
     // itself as the single source of truth that "both the HTML render path
@@ -202,7 +204,7 @@ export function usePandocExport() {
     const info = await detectPandoc();
     if (!info) {
       toasts.error(t('pandoc.notFound'));
-      return;
+      return null;
     }
 
     let ext = 'out';
@@ -232,11 +234,11 @@ export function usePandocExport() {
       ext === '*'
         ? [{ name: 'All Files', extensions: ['*'] }]
         : [{ name: filterName, extensions: [ext] }];
-    const outputPath = await pickSavePath({
+    const outputPath = opts.outputPath ?? (await pickSavePath({
       defaultPath: `${ctx.baseName}.${ext === '*' ? 'out' : ext}`,
       filters,
-    });
-    if (!outputPath) return;
+    }));
+    if (!outputPath) return null;
 
     const { bibliography, csl } = resolveCitationFlags(content);
 
@@ -255,10 +257,12 @@ export function usePandocExport() {
       });
       toasts.dismiss(tid);
       toasts.success(t('toast.pandocExported', { format: format.toUpperCase() }));
+      return outputPath;
     } catch (e) {
       toasts.dismiss(tid);
       const msg = typeof e === 'string' ? e : (e as Error)?.message || String(e);
       toasts.error(t('toast.pandocExportFailed', { error: msg }));
+      return null;
     }
   }
 

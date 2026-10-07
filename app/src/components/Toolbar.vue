@@ -329,9 +329,75 @@ function openImageUrlDialog() {
   window.dispatchEvent(new CustomEvent('solomd:open-image-url-dialog'));
 }
 
+const activeSubmenu = ref<{
+  id: string;
+  items: MenubarEntry[];
+  top: number;
+  left: number;
+} | null>(null);
+
+let submenuTimer: ReturnType<typeof setTimeout> | null = null;
+
 function closeAllDropdowns() {
   menubarOpen.value = null;
+  activeSubmenu.value = null;
+  if (submenuTimer) {
+    clearTimeout(submenuTimer);
+    submenuTimer = null;
+  }
 }
+
+function onMenuItemMouseEnter(entry: MenubarEntry, e: MouseEvent) {
+  if (submenuTimer) {
+    clearTimeout(submenuTimer);
+    submenuTimer = null;
+  }
+  if ('children' in entry && entry.children && entry.children.length > 0) {
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    let left = rect.right + 2;
+    if (left + 230 > window.innerWidth) {
+      left = Math.max(8, rect.left - 230);
+    }
+    let top = rect.top - 4;
+    if (top + 400 > window.innerHeight) {
+      top = Math.max(8, window.innerHeight - 410);
+    }
+    activeSubmenu.value = {
+      id: entry.id,
+      items: entry.children,
+      top,
+      left,
+    };
+  } else {
+    submenuTimer = setTimeout(() => {
+      activeSubmenu.value = null;
+    }, 120);
+  }
+}
+
+function onSubmenuMouseEnter() {
+  if (submenuTimer) {
+    clearTimeout(submenuTimer);
+    submenuTimer = null;
+  }
+}
+
+function onSubmenuMouseLeave() {
+  submenuTimer = setTimeout(() => {
+    activeSubmenu.value = null;
+  }, 180);
+}
+
+const submenuStyle = computed<Record<string, string | number> | undefined>(() => {
+  if (!activeSubmenu.value) return undefined;
+  return {
+    position: 'fixed',
+    top: `${activeSubmenu.value.top}px`,
+    left: `${activeSubmenu.value.left}px`,
+    zIndex: 1001,
+  };
+});
 
 // ── Triple Mode Switcher (Edit vs Reading vs Source) ─────────────────────
 const isEditing = computed(() => (settings.viewMode === 'liveEdit' || settings.viewMode === 'edit') && settings.livePreview);
@@ -450,6 +516,7 @@ function toggleMenubar(name: MenubarName, e: MouseEvent) {
 
 function menubarHover(name: MenubarName, e: MouseEvent) {
   if (menubarOpen.value && menubarOpen.value !== name) {
+    activeSubmenu.value = null;
     positionMenuFromButton(e.currentTarget as HTMLElement);
     menubarOpen.value = name;
   }
@@ -481,7 +548,7 @@ function toggleAiDrawer() {
 }
 
 function menuAction(id: string) {
-  menubarOpen.value = null;
+  closeAllDropdowns();
   if (id === 'file.new') files.newFile();
   else if (id === 'file.newText') files.newTextFile();
   else if (id === 'file.open') files.openFile();
@@ -491,10 +558,19 @@ function menuAction(id: string) {
   else if (id === 'file.openExternal') void onOpenExternal();
   else if (id.startsWith('recent:')) void files.openPath(id.slice(7));
   else if (id === 'file.exportHtml') exporter.exportHtml();
+  else if (id === 'file.exportHtmlPlain') exporter.exportHtmlPlain();
   else if (id === 'file.exportDocx') exporter.exportDocx();
   else if (id === 'file.exportPdfPrint' || id === 'file.print') exporter.exportPdfPrint();
   else if (id === 'file.exportPdf') exporter.exportPdf();
   else if (id === 'file.exportImage') exporter.exportImage();
+  else if (id === 'file.exportMarkdown') exporter.exportMarkdown();
+  else if (id === 'file.exportOdt') exporter.exportOdt();
+  else if (id === 'file.exportRtf') exporter.exportRtf();
+  else if (id === 'file.exportEpub') exporter.exportEpub();
+  else if (id === 'file.exportLatex') exporter.exportLatex();
+  else if (id === 'file.exportLast') exporter.exportLast();
+  else if (id === 'file.exportOverwriteLast') exporter.exportOverwriteLast();
+  else if (id === 'file.exportSettings') emit('open-settings', 'export');
   else if (id === 'file.copyHtml') exporter.copyAsHtml();
   else if (id === 'file.copyMarkdown') exporter.copyAsMarkdown();
   else if (id === 'file.copyImage') exporter.copyAsImage();
@@ -554,7 +630,9 @@ function menuAction(id: string) {
   }
 }
 
-type MenubarEntry = { id: string; label: string; shortcut?: string } | { sep: true };
+type MenubarEntry =
+  | { id: string; label: string; shortcut?: string; children?: MenubarEntry[] }
+  | { sep: true };
 
 const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
   // Helper: look up a menubar.* i18n key for menu item labels.
@@ -572,11 +650,33 @@ const menubarMenus = computed<Record<MenubarName, MenubarEntry[]>>(() => {
       { id: 'file.saveAs', label: m('saveAs'), shortcut: shortcutLabel('file.saveAs', settings.keybindings, macChord) || 'Ctrl+Shift+S' },
       { id: 'file.openExternal', label: m('openExternal'), shortcut: shortcutLabel('file.openExternal', settings.keybindings, macChord) },
       { sep: true },
-      { id: 'file.exportHtml', label: m('exportHtml') },
-      { id: 'file.exportDocx', label: m('exportDocx') },
-      { id: 'file.exportPdf', label: m('exportPdf') },
+      {
+        id: 'file.export',
+        label: m('exportMenu'),
+        children: [
+          // 1. Web & Image
+          { id: 'file.exportPdf', label: m('exportPdf') },
+          { id: 'file.exportHtml', label: m('exportHtml') },
+          { id: 'file.exportHtmlPlain', label: m('exportHtmlPlain') },
+          { id: 'file.exportImage', label: m('exportImage') },
+          { sep: true },
+          // 2. Document formats
+          { id: 'file.exportDocx', label: m('exportDocx') },
+          { id: 'file.exportMarkdown', label: m('exportMarkdown') },
+          { id: 'file.exportOdt', label: m('exportOdt') },
+          { id: 'file.exportRtf', label: m('exportRtf') },
+          { id: 'file.exportEpub', label: m('exportEpub') },
+          { id: 'file.exportLatex', label: m('exportLatex') },
+          { sep: true },
+          // 3. Quick actions
+          { id: 'file.exportOverwriteLast', label: m('exportOverwriteLast') },
+          { id: 'file.exportLast', label: m('exportLast'), shortcut: shortcutLabel('file.exportLast', settings.keybindings, macChord) || 'Ctrl+Shift+E' },
+          { sep: true },
+          // 4. Settings
+          { id: 'file.exportSettings', label: m('exportSettings') },
+        ],
+      },
       { id: 'file.exportPdfPrint', label: m('exportPdfPrint'), shortcut: shortcutLabel('file.print', settings.keybindings, macChord) || 'Ctrl+P' },
-      { id: 'file.exportImage', label: m('exportImage') },
       { sep: true },
       { id: 'file.copyMarkdown', label: m('copyMarkdown') },
       { id: 'file.copyHtml', label: m('copyHtml') },
@@ -893,10 +993,36 @@ onBeforeUnmount(() => {
               <button
                 v-else
                 class="dropdown__item dropdown__item--single"
-                @mousedown.prevent="menuAction(entry.id)"
+                :class="{
+                  'dropdown__item--has-sub': 'children' in entry && !!entry.children && entry.children.length > 0,
+                  active: activeSubmenu?.id === entry.id,
+                }"
+                @mouseenter="onMenuItemMouseEnter(entry, $event)"
+                @mousedown.prevent="'children' in entry && entry.children ? undefined : menuAction(entry.id)"
               >
                 <span class="dropdown__name">{{ entry.label }}</span>
-                <span v-if="entry.shortcut" class="dropdown__shortcut">{{ entry.shortcut }}</span>
+                <span v-if="'shortcut' in entry && entry.shortcut" class="dropdown__shortcut">{{ entry.shortcut }}</span>
+                <span v-if="'children' in entry && entry.children && entry.children.length > 0" class="dropdown__arrow">›</span>
+              </button>
+            </template>
+          </div>
+
+          <div
+            v-if="menubarOpen && activeSubmenu"
+            class="dropdown__menu dropdown__submenu"
+            :style="submenuStyle"
+            @mouseenter="onSubmenuMouseEnter"
+            @mouseleave="onSubmenuMouseLeave"
+          >
+            <template v-for="(subEntry, j) in activeSubmenu.items" :key="j">
+              <div v-if="'sep' in subEntry" class="dropdown__sep"></div>
+              <button
+                v-else
+                class="dropdown__item dropdown__item--single"
+                @mousedown.prevent="menuAction(subEntry.id)"
+              >
+                <span class="dropdown__name">{{ subEntry.label }}</span>
+                <span v-if="'shortcut' in subEntry && subEntry.shortcut" class="dropdown__shortcut">{{ subEntry.shortcut }}</span>
               </button>
             </template>
           </div>
@@ -1514,6 +1640,22 @@ onBeforeUnmount(() => {
   height: 1px;
   background: var(--border);
   margin: 4px 6px;
+}
+.dropdown__item--has-sub {
+  position: relative;
+}
+.dropdown__item.active {
+  background: var(--bg-active);
+}
+.dropdown__arrow {
+  margin-left: auto;
+  padding-left: 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+}
+.dropdown__submenu {
+  min-width: 180px;
 }
 
 @media (max-width: 1100px) {

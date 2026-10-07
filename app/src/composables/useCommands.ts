@@ -545,12 +545,16 @@ export function useCommands(): Command[] {
     },
 
     { id: 'export.html', title: 'Export to HTML…', run: () => exporter.exportHtml() },
+    { id: 'export.htmlPlain', title: 'Export to HTML (Without Styles)…', run: () => exporter.exportHtmlPlain() },
+    { id: 'export.markdown', title: 'Export to Markdown (.md)…', run: () => exporter.exportMarkdown() },
     { id: 'export.docx', title: 'Export to Word (DOCX)…', run: () => exporter.exportDocx() },
     // Gitee IK8QJQ — the raster/text distinction decides whether the output
     // is searchable, so it belongs in the palette too, not just the toolbar.
     { id: 'export.pdfPrint', title: 'Export to PDF (text)…', hint: 'real selectable text, via system print', shortcut: kb('export.pdfPrint'), run: () => exporter.exportPdfPrint() },
     { id: 'export.pdf', title: 'Export to PDF (image)…', hint: 'rasterised, text not selectable', run: () => exporter.exportPdf() },
     { id: 'export.image', title: 'Export to Image (PNG)…', run: () => exporter.exportImage() },
+    { id: 'export.last', title: 'Export with Previous Settings', shortcut: kb('file.exportLast'), run: () => exporter.exportLast() },
+    { id: 'export.overwriteLast', title: 'Export and Overwrite Previous File', run: () => exporter.exportOverwriteLast() },
     { id: 'export.epub', title: 'Export to EPUB…', hint: 'via Pandoc', run: () => pandoc.exportTo('epub') },
     { id: 'export.odt', title: 'Export to ODT…', hint: 'via Pandoc', run: () => pandoc.exportTo('odt') },
     { id: 'export.latex', title: 'Export to LaTeX…', hint: 'via Pandoc', run: () => pandoc.exportTo('latex') },
