@@ -75,3 +75,32 @@ export async function getMermaidForcedTheme(theme: 'dark' | 'default'): Promise<
   appliedTheme = theme;
   return mermaid;
 }
+
+let mermaidSeqId = 0;
+
+/**
+ * Process all mermaid code blocks in a container and replace them with rendered SVGs.
+ * Used across PDF export, image export, and system print.
+ */
+export async function processMermaidBlocks(container: HTMLElement): Promise<void> {
+  const blocks = container.querySelectorAll('pre > code.language-mermaid');
+  if (blocks.length === 0) return;
+  const mermaid = await getMermaidForcedTheme('default');
+  for (const block of Array.from(blocks)) {
+    const pre = block.parentElement as HTMLElement | null;
+    if (!pre) continue;
+    const code = (block.textContent || '').trim();
+    const id = `mmd-${++mermaidSeqId}`;
+    try {
+      const { svg } = await mermaid.render(id, code);
+      const wrap = document.createElement('div');
+      wrap.className = 'mermaid-block';
+      wrap.innerHTML = svg;
+      pre.replaceWith(wrap);
+    } catch (e) {
+      const err = document.createElement('pre');
+      err.textContent = `Mermaid error: ${(e as Error).message}`;
+      pre.replaceWith(err);
+    }
+  }
+}

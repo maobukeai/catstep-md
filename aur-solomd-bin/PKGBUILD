@@ -2,7 +2,7 @@
 # pkgver must match app/package.json — guarded by the satellite-version
 # drift job in .github/workflows/ci.yml.
 pkgname=solomd-bin
-pkgver=1.0.8
+pkgver=1.0.9
 pkgrel=1
 pkgdesc='A lightweight Markdown and plain text editor built with Tauri 2'
 arch=('x86_64')

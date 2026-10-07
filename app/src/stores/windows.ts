@@ -4,23 +4,25 @@ import { defineStore } from 'pinia';
  * windows.ts — auxiliary-window registry (#103).
  *
  * The "Open file in new window" feature spawns extra Tauri webview windows.
- * Three bugs made those windows un-restorable across restarts:
- *   1. They used timestamp labels (`solomd-<Date.now()>`), so the
- *      window-state plugin couldn't match them on relaunch.
- *   2. Nothing tracked which auxiliary windows *should* exist, so only the
- *      main window ever came back.
- *   3. Each window's tabs were persisted to the same per-folder bucket, so
- *      multiple windows on one folder clobbered each other.
+ * The original #103 fixes, all of which are still load-bearing:
+ *   1. Labels are deterministic (`solomd-window-<N>`) instead of
+ *      timestamped, so `tauri-plugin-window-state` can match them.
+ *   2. A shared registry records which auxiliary windows are open.
+ *   3. Each window's tabs go to their own per-window bucket, so several
+ *      windows on one folder no longer clobber each other.
+ *
+ * Producers of aux labels (keep them all using `nextAuxLabel`):
+ *   * composables/useFiles.ts  `spawnAuxWindow` — "open file in new window"
+ *   * lib/new-window.ts        `openNewWindow`   — File → New Window
  *
  * This store is the persistent registry. It lives in localStorage under
  * `solomd.windows.v1` and is shared by every window instance (localStorage
  * is per-origin, and all Catstep MD windows share the same origin). The main
- * window reads it on startup to re-spawn auxiliary windows; auxiliary
- * windows register themselves on open and unregister on close.
- *
- * Window labels are deterministic — `solomd-window-<N>` — assigned from a
- * monotonic counter persisted here. Stable labels let
- * `tauri-plugin-window-state` restore each window's size/position reliably.
+ * window drops stale entries at startup. NOTE: no window is actually
+ * *re-spawned* on launch — there is no restore path, and adding one would
+ * need a live `WebviewWindow` call that does not exist today. This store is
+ * bookkeeping: it exists so a window that closes can be struck off, and so a
+ * crash that skips the close event can be reconciled once at startup.
  */
 
 const LS_KEY = 'solomd.windows.v1';

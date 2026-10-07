@@ -3,12 +3,17 @@ import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { DsModal } from '../ui';
 import {
   type UpdateResult,
+  type ReleaseAsset,
   sharedUpdaterState,
   startUpdateDownload,
   cancelUpdateDownload,
   installUpdateAndRestart,
   formatBytes,
   openReleaseUrl,
+  resolveMatchedAsset,
+  getPlatformInfo,
+  synthesizeReleaseAssets,
+  pickBestAsset,
 } from '../lib/check-update';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
@@ -52,7 +57,9 @@ const latestVersion = computed(() => props.updateInfo?.latest || '');
 const currentVersion = computed(() => props.updateInfo?.current || '1.0.0');
 const releaseNotes = computed(() => props.updateInfo?.releaseNotes?.trim() || '');
 const releaseTitle = computed(() => props.updateInfo?.releaseTitle || `v${latestVersion.value}`);
-const matchedAsset = computed(() => props.updateInfo?.matchedAsset || null);
+const matchedAsset = computed<ReleaseAsset | null>(() => {
+  return props.updateInfo?.matchedAsset || (props.updateInfo ? resolveMatchedAsset(props.updateInfo) : null);
+});
 
 /** Render markdown for release notes so headings, lists and tags look great. */
 const renderedReleaseNotes = computed(() => {
@@ -137,14 +144,26 @@ async function handleStartDownload() {
     handleClose();
     return;
   }
-  if (!matchedAsset.value) {
+  let asset = matchedAsset.value;
+  if (!asset && props.updateInfo) {
+    const platform = await getPlatformInfo();
+    asset = resolveMatchedAsset(props.updateInfo, platform);
+  }
+  if (!asset && latestVersion.value) {
+    const platform = await getPlatformInfo();
+    const synth = synthesizeReleaseAssets(latestVersion.value);
+    asset = pickBestAsset(synth, platform);
+  }
+  if (!asset) {
     // Fallback to browser release page if no matching asset found for this OS/arch
     await openReleaseUrl(props.updateInfo?.url);
     handleClose();
     return;
   }
+  if (props.updateInfo && !props.updateInfo.matchedAsset) {
+    props.updateInfo.matchedAsset = asset;
+  }
 
-  const asset = matchedAsset.value;
   try {
     await startUpdateDownload(asset, latestVersion.value);
   } catch (e) {
@@ -163,7 +182,8 @@ async function handlePrimaryAction() {
   if (isAndroid()) {
     const asset =
       matchedAsset.value ||
-      (props.updateInfo?.assets && props.updateInfo.assets.find((a) => a.name.endsWith('.apk')));
+      (props.updateInfo?.assets && props.updateInfo.assets.find((a) => a.name.endsWith('.apk'))) ||
+      (props.updateInfo ? resolveMatchedAsset(props.updateInfo) : null);
     if (asset?.browser_download_url) {
       toasts.info(t('settings.apkDownloadStarting'));
       await openReleaseUrl(asset.browser_download_url);
@@ -192,7 +212,8 @@ async function handleInstall() {
   if (isAndroid()) {
     const asset =
       matchedAsset.value ||
-      (props.updateInfo?.assets && props.updateInfo.assets.find((a) => a.name.endsWith('.apk')));
+      (props.updateInfo?.assets && props.updateInfo.assets.find((a) => a.name.endsWith('.apk'))) ||
+      (props.updateInfo ? resolveMatchedAsset(props.updateInfo) : null);
     toasts.info(t('settings.openingApkInstaller'));
     await openReleaseUrl(asset?.browser_download_url || props.updateInfo?.url);
     handleClose();

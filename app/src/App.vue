@@ -1506,16 +1506,25 @@ onMounted(async () => {
     }
   } catch {}
 
-  // #103 follow-up — auxiliary windows ("Open file in new window") close
-  // independently of the main window (handled in runner.rs, the original #103
-  // fix). We intentionally do NOT auto-resurrect them on launch.
-  if (isTauri()) {
+  // #103 — stale-registry hygiene, main window only.
+  //
+  // Nothing in the app re-spawns auxiliary windows on launch (the
+  // `windows.ts` banner describing that is aspirational; see the note
+  // there). The registry's live job is bookkeeping: entries are added
+  // when an aux window opens and removed when it is destroyed, via
+  // `solomd://window-destroyed` or the window's own onCloseRequested.
+  // A crash can skip both, leaving an entry that nothing will ever
+  // clear — so the main window drops them once, at startup.
+  //
+  // The check is a POSITIVE main-window test, not `!isAuxLabel(...)`:
+  // with a negated check, any future window kind that doesn't happen to
+  // carry the aux prefix would wipe the whole registry on open. That is
+  // exactly what the old `catstep-` label in lib/new-window.ts did.
+  if (isTauri() && getCurrentWindow().label === 'main') {
     try {
-      if (!isAuxLabel(getCurrentWindow().label)) {
-        windowsStore.reload();
-        for (const label of [...windowsStore.auxLabels]) {
-          windowsStore.unregister(label);
-        }
+      windowsStore.reload();
+      for (const label of [...windowsStore.auxLabels]) {
+        windowsStore.unregister(label);
       }
     } catch (err) {
       console.warn('aux-window registry cleanup failed', err);
@@ -1691,6 +1700,7 @@ onMounted(async () => {
         startUpdateDownload,
         installUpdateAndRestart,
         initUpdaterEventListener,
+        resolveMatchedAsset,
       } = await import('./lib/check-update');
       await initUpdaterEventListener();
       const result = await checkForUpdateOnStartup();
@@ -1700,7 +1710,7 @@ onMounted(async () => {
         const { useI18n } = await import('./i18n');
         const { t: tr } = useI18n();
 
-        const asset = result.matchedAsset || (result.assets && result.assets.length > 0 ? result.assets[0] : null);
+        const asset = result.matchedAsset || resolveMatchedAsset(result);
         if (settings.autoDownloadUpdate && asset && !isMobile()) {
           // Zero-distraction: silently download update in background (desktop only)
           void startUpdateDownload(asset, result.latest || '').then(() => {

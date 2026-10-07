@@ -1135,7 +1135,6 @@ export const en = {
       'catstep-mcp not bundled in this dev build — the snippet uses a placeholder path.',
   },
   // v4.0 Pillar 2 — Agent Recipes (Settings → Integrations panel).
-  // TODO(zh): translate these once the en strings stabilise.
   recipes: {
     heading: 'Agent recipes',
     intro:

@@ -47,7 +47,9 @@ interface RunStyle {
   italic?: boolean;
   strike?: boolean;
   code?: boolean;
+  highlight?: boolean;
   link?: string;
+  wikilink?: boolean;
 }
 
 const HEADING_LEVELS: Record<string, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
@@ -150,7 +152,7 @@ function scaleDimensions(w: number, h: number): { width: number; height: number 
   return { width: w, height: h };
 }
 
-function buildRuns(inlineToken: Token, style: RunStyle = {}): (TextRun | ExternalHyperlink)[] {
+export function buildRuns(inlineToken: Token, style: RunStyle = {}): (TextRun | ExternalHyperlink)[] {
   const out: (TextRun | ExternalHyperlink)[] = [];
   if (!inlineToken.children) {
     if (inlineToken.content) {
@@ -226,6 +228,55 @@ function buildRuns(inlineToken: Token, style: RunStyle = {}): (TextRun | Externa
           pendingLink = null;
         }
         break;
+      case 'mark_open':
+        stack.push({ ...cur, highlight: true });
+        break;
+      case 'mark_close':
+        stack.pop();
+        break;
+      case 'wikilink_open': {
+        const target = tok.attrGet('data-wikilink-target') ?? '';
+        pendingLink = { href: target, runs: [] };
+        stack.push({ ...cur, wikilink: true });
+        break;
+      }
+      case 'wikilink_close':
+        if (pendingLink) {
+          out.push(
+            new ExternalHyperlink({
+              link: pendingLink.href,
+              children: pendingLink.runs as TextRun[],
+            })
+          );
+          pendingLink = null;
+        }
+        stack.pop();
+        break;
+      case 'footnote_ref': {
+        const meta = tok.meta as { label?: string; id?: number } | null;
+        const label = String(meta?.label ?? (typeof meta?.id === 'number' ? meta.id + 1 : '1'));
+        push(new TextRun({ text: `[${label}]`, superScript: true, ...toRunOpts(cur) }));
+        break;
+      }
+      case 'footnote_anchor':
+        // Footnote backlink return arrow is omitted from Word prose
+        break;
+      case 'html_inline': {
+        const content = tok.content || '';
+        if (/<input[^>]*type=["']checkbox["'][^>]*>/i.test(content)) {
+          const isChecked = /checked\b/i.test(content);
+          push(new TextRun({ text: isChecked ? '☑ ' : '☐ ', ...toRunOpts(cur) }));
+        } else if (/<br\s*\/?>/i.test(content)) {
+          push(new TextRun({ text: '', break: 1, ...toRunOpts(cur) }));
+        }
+        // Avoid leaking raw HTML tags into the document
+        break;
+      }
+      case 'math_inline':
+        if (tok.content) {
+          push(new TextRun({ text: tok.content, italics: true, font: 'Cambria Math', ...toRunOpts(cur) }));
+        }
+        break;
       case 'image':
         // Images are handled at the block level (see buildBody), but if an
         // image appears inline we emit a placeholder.
@@ -243,6 +294,13 @@ function toRunOpts(s: RunStyle) {
   if (s.bold) opts.bold = true;
   if (s.italic) opts.italics = true;
   if (s.strike) opts.strike = true;
+  if (s.highlight) {
+    opts.highlight = 'yellow';
+  }
+  if (s.wikilink) {
+    opts.color = '0366D6';
+    opts.underline = {};
+  }
   if (s.code) {
     opts.font = 'JetBrains Mono';
     opts.color = '8A4A00';
@@ -286,7 +344,7 @@ function resolveLocalImagePath(src: string, imageRoot: string | null, filePath?:
   return resolved;
 }
 
-async function buildBody(tokens: Token[], imageRoot: string | null, filePath?: string): Promise<BlockChild[]> {
+export async function buildBody(tokens: Token[], imageRoot: string | null, filePath?: string): Promise<BlockChild[]> {
   const out: BlockChild[] = [];
   let i = 0;
   const listStack: { type: 'bullet' | 'ordered'; index: number }[] = [];
@@ -398,7 +456,7 @@ async function buildBody(tokens: Token[], imageRoot: string | null, filePath?: s
                 after: idx === last ? 160 : 0,
               },
               border: {
-                left: { style: BorderStyle.SINGLE, size: 18, color: 'FF9F40', space: 6 },
+                left: { style: BorderStyle.SINGLE, size: 18, color: 'D0D0D0', space: 6 },
               },
             })
           );
@@ -419,33 +477,27 @@ async function buildBody(tokens: Token[], imageRoot: string | null, filePath?: s
       case 'blockquote_open': {
         const end = findMatchingClose(tokens, i, 'blockquote_open', 'blockquote_close');
         const inner = tokens.slice(i + 1, end);
-        // Build runs directly from each inner paragraph's inline tokens
-        // instead of round-tripping through buildBody → Paragraph and
-        // trying to re-extract `.options.children`. The `docx` library's
-        // Paragraph instances don't expose constructor children publicly,
-        // so the old extraction returned [] and produced empty
-        // bordered paragraphs (issue: blockquotes vanished on docx export).
         let j = 0;
         while (j < inner.length) {
           const t = inner[j];
           if (t.type === 'paragraph_open') {
-            const inlineTok = inner[j + 1];
+            const pClose = findMatchingClose(inner, j, 'paragraph_open', 'paragraph_close');
+            const inlineTok = inner.slice(j + 1, pClose).find((tok) => tok.type === 'inline');
             const runs = inlineTok && inlineTok.type === 'inline'
               ? buildRuns(inlineTok)
               : [];
             out.push(
               new Paragraph({
-                children: runs.length > 0 ? (runs as TextRun[]) : [new TextRun({ text: ' ' })],
+                children: runs.length > 0 ? (runs as (TextRun | ExternalHyperlink)[]) : [new TextRun({ text: ' ' })],
                 alignment: AlignmentType.LEFT,
                 indent: { left: 360 },
                 spacing: { before: 80, after: 80 },
                 border: {
-                  left: { style: BorderStyle.SINGLE, size: 18, color: 'FF9F40', space: 8 },
+                  left: { style: BorderStyle.SINGLE, size: 18, color: 'CCCCCC', space: 8 },
                 },
               })
             );
-            // Skip paragraph_open, inline, paragraph_close
-            j += 3;
+            j = pClose + 1;
           } else {
             // Non-paragraph children (nested lists, fenced code, headings,
             // tables) — recurse so they keep their structure. They render
@@ -471,6 +523,75 @@ async function buildBody(tokens: Token[], imageRoot: string | null, filePath?: s
         const table = buildTable(tokens.slice(i + 1, end));
         if (table) out.push(table);
         out.push(new Paragraph({ text: '', spacing: { before: 0, after: 120 } }));
+        i = end + 1;
+        break;
+      }
+      case 'math_block': {
+        const formula = (tok.content || '').trim();
+        const lines = formula.split('\n');
+        const runs: TextRun[] = [];
+        lines.forEach((line, idx) => {
+          runs.push(
+            new TextRun({
+              text: line || ' ',
+              italics: true,
+              font: 'Cambria Math',
+              size: 24,
+              break: idx > 0 ? 1 : undefined,
+            })
+          );
+        });
+        out.push(
+          new Paragraph({
+            children: runs,
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 180, after: 180 },
+          })
+        );
+        i += 1;
+        break;
+      }
+      case 'footnote_block_open':
+        out.push(
+          new Paragraph({
+            text: '',
+            spacing: { before: 240, after: 120 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CCCCCC' } },
+          })
+        );
+        i += 1;
+        break;
+      case 'footnote_block_close':
+        i += 1;
+        break;
+      case 'footnote_open': {
+        const meta = tok.meta as { label?: string; id?: number } | null;
+        const label = String(meta?.label ?? (typeof meta?.id === 'number' ? meta.id + 1 : '1'));
+        const end = findMatchingClose(tokens, i, 'footnote_open', 'footnote_close');
+        const inner = tokens.slice(i + 1, end);
+        let isFirst = true;
+        let j = 0;
+        while (j < inner.length) {
+          const t = inner[j];
+          if (t.type === 'paragraph_open') {
+            const pClose = findMatchingClose(inner, j, 'paragraph_open', 'paragraph_close');
+            const inlineTok = inner.slice(j + 1, pClose).find((tok) => tok.type === 'inline');
+            const runs = inlineTok ? buildRuns(inlineTok) : [];
+            if (isFirst) {
+              runs.unshift(new TextRun({ text: `[${label}] `, bold: true, size: 20 }));
+              isFirst = false;
+            }
+            out.push(
+              new Paragraph({
+                children: runs as (TextRun | ExternalHyperlink)[],
+                spacing: { before: 40, after: 40 },
+              })
+            );
+            j = pClose + 1;
+          } else {
+            j += 1;
+          }
+        }
         i = end + 1;
         break;
       }
@@ -513,13 +634,18 @@ function isImageOnlyParagraph(inline: Token): boolean {
   return false;
 }
 
+interface CellData {
+  runs: (TextRun | ExternalHyperlink)[];
+  align: (typeof AlignmentType)[keyof typeof AlignmentType];
+}
+
 /**
  * Build a docx Table from the tokens BETWEEN `table_open` and `table_close`
  * (exclusive).
  */
-function buildTable(inner: Token[]): Table | null {
-  const rows: { cells: TextRun[][]; isHeader: boolean }[] = [];
-  let currentRow: { cells: TextRun[][]; isHeader: boolean } | null = null;
+export function buildTable(inner: Token[]): Table | null {
+  const rows: { cells: CellData[]; isHeader: boolean }[] = [];
+  let currentRow: { cells: CellData[]; isHeader: boolean } | null = null;
   let inHeader = false;
 
   for (let k = 0; k < inner.length; k++) {
@@ -540,9 +666,18 @@ function buildTable(inner: Token[]): Table | null {
         break;
       case 'th_open':
       case 'td_open': {
+        const style = t.attrGet('style') || '';
+        let align: (typeof AlignmentType)[keyof typeof AlignmentType] = AlignmentType.LEFT;
+        if (/text-align:\s*center/i.test(style)) {
+          align = AlignmentType.CENTER;
+        } else if (/text-align:\s*right/i.test(style)) {
+          align = AlignmentType.RIGHT;
+        } else if (/text-align:\s*left/i.test(style)) {
+          align = AlignmentType.LEFT;
+        }
         const inlineTok = inner[k + 1];
-        const runs = inlineTok ? (buildRuns(inlineTok) as TextRun[]) : [];
-        if (currentRow) currentRow.cells.push(runs);
+        const runs = inlineTok ? buildRuns(inlineTok) : [];
+        if (currentRow) currentRow.cells.push({ runs, align });
         break;
       }
       default:
@@ -559,15 +694,15 @@ function buildTable(inner: Token[]): Table | null {
       new TableRow({
         tableHeader: row.isHeader,
         children: Array.from({ length: colCount }, (_, c) => {
-          const runs = row.cells[c] ?? [];
+          const cell = row.cells[c] ?? { runs: [], align: AlignmentType.LEFT };
           const cellChildren =
-            runs.length > 0
-              ? [new Paragraph({ children: runs, spacing: { before: 40, after: 40 } })]
-              : [new Paragraph({ text: '' })];
+            cell.runs.length > 0
+              ? [new Paragraph({ children: cell.runs, alignment: cell.align, spacing: { before: 40, after: 40 } })]
+              : [new Paragraph({ text: '', alignment: cell.align })];
           return new TableCell({
             children: cellChildren,
             shading: row.isHeader
-              ? { type: ShadingType.SOLID, color: 'FFE7CC', fill: 'FFE7CC' }
+              ? { type: ShadingType.SOLID, color: 'F2F2F2', fill: 'F2F2F2' }
               : undefined,
             margins: { top: 80, bottom: 80, left: 120, right: 120 },
           });

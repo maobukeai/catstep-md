@@ -1031,7 +1031,6 @@ body.solomd-printing--dark {
   /* Inherit from the overlay so the print palette above decides; without a
      palette class this lands on body's black, i.e. the old behaviour. */
   color: inherit !important;
-  font-family: var(--font-ui, sans-serif);
 }
 
 /* Right sidebar pane close button (issue #6 / #52 / #55).

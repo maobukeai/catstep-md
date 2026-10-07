@@ -45,15 +45,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+          cache-dependency-path: 'app/pnpm-lock.yaml'
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -63,7 +65,9 @@ jobs:
       - name: Cache cargo
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: app/src-tauri -> target
+          workspaces: |
+            app/src-tauri -> target
+            mcp-server -> target
 
       - name: Install Linux build dependencies
         if: startsWith(matrix.platform, 'ubuntu-')
@@ -388,15 +392,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+          cache-dependency-path: 'web-clipper/pnpm-lock.yaml'
 
       - name: Install web-clipper deps
         working-directory: web-clipper
@@ -446,15 +452,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+          cache-dependency-path: 'app/pnpm-lock.yaml'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4

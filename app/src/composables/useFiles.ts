@@ -58,8 +58,13 @@ export function useFiles() {
   // #103 — spawn an auxiliary window with a *stable* label (`solomd-window-N`)
   // instead of a timestamp, and record it in the shared windows registry so
   // (a) tauri-plugin-window-state can restore its geometry by label and
-  // (b) the main window re-spawns it on the next launch. Returns the label,
-  // or null when window creation failed (caller falls back to in-tab open).
+  // (b) the entry can be struck off when this window closes.
+  //
+  // The register call is bookkeeping, NOT a restore hook: nothing re-spawns
+  // registered windows on the next launch (see stores/windows.ts).
+  //
+  // Returns the label, or null when window creation failed (caller falls back
+  // to an in-tab open).
   function spawnAuxWindow(path: string): string | null {
     try {
       const label = windowsStore.nextAuxLabel();

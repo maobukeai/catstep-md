@@ -1,0 +1,7 @@
+# Cargo compilation speed optimization
+# Uses LLVM's fast lld linker on Windows to significantly reduce link times
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+
+[target.aarch64-pc-windows-msvc]
+linker = "rust-lld.exe"

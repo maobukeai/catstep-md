@@ -47,7 +47,7 @@ before pushing:
 
 ```bash
 # Frontend
-pnpm test             # node --test over src/lib/*.test.ts
+pnpm test             # node --test over src/**/*.test.ts
 pnpm run build        # vue-tsc --noEmit + vite build (type check + bundle)
 pnpm i18n:check       # key parity across all 14 locales (en is the base)
 

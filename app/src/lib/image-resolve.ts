@@ -5,7 +5,7 @@
  */
 
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { readNote } from './commands';
+import { readNote, readBinaryFile } from './commands';
 
 /**
  * Whole-line image detection regex with optional title, bracketed path, and spaces in path.
@@ -281,3 +281,121 @@ export function rewriteLinkUrls(
     },
   );
 }
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+  return btoa(binary);
+}
+
+function mimeFromExt(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() ?? '';
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'gif': return 'image/gif';
+    case 'svg': return 'image/svg+xml';
+    case 'webp': return 'image/webp';
+    case 'bmp': return 'image/bmp';
+    case 'ico': return 'image/x-icon';
+    case 'avif': return 'image/avif';
+    default: return 'image/png';
+  }
+}
+
+export function assetUrlToPath(value: string): string | null {
+  let rest = '';
+  if (/^asset:\/\/localhost\//i.test(value)) {
+    rest = value.slice('asset://localhost/'.length);
+  } else if (/^asset:\/\//i.test(value)) {
+    rest = value.slice('asset://'.length);
+  } else if (/^https?:\/\/asset\.localhost\//i.test(value)) {
+    rest = value.replace(/^https?:\/\/asset\.localhost\//i, '');
+  } else {
+    return null;
+  }
+  try {
+    rest = decodeURIComponent(rest);
+  } catch {}
+  if (rest.startsWith('\\\\?\\')) {
+    rest = rest.slice(4);
+  }
+  if (rest.startsWith('/') && /^\/[a-zA-Z]:[\\/]/.test(rest)) {
+    rest = rest.slice(1);
+  }
+  // On POSIX, absolute paths start with '/' and must not be left relative.
+  if (!rest.startsWith('/') && !/^[a-zA-Z]:/.test(rest)) {
+    rest = '/' + rest;
+  }
+  return normalizePath(rest);
+}
+
+/**
+ * Convert local image src attributes in rendered HTML into Base64 / Data URLs
+ * for standalone HTML export, so standard browsers can view them without
+ * encountering broken Tauri `asset://` URLs.
+ */
+export async function embedLocalImagesAsDataUrls(
+  html: string,
+  imageRoot: string | null,
+  filePath?: string,
+): Promise<string> {
+  const imgRegex = /<img\b([^>]*?)\bsrc=(["'])([^"']*?)\2([^>]*?)>/gi;
+  const matches = Array.from(html.matchAll(imgRegex));
+  if (matches.length === 0) return html;
+
+  const cache = new Map<string, string>();
+
+  async function toDataUrl(src: string): Promise<string | null> {
+    const assetPath = assetUrlToPath(src);
+    if (!assetPath && (!src || /^(https?|data|blob):/i.test(src))) return null;
+    const resolvedPath = assetPath ?? resolveImagePath(src, imageRoot, filePath);
+    if (!resolvedPath || /^(https?|data|blob|asset|tauri):/i.test(resolvedPath)) return null;
+
+    if (cache.has(resolvedPath)) {
+      return cache.get(resolvedPath)!;
+    }
+
+    try {
+      if (isLocalSvgPath(resolvedPath)) {
+        const svgResult = await readNote(resolvedPath);
+        const dataUrl = svgTextToDataUrl(svgResult.content);
+        cache.set(resolvedPath, dataUrl);
+        return dataUrl;
+      }
+
+      const binaryData = await readBinaryFile(resolvedPath);
+      const bytes = new Uint8Array(binaryData);
+      const mime = mimeFromExt(resolvedPath);
+      const b64 = uint8ArrayToBase64(bytes);
+      const dataUrl = `data:${mime};base64,${b64}`;
+      cache.set(resolvedPath, dataUrl);
+      return dataUrl;
+    } catch {
+      return null;
+    }
+  }
+
+  let result = html;
+  for (const match of matches) {
+    const rawTag = match[0];
+    const beforeSrc = match[1];
+    const quote = match[2];
+    const src = match[3];
+    const afterSrc = match[4];
+
+    const dataUrl = await toDataUrl(src);
+    if (dataUrl) {
+      const newTag = `<img${beforeSrc}src=${quote}${dataUrl}${quote}${afterSrc}>`;
+      result = result.split(rawTag).join(newTag);
+    }
+  }
+
+  return result;
+}
+

@@ -3,7 +3,7 @@ import type { Language, Tab } from '../types';
 import { useSettingsStore } from './settings';
 import { useTilesStore } from './tiles';
 import { useWritingSessionStore } from './writingSession';
-import { useWindowsStore } from './windows';
+import { AUX_LABEL_PREFIX } from './windows';
 import { stampGoalSetAtIfMissing } from '../composables/useWritingGoals';
 import { readPersistedSettings } from '../lib/settings-storage';
 
@@ -23,7 +23,10 @@ const NO_WORKSPACE = '__none__';
 // compatible — existing sessions restore unchanged); auxiliary windows
 // append `::win::<label>`. Labels are the stable `solomd-window-N` ids the
 // windows store hands out.
-const AUX_LABEL_PREFIX = 'solomd-window-';
+// The aux label prefix is imported from `./windows` (the single source of
+// truth) rather than re-declared here. It used to be a local copy, which is
+// exactly how `lib/new-window.ts` drifted to a `catstep-` label: the producer
+// and the consumer each had their own string, so nothing caught the mismatch.
 
 /** The current Tauri window's label, or 'main' outside Tauri (Vitest, the
  *  marketing site preview, etc.). Read lazily and defensively because tabs.ts
@@ -416,21 +419,6 @@ export const useTabsStore = defineStore('tabs', {
           throw err;
         }
       }
-    },
-    /** #103 — when this is an auxiliary window, record it in the shared
-     *  windows registry so the main window re-spawns it on the next launch.
-     *  `path` is the document the window was opened to show; it's stored as
-     *  the window's restore anchor. No-op in the main window. */
-    registerAuxWindow(path: string) {
-      const suffix = windowScopeSuffix();
-      if (!suffix) return; // main window — nothing to register
-      const label = currentWindowLabel();
-      try {
-        useWindowsStore().register(label, {
-          path,
-          folder: currentWorkspaceFolder(),
-        });
-      } catch {}
     },
     /** Write the current view into a specific workspace's bucket (used when
      *  leaving a workspace, so it's remembered when the user returns). */

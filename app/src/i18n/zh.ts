@@ -1321,7 +1321,6 @@ export const zh: I18n = {
     manageProviders: '管理模型',
     currentActiveModel: '当前主用',
     quickAddModelId: '快速添加模型 ID',
-    // TODO(zh): bulk-translate v4.0 Pillar 5 strings after merge.
     // v4.11.18 — self-hosted OpenAI-compatible server branch.
     compat: {
       note: '支持任意兼容 OpenAI 标准协议的本地或自建大模型服务（如 Ollama、LM Studio、vLLM 等）。',

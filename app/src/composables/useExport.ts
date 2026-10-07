@@ -8,7 +8,8 @@ import { isIOS } from '../lib/platform';
 import { renderMarkdown, extractImageRoot } from '../lib/markdown';
 import { exportDefaultPath } from '../lib/export-paths';
 import { useI18n } from '../i18n';
-import { rewriteLinkUrls, rewriteImageUrls } from '../lib/image-resolve';
+import { rewriteLinkUrls, rewriteImageUrls, embedLocalImagesAsDataUrls } from '../lib/image-resolve';
+import { processMermaidBlocks } from '../lib/mermaid-lazy';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
@@ -404,15 +405,15 @@ export function useExport() {
     const filename = `${ctx.baseName}.html`;
     const path = await pickWritePath(filename, [{ name: 'HTML', extensions: ['html'] }]);
     if (!path) return;
-    // v4.3.0 issue #77 — rewrite local-file `href` / `src` URLs to
-    // absolute `file://` paths so the exported HTML doesn't bake in
-    // `http://tauri.localhost/...` references that break when shared.
+    // Rewrite links to file:// URLs, and convert local images to Base64/Data URLs
+    // so exported standalone HTML files don't leak broken asset:// protocols.
     const imageRoot = extractImageRoot(ctx.content);
-    const body = rewriteLinkUrls(
-      rewriteImageUrls(renderMarkdown(ctx.content), imageRoot, ctx.filePath),
+    let body = rewriteLinkUrls(
+      renderMarkdown(ctx.content),
       imageRoot,
       ctx.filePath,
     );
+    body = await embedLocalImagesAsDataUrls(body, imageRoot, ctx.filePath);
     const html = HTML_TEMPLATE(ctx.baseName, body);
     try {
       await writeNote(path, html);
@@ -464,8 +465,10 @@ export function useExport() {
         ctx.content,
         userTouchedPdfDefaults(settings.pdfDefaults),
       );
+      const isReading = settings.viewMode === 'reading' || Boolean(document.querySelector('.reading-view, .preview-content--reading'));
+      const skin = isReading ? 'reading' : 'default';
       const { markdownToPdfBlob } = await import('../lib/pdf-export');
-      const blob = await markdownToPdfBlob(ctx.content, ctx.baseName, pdfOpts, ctx.filePath);
+      const blob = await markdownToPdfBlob(ctx.content, ctx.baseName, pdfOpts, ctx.filePath, skin);
       const buffer = new Uint8Array(await blob.arrayBuffer());
       await writeBinaryFile(path, Array.from(buffer));
       toasts.dismiss(tid);
@@ -514,6 +517,7 @@ export function useExport() {
     }
     overlay.innerHTML = `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <div class="solomd-print-content preview-content">${body}</div>`;
+    await processMermaidBlocks(overlay);
     // Print palette, independent of the app theme. The overlay sits outside
     // #app but still inherits :root's tokens, so a dark theme used to put a
     // dark code slab on paper. `follow` adds no class and keeps that.
@@ -645,10 +649,13 @@ export function useExport() {
     const path = await pickWritePath(filename, [{ name: 'PNG Image', extensions: ['png'] }]);
     if (!path) return;
     const tid = toasts.info(isSelection ? t('toast.generatingSelectionImage') : t('toast.generatingImage'), 0);
+    const isReading = settings.viewMode === 'reading' || Boolean(document.querySelector('.reading-view, .preview-content--reading'));
+    const skin = isReading ? 'reading' : 'default';
     try {
       const { markdownToImageBlob } = await import('../lib/image-export');
       const blob = await markdownToImageBlob(source, ctx.baseName, ctx.filePath, {
         branding: settings.imageExportBranding,
+        skin,
       });
       const buffer = new Uint8Array(await blob.arrayBuffer());
       await writeBinaryFile(path, Array.from(buffer));
@@ -673,11 +680,14 @@ export function useExport() {
     const sel = getEditorSelectionMd(ctx.content);
     const source = sel ?? ctx.content;
     const isSelection = sel !== null;
+    const isReading = settings.viewMode === 'reading' || Boolean(document.querySelector('.reading-view, .preview-content--reading'));
+    const skin = isReading ? 'reading' : 'default';
     const tid = toasts.info(isSelection ? t('toast.capturingSelection') : t('toast.capturingImage'), 0);
     try {
       const { markdownToImageBlob } = await import('../lib/image-export');
       const blob = await markdownToImageBlob(source, ctx.baseName, ctx.filePath, {
         branding: settings.imageExportBranding,
+        skin,
       });
 
       // Native Clipboard API supports `image/png` on iOS 16+ and all
@@ -711,6 +721,7 @@ export function useExport() {
           const { markdownToImageBlob } = await import('../lib/image-export');
           const blob2 = await markdownToImageBlob(source, ctx.baseName, ctx.filePath, {
             branding: settings.imageExportBranding,
+            skin,
           });
           const buffer = new Uint8Array(await blob2.arrayBuffer());
           await writeBinaryFile(path, Array.from(buffer));

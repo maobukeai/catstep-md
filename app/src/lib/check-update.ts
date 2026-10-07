@@ -7,6 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { reactive } from 'vue';
+import { isAndroid, isIOS, isMacOS } from './platform';
 
 /**
  * Catstep MD GitHub Release Update Protocol & In-App Auto-Updater.
@@ -135,26 +136,120 @@ export function compareSemver(a: string, b: string): number {
 const MAS_BUILD = Boolean(typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAS_BUILD === '1');
 export const isMasBuild = (): boolean => MAS_BUILD;
 
+let cachedPlatform: PlatformInfo | null = null;
+
+/** Synchronously resolve platform info from navigator UA or cache */
+export function getPlatformInfoSync(): PlatformInfo {
+  if (cachedPlatform) return cachedPlatform;
+  if (typeof process !== 'undefined' && process.platform) {
+    const os =
+      process.platform === 'win32'
+        ? 'windows'
+        : process.platform === 'darwin'
+          ? 'macos'
+          : process.platform === 'linux'
+            ? 'linux'
+            : process.platform === 'android'
+              ? 'android'
+              : 'unknown';
+    const arch =
+      process.arch === 'arm64' ? 'aarch64' : process.arch === 'arm' ? 'arm' : 'x86_64';
+    if (os !== 'unknown') {
+      return { os, arch };
+    }
+  }
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const os = isAndroid()
+    ? 'android'
+    : isIOS()
+      ? 'ios'
+      : /windows/i.test(ua)
+        ? 'windows'
+        : isMacOS()
+          ? 'macos'
+          : /linux/i.test(ua)
+            ? 'linux'
+            : 'unknown';
+  const arch = /\b(arm64|aarch64)\b/i.test(ua)
+    ? 'aarch64'
+    : /\b(arm|armv7l|armv8l|armeabi)\b/i.test(ua)
+      ? 'arm'
+      : 'x86_64';
+  return { os, arch };
+}
+
 /** Get platform and architecture from Rust backend */
 export async function getPlatformInfo(): Promise<PlatformInfo> {
+  if (cachedPlatform) return cachedPlatform;
   try {
-    return await invoke<PlatformInfo>('updater_get_platform_info');
+    cachedPlatform = await invoke<PlatformInfo>('updater_get_platform_info');
+    return cachedPlatform;
   } catch {
-    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-    const os = /android/i.test(ua)
-      ? 'android'
-      : /iphone|ipad|ipod/i.test(ua)
-        ? 'ios'
-        : /windows/i.test(ua)
-          ? 'windows'
-          : /mac/i.test(ua)
-            ? 'macos'
-            : /linux/i.test(ua)
-              ? 'linux'
-              : 'unknown';
-    const arch = /arm64|aarch64/i.test(ua) ? 'aarch64' : /arm/i.test(ua) ? 'arm' : 'x86_64';
-    return { os, arch };
+    cachedPlatform = getPlatformInfoSync();
+    return cachedPlatform;
   }
+}
+
+/**
+ * Synthesizes standard release asset metadata for Catstep MD official GitHub releases.
+ * When GitHub API is rate-limited or update check falls back to Git repo mirrors / web redirect,
+ * this provides deterministic assets corresponding to the CI release workflow.
+ */
+export function synthesizeReleaseAssets(tag: string): ReleaseAsset[] {
+  const cleanTag = tag.replace(/^v/, '').trim();
+  const baseUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${cleanTag}`;
+
+  const assetNames: string[] = [
+    // Windows: MSI installers, portable archives and setup executables
+    `CatstepMD_${cleanTag}_x64_en-US.msi`,
+    `CatstepMD_${cleanTag}_arm64_en-US.msi`,
+    `CatstepMD_${cleanTag}_x64.msi`,
+    `CatstepMD_${cleanTag}_arm64.msi`,
+    `CatstepMD_${cleanTag}_x64-setup.exe`,
+    `CatstepMD_${cleanTag}_arm64-setup.exe`,
+    // macOS: Apple Silicon and Intel disk images
+    `CatstepMD_${cleanTag}_aarch64.dmg`,
+    `CatstepMD_${cleanTag}_x64.dmg`,
+    `CatstepMD_${cleanTag}_universal.dmg`,
+    // Linux: AppImage bundles, deb packages and rpm packages
+    `CatstepMD_${cleanTag}_amd64.AppImage`,
+    `CatstepMD_${cleanTag}_aarch64.AppImage`,
+    `CatstepMD_${cleanTag}_amd64.deb`,
+    `CatstepMD_${cleanTag}_arm64.deb`,
+    `CatstepMD-${cleanTag}-1.x86_64.rpm`,
+    `CatstepMD-${cleanTag}-1.aarch64.rpm`,
+    // Android: universal APK matches official CI release artifact (CatstepMD_<version>_universal.apk)
+    `CatstepMD_${cleanTag}_universal.apk`,
+  ];
+
+  return assetNames.map((name) => ({
+    name,
+    browser_download_url: `${baseUrl}/${name}`,
+    size: 0,
+  }));
+}
+
+/**
+ * Resolves the best matching asset for current or specified platform,
+ * using updateInfo.matchedAsset if present, or picking from updateInfo.assets,
+ * or synthesizing CI release assets for updateInfo.latest.
+ */
+export function resolveMatchedAsset(
+  updateInfo: UpdateResult | null,
+  platform?: PlatformInfo,
+): ReleaseAsset | null {
+  if (!updateInfo) return null;
+  if (updateInfo.matchedAsset) return updateInfo.matchedAsset;
+  const plat = platform || getPlatformInfoSync();
+  if (updateInfo.assets && updateInfo.assets.length > 0) {
+    const match = pickBestAsset(updateInfo.assets, plat);
+    if (match) return match;
+  }
+  if (updateInfo.latest) {
+    const synth = synthesizeReleaseAssets(updateInfo.latest);
+    return pickBestAsset(synth, plat);
+  }
+  return null;
 }
 
 /** Select the best download asset for current OS and architecture */
@@ -166,31 +261,47 @@ export function pickBestAsset(assets: ReleaseAsset[], platform: PlatformInfo): R
   const isArm = arch.includes('arm') || arch.includes('aarch64');
 
   if (os === 'windows') {
-    // Priority: .msi matching architecture, then .exe matching architecture, then any .msi, then any .exe
-    const msiArm = assets.find(a => a.name.endsWith('.msi') && (a.name.includes('arm64') || a.name.includes('arm')));
-    const msiX64 = assets.find(a => a.name.endsWith('.msi') && (a.name.includes('x64') || a.name.includes('x86_64')));
-    const exeArm = assets.find(a => a.name.endsWith('.exe') && (a.name.includes('arm64') || a.name.includes('arm')));
-    const exeX64 = assets.find(a => a.name.endsWith('.exe') && (a.name.includes('x64') || a.name.includes('setup')));
+    // Priority: .msi matching architecture, then .exe matching architecture
+    const msiArm = assets.find(a => a.name.toLowerCase().endsWith('.msi') && (a.name.toLowerCase().includes('arm64') || a.name.toLowerCase().includes('arm')));
+    const msiX64 = assets.find(a => a.name.toLowerCase().endsWith('.msi') && (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('x86_64') || a.name.toLowerCase().includes('amd64')));
+    const exeArm = assets.find(a => a.name.toLowerCase().endsWith('.exe') && (a.name.toLowerCase().includes('arm64') || a.name.toLowerCase().includes('arm')));
+    const exeX64 = assets.find(a => a.name.toLowerCase().endsWith('.exe') && (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('setup') || a.name.toLowerCase().includes('x86_64')));
 
     if (isArm && (msiArm || exeArm)) return msiArm || exeArm || null;
-    if (msiX64) return msiX64;
-    if (exeX64) return exeX64;
-    const anyMsi = assets.find(a => a.name.endsWith('.msi'));
+    if (!isArm && msiX64) return msiX64;
+    if (!isArm && exeX64) return exeX64;
+    if (isArm && msiX64) return msiX64;
+    if (isArm && exeX64) return exeX64;
+    // Architecture safety: if not ARM, do NOT return an ARM binary
+    const anyMsi = assets.find(a => a.name.toLowerCase().endsWith('.msi') && (isArm || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
     if (anyMsi) return anyMsi;
-    const anyExe = assets.find(a => a.name.endsWith('.exe'));
+    const anyExe = assets.find(a => a.name.toLowerCase().endsWith('.exe') && (isArm || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
     if (anyExe) return anyExe;
   } else if (os === 'macos') {
-    const dmgArm = assets.find(a => a.name.endsWith('.dmg') && (a.name.includes('aarch64') || a.name.includes('arm64')));
-    const dmgX64 = assets.find(a => a.name.endsWith('.dmg') && a.name.includes('x64'));
+    const dmgArm = assets.find(a => a.name.toLowerCase().endsWith('.dmg') && (a.name.toLowerCase().includes('aarch64') || a.name.toLowerCase().includes('arm64') || a.name.toLowerCase().includes('arm')));
+    const dmgX64 = assets.find(a => a.name.toLowerCase().endsWith('.dmg') && (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('x86_64') || a.name.toLowerCase().includes('intel')));
+    const dmgUniversal = assets.find(a => a.name.toLowerCase().endsWith('.dmg') && a.name.toLowerCase().includes('universal'));
     if (isArm && dmgArm) return dmgArm;
     if (!isArm && dmgX64) return dmgX64;
-    const anyDmg = assets.find(a => a.name.endsWith('.dmg'));
+    if (dmgUniversal) return dmgUniversal;
+    // Apple Silicon can run Intel x64 DMGs via Rosetta 2
+    if (isArm && dmgX64) return dmgX64;
+    // Architecture safety: if not ARM, do NOT return an ARM binary
+    const anyDmg = assets.find(a => a.name.toLowerCase().endsWith('.dmg') && (isArm || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
     if (anyDmg) return anyDmg;
   } else if (os === 'linux') {
-    const appImage = assets.find(a => a.name.endsWith('.AppImage') && (isArm ? (a.name.includes('arm') || a.name.includes('aarch64')) : !a.name.includes('arm')));
-    if (appImage) return appImage;
-    const deb = assets.find(a => a.name.endsWith('.deb'));
-    if (deb) return deb;
+    const appImageArm = assets.find(a => a.name.toLowerCase().endsWith('.appimage') && (a.name.toLowerCase().includes('arm') || a.name.toLowerCase().includes('aarch64')));
+    const appImageX64 = assets.find(a => a.name.toLowerCase().endsWith('.appimage') && (a.name.toLowerCase().includes('amd64') || a.name.toLowerCase().includes('x86_64') || a.name.toLowerCase().includes('x64') || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
+    if (isArm && appImageArm) return appImageArm;
+    if (!isArm && appImageX64) return appImageX64;
+    const anyAppImage = assets.find(a => a.name.toLowerCase().endsWith('.appimage') && (isArm || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
+    if (anyAppImage) return anyAppImage;
+    const debArm = assets.find(a => a.name.toLowerCase().endsWith('.deb') && (a.name.toLowerCase().includes('arm') || a.name.toLowerCase().includes('aarch64')));
+    const debX64 = assets.find(a => a.name.toLowerCase().endsWith('.deb') && (a.name.toLowerCase().includes('amd64') || a.name.toLowerCase().includes('x86_64') || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
+    if (isArm && debArm) return debArm;
+    if (!isArm && debX64) return debX64;
+    const anyDeb = assets.find(a => a.name.toLowerCase().endsWith('.deb') && (isArm || (!a.name.toLowerCase().includes('arm') && !a.name.toLowerCase().includes('aarch64'))));
+    if (anyDeb) return anyDeb;
   } else if (os === 'android') {
     // Android APK assets:
     // Priority: arch-specific (arm64-v8a / aarch64, armeabi-v7a / armv7, x86_64) -> universal -> any .apk
@@ -199,22 +310,22 @@ export function pickBestAsset(assets: ReleaseAsset[], platform: PlatformInfo): R
     const isX86_64 = arch.includes('x86_64') || arch.includes('x64');
 
     if (isArm64) {
-      const apkArm64 = assets.find(a => a.name.endsWith('.apk') && (a.name.includes('arm64') || a.name.includes('v8a') || a.name.includes('aarch64')));
+      const apkArm64 = assets.find(a => a.name.toLowerCase().endsWith('.apk') && (a.name.toLowerCase().includes('arm64') || a.name.toLowerCase().includes('v8a') || a.name.toLowerCase().includes('aarch64')));
       if (apkArm64) return apkArm64;
     } else if (isArmV7) {
-      const apkArmV7 = assets.find(a => a.name.endsWith('.apk') && (a.name.includes('v7a') || a.name.includes('armv7') || a.name.includes('armeabi')));
+      const apkArmV7 = assets.find(a => a.name.toLowerCase().endsWith('.apk') && (a.name.toLowerCase().includes('v7a') || a.name.toLowerCase().includes('armv7') || a.name.toLowerCase().includes('armeabi')));
       if (apkArmV7) return apkArmV7;
     } else if (isX86_64) {
-      const apkX86 = assets.find(a => a.name.endsWith('.apk') && (a.name.includes('x86_64') || a.name.includes('x64')));
+      const apkX86 = assets.find(a => a.name.toLowerCase().endsWith('.apk') && (a.name.toLowerCase().includes('x86_64') || a.name.toLowerCase().includes('x64')));
       if (apkX86) return apkX86;
     }
 
     // Universal APK fallback
-    const apkUniversal = assets.find(a => a.name.endsWith('.apk') && a.name.includes('universal'));
+    const apkUniversal = assets.find(a => a.name.toLowerCase().endsWith('.apk') && a.name.toLowerCase().includes('universal'));
     if (apkUniversal) return apkUniversal;
 
     // Any APK fallback
-    const anyApk = assets.find(a => a.name.endsWith('.apk'));
+    const anyApk = assets.find(a => a.name.toLowerCase().endsWith('.apk'));
     if (anyApk) return anyApk;
   }
 
@@ -239,9 +350,10 @@ interface GitHubReleaseJson {
 /** Fetch latest release info from GitHub official Releases API */
 async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.8');
+    const current = await getVersion().catch(() => '1.0.9');
     const res = await fetch(GITHUB_API_URL, {
       cache: 'no-store',
+      signal: AbortSignal.timeout(5000),
       headers: {
         Accept: 'application/vnd.github.v3+json',
         'User-Agent': 'CatstepMD-App',
@@ -252,15 +364,27 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
     const tag = (data.tag_name || '').replace(/^v/, '').trim();
     if (!tag) return null;
 
-    const assets: ReleaseAsset[] = (data.assets || []).map(a => ({
+    let assets: ReleaseAsset[] = (data.assets || []).map(a => ({
       name: a.name,
       browser_download_url: a.browser_download_url,
       size: a.size,
       content_type: a.content_type,
     }));
 
+    if (assets.length === 0) {
+      assets = synthesizeReleaseAssets(tag);
+    }
+
     const platform = await getPlatformInfo();
-    const matchedAsset = pickBestAsset(assets, platform);
+    let matchedAsset = pickBestAsset(assets, platform);
+    if (!matchedAsset) {
+      const synth = synthesizeReleaseAssets(tag);
+      matchedAsset = pickBestAsset(synth, platform);
+      if (matchedAsset && !assets.some(a => a.name === matchedAsset!.name)) {
+        assets.push(matchedAsset);
+      }
+    }
+
     const hasUpdate = compareSemver(tag, current) > 0;
 
     return {
@@ -283,16 +407,20 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
 /** Fetch latest release by following GitHub's web release redirect (fallback) */
 async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.8');
+    const current = await getVersion().catch(() => '1.0.9');
     const res = await fetch(LATEST_RELEASE_PAGE, {
       cache: 'no-store',
       redirect: 'follow',
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const tagMatch = res.url.match(/\/releases\/tag\/v?([^/?#]+)/);
     if (tagMatch && tagMatch[1]) {
       const tag = tagMatch[1].replace(/^v/, '').trim();
       const hasUpdate = compareSemver(tag, current) > 0;
+      const platform = await getPlatformInfo();
+      const assets = synthesizeReleaseAssets(tag);
+      const matchedAsset = pickBestAsset(assets, platform);
       return {
         current,
         latest: tag,
@@ -301,6 +429,8 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
         error: false,
         releaseTitle: `v${tag}`,
         releaseNotes: '',
+        assets,
+        matchedAsset,
       };
     }
     return null;
@@ -311,15 +441,22 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
 
 /** Fetch repository latest package version from GitHub Raw / jsDelivr mirror (fallback) */
 async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
-  const current = await getVersion().catch(() => '1.0.8');
-  for (const url of [GITHUB_RAW_URL, JSDELIVR_MIRROR_URL]) {
+  const current = await getVersion().catch(() => '1.0.9');
+  // Prioritize jsDelivr CDN over raw GitHub (which is blocked by GFW in mainland China)
+  for (const url of [JSDELIVR_MIRROR_URL, GITHUB_RAW_URL]) {
     try {
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5000),
+      });
       if (res.ok) {
         const pkg = (await res.json()) as { version?: string };
         if (pkg.version) {
           const tag = pkg.version.replace(/^v/, '').trim();
           const hasUpdate = compareSemver(tag, current) > 0;
+          const platform = await getPlatformInfo();
+          const assets = synthesizeReleaseAssets(tag);
+          const matchedAsset = pickBestAsset(assets, platform);
           return {
             current,
             latest: tag,
@@ -328,6 +465,8 @@ async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
             error: false,
             releaseTitle: `v${tag}`,
             releaseNotes: '',
+            assets,
+            matchedAsset,
           };
         }
       }
@@ -339,7 +478,7 @@ async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '1.0.8');
+  const current = await getVersion().catch(() => '1.0.9');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }
@@ -357,6 +496,23 @@ export async function checkForUpdate(): Promise<UpdateResult> {
       url: RELEASES_PAGE,
       error: true,
     };
+  }
+
+  if (info.latest) {
+    const platform = await getPlatformInfo();
+    if (!info.assets || info.assets.length === 0) {
+      info.assets = synthesizeReleaseAssets(info.latest);
+    }
+    if (!info.matchedAsset) {
+      info.matchedAsset = pickBestAsset(info.assets, platform);
+      if (!info.matchedAsset) {
+        const synth = synthesizeReleaseAssets(info.latest);
+        info.matchedAsset = pickBestAsset(synth, platform);
+        if (info.matchedAsset && !info.assets.some(a => a.name === info.matchedAsset!.name)) {
+          info.assets.push(info.matchedAsset);
+        }
+      }
+    }
   }
 
   return info;

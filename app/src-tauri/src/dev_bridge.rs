@@ -150,22 +150,19 @@ fn write_port_token(app: &AppHandle, port: u16, token: &str) -> Result<(), Strin
 }
 
 fn random_token() -> String {
-    // 32 hex chars = 128 bits. We don't need crypto secrecy (loopback only
-    // + dev-only build), just enough to deter accidental cross-process hits.
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let pid = std::process::id() as u128;
-    let mix = nanos.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(pid);
-    let mut s = String::with_capacity(32);
-    let mut x = mix;
-    for _ in 0..16 {
-        s.push_str(&format!("{:02x}", (x & 0xff) as u8));
-        x = x.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
-    }
-    s
+    // 32 hex chars = 128 bits, from the OS CSPRNG.
+    //
+    // This used to be an LCG seeded with (nanos, pid) and justified as
+    // "no crypto secrecy needed". That was wrong on its own terms: the
+    // seed is guessable (wall clock + pid), and the token is the ONLY thing
+    // standing between any local process and arbitrary JS execution inside
+    // this WebView via POST /eval. Debug-only, but developer machines run
+    // untrusted code (npm postinstall, third-party plugins) as a matter of
+    // course. `rand` is already a dependency, so this costs nothing.
+    use rand::RngCore;
+    let mut bytes = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -532,6 +529,21 @@ mod tests {
         let t = random_token();
         assert_eq!(t.len(), 32);
         assert!(t.chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(
+            t.chars().all(|c| !c.is_ascii_uppercase()),
+            "token must be lowercase hex, got {t:?}"
+        );
+    }
+
+    /// The generator used to be an LCG seeded with (nanos, pid). This pins
+    /// the property that mattered: tokens must not repeat or be derivable
+    /// from each other, because this token is the only gate on POST /eval.
+    #[test]
+    fn random_token_does_not_repeat() {
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..256 {
+            assert!(seen.insert(random_token()), "duplicate token generated");
+        }
     }
 
     #[test]

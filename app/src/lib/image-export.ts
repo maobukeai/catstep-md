@@ -9,13 +9,16 @@
 
 import { renderMarkdown, extractImageRoot } from './markdown';
 import { rewriteImageUrls } from './image-resolve';
-import { getMermaidForcedTheme } from './mermaid-lazy';
+import { processMermaidBlocks } from './mermaid-lazy';
+import { sanitizeModernColors } from './pdf-export';
 
 export interface ImageExportOptions {
   /** When true, append a "Created with 猫步 MD · Catstep MD" footer.
    *  Default true (mirroring the settings store default); pass false
    *  to opt out per-call. */
   branding?: boolean;
+  /** 'default' | 'reading' view skin (defaults to detecting reading view). */
+  skin?: 'default' | 'reading';
 }
 
 const IMAGE_CSS = `
@@ -35,47 +38,166 @@ const IMAGE_CSS = `
        breathing room from the content above. Without it, 36px keeps
        short notes from looking like they have a void underneath. */
     padding: 48px 56px 36px;
-    color: #1f1d1a;
-    background: #ffffff;
-    font: 15px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
-      "Helvetica Neue", Arial,
-      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-      "Noto Sans CJK SC", "WenQuanYi Micro Hei",
-      system-ui, sans-serif;
+    color: var(--text, #1f1d1a);
+    background: var(--bg, #ffffff);
+    font-family: var(
+      --content-font-user,
+      var(
+        --content-font-family,
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
+        "Helvetica Neue", Arial,
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+        "Noto Sans CJK SC", "WenQuanYi Micro Hei",
+        system-ui, sans-serif
+      )
+    );
+    font-size: var(--content-font-size, 15px);
+    line-height: var(--content-line-height, 1.75);
     -webkit-font-smoothing: antialiased;
+  }
+  .img-page--reading {
+    font-family: var(
+      --font-reading,
+      var(
+        --content-font-user,
+        Charter,
+        "Iowan Old Style",
+        "Source Serif Pro",
+        "Source Serif",
+        "PT Serif",
+        Cambria,
+        "Liberation Serif",
+        "Noto Serif",
+        Georgia,
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Microsoft YaHei",
+        serif
+      )
+    );
+    font-size: calc(var(--content-font-size, 15px) * 1.2);
+    line-height: 1.8;
   }
   .img-page h1, .img-page h2, .img-page h3,
   .img-page h4, .img-page h5, .img-page h6 {
-    line-height: 1.25; font-weight: 700; color: #1f1d1a;
+    line-height: 1.25; font-weight: 700; color: var(--text, #1f1d1a);
+    font-family: var(--heading-font-family, inherit);
     margin: 1.6em 0 0.5em;
   }
+  .img-page--reading h1,
+  .img-page--reading h2,
+  .img-page--reading h3,
+  .img-page--reading h4 {
+    font-family: var(
+      --font-reading,
+      var(
+        --content-font-user,
+        Charter,
+        "Iowan Old Style",
+        "Source Serif Pro",
+        "Source Serif",
+        "PT Serif",
+        Cambria,
+        "Liberation Serif",
+        "Noto Serif",
+        Georgia,
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Microsoft YaHei",
+        serif
+      )
+    );
+    letter-spacing: -0.005em;
+  }
   .img-page h1:first-child, .img-page h2:first-child { margin-top: 0; }
-  .img-page h1 { font-size: 2em; border-bottom: 2px solid #ff9f40; padding-bottom: .3em; }
-  .img-page h2 { font-size: 1.5em; border-bottom: 1px solid #e6e2d8; padding-bottom: .25em; }
+  .img-page h1 { font-size: 2em; border-bottom: 1px solid var(--border, #e6e2d8); padding-bottom: .3em; }
+  .img-page--reading h1 {
+    font-size: 2.2em;
+    margin-top: 0;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
+  .img-page h2 { font-size: 1.5em; border-bottom: 1px solid var(--border, #e6e2d8); padding-bottom: .25em; }
+  .img-page--reading h2 {
+    font-size: 1.55em;
+    margin: 2em 0 0.5em;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
   .img-page h3 { font-size: 1.2em; }
-  .img-page p { margin: .85em 0; }
-  .img-page a { color: #ff9f40; text-decoration: none; }
+  .img-page p { margin: var(--content-p-margin, .85em) 0; }
+  .img-page--reading p { margin: 1em 0; }
+  .img-page--reading blockquote {
+    border-left: 3px solid var(--border, #e6e2d8);
+    background: transparent;
+    color: var(--text-muted, #6a6560);
+    font-style: italic;
+  }
+  .img-page a { color: var(--accent, #0366d6); text-decoration: none; }
   .img-page code {
     font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
-    font-size: .88em; background: #f3efe7; padding: .15em .45em; border-radius: 4px;
-    color: #8a4a00;
+    font-size: .88em; background: var(--bg-elev, #f3efe7); padding: .15em .45em; border-radius: 4px;
+    color: var(--accent, #8a4a00);
   }
   .img-page pre {
-    background: #f3efe7; padding: 14px 18px; border-radius: 8px;
+    background: var(--bg-elev, #f3efe7); padding: 14px 18px; border-radius: 8px;
     overflow-x: auto; margin: 1.1em 0; line-height: 1.55;
-    border: 1px solid #e6e2d8;
+    border: 1px solid var(--border, #e6e2d8);
   }
-  .img-page pre code { background: transparent; padding: 0; color: #1f1d1a; }
+  .img-page pre code { background: transparent; padding: 0; color: var(--text, #1f1d1a); }
+  /* Syntax highlighting */
+  .img-page .hljs { display: block; background: transparent; color: var(--syn-variable, var(--text, #1f1d1a)); }
+  .img-page .hljs-comment,
+  .img-page .hljs-quote { color: var(--syn-comment, #6a737d); font-style: italic; }
+  .img-page .hljs-keyword,
+  .img-page .hljs-selector-tag,
+  .img-page .hljs-meta .hljs-keyword,
+  .img-page .hljs-doctag,
+  .img-page .hljs-literal { color: var(--syn-keyword, #d73a49); }
+  .img-page .hljs-string,
+  .img-page .hljs-regexp,
+  .img-page .hljs-template-tag,
+  .img-page .hljs-template-variable,
+  .img-page .hljs-addition { color: var(--syn-string, #032f62); }
+  .img-page .hljs-number,
+  .img-page .hljs-symbol,
+  .img-page .hljs-bullet { color: var(--syn-number, #005cc5); }
+  .img-page .hljs-function,
+  .img-page .hljs-title,
+  .img-page .hljs-title.function_,
+  .img-page .hljs-title.class_,
+  .img-page .hljs-built_in,
+  .img-page .hljs-class .hljs-title { color: var(--syn-function, #6f42c1); }
+  .img-page .hljs-type,
+  .img-page .hljs-class,
+  .img-page .hljs-params { color: var(--syn-type, #e36209); }
+  .img-page .hljs-property,
+  .img-page .hljs-attr,
+  .img-page .hljs-attribute,
+  .img-page .hljs-selector-attr,
+  .img-page .hljs-selector-pseudo,
+  .img-page .hljs-selector-class,
+  .img-page .hljs-selector-id { color: var(--syn-property, #005cc5); }
+  .img-page .hljs-operator,
+  .img-page .hljs-punctuation { color: var(--syn-operator, #d73a49); }
+  .img-page .hljs-variable,
+  .img-page .hljs-name,
+  .img-page .hljs-tag { color: var(--syn-variable, #22863a); }
+  .img-page .hljs-meta { color: var(--syn-comment, #6a737d); }
+  .img-page .hljs-deletion { color: var(--danger, #d64545); }
+  .img-page .hljs-emphasis { font-style: italic; }
+  .img-page .hljs-strong { font-weight: bold; }
+  .img-page .hljs-link { color: var(--accent, #0366d6); text-decoration: underline; }
   .img-page blockquote {
-    border-left: 4px solid #ff9f40; margin: 1.3em 0; padding: .5em 1.1em;
-    color: #6a6560; font-style: italic; background: #fff7ec;
+    border-left: 4px solid var(--accent, #0366d6); margin: 1.3em 0; padding: .5em 1.1em;
+    color: var(--text-muted, #6a6560); font-style: italic; background: color-mix(in srgb, var(--accent, #0366d6) 8%, var(--bg, #ffffff));
     border-radius: 0 4px 4px 0;
   }
   .img-page ul, .img-page ol { padding-left: 1.8em; margin: .9em 0; }
   .img-page table { border-collapse: collapse; margin: 1.3em 0; width: 100%; font-size: .95em; }
-  .img-page th, .img-page td { border: 1px solid #e6e2d8; padding: 7px 13px; text-align: left; }
-  .img-page thead th { background: #ffe7cc; font-weight: 700; border-bottom: 2px solid #ff9f40; }
-  .img-page hr { border: none; border-top: 1px solid #e6e2d8; margin: 2em 0; }
+  .img-page th, .img-page td { border: 1px solid var(--border, #e6e2d8); padding: 7px 13px; text-align: left; }
+  .img-page thead th { background: var(--bg-elev, #f7f4ec); font-weight: 700; border-bottom: 2px solid var(--accent, #0366d6); }
+  .img-page hr { border: none; border-top: 1px solid var(--border, #e6e2d8); margin: 2em 0; }
   .img-page img { max-width: 100%; border-radius: 6px; margin: 1em 0; }
   .img-page .mermaid-block { display: flex; justify-content: center; margin: 1.5em 0; }
   .img-page .mermaid-block svg { max-width: 100%; height: auto; }
@@ -89,39 +211,14 @@ const IMAGE_CSS = `
   .img-footer {
     margin-top: 28px;
     padding-top: 14px;
-    border-top: 1px solid #e6e2d8;
+    border-top: 1px solid var(--border, #e6e2d8);
     font-size: 11px;
-    color: #b8b6ad;
+    color: var(--text-muted, #b8b6ad);
     text-align: center;
     font-family: -apple-system, sans-serif;
   }
-  .img-footer .brand { color: #ff9f40; font-weight: 600; }
+  .img-footer .brand { color: var(--accent, #0366d6); font-weight: 600; }
 `;
-
-let mermaidId = 0;
-
-async function processMermaidBlocks(container: HTMLElement) {
-  const blocks = container.querySelectorAll('pre > code.language-mermaid');
-  if (blocks.length === 0) return;
-  // Exports render on a white page regardless of app theme; the forced value
-  // is tracked so the editor re-initializes its theme on the next render.
-  const mermaid = await getMermaidForcedTheme('default');
-  for (const block of Array.from(blocks)) {
-    const pre = block.parentElement as HTMLElement | null;
-    if (!pre) continue;
-    const code = (block.textContent || '').trim();
-    const id = `img-mmd-${++mermaidId}`;
-    try {
-      const { svg } = await mermaid.render(id, code);
-      const wrap = document.createElement('div');
-      wrap.className = 'mermaid-block';
-      wrap.innerHTML = svg;
-      pre.replaceWith(wrap);
-    } catch {
-      // silently skip broken mermaid
-    }
-  }
-}
 
 export async function markdownToImageBlob(
   source: string,
@@ -141,8 +238,17 @@ export async function markdownToImageBlob(
   root.style.top = '0';
   root.style.zIndex = '-1';
 
+  const isReading =
+    opts.skin === 'reading' ||
+    (opts.skin === undefined &&
+      typeof document !== 'undefined' &&
+      Boolean(document.querySelector('.reading-view, .preview-content--reading')));
+  const classes = ['img-page'];
+  if (opts.branding) classes.push('img-page--branded');
+  if (isReading) classes.push('img-page--reading');
+
   const page = document.createElement('article');
-  page.className = opts.branding ? 'img-page img-page--branded' : 'img-page';
+  page.className = classes.join(' ');
   page.innerHTML = html;
 
   // Branded footer default ON — settings.imageExportBranding controls
@@ -163,16 +269,9 @@ export async function markdownToImageBlob(
   try {
     await processMermaidBlocks(page);
     await new Promise((r) => setTimeout(r, 60));
+    sanitizeModernColors(page);
 
     // Let html2canvas auto-size to the element's natural bounding box.
-    // v3.6 originally passed explicit width/height/windowWidth/windowHeight
-    // here, which broke export entirely on every platform: the page sits
-    // at `left: -10000px` (off-screen render trick), and telling
-    // html2canvas the window was only 800px wide put the element
-    // *outside* the captured viewport — output came back blank. The
-    // crop-to-content concern that change tried to address turned out
-    // to be the forced footer + extra bottom padding, both of which are
-    // already handled by the `imageExportBranding` toggle above.
     const html2canvasMod = await import('html2canvas');
     const html2canvas = (html2canvasMod as any).default || html2canvasMod;
     const canvas = await html2canvas(page, {

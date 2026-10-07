@@ -1,6 +1,6 @@
 [package]
 name = "catstep-md"
-version = "1.0.8"
+version = "1.0.9"
 description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
 authors = ["maobukeai"]
 edition = "2021"
@@ -16,6 +16,15 @@ autobins = false
 [[bin]]
 name = "CatstepMD"
 path = "src/main.rs"
+
+# Speed up local dev & test compilation:
+[profile.dev]
+incremental = true
+
+# Compile dependencies with basic optimization so running dev app/tests is fast
+# without recompiling dependencies often:
+[profile.dev.package."*"]
+opt-level = 2
 
 # v4.3.1 issue #73 — size-optimised release profile. Most of the Android
 # APK weight (22 MB out of 26 MB on arm64-v8a) is `libapp_lib.so` —

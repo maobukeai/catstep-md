@@ -1,13 +1,13 @@
 {
   "name": "catstep-md",
   "private": true,
-  "version": "1.0.8",
+  "version": "1.0.9",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --import ./scripts/register-loader.mjs --test src/lib/*.test.ts",
+    "test": "node --import ./scripts/register-loader.mjs --test \"src/**/*.test.ts\"",
     "test:type": "vue-tsc -p tsconfig.test.json --noEmit",
     "i18n:check": "node --experimental-strip-types scripts/check-i18n.mjs && node scripts/check-cjk.mjs",
     "i18n:cjk": "node scripts/check-cjk.mjs",

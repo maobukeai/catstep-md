@@ -14,7 +14,7 @@
 import { renderMarkdown, extractImageRoot } from './markdown';
 import type { ResolvedPdfOptions } from './pdf-options';
 import { rewriteImageUrls, rewriteLinkUrls } from './image-resolve';
-import { getMermaidForcedTheme } from './mermaid-lazy';
+import { processMermaidBlocks } from './mermaid-lazy';
 
 const EXPORT_TIMEOUT_MS = 30_000;
 
@@ -24,57 +24,127 @@ const PDF_CSS = `
     box-sizing: border-box;
     width: 760px;
     padding: 56px 64px 72px;
-    color: #1f1d1a;
-    background: #ffffff;
-    font: 15px/1.75 -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
-      "Helvetica Neue", Arial,
-      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
-      "Noto Sans CJK SC", "WenQuanYi Micro Hei",
-      system-ui, sans-serif;
+    color: var(--text, #1f1d1a);
+    background: var(--bg, #ffffff);
+    font-family: var(
+      --content-font-user,
+      var(
+        --content-font-family,
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
+        "Helvetica Neue", Arial,
+        "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+        "Noto Sans CJK SC", "WenQuanYi Micro Hei",
+        system-ui, sans-serif
+      )
+    );
+    font-size: var(--content-font-size, 15px);
+    line-height: var(--content-line-height, 1.75);
     -webkit-font-smoothing: antialiased;
+  }
+  .pdf-page--reading {
+    font-family: var(
+      --font-reading,
+      var(
+        --content-font-user,
+        Charter,
+        "Iowan Old Style",
+        "Source Serif Pro",
+        "Source Serif",
+        "PT Serif",
+        Cambria,
+        "Liberation Serif",
+        "Noto Serif",
+        Georgia,
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Microsoft YaHei",
+        serif
+      )
+    );
+    font-size: calc(var(--content-font-size, 15px) * 1.2);
+    line-height: 1.8;
   }
   .pdf-page h1, .pdf-page h2, .pdf-page h3,
   .pdf-page h4, .pdf-page h5, .pdf-page h6 {
     line-height: 1.25;
     font-weight: 700;
-    color: #1f1d1a;
+    color: var(--text, #1f1d1a);
+    font-family: var(--heading-font-family, inherit);
     margin: 1.8em 0 0.55em;
     page-break-after: avoid;
     break-after: avoid-page;
+  }
+  .pdf-page--reading h1,
+  .pdf-page--reading h2,
+  .pdf-page--reading h3,
+  .pdf-page--reading h4 {
+    font-family: var(
+      --font-reading,
+      var(
+        --content-font-user,
+        Charter,
+        "Iowan Old Style",
+        "Source Serif Pro",
+        "Source Serif",
+        "PT Serif",
+        Cambria,
+        "Liberation Serif",
+        "Noto Serif",
+        Georgia,
+        "PingFang SC",
+        "Hiragino Sans GB",
+        "Microsoft YaHei",
+        serif
+      )
+    );
+    letter-spacing: -0.005em;
   }
   .pdf-page h1:first-child,
   .pdf-page h2:first-child,
   .pdf-page h3:first-child { margin-top: 0; }
   .pdf-page h1 {
     font-size: 2em;
-    border-bottom: 2px solid #ff9f40;
+    border-bottom: 1px solid var(--border, #e6e2d8);
     padding-bottom: .32em;
     letter-spacing: -0.01em;
   }
+  .pdf-page--reading h1 {
+    font-size: 2.2em;
+    margin-top: 0;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+  }
   .pdf-page h2 {
     font-size: 1.5em;
-    border-bottom: 1px solid #e6e2d8;
+    border-bottom: 1px solid var(--border, #e6e2d8);
     padding-bottom: .25em;
+  }
+  .pdf-page--reading h2 {
+    font-size: 1.55em;
+    margin: 2em 0 0.5em;
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
   }
   .pdf-page h3 { font-size: 1.2em; }
   .pdf-page h4 { font-size: 1.05em; }
-  .pdf-page h5, .pdf-page h6 { font-size: 1em; color: #6a6560; }
-  .pdf-page p { margin: .85em 0; }
+  .pdf-page h5, .pdf-page h6 { font-size: 1em; color: var(--text-muted, #6a6560); }
+  .pdf-page p { margin: var(--content-p-margin, .85em) 0; }
+  .pdf-page--reading p { margin: 1em 0; }
   .pdf-page a {
-    color: #ff9f40;
+    color: var(--accent, #0366d6);
     text-decoration: none;
-    border-bottom: 1px solid #ffe7cc;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent, #0366d6) 25%, transparent);
   }
   .pdf-page code {
     font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
     font-size: .88em;
-    background: #f3efe7;
+    background: var(--bg-elev, #f3efe7);
     padding: .15em .45em;
     border-radius: 4px;
-    color: #8a4a00;
+    color: var(--accent, #8a4a00);
   }
   .pdf-page pre {
-    background: #f3efe7;
+    background: var(--bg-elev, #f3efe7);
     padding: 14px 18px;
     border-radius: 8px;
     /* #211 — paper can't scroll, so long code lines MUST wrap or they get
@@ -85,7 +155,7 @@ const PDF_CSS = `
     word-break: break-word;
     margin: 1.1em 0;
     line-height: 1.55;
-    border: 1px solid #e6e2d8;
+    border: 1px solid var(--border, #e6e2d8);
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -93,21 +163,66 @@ const PDF_CSS = `
     background: transparent;
     padding: 0;
     font-size: .86em;
-    color: #1f1d1a;
+    color: var(--text, #1f1d1a);
   }
-  .pdf-page pre code .hljs-keyword,
-  .pdf-page pre code .hljs-built_in,
-  .pdf-page pre code .hljs-tag { color: #ff9f40; }
+  /* Syntax highlighting */
+  .pdf-page .hljs { display: block; background: transparent; color: var(--syn-variable, var(--text, #1f1d1a)); }
+  .pdf-page .hljs-comment,
+  .pdf-page .hljs-quote { color: var(--syn-comment, #6a737d); font-style: italic; }
+  .pdf-page .hljs-keyword,
+  .pdf-page .hljs-selector-tag,
+  .pdf-page .hljs-meta .hljs-keyword,
+  .pdf-page .hljs-doctag,
+  .pdf-page .hljs-literal { color: var(--syn-keyword, #d73a49); }
+  .pdf-page .hljs-string,
+  .pdf-page .hljs-regexp,
+  .pdf-page .hljs-template-tag,
+  .pdf-page .hljs-template-variable,
+  .pdf-page .hljs-addition { color: var(--syn-string, #032f62); }
+  .pdf-page .hljs-number,
+  .pdf-page .hljs-symbol,
+  .pdf-page .hljs-bullet { color: var(--syn-number, #005cc5); }
+  .pdf-page .hljs-function,
+  .pdf-page .hljs-title,
+  .pdf-page .hljs-title.function_,
+  .pdf-page .hljs-title.class_,
+  .pdf-page .hljs-built_in,
+  .pdf-page .hljs-class .hljs-title { color: var(--syn-function, #6f42c1); }
+  .pdf-page .hljs-type,
+  .pdf-page .hljs-class,
+  .pdf-page .hljs-params { color: var(--syn-type, #e36209); }
+  .pdf-page .hljs-property,
+  .pdf-page .hljs-attr,
+  .pdf-page .hljs-attribute,
+  .pdf-page .hljs-selector-attr,
+  .pdf-page .hljs-selector-pseudo,
+  .pdf-page .hljs-selector-class,
+  .pdf-page .hljs-selector-id { color: var(--syn-property, #005cc5); }
+  .pdf-page .hljs-operator,
+  .pdf-page .hljs-punctuation { color: var(--syn-operator, #d73a49); }
+  .pdf-page .hljs-variable,
+  .pdf-page .hljs-name,
+  .pdf-page .hljs-tag { color: var(--syn-variable, #22863a); }
+  .pdf-page .hljs-meta { color: var(--syn-comment, #6a737d); }
+  .pdf-page .hljs-deletion { color: var(--danger, #d64545); }
+  .pdf-page .hljs-emphasis { font-style: italic; }
+  .pdf-page .hljs-strong { font-weight: bold; }
+  .pdf-page .hljs-link { color: var(--accent, #0366d6); text-decoration: underline; }
   .pdf-page blockquote {
-    border-left: 4px solid #ff9f40;
+    border-left: 4px solid var(--accent, #0366d6);
     margin: 1.3em 0;
     padding: .5em 1.1em;
-    color: #6a6560;
+    color: var(--text-muted, #6a6560);
     font-style: italic;
-    background: #fff7ec;
+    background: color-mix(in srgb, var(--accent, #0366d6) 8%, var(--bg, #ffffff));
     border-radius: 0 4px 4px 0;
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+  .pdf-page--reading blockquote {
+    border-left: 3px solid var(--border, #e6e2d8);
+    background: transparent;
+    color: var(--text-muted, #6a6560);
   }
   .pdf-page blockquote p { margin: .35em 0; }
   .pdf-page ul, .pdf-page ol { padding-left: 1.8em; margin: .9em 0; }
@@ -121,20 +236,20 @@ const PDF_CSS = `
     break-inside: avoid;
   }
   .pdf-page th, .pdf-page td {
-    border: 1px solid #e6e2d8;
+    border: 1px solid var(--border, #e6e2d8);
     padding: 7px 13px;
     text-align: left;
   }
   .pdf-page thead th {
-    background: #ffe7cc;
-    color: #1f1d1a;
+    background: var(--bg-elev, #f7f4ec);
+    color: var(--text, #1f1d1a);
     font-weight: 700;
-    border-bottom: 2px solid #ff9f40;
+    border-bottom: 2px solid var(--accent, #0366d6);
   }
-  .pdf-page tbody tr:nth-child(even) { background: #f7f4ec; }
+  .pdf-page tbody tr:nth-child(even) { background: var(--bg-elev, #f7f4ec); }
   .pdf-page hr {
     border: none;
-    border-top: 1px solid #e6e2d8;
+    border-top: 1px solid var(--border, #e6e2d8);
     margin: 2.2em 0;
   }
   .pdf-page img {
@@ -156,33 +271,6 @@ const PDF_CSS = `
     margin: 1em 0;
   }
 `;
-
-let mermaidId = 0;
-
-async function processMermaidBlocks(container: HTMLElement) {
-  const blocks = container.querySelectorAll('pre > code.language-mermaid');
-  if (blocks.length === 0) return;
-  // Exports render on a white page regardless of app theme; the forced value
-  // is tracked so the editor re-initializes its theme on the next render.
-  const mermaid = await getMermaidForcedTheme('default');
-  for (const block of Array.from(blocks)) {
-    const pre = block.parentElement as HTMLElement | null;
-    if (!pre) continue;
-    const code = (block.textContent || '').trim();
-    const id = `pdf-mmd-${++mermaidId}`;
-    try {
-      const { svg } = await mermaid.render(id, code);
-      const wrap = document.createElement('div');
-      wrap.className = 'mermaid-block';
-      wrap.innerHTML = svg;
-      pre.replaceWith(wrap);
-    } catch (e) {
-      const err = document.createElement('pre');
-      err.textContent = `Mermaid error: ${(e as Error).message}`;
-      pre.replaceWith(err);
-    }
-  }
-}
 
 // #115 — html2canvas (bundled by html2pdf.js) can't parse modern CSS color
 // functions: `color(display-p3 …)`, `oklch()`, `oklab()`, `lab()`, `lch()`,
@@ -243,7 +331,7 @@ function makeSrgbResolver(): (value: string) => string | null {
  * understands. Best-effort and fully guarded — sanitization must never be the
  * reason an export fails. (#115)
  */
-function sanitizeModernColors(root: HTMLElement): void {
+export function sanitizeModernColors(root: HTMLElement): void {
   try {
     const resolve = makeSrgbResolver();
     const els = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))];
@@ -273,12 +361,14 @@ function camelToKebab(s: string): string {
  * @param pdfOpts — v2.5 resolved options (Settings + frontmatter merged).
  *   Pass `undefined` to preserve pre-v2.5 hardcoded A4 / 10mm behavior.
  * @param filePath — used to resolve relative image paths in the markdown.
+ * @param skin — 'default' | 'reading' view skin (defaults to detecting reading view).
  */
 export async function markdownToPdfBlob(
   source: string,
   title: string,
   pdfOpts?: ResolvedPdfOptions,
   filePath?: string,
+  skin?: 'default' | 'reading',
 ): Promise<Blob> {
   const rawHtml = renderMarkdown(source || '');
   // v4.3.0 issue #77 — also rewrite link hrefs so local-file links
@@ -324,8 +414,12 @@ export async function markdownToPdfBlob(
   root.style.top = '0';
   root.style.zIndex = '-1';
 
+  const isReading =
+    skin === 'reading' ||
+    (typeof document !== 'undefined' &&
+      Boolean(document.querySelector('.reading-view, .preview-content--reading')));
   const page = document.createElement('article');
-  page.className = 'pdf-page';
+  page.className = isReading ? 'pdf-page pdf-page--reading' : 'pdf-page';
   page.innerHTML = html;
 
   root.appendChild(styleEl);

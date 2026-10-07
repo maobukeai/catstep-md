@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compareSemver, pickBestAsset, type ReleaseAsset } from './check-update.ts';
+import {
+  compareSemver,
+  pickBestAsset,
+  synthesizeReleaseAssets,
+  resolveMatchedAsset,
+  type ReleaseAsset,
+  type UpdateResult,
+} from './check-update.ts';
 
 test('compareSemver accurately compares semver strings', () => {
   assert.equal(compareSemver('v1.0.0', '1.0.0'), 0);
@@ -77,5 +84,124 @@ test('pickBestAsset matches correct assets for Desktop platforms', () => {
   // Unknown OS returns null
   const unknownMatch = pickBestAsset(assets, { os: 'unknown', arch: 'x86_64' });
   assert.equal(unknownMatch, null);
+});
+
+test('synthesizeReleaseAssets generates expected assets and valid GitHub download URLs', () => {
+  const assets = synthesizeReleaseAssets('v1.0.8');
+  assert.ok(assets.length > 0);
+
+  // Check URL pattern
+  for (const asset of assets) {
+    assert.match(
+      asset.browser_download_url,
+      /^https:\/\/github\.com\/maobukeai\/catstep-md\/releases\/download\/v1\.0\.8\//,
+    );
+  }
+
+  // Windows x64 MSI
+  const winX64 = pickBestAsset(assets, { os: 'windows', arch: 'x86_64' });
+  assert.ok(winX64);
+  assert.equal(winX64.name, 'CatstepMD_1.0.8_x64_en-US.msi');
+  assert.equal(
+    winX64.browser_download_url,
+    'https://github.com/maobukeai/catstep-md/releases/download/v1.0.8/CatstepMD_1.0.8_x64_en-US.msi',
+  );
+
+  // Windows ARM64 MSI
+  const winArm64 = pickBestAsset(assets, { os: 'windows', arch: 'aarch64' });
+  assert.ok(winArm64);
+  assert.equal(winArm64.name, 'CatstepMD_1.0.8_arm64_en-US.msi');
+
+  // macOS Apple Silicon
+  const macArm = pickBestAsset(assets, { os: 'macos', arch: 'aarch64' });
+  assert.ok(macArm);
+  assert.equal(macArm.name, 'CatstepMD_1.0.8_aarch64.dmg');
+
+  // macOS Intel
+  const macX64 = pickBestAsset(assets, { os: 'macos', arch: 'x86_64' });
+  assert.ok(macX64);
+  assert.equal(macX64.name, 'CatstepMD_1.0.8_x64.dmg');
+
+  // Linux x64
+  const linuxX64 = pickBestAsset(assets, { os: 'linux', arch: 'x86_64' });
+  assert.ok(linuxX64);
+  assert.equal(linuxX64.name, 'CatstepMD_1.0.8_amd64.AppImage');
+
+  // Linux ARM64
+  const linuxArm = pickBestAsset(assets, { os: 'linux', arch: 'aarch64' });
+  assert.ok(linuxArm);
+  assert.equal(linuxArm.name, 'CatstepMD_1.0.8_aarch64.AppImage');
+
+  // Android
+  const androidArm = pickBestAsset(assets, { os: 'android', arch: 'aarch64' });
+  assert.ok(androidArm);
+  assert.equal(androidArm.name, 'CatstepMD_1.0.8_universal.apk');
+});
+
+test('pickBestAsset prevents architecture mismatches (x64 CPU never gets ARM binary)', () => {
+  // Windows x64 should never match an ARM-only MSI/EXE
+  const armOnlyWinAssets: ReleaseAsset[] = [
+    { name: 'CatstepMD_1.0.8_arm64_en-US.msi', browser_download_url: 'http://example.com/arm.msi', size: 100 },
+  ];
+  const winX64Mismatch = pickBestAsset(armOnlyWinAssets, { os: 'windows', arch: 'x86_64' });
+  assert.equal(winX64Mismatch, null);
+
+  // macOS Intel (x86_64) should never match an Apple Silicon (aarch64) DMG
+  const armOnlyMacAssets: ReleaseAsset[] = [
+    { name: 'CatstepMD_1.0.8_aarch64.dmg', browser_download_url: 'http://example.com/arm.dmg', size: 100 },
+  ];
+  const macIntelMismatch = pickBestAsset(armOnlyMacAssets, { os: 'macos', arch: 'x86_64' });
+  assert.equal(macIntelMismatch, null);
+
+  // macOS Apple Silicon (aarch64) CAN fallback to Intel (x64) DMG via Rosetta 2
+  const intelOnlyMacAssets: ReleaseAsset[] = [
+    { name: 'CatstepMD_1.0.8_x64.dmg', browser_download_url: 'http://example.com/intel.dmg', size: 100 },
+  ];
+  const macArmFallback = pickBestAsset(intelOnlyMacAssets, { os: 'macos', arch: 'aarch64' });
+  assert.ok(macArmFallback);
+  assert.equal(macArmFallback.name, 'CatstepMD_1.0.8_x64.dmg');
+});
+
+test('resolveMatchedAsset recovers matchedAsset when missing from update result', () => {
+  // Case 1: matchedAsset already present
+  const existingAsset: ReleaseAsset = {
+    name: 'custom-package.msi',
+    browser_download_url: 'https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/custom.msi',
+    size: 12345,
+  };
+  const withAsset: UpdateResult = {
+    current: '1.0.8',
+    latest: '1.0.9',
+    hasUpdate: true,
+    url: 'https://github.com/maobukeai/catstep-md/releases/tag/v1.0.9',
+    error: false,
+    matchedAsset: existingAsset,
+  };
+  assert.equal(resolveMatchedAsset(withAsset), existingAsset);
+
+  // Case 2: matchedAsset is null but latest version is present (fallback scenario with explicit platform)
+  const fallbackResult: UpdateResult = {
+    current: '1.0.8',
+    latest: '1.0.9',
+    hasUpdate: true,
+    url: 'https://github.com/maobukeai/catstep-md/releases/latest',
+    error: false,
+    matchedAsset: null,
+  };
+  const resolved = resolveMatchedAsset(fallbackResult, { os: 'windows', arch: 'x86_64' });
+  assert.ok(resolved);
+  assert.equal(resolved.name, 'CatstepMD_1.0.9_x64_en-US.msi');
+  assert.equal(
+    resolved.browser_download_url,
+    'https://github.com/maobukeai/catstep-md/releases/download/v1.0.9/CatstepMD_1.0.9_x64_en-US.msi',
+  );
+
+  // Case 3: resolveMatchedAsset without platform argument uses getPlatformInfoSync
+  const resolvedDefault = resolveMatchedAsset(fallbackResult);
+  assert.ok(resolvedDefault);
+  assert.ok(resolvedDefault.name.length > 0);
+
+  // Case 4: null updateInfo returns null
+  assert.equal(resolveMatchedAsset(null), null);
 });
 
