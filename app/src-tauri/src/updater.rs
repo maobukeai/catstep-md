@@ -135,6 +135,13 @@ pub fn updater_get_platform_info() -> PlatformInfo {
     }
 }
 
+pub fn get_update_cache_dir(app: &AppHandle) -> PathBuf {
+    app.path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir())
+        .join(UPDATE_DIR_NAME)
+}
+
 #[tauri::command]
 pub async fn updater_start_download(
     app: AppHandle,
@@ -152,11 +159,14 @@ pub async fn updater_start_download(
     state.cancel_flag.store(false, Ordering::SeqCst);
     let cancel_flag = Arc::clone(&state.cancel_flag);
 
-    let temp_dir = app
-        .path()
-        .app_cache_dir()
-        .unwrap_or_else(|_| std::env::temp_dir())
-        .join(UPDATE_DIR_NAME);
+    let temp_dir = get_update_cache_dir(&app);
+    super::commands::path_guard::add_process_root(&temp_dir);
+    if let Ok(c) = app.path().app_cache_dir() {
+        super::commands::path_guard::add_process_root(&c);
+    }
+    if let Ok(l) = app.path().app_local_data_dir() {
+        super::commands::path_guard::add_process_root(&l);
+    }
     if let Err(e) = tokio::fs::create_dir_all(&temp_dir).await {
         *active = false;
         let err_msg = format!("Failed to create temp directory: {e}");
@@ -797,11 +807,26 @@ pub fn updater_install_and_restart(
     if !path.exists() {
         return Err(format!("Installer file not found at: {file_path}"));
     }
-    // This command *executes* whatever it is given. The installer lives in the
-    // updater's own cache directory (an authorized root), so requiring the path
-    // to be authorized keeps a compromised WebView from pointing it at any
-    // executable on disk.
-    super::commands::authorize(&file_path)?;
+
+    // Ensure the updater's cache directory is registered in path_guard
+    let update_dir = get_update_cache_dir(&app);
+    super::commands::path_guard::add_process_root(&update_dir);
+    if let Ok(c) = app.path().app_cache_dir() {
+        super::commands::path_guard::add_process_root(&c);
+    }
+    if let Ok(l) = app.path().app_local_data_dir() {
+        super::commands::path_guard::add_process_root(&l);
+    }
+
+    // The installer lives in the updater's own cache directory (an authorized root),
+    // so requiring the path to be authorized keeps a compromised WebView from pointing
+    // it at an arbitrary executable on disk.
+    let is_authorized = super::commands::path_guard::is_authorized(&file_path)
+        || super::commands::path_guard::path_within(&update_dir, &path);
+
+    if !is_authorized {
+        return Err(format!("path outside authorized roots: {file_path}"));
+    }
 
     // The path guard above only proves WHERE the file sits; this gate proves
     // WHAT it is — byte-for-byte the artifact the release's SHA256SUMS
@@ -834,12 +859,12 @@ pub fn updater_install_and_restart(
             let mut cmd = std::process::Command::new("cmd.exe");
             let script = if !current_exe_str.is_empty() {
                 format!(
-                    "ping 127.0.0.1 -n 3 >nul & start /wait msiexec.exe /i \"{}\" /passive /norestart & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
+                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait msiexec.exe /i \"{}\" /passive /norestart & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
                     file_path, current_exe_str
                 )
             } else {
                 format!(
-                    "ping 127.0.0.1 -n 3 >nul & start /wait msiexec.exe /i \"{}\" /passive /norestart",
+                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait msiexec.exe /i \"{}\" /passive /norestart",
                     file_path
                 )
             };
@@ -864,12 +889,12 @@ pub fn updater_install_and_restart(
             let mut cmd = std::process::Command::new("cmd.exe");
             let script = if !current_exe_str.is_empty() {
                 format!(
-                    "ping 127.0.0.1 -n 3 >nul & start /wait \"\" \"{}\"{} & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
+                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait \"{}\"{} & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
                     file_path, silent_flag, current_exe_str
                 )
             } else {
                 format!(
-                    "ping 127.0.0.1 -n 3 >nul & start /wait \"\" \"{}\"{}",
+                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait \"{}\"{}",
                     file_path, silent_flag
                 )
             };

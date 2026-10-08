@@ -373,6 +373,12 @@ pub mod path_guard {
         if let Ok(dir) = app.path().app_data_dir() {
             add_process_root(&dir);
         }
+        if let Ok(dir) = app.path().app_cache_dir() {
+            add_process_root(&dir);
+        }
+        if let Ok(dir) = app.path().app_local_data_dir() {
+            add_process_root(&dir);
+        }
         add_process_root(&std::env::temp_dir());
     }
 

@@ -1,6 +1,6 @@
 [package]
 name = "catstep-md"
-version = "1.0.10"
+version = "1.0.11"
 description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
 authors = ["maobukeai"]
 edition = "2021"
@@ -20,6 +20,7 @@ path = "src/main.rs"
 # Speed up local dev & test compilation:
 [profile.dev]
 incremental = true
+debug = 1
 
 # Compile dependencies with basic optimization so running dev app/tests is fast
 # without recompiling dependencies often:

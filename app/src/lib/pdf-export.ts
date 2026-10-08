@@ -125,6 +125,13 @@ export const PDF_CSS = `
     border-bottom: none !important;
     padding-bottom: 0 !important;
   }
+  .pdf-page h1, .pdf-page h2, .pdf-page h3,
+  .pdf-page h4, .pdf-page h5, .pdf-page h6 {
+    break-after: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
   .pdf-page h3 { font-size: 1.2em; }
   .pdf-page h4 { font-size: 1.05em; }
   .pdf-page h5, .pdf-page h6 { font-size: 1em; color: var(--text-muted, #6a6560); }
@@ -224,22 +231,48 @@ export const PDF_CSS = `
     font-style: italic;
     background: color-mix(in srgb, var(--accent, #0366d6) 8%, var(--bg, #ffffff));
     border-radius: 0 4px 4px 0;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: auto;
+    break-inside: auto;
   }
   .pdf-page--reading blockquote {
     border-left: 3px solid var(--border, #e6e2d8);
     background: transparent;
     color: var(--text-muted, #6a6560);
+    page-break-inside: auto;
+    break-inside: auto;
   }
-  .pdf-page blockquote p { margin: .35em 0; }
-  .pdf-page ul, .pdf-page ol { padding-left: 1.8em; margin: .9em 0; }
-  .pdf-page li { margin: .3em 0; }
+  .pdf-page blockquote p {
+    margin: .35em 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .pdf-page ul, .pdf-page ol {
+    padding-left: 1.8em;
+    margin: .9em 0;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+  .pdf-page li {
+    margin: .3em 0;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+  .pdf-page li:not(:has(ul, ol)) {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
   .pdf-page table {
     border-collapse: collapse;
     margin: 1.3em 0;
     width: 100%;
     font-size: .95em;
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+  .pdf-page table thead {
+    display: table-header-group;
+  }
+  .pdf-page table tr {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -247,6 +280,8 @@ export const PDF_CSS = `
     border: 1px solid var(--border, #e6e2d8);
     padding: 7px 13px;
     text-align: left;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .pdf-page thead th {
     background: var(--bg-elev, #f7f4ec);
@@ -262,8 +297,12 @@ export const PDF_CSS = `
   }
   .pdf-page img {
     max-width: 100%;
+    max-height: 250mm;
+    object-fit: contain;
     border-radius: 6px;
     margin: 1.1em 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
   .pdf-page .mermaid-block {
     display: flex;
@@ -272,11 +311,21 @@ export const PDF_CSS = `
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  .pdf-page .mermaid-block svg { max-width: 100%; height: auto; }
+  .pdf-page .mermaid-block svg { max-width: 100%; max-height: 250mm; height: auto; }
   .pdf-page .katex-display {
     overflow-x: auto;
     overflow-y: hidden;
     margin: 1em 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .pdf-page .footnotes {
+    page-break-inside: auto;
+    break-inside: auto;
+  }
+  .pdf-page .footnotes li {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 `;
 
@@ -384,8 +433,117 @@ export function prepareExportDom(root: HTMLElement): void {
         code.style.lineHeight = '1.4';
       }
     });
+
+    // Ensure list items with nested lists do not treat the whole hierarchy as an unsplittable block
+    const lis = root.querySelectorAll('li');
+    lis.forEach((li) => {
+      if (li.querySelector('ul, ol')) {
+        li.style.pageBreakInside = 'auto';
+        (li.style as any).breakInside = 'auto';
+      }
+    });
+
+    // Ensure multi-paragraph blockquotes break between paragraphs rather than jumping as a whole block
+    const blockquotes = root.querySelectorAll('blockquote');
+    blockquotes.forEach((bq) => {
+      if (bq.querySelectorAll('p').length > 1) {
+        bq.style.pageBreakInside = 'auto';
+        (bq.style as any).breakInside = 'auto';
+      }
+    });
+
+    // Cap standalone images so they never exceed single-page printable bounds
+    const imgs = root.querySelectorAll('img');
+    imgs.forEach((img) => {
+      img.style.maxHeight = '250mm';
+      img.style.objectFit = 'contain';
+    });
+
+    // Normalize table structure for seamless multi-page row-by-row rendering
+    const tables = root.querySelectorAll('table');
+    tables.forEach((t) => {
+      t.style.pageBreakInside = 'auto';
+      (t.style as any).breakInside = 'auto';
+      const thead = t.querySelector('thead');
+      if (thead) {
+        thead.style.display = 'table-header-group';
+      }
+      t.querySelectorAll('tr').forEach((tr) => {
+        tr.style.pageBreakInside = 'avoid';
+        (tr.style as any).breakInside = 'avoid';
+      });
+      t.querySelectorAll('th, td').forEach((cell) => {
+        (cell as HTMLElement).style.pageBreakInside = 'avoid';
+        ((cell as HTMLElement).style as any).breakInside = 'avoid';
+      });
+    });
   } catch {
     /* never let DOM preparation break the export */
+  }
+}
+
+/**
+ * Post-processes padding divs inserted by html2pdf's pagebreak pass to eliminate:
+ * 1. Orphan headings: if an element following a heading (or heading chain) was pushed
+ *    to the next page, hoist the padding div to before the heading chain so headings
+ *    and their following content stay bound together on the new page.
+ * 2. Orphan table headers: if a padding div was inserted before the first data row
+ *    of a table, hoist it to before the entire table so the header doesn't sit
+ *    stranded alone at the bottom of a page without any data rows.
+ */
+export function postProcessPagebreakPads(root: HTMLElement, pxPageHeight: number): void {
+  try {
+    const headings = ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'];
+
+    // 1. First pass: hoist any pad inserted before tbody tr:first-child to before the table
+    const tablePads = Array.from(root.querySelectorAll('table div[style*="height"]')).filter(
+      (d) => (d as HTMLElement).style.display === 'block' && (d as HTMLElement).style.height,
+    ) as HTMLElement[];
+
+    for (const pad of tablePads) {
+      const next = pad.nextElementSibling;
+      if (next && next.tagName === 'TR') {
+        const table = pad.closest('table');
+        if (table) {
+          const isFirstDataRow =
+            next === table.querySelector('tbody tr:first-child') ||
+            next === table.querySelector('tr:first-child');
+          if (isFirstDataRow) {
+            const tableRect = table.getBoundingClientRect();
+            const targetHeight = pxPageHeight - (tableRect.top % pxPageHeight);
+            if (targetHeight > 0 && targetHeight <= pxPageHeight) {
+              pad.style.height = `${targetHeight}px`;
+            }
+            table.parentNode?.insertBefore(pad, table);
+          }
+        }
+      }
+    }
+
+    // 2. Second pass: scan all top-level / block-level pads and hoist before preceding heading chains
+    const pads = Array.from(root.querySelectorAll('div[style*="height"]')).filter(
+      (d) => (d as HTMLElement).style.display === 'block' && (d as HTMLElement).style.height,
+    ) as HTMLElement[];
+
+    for (const pad of pads) {
+      let prev = pad.previousElementSibling;
+      const headingChain: HTMLElement[] = [];
+      while (prev && headings.includes(prev.tagName)) {
+        headingChain.unshift(prev as HTMLElement);
+        prev = prev.previousElementSibling;
+      }
+      if (headingChain.length > 0) {
+        const firstHeading = headingChain[0];
+        const headingRect = firstHeading.getBoundingClientRect();
+        const targetHeight = pxPageHeight - (headingRect.top % pxPageHeight);
+        if (targetHeight > 0 && targetHeight <= pxPageHeight) {
+          pad.style.height = `${targetHeight}px`;
+        }
+        firstHeading.parentNode?.insertBefore(pad, firstHeading);
+      }
+    }
+  } catch {
+    /* never let post-processing break the export */
   }
 }
 
@@ -557,15 +715,23 @@ export async function markdownToPdfBlob(
           // `ul`/`ol` OUT: avoiding those would treat a whole multi-page list
           // as one unsplittable block; we break between `li`s instead.)
           avoid: [
-            'pre', '.mermaid-block', 'table', 'blockquote',
+            'pre', '.mermaid-block', 'tr', '.katex-display',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-            'p', 'li', 'img',
+            'p', 'li:not(:has(ul, ol))', 'img',
           ],
         },
       };
       const html2pdfMod = await import('html2pdf.js');
       const html2pdf = (html2pdfMod as any).default || html2pdfMod;
       const worker = html2pdf().set(opts).from(page);
+
+      await worker.toContainer();
+      if (worker.prop?.container && worker.prop?.pageSize?.inner?.px?.height) {
+        postProcessPagebreakPads(
+          worker.prop.container,
+          worker.prop.pageSize.inner.px.height,
+        );
+      }
 
       const blob: Blob = await worker.outputPdf('blob');
       return blob;

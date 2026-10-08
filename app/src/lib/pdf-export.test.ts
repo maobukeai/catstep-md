@@ -107,3 +107,15 @@ test('pdf-export: keybindings define file.exportLast with Mod+Shift+E', () => {
   assert.equal(exportLast?.defaults[0], 'Mod+Shift+E');
   assert.equal(openExternal?.defaults[0], 'Mod+Alt+E');
 });
+
+test('pdf-export: PDF_CSS allows tables to stream across pages while keeping rows intact', () => {
+  assert.ok(PDF_CSS.includes('.pdf-page table {'), 'Must target .pdf-page table');
+  assert.ok(PDF_CSS.includes('page-break-inside: auto;'), 'Table must have page-break-inside: auto');
+  assert.ok(PDF_CSS.includes('break-inside: auto;'), 'Table must have break-inside: auto');
+  assert.ok(PDF_CSS.includes('.pdf-page table thead {'), 'Must target table thead');
+  assert.ok(PDF_CSS.includes('display: table-header-group;'), 'Thead must repeat across pages');
+  assert.ok(PDF_CSS.includes('.pdf-page table tr {'), 'Must target table tr');
+  assert.ok(PDF_CSS.includes('.pdf-page th, .pdf-page td {'), 'Must target th/td');
+  assert.ok(PDF_CSS.includes('page-break-after: avoid;'), 'Headings must avoid break after');
+});
+

@@ -1752,7 +1752,14 @@ onMounted(async () => {
                 4000,
               );
               setTimeout(() => {
-                void installUpdateAndRestart(undefined, true);
+                void installUpdateAndRestart(undefined, true).catch((err) => {
+                  console.error('Background auto-install failed:', err);
+                  toastsStore.error(
+                    tr('settings.installUpdateFailed', { error: String(err) }),
+                    8000,
+                    () => { updateModalOpen.value = true; },
+                  );
+                });
               }, 2500);
             } else {
               toastsStore.success(

@@ -693,6 +693,7 @@ export function buildTable(inner: Token[]): Table | null {
     (row) =>
       new TableRow({
         tableHeader: row.isHeader,
+        cantSplit: true,
         children: Array.from({ length: colCount }, (_, c) => {
           const cell = row.cells[c] ?? { runs: [], align: AlignmentType.LEFT };
           const cellChildren =

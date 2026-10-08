@@ -924,6 +924,69 @@ mark {
     overflow-wrap: break-word;
     line-height: 1.4;
   }
+  body.solomd-printing .solomd-print-content table {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  body.solomd-printing .solomd-print-content thead {
+    display: table-header-group !important;
+  }
+  body.solomd-printing .solomd-print-content tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content th,
+  body.solomd-printing .solomd-print-content td {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content h1,
+  body.solomd-printing .solomd-print-content h2,
+  body.solomd-printing .solomd-print-content h3,
+  body.solomd-printing .solomd-print-content h4,
+  body.solomd-printing .solomd-print-content h5,
+  body.solomd-printing .solomd-print-content h6 {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content img {
+    max-width: 100% !important;
+    max-height: 250mm !important;
+    object-fit: contain !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content blockquote {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  body.solomd-printing .solomd-print-content blockquote p {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content li {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+  body.solomd-printing .solomd-print-content li:not(:has(ul, ol)) {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content .mermaid-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  body.solomd-printing .solomd-print-content .mermaid-block svg {
+    max-width: 100% !important;
+    max-height: 250mm !important;
+    height: auto !important;
+  }
+  body.solomd-printing .solomd-print-content .katex-display {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 }
 /* On-screen the overlay must be invisible — @media print flips it. */
 #solomd-print-overlay {

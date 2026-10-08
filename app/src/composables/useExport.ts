@@ -10,6 +10,7 @@ import { exportDefaultPath } from '../lib/export-paths';
 import { useI18n } from '../i18n';
 import { rewriteLinkUrls, rewriteImageUrls, embedLocalImagesAsDataUrls } from '../lib/image-resolve';
 import { processMermaidBlocks } from '../lib/mermaid-lazy';
+import { prepareExportDom } from '../lib/pdf-export';
 import { useTabsStore } from '../stores/tabs';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
@@ -40,6 +41,7 @@ const PLAIN_HTML_TEMPLATE = (title: string, body: string) => `<!doctype html>
 <head>
 <meta charset="utf-8">
 <title>${escapeHtml(title)}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 </head>
 <body>
 ${body}
@@ -186,6 +188,77 @@ const HTML_TEMPLATE = (title: string, body: string) => `<!doctype html>
     box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
   }
   .katex-display { overflow-x: auto; overflow-y: hidden; margin: 1.2em 0; }
+  @media print {
+    body {
+      max-width: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      color: #000 !important;
+    }
+    pre {
+      white-space: pre-wrap !important;
+      overflow-wrap: break-word !important;
+      word-break: break-word !important;
+    }
+    table {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+    thead {
+      display: table-header-group !important;
+    }
+    tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    th, td {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    img {
+      max-width: 100% !important;
+      max-height: 250mm !important;
+      object-fit: contain !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    blockquote {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+    blockquote p {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    li {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+    li:not(:has(ul, ol)) {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .mermaid-block {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .mermaid-block svg {
+      max-width: 100% !important;
+      max-height: 250mm !important;
+      height: auto !important;
+    }
+    .katex-display {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -449,6 +522,11 @@ export function useExport() {
       ctx.filePath,
     );
     body = await embedLocalImagesAsDataUrls(body, imageRoot, ctx.filePath);
+    const container = document.createElement('div');
+    container.innerHTML = body;
+    await processMermaidBlocks(container);
+    prepareExportDom(container);
+    body = container.innerHTML;
     const html = HTML_TEMPLATE(ctx.baseName, body);
     try {
       await writeNote(path, html);
@@ -472,6 +550,11 @@ export function useExport() {
       ctx.filePath,
     );
     body = await embedLocalImagesAsDataUrls(body, imageRoot, ctx.filePath);
+    const container = document.createElement('div');
+    container.innerHTML = body;
+    await processMermaidBlocks(container);
+    prepareExportDom(container);
+    body = container.innerHTML;
     const html = PLAIN_HTML_TEMPLATE(ctx.baseName, body);
     try {
       await writeNote(path, html);
@@ -596,6 +679,7 @@ export function useExport() {
     overlay.innerHTML = `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <div class="solomd-print-content preview-content${readingClass}">${body}</div>`;
     await processMermaidBlocks(overlay);
+    prepareExportDom(overlay);
     lastExportRecord = { kind: 'pdfPrint' };
     // Print palette, independent of the app theme. The overlay sits outside
     // #app but still inherits :root's tokens, so a dark theme used to put a

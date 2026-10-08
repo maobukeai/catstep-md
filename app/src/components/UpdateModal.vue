@@ -86,36 +86,19 @@ const platformType = computed<'windows' | 'macos' | 'android' | 'linux' | 'packa
   return 'package';
 });
 
-// Watch download completion to trigger optional auto-restart countdown
+// Watch download completion, modal visibility, and auto-install setting to trigger countdown
 watch(
-  () => sharedUpdaterState.status,
-  (status) => {
-    if (status === 'completed' && settings.autoInstallUpdate && props.modelValue) {
-      startAutoRestartCountdown();
-    } else if (status !== 'completed') {
+  [() => sharedUpdaterState.status, () => props.modelValue, () => settings.autoInstallUpdate],
+  ([status, open, autoInstall]) => {
+    if (status === 'completed' && autoInstall && open) {
+      if (autoInstallCountdown.value === null) {
+        startAutoRestartCountdown();
+      }
+    } else if (status !== 'completed' || !open || !autoInstall) {
       clearCountdown();
     }
   },
-);
-
-// If user toggles off auto-install during countdown, cancel immediately
-watch(
-  () => settings.autoInstallUpdate,
-  (enabled) => {
-    if (!enabled) {
-      clearCountdown();
-    }
-  },
-);
-
-// If modal is closed externally, cancel countdown
-watch(
-  () => props.modelValue,
-  (open) => {
-    if (!open) {
-      clearCountdown();
-    }
-  },
+  { immediate: true },
 );
 
 function startAutoRestartCountdown() {
