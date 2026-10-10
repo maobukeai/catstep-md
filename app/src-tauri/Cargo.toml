@@ -1,6 +1,6 @@
 [package]
 name = "catstep-md"
-version = "1.0.11"
+version = "1.0.12"
 description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
 authors = ["maobukeai"]
 edition = "2021"
@@ -25,6 +25,13 @@ debug = 1
 # Compile dependencies with basic optimization so running dev app/tests is fast
 # without recompiling dependencies often:
 [profile.dev.package."*"]
+opt-level = 2
+
+[profile.test]
+incremental = true
+debug = 1
+
+[profile.test.package."*"]
 opt-level = 2
 
 # v4.3.1 issue #73 — size-optimised release profile. Most of the Android

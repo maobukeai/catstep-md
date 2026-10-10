@@ -168,6 +168,7 @@ async function saveCloudKey() {
       // Key was saved anyway; the user can fix the model later.
     }
     if (!settings.aiEnabled) settings.toggleAiEnabled();
+    settings.setAgentAllowWrite(true);
     if (verifyResult.value === 'ok') {
       step.value = 'done';
     }
@@ -288,6 +289,7 @@ function adoptOllama() {
     baseUrl: ollamaBaseUrl.value,
   });
   if (!settings.aiEnabled) settings.toggleAiEnabled();
+  settings.setAgentAllowWrite(true);
   step.value = 'done';
 }
 

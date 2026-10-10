@@ -688,7 +688,7 @@ function checkSelection() {
   if (domText) {
     const anchorNode = domSel?.anchorNode;
     const el = anchorNode instanceof HTMLElement ? anchorNode : anchorNode?.parentElement;
-    if (el?.closest('.cm-editor, .plain-editor, .plain-block-editor, .editor-container')) {
+    if (el?.closest('.cm-editor, .plain-editor, .plain-block-editor, .editor-container, .preview-content, .reading-view')) {
       if (domText !== activeSelectionText.value) {
         activeSelectionText.value = domText;
         isSelectionDismissed.value = false;
@@ -1152,6 +1152,60 @@ async function applyPolishedTextToDoc(assistantMsgContent: string, targetContext
       tabs.clearActiveSelection();
       toasts.success(t('agent.msgAcceptReplaceSuccess'));
       return;
+    }
+
+    // Tier 3: Prose-stream alignment (resilient to Live Edit / Reading View DOM selections that strip Markdown syntax)
+    const buildStream = (s: string, stripBlocks: boolean) => {
+      const chars: string[] = [];
+      const spans: Array<[number, number]> = [];
+      const puncMap: Record<string, string> = {
+        '：': ':', '；': ';', '，': ',', '、': ',', '。': '.',
+        '“': '"', '”': '"', '「': '"', '」': '"', '『': '"', '』': '"',
+        '‘': "'", '’': "'", '（': '(', '）': ')', '【': '[', '】': ']',
+        '《': '<', '》': '>', '！': '!', '？': '?', '～': '~', '—': '-', '–': '-',
+      };
+      for (let i = 0; i < s.length; i++) {
+        const rawCh = s[i];
+        const ch = puncMap[rawCh] ?? rawCh;
+        if (/[\s*_`~\uFFFD\uFEFF\u200B-\u200D]/.test(ch)) continue;
+        if (stripBlocks && /[#\-+>|•·]/.test(ch)) continue;
+        chars.push(ch.toLowerCase());
+        spans.push([i, i + 1]);
+      }
+      return { str: chars.join(''), spans };
+    };
+
+    for (const stripBlocks of [false, true]) {
+      const docStream = buildStream(normDoc, stripBlocks);
+      const tgtStream = buildStream(normTarget, stripBlocks);
+      if (tgtStream.str.length > 0 && docStream.str.length >= tgtStream.str.length) {
+        const firstIdx = docStream.str.indexOf(tgtStream.str);
+        if (firstIdx !== -1 && docStream.str.indexOf(tgtStream.str, firstIdx + 1) === -1) {
+          let charStart = docStream.spans[firstIdx][0];
+          let charEnd = docStream.spans[firstIdx + tgtStream.str.length - 1][1];
+          const lineStart = normDoc.lastIndexOf('\n', charStart - 1) + 1;
+          const linePrefix = normDoc.slice(lineStart, charStart);
+          const replTrim = cleanSnippet.trimStart();
+          if (
+            linePrefix &&
+            /^[\s#\-*+>|`_~]+$/.test(linePrefix) &&
+            (/^(#|- |\* |\+ |>|\|)/.test(replTrim) || normTarget.includes('\n'))
+          ) {
+            if (/^(#|- |\* |\+ |>|\|)/.test(replTrim)) {
+              charStart = lineStart;
+            }
+          }
+          const newContent = normDoc.slice(0, charStart) + cleanSnippet + normDoc.slice(charEnd);
+          targetTab.content = newContent;
+          targetTab.savedContent = newContent;
+          tabs.applyExternalSave(targetTab.id, newContent);
+          await files.saveTab(targetTab, { silent: true });
+          activeSelectionText.value = '';
+          tabs.clearActiveSelection();
+          toasts.success(t('agent.msgAcceptReplaceSuccess'));
+          return;
+        }
+      }
     }
   }
 

@@ -410,35 +410,263 @@ pub fn tool_descriptor(name: &str) -> Option<(&'static str, Value)> {
 /// 3. For nonexistent leaves, walk up to find the deepest existing
 ///    ancestor, canonicalize that, then reattach the remaining segments.
 /// 4. Re-verify the resolved path starts with the canonicalized workspace.
+#[allow(dead_code)]
 fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, String> {
-    let trimmed = arg_path.trim();
-    if trimmed.is_empty() {
+    resolve_in_workspace_ctx(workspace, arg_path, None)
+}
+
+fn collect_external_open_files(workspace: &Path, args: &Value) -> Vec<PathBuf> {
+    let ws_canon = workspace.canonicalize().ok().map(|p| strip_unc_prefix(&p));
+    let mut external = Vec::new();
+    let mut push_if_external = |p: PathBuf| {
+        if !p.exists() || !p.is_file() {
+            return;
+        }
+        let canon = p
+            .canonicalize()
+            .map(|c| strip_unc_prefix(&c))
+            .unwrap_or_else(|_| strip_unc_prefix(&p));
+        if let Some(ws) = &ws_canon {
+            if canon.starts_with(ws) {
+                return;
+            }
+        }
+        if !external.iter().any(|existing: &PathBuf| existing == &canon) {
+            external.push(canon);
+        }
+    };
+    if let Some(active) = args.get("_active_note_path").and_then(|v| v.as_str()) {
+        if !active.trim().is_empty() {
+            push_if_external(PathBuf::from(active));
+        }
+    }
+    if let Some(arr) = args.get("_open_notes").and_then(|v| v.as_array()) {
+        for item in arr {
+            if let Some(s) = item.as_str() {
+                if !s.trim().is_empty() {
+                    push_if_external(PathBuf::from(s));
+                }
+            }
+        }
+    }
+    external
+}
+
+fn resolve_in_workspace_ctx(
+    workspace: &Path,
+    arg_path: &str,
+    args: Option<&Value>,
+) -> Result<PathBuf, String> {
+    let mut clean = arg_path.trim().to_string();
+    if clean.is_empty() {
         return Err("path: empty".into());
     }
-    let raw = PathBuf::from(trimmed);
 
-    // (1) reject `..` components anywhere in the input — no exceptions.
+    // (1) Strip wrapping quotes / backticks / wikilinks
+    while (clean.starts_with('`') && clean.ends_with('`') && clean.len() >= 2)
+        || (clean.starts_with('"') && clean.ends_with('"') && clean.len() >= 2)
+        || (clean.starts_with('\'') && clean.ends_with('\'') && clean.len() >= 2)
+    {
+        clean = clean[1..clean.len() - 1].trim().to_string();
+    }
+    if clean.starts_with("[[") && clean.ends_with("]]") && clean.len() >= 4 {
+        clean = clean[2..clean.len() - 2].trim().to_string();
+    }
+    clean = clean
+        .trim_matches(|c| c == '"' || c == '\'' || c == '`')
+        .trim()
+        .to_string();
+    if clean.is_empty() {
+        return Err("path: empty".into());
+    }
+
+    // (2) Check context for explicitly open/active files from the editor
+    let active_note_path = args
+        .and_then(|a| a.get("_active_note_path"))
+        .and_then(|v| v.as_str())
+        .map(PathBuf::from);
+    let open_notes: Vec<PathBuf> = args
+        .and_then(|a| a.get("_open_notes"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(PathBuf::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // (3) Check aliases for active note (e.g. "当前笔记", "当前文件", "active", "current")
+    let lower_clean = clean.to_lowercase();
+    let is_alias_for_active = matches!(
+        lower_clean.as_str(),
+        "当前笔记"
+            | "当前文件"
+            | "当前文档"
+            | "活动笔记"
+            | "活动文件"
+            | "此文件"
+            | "此文档"
+            | "current"
+            | "active"
+            | "active_note"
+            | "current_note"
+            | "active_file"
+            | "current_file"
+            | "this"
+            | "this_note"
+    );
+    if is_alias_for_active {
+        if let Some(active) = &active_note_path {
+            if active.exists() {
+                if let Ok(canon) = active.canonicalize() {
+                    return Ok(strip_unc_prefix(&canon));
+                }
+                return Ok(strip_unc_prefix(active));
+            }
+            return Ok(strip_unc_prefix(active));
+        }
+    }
+
+    let raw = PathBuf::from(&clean);
+
+    // (4) reject `..` components anywhere in the input — no exceptions.
     for c in raw.components() {
         if matches!(c, Component::ParentDir) {
             return Err(format!("path traversal (..) is not allowed: {arg_path}"));
         }
     }
-    let workspace_canon = workspace
-        .canonicalize()
-        .map_err(|e| format!("workspace not accessible: {e}"))?;
 
-    // (2) Candidate path: allow relative paths joined to workspace, or absolute paths within workspace.
+    let is_bare_filename = !clean.contains('/') && !clean.contains('\\');
+
+    // Helper: does an allowed open file match the query `clean`?
+    let matches_allowed = |allowed_file: &Path| -> bool {
+        if !allowed_file.exists() {
+            return false;
+        }
+        let allowed_str = allowed_file.to_string_lossy().replace('\\', "/").to_lowercase();
+        let query_str = clean.replace('\\', "/").to_lowercase();
+        let query_with_md = if !clean.contains('.') {
+            format!("{query_str}.md")
+        } else {
+            query_str.clone()
+        };
+
+        if allowed_str == query_str || allowed_str == query_with_md {
+            return true;
+        }
+        if allowed_str.ends_with(&format!("/{}", query_str.trim_start_matches('/')))
+            || allowed_str.ends_with(&format!("/{}", query_with_md.trim_start_matches('/')))
+        {
+            return true;
+        }
+        if is_bare_filename {
+            if let Some(target_fn) = raw.file_name() {
+                if let Some(allowed_fn) = allowed_file.file_name() {
+                    let target_str = target_fn.to_string_lossy().to_lowercase();
+                    let allowed_str_fn = allowed_fn.to_string_lossy().to_lowercase();
+                    if target_str == allowed_str_fn
+                        || format!("{target_str}.md") == allowed_str_fn
+                    {
+                        return true;
+                    }
+                }
+            }
+            if let Some(target_stem) = raw.file_stem() {
+                if let Some(allowed_stem) = allowed_file.file_stem() {
+                    if target_stem.to_string_lossy().to_lowercase()
+                        == allowed_stem.to_string_lossy().to_lowercase()
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    };
+
+    // Active note takes top priority when it matches the requested path/filename
+    if let Some(active) = &active_note_path {
+        if matches_allowed(active) {
+            if let Ok(canon) = active.canonicalize() {
+                return Ok(strip_unc_prefix(&canon));
+            }
+            return Ok(strip_unc_prefix(active));
+        }
+    }
+
+    // Check if the path directly exists inside the workspace before falling back to inactive open tabs
+    let ws_canon_opt = workspace.canonicalize().ok().or_else(|| {
+        active_note_path
+            .as_ref()
+            .and_then(|p| p.parent().and_then(|par| par.canonicalize().ok()))
+    });
+    let exists_in_workspace = ws_canon_opt
+        .as_ref()
+        .map(|ws| {
+            if raw.is_absolute() {
+                false
+            } else {
+                ws.join(&raw).exists()
+                    || (raw.extension().is_none() && ws.join(raw.with_extension("md")).exists())
+            }
+        })
+        .unwrap_or(false);
+
+    if !exists_in_workspace {
+        for open_f in &open_notes {
+            if matches_allowed(open_f) {
+                if let Ok(canon) = open_f.canonicalize() {
+                    return Ok(strip_unc_prefix(&canon));
+                }
+                return Ok(strip_unc_prefix(open_f));
+            }
+        }
+    }
+
+    // If arg_path is absolute and points to an existing file that matches active/open file:
+    if raw.is_absolute() && raw.exists() {
+        if let Ok(canon) = raw.canonicalize() {
+            let canon_clean = strip_unc_prefix(&canon);
+            if let Some(active) = &active_note_path {
+                if let Ok(act_canon) = active.canonicalize() {
+                    if strip_unc_prefix(&act_canon) == canon_clean {
+                        return Ok(canon_clean);
+                    }
+                }
+            }
+            for open_f in &open_notes {
+                if let Ok(op_canon) = open_f.canonicalize() {
+                    if strip_unc_prefix(&op_canon) == canon_clean {
+                        return Ok(canon_clean);
+                    }
+                }
+            }
+        }
+    }
+
+    let workspace_canon = ws_canon_opt
+        .ok_or_else(|| "workspace not accessible".to_string())?;
+
+    // (5) Candidate path: allow relative paths joined to workspace, or absolute paths within workspace.
     let mut candidate = if raw.is_absolute() {
-        raw
+        raw.clone()
     } else {
         workspace_canon.join(&raw)
     };
 
+    // Extension fallback: if candidate does NOT exist, try with .md
+    if !candidate.exists() && raw.extension().is_none() {
+        let cand_md = candidate.with_extension("md");
+        if cand_md.exists() {
+            candidate = cand_md;
+        }
+    }
+
     // If candidate does NOT exist, check if it's a bare filename that exists uniquely in workspace
-    let is_bare_filename = !trimmed.contains('/') && !trimmed.contains('\\');
     if !candidate.exists() && is_bare_filename {
         if let Some(target_file_name) = candidate.file_name().map(|n| n.to_os_string()) {
             let target_str = target_file_name.to_string_lossy().to_lowercase();
+            let target_stem = raw.file_stem().map(|s| s.to_string_lossy().to_lowercase());
             let mut matches: Vec<PathBuf> = Vec::new();
             for entry in walkdir::WalkDir::new(&workspace_canon)
                 .max_depth(10)
@@ -451,7 +679,17 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
             {
                 if entry.file_type().is_file() {
                     let entry_name = entry.file_name().to_string_lossy().to_lowercase();
-                    if entry_name == target_str {
+                    let entry_stem =
+                        entry.path().file_stem().map(|s| s.to_string_lossy().to_lowercase());
+                    if entry_name == target_str
+                        || (raw.extension().is_none()
+                            && entry_stem == target_stem
+                            && entry
+                                .path()
+                                .extension()
+                                .map(|e| e == "md" || e == "markdown")
+                                .unwrap_or(false))
+                    {
                         matches.push(entry.path().to_path_buf());
                         if matches.len() > 1 {
                             break;
@@ -465,7 +703,41 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
         }
     }
 
-    // (3) Resolve safely whether or not the leaf / its parent exists. Walk
+    // (6) Active note fallback when candidate does NOT exist:
+    if !candidate.exists() {
+        if let Some(active) = &active_note_path {
+            if active.exists() {
+                let target_content =
+                    args.and_then(|a| a.get("target_content")).and_then(|v| v.as_str());
+                let active_sel =
+                    args.and_then(|a| a.get("_active_selection")).and_then(|v| v.as_str());
+                let should_fallback = if target_content.is_some() || active_sel.is_some() {
+                    if let Ok(content) = fs::read_to_string(active) {
+                        if let Some(t) = target_content {
+                            !t.trim().is_empty() && content.contains(t)
+                        } else if let Some(s) = active_sel {
+                            !s.trim().is_empty() && content.contains(s)
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                };
+
+                if should_fallback {
+                    if let Ok(canon) = active.canonicalize() {
+                        return Ok(strip_unc_prefix(&canon));
+                    }
+                    return Ok(strip_unc_prefix(active));
+                }
+            }
+        }
+    }
+
+    // (7) Resolve safely whether or not the leaf / its parent exists. Walk
     // up the candidate's ancestors until we find one that exists on disk,
     // canonicalize that, then reattach the trailing components verbatim.
     let resolved = if candidate.exists() {
@@ -494,22 +766,36 @@ fn resolve_in_workspace(workspace: &Path, arg_path: &str) -> Result<PathBuf, Str
         };
         let mut resolved = existing
             .canonicalize()
-            .map_err(|e| format!("cannot resolve {}: {e}", existing.display()))?;
+            .map_err(|e| format!("cannot resolve ancestor {}: {e}", existing.display()))?;
         for seg in tail.iter().rev() {
             resolved.push(seg);
         }
         resolved
     };
 
-    // (4) Final containment check against the *canonicalized* workspace.
-    if !resolved.starts_with(&workspace_canon) {
+    let resolved_clean = strip_unc_prefix(&resolved);
+    let ws_clean = strip_unc_prefix(&workspace_canon);
+
+    // External open files (active note or other open tabs outside workspace) are permitted
+    let is_external_allowed = active_note_path
+        .as_ref()
+        .and_then(|p| p.canonicalize().ok())
+        .map(|c| strip_unc_prefix(&c) == resolved_clean)
+        .unwrap_or(false)
+        || open_notes
+            .iter()
+            .filter_map(|p| p.canonicalize().ok())
+            .any(|c| strip_unc_prefix(&c) == resolved_clean);
+
+    if !resolved_clean.starts_with(&ws_clean) && !is_external_allowed {
         return Err(format!(
             "path {} escapes workspace {}",
-            resolved.display(),
-            workspace_canon.display()
+            resolved_clean.display(),
+            ws_clean.display()
         ));
     }
-    Ok(strip_unc_prefix(&resolved))
+
+    Ok(resolved_clean)
 }
 
 pub fn strip_unc_prefix(path: &Path) -> PathBuf {
@@ -831,8 +1117,9 @@ fn mtime_secs(path: &Path) -> u64 {
 fn tool_list_notes(workspace: &Path, args: &Value) -> Result<Value, String> {
     let folder = args.get("folder").and_then(|v| v.as_str());
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(200) as usize;
+    let has_subfolder = folder.map(|f| !f.trim().is_empty()).unwrap_or(false);
     let scan_root = match folder {
-        Some(f) if !f.is_empty() => resolve_in_workspace(workspace, f)?,
+        Some(f) if !f.trim().is_empty() => resolve_in_workspace_ctx(workspace, f, Some(args))?,
         _ => workspace.to_path_buf(),
     };
     let mut notes = Vec::new();
@@ -842,7 +1129,12 @@ fn tool_list_notes(workspace: &Path, args: &Value) -> Result<Value, String> {
     // unbalanced quotes / tab indent / etc. with no signal, making
     // "why aren't my tags showing up?" reports hard to diagnose.
     let mut frontmatter_errors: Vec<Value> = Vec::new();
-    for path in walk_md_files(&scan_root) {
+    let external_files = if has_subfolder {
+        Vec::new()
+    } else {
+        collect_external_open_files(workspace, args)
+    };
+    for path in walk_md_files(&scan_root).chain(external_files.into_iter()) {
         if notes.len() >= limit {
             break;
         }
@@ -920,7 +1212,7 @@ fn tool_read_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .get("path")
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
-    let path = resolve_in_workspace(workspace, path_arg)?;
+    let path = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     // Detection read — a GBK / Big5 note must be readable by the agent, not
     // only by the editor. Undecodable junk still yields the lossy rendering
     // (same text the editor would show).
@@ -968,6 +1260,42 @@ fn tool_read_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     Ok(out)
 }
 
+fn search_external_files_literal(
+    external_files: &[PathBuf],
+    query: &str,
+    limit: usize,
+    out_hits: &mut Vec<Value>,
+) {
+    let q_lower = query.to_lowercase();
+    if q_lower.is_empty() {
+        return;
+    }
+    for path in external_files {
+        if out_hits.len() >= limit {
+            break;
+        }
+        let det = match super::commands::read_text_detected(path) {
+            Ok(d) if !d.had_errors => d,
+            _ => continue,
+        };
+        let file_str = normalize_path_str(path);
+        for (i, line) in det.content.lines().enumerate() {
+            if out_hits.len() >= limit {
+                break;
+            }
+            if line.to_lowercase().contains(&q_lower) {
+                let snippet: String = line.chars().take(200).collect();
+                out_hits.push(json!({
+                    "path": file_str,
+                    "file": file_str,
+                    "line": i + 1,
+                    "snippet": snippet,
+                }));
+            }
+        }
+    }
+}
+
 fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
     let mode = args
         .get("mode")
@@ -984,12 +1312,13 @@ fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
         .ok_or("query: required")?
         .to_string();
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
+    let external_files = collect_external_open_files(workspace, args);
 
     if mode == "regex" {
         // regex-lite already in deps — compile and walk ourselves.
         let re = Regex::new(&query).map_err(|e| format!("bad regex: {e}"))?;
         let mut hits: Vec<Value> = Vec::new();
-        for path in walk_md_files(workspace) {
+        for path in walk_md_files(workspace).chain(external_files.into_iter()) {
             if hits.len() >= limit {
                 break;
             }
@@ -1020,15 +1349,21 @@ fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
         return Ok(json!({"hits": hits, "count": count}));
     }
     // literal
-    let hits = search::search_in_dir_inner(
-        workspace.to_string_lossy().to_string(),
-        query,
-        limit,
-    )?;
-    let arr: Vec<Value> = hits
-        .iter()
-        .map(|h| json!({"file": h.file, "line": h.line, "snippet": h.snippet}))
-        .collect();
+    let mut arr: Vec<Value> = if workspace.exists() && workspace.is_dir() {
+        let hits = search::search_in_dir_inner(
+            workspace.to_string_lossy().to_string(),
+            query.clone(),
+            limit,
+        )?;
+        hits.iter()
+            .map(|h| json!({"file": h.file, "line": h.line, "snippet": h.snippet}))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    if arr.len() < limit && !external_files.is_empty() {
+        search_external_files_literal(&external_files, &query, limit, &mut arr);
+    }
     let count = arr.len();
     Ok(json!({"hits": arr, "count": count}))
 }
@@ -1067,9 +1402,10 @@ fn tool_semantic_search(workspace: &Path, args: &Value) -> Result<Value, String>
     };
 
     let folder = workspace.to_string_lossy().to_string();
+    let external_files = collect_external_open_files(workspace, args);
     match rag::rag_search_inner(folder.clone(), query.clone(), limit as u32) {
         Ok(hits) => {
-            let arr: Vec<Value> = hits
+            let mut arr: Vec<Value> = hits
                 .into_iter()
                 .map(|h| {
                     let rel = relative_to_workspace(workspace, &h.path);
@@ -1084,13 +1420,16 @@ fn tool_semantic_search(workspace: &Path, args: &Value) -> Result<Value, String>
                     })
                 })
                 .collect();
+            if arr.len() < limit && !external_files.is_empty() {
+                search_external_files_literal(&external_files, &query, limit, &mut arr);
+            }
             let count = arr.len();
             Ok(json!({ "hits": arr, "count": count, "mode": "semantic" }))
         }
         Err(err) => {
             // Fallback to literal keyword search if RAG index is not yet built or unavailable.
-            let fallback_hits = search::search_in_dir_inner(folder, query, limit).unwrap_or_default();
-            let arr: Vec<Value> = fallback_hits
+            let fallback_hits = search::search_in_dir_inner(folder, query.clone(), limit).unwrap_or_default();
+            let mut arr: Vec<Value> = fallback_hits
                 .iter()
                 .map(|h| {
                     let rel = relative_to_workspace(workspace, &h.file);
@@ -1102,6 +1441,9 @@ fn tool_semantic_search(workspace: &Path, args: &Value) -> Result<Value, String>
                     })
                 })
                 .collect();
+            if arr.len() < limit && !external_files.is_empty() {
+                search_external_files_literal(&external_files, &query, limit, &mut arr);
+            }
             let count = arr.len();
             Ok(json!({
                 "hits": arr,
@@ -1114,13 +1456,66 @@ fn tool_semantic_search(workspace: &Path, args: &Value) -> Result<Value, String>
 }
 
 fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
-    let needle = args
+    let raw_target = args
         .get("note_name")
+        .or_else(|| args.get("path"))
         .and_then(|v| v.as_str())
-        .ok_or("note_name: required")?
+        .ok_or("note_name: required")?;
+    let mut clean = raw_target.trim().to_string();
+    while (clean.starts_with('`') && clean.ends_with('`') && clean.len() >= 2)
+        || (clean.starts_with('"') && clean.ends_with('"') && clean.len() >= 2)
+        || (clean.starts_with('\'') && clean.ends_with('\'') && clean.len() >= 2)
+    {
+        clean = clean[1..clean.len() - 1].trim().to_string();
+    }
+    if clean.starts_with("[[") && clean.ends_with("]]") && clean.len() >= 4 {
+        clean = clean[2..clean.len() - 2].trim().to_string();
+    }
+    clean = clean
+        .trim_matches(|c| c == '"' || c == '\'' || c == '`')
+        .trim()
+        .to_string();
+
+    let lower_clean = clean.to_lowercase();
+    let is_alias = matches!(
+        lower_clean.as_str(),
+        "当前笔记"
+            | "当前文件"
+            | "当前文档"
+            | "活动笔记"
+            | "活动文件"
+            | "此文件"
+            | "此文档"
+            | "current"
+            | "active"
+            | "active_note"
+            | "current_note"
+            | "this"
+            | "this_note"
+    );
+    let target_name = if is_alias {
+        if let Some(active) = args.get("_active_note_path").and_then(|v| v.as_str()) {
+            Path::new(active)
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or(clean)
+        } else {
+            clean
+        }
+    } else {
+        clean
+    };
+
+    let needle = target_name.to_lowercase();
+    let needle_stem = Path::new(&needle)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
         .to_lowercase();
+
     let mut out: Vec<Value> = Vec::new();
-    for path in walk_md_files(workspace) {
+    let external_files = collect_external_open_files(workspace, args);
+    for path in walk_md_files(workspace).chain(external_files.into_iter()) {
         // Detection read — legacy-encoded notes link too; skip junk.
         let det = match super::commands::read_text_detected(&path) {
             Ok(d) => d,
@@ -1133,7 +1528,17 @@ fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
         let (_, body) = split_front_matter(&raw);
         let links = extract_wikilinks(body);
         for link in links {
-            if link.target.to_lowercase() == needle {
+            let link_target = link.target.to_lowercase();
+            let link_stem = Path::new(&link_target)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_lowercase();
+            if link_target == needle
+                || link_target == needle_stem
+                || link_stem == needle_stem
+                || format!("{link_target}.md") == needle
+            {
                 let lines: Vec<&str> = raw.lines().collect();
                 let i = (link.line as usize).saturating_sub(1);
                 let prev = if i > 0 { lines.get(i - 1) } else { None };
@@ -1161,14 +1566,15 @@ fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
     Ok(json!({"backlinks": out, "count": count}))
 }
 
-fn tool_list_tags(workspace: &Path, _args: &Value) -> Result<Value, String> {
+fn tool_list_tags(workspace: &Path, args: &Value) -> Result<Value, String> {
     use std::collections::HashMap;
     let mut by_tag: HashMap<String, (u32, Vec<String>)> = HashMap::new();
     // Bug N: aggregate YAML front-matter parse errors so the caller can
     // see which files have broken YAML — those are the ones whose
     // front-matter `tags:` arrays were silently dropped.
     let mut frontmatter_errors: Vec<Value> = Vec::new();
-    for path in walk_md_files(workspace) {
+    let external_files = collect_external_open_files(workspace, args);
+    for path in walk_md_files(workspace).chain(external_files.into_iter()) {
         // Detection read — legacy-encoded notes carry tags too; skip junk.
         let det = match super::commands::read_text_detected(&path) {
             Ok(d) => d,
@@ -1226,7 +1632,7 @@ fn tool_get_outline(workspace: &Path, args: &Value) -> Result<Value, String> {
         .get("path")
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
-    let path = resolve_in_workspace(workspace, path_arg)?;
+    let path = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     let raw = super::commands::read_text_detected(&path)
         .map_err(|e| format!("read: {e}"))?
         .content;
@@ -1247,9 +1653,14 @@ fn tool_autogit_log(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
+    let repo_root = if abs.starts_with(workspace) {
+        workspace
+    } else {
+        abs.parent().unwrap_or(workspace)
+    };
     let commits = git_history::git_file_history_inner(
-        workspace.to_string_lossy().to_string(),
+        repo_root.to_string_lossy().to_string(),
         abs.to_string_lossy().to_string(),
         limit,
     )?;
@@ -1270,13 +1681,18 @@ fn tool_autogit_diff(workspace: &Path, args: &Value) -> Result<Value, String> {
         .get("path")
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
+    let repo_root = if abs.starts_with(workspace) {
+        workspace
+    } else {
+        abs.parent().unwrap_or(workspace)
+    };
     // Default to HEAD when sha is missing — pull from git_workspace_status.
     let sha = match args.get("sha").and_then(|v| v.as_str()) {
         Some(s) if !s.is_empty() => s.to_string(),
         _ => {
             let st = git_history::git_workspace_status_inner(
-                workspace.to_string_lossy().to_string(),
+                repo_root.to_string_lossy().to_string(),
             )?;
             st.head_sha.unwrap_or_else(|| "".to_string())
         }
@@ -1285,7 +1701,7 @@ fn tool_autogit_diff(workspace: &Path, args: &Value) -> Result<Value, String> {
         return Err("no HEAD commit yet".into());
     }
     let diff = git_history::git_file_diff_inner(
-        workspace.to_string_lossy().to_string(),
+        repo_root.to_string_lossy().to_string(),
         abs.to_string_lossy().to_string(),
         sha.clone(),
     )?;
@@ -1323,7 +1739,7 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
             None => return Err(format!("encoding: unknown encoding label '{label}'")),
         },
     };
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
 
     let mut backup_path_str = None;
     if abs.exists() {
@@ -1338,7 +1754,13 @@ fn tool_write_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         // Big5 note (it hard-fails on non-UTF-8 bytes) right before an
         // overwrite.
         if let Ok(original) = fs::read(&abs) {
-            let backup_dir = workspace.join(".backup");
+            let backup_dir = if abs.starts_with(workspace) {
+                workspace.join(".backup")
+            } else if let Some(parent) = abs.parent() {
+                parent.join(".backup")
+            } else {
+                workspace.join(".backup")
+            };
             let _ = fs::create_dir_all(&backup_dir);
             let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
             let backup_name = format!("{}_{}", timestamp, abs.file_name().unwrap_or_default().to_string_lossy());
@@ -1377,7 +1799,7 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
         .get("content")
         .and_then(|v| v.as_str())
         .ok_or("content: required")?;
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     if let Some(parent) = abs.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
@@ -1396,6 +1818,23 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
             "new_content": content,
             "path": normalize_path_str(&abs),
         }));
+    }
+
+    let mut backup_path_str = None;
+    if let Ok(original_bytes) = fs::read(&abs) {
+        let backup_dir = if abs.starts_with(workspace) {
+            workspace.join(".backup")
+        } else if let Some(parent) = abs.parent() {
+            parent.join(".backup")
+        } else {
+            workspace.join(".backup")
+        };
+        let _ = fs::create_dir_all(&backup_dir);
+        let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
+        let backup_name = format!("{}_{}", timestamp, abs.file_name().unwrap_or_default().to_string_lossy());
+        let backup_path = backup_dir.join(&backup_name);
+        let _ = fs::write(&backup_path, &original_bytes);
+        backup_path_str = Some(backup_path.to_string_lossy().to_string());
     }
 
     // Detection read — appending must not transcode: read the file in the
@@ -1427,6 +1866,7 @@ fn tool_append_to_note(workspace: &Path, args: &Value) -> Result<Value, String> 
         "new_content": content,
         "encoding": det.encoding,
         "path": normalize_path_str(&abs),
+        "backup_path": backup_path_str.map(|s| normalize_path_str(Path::new(&s)))
     }))
 }
 
@@ -1440,6 +1880,45 @@ fn clean_line_for_fuzzy_match(s: &str) -> String {
     parts.join(" ")
 }
 
+fn normalize_punctuation(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '：' => ':',
+            '；' => ';',
+            '，' | '、' => ',',
+            '。' => '.',
+            '“' | '”' | '「' | '」' | '『' | '』' => '"',
+            '‘' | '’' => '\'',
+            '（' => '(',
+            '）' => ')',
+            '【' | '〔' | '［' => '[',
+            '】' | '〕' | '］' => ']',
+            '《' => '<',
+            '》' => '>',
+            '｛' => '{',
+            '｝' => '}',
+            '！' => '!',
+            '？' => '?',
+            '～' => '~',
+            '—' | '–' => '-',
+            '\u{3000}' | '\u{A0}' => ' ',
+            other => other,
+        })
+        .collect()
+}
+
+fn strip_markdown_decorations(s: &str) -> String {
+    s.chars().filter(|&c| c != '*' && c != '_' && c != '`' && c != '~').collect()
+}
+
+fn normalize_for_fuzzy_line(s: &str) -> String {
+    let clean = clean_line_for_fuzzy_match(s);
+    let norm_punc = normalize_punctuation(&clean);
+    let stripped = strip_markdown_decorations(&norm_punc);
+    let parts: Vec<&str> = stripped.split_whitespace().collect();
+    parts.join(" ").to_lowercase()
+}
+
 fn lines_are_fuzzy_equal(a: &str, b: &str) -> bool {
     let ca = clean_line_for_fuzzy_match(a);
     let cb = clean_line_for_fuzzy_match(b);
@@ -1449,21 +1928,209 @@ fn lines_are_fuzzy_equal(a: &str, b: &str) -> bool {
     if ca.is_empty() && cb.is_empty() {
         return true;
     }
-    if !ca.is_empty() && !cb.is_empty() {
-        let trim_heading_a = ca.trim_start_matches('#').trim();
-        let trim_heading_b = cb.trim_start_matches('#').trim();
+    let na = normalize_for_fuzzy_line(a);
+    let nb = normalize_for_fuzzy_line(b);
+    if na == nb {
+        return true;
+    }
+    if !na.is_empty() && !nb.is_empty() {
+        let trim_heading_a = na.trim_start_matches('#').trim();
+        let trim_heading_b = nb.trim_start_matches('#').trim();
         if !trim_heading_a.is_empty() && trim_heading_a == trim_heading_b {
             return true;
         }
-        if ca.contains(&cb) || cb.contains(&ca) {
-            let min_len = ca.len().min(cb.len());
-            let max_len = ca.len().max(cb.len());
-            if min_len as f64 / max_len as f64 >= 0.7 {
+        if na.contains(&nb) || nb.contains(&na) {
+            let min_len = na.len().min(nb.len());
+            let max_len = na.len().max(nb.len());
+            if min_len as f64 / max_len as f64 >= 0.65 {
                 return true;
             }
         }
     }
     false
+}
+
+fn is_skipped_stream_char(ch: char, strip_block_markers: bool) -> bool {
+    if ch == '*' || ch == '_' || ch == '`' || ch == '~' || ch.is_whitespace() {
+        return true;
+    }
+    if strip_block_markers
+        && matches!(ch, '#' | '-' | '+' | '>' | '|' | '•' | '·')
+    {
+        return true;
+    }
+    false
+}
+
+fn build_normalized_stream(s: &str, strip_block_markers: bool) -> (Vec<char>, Vec<(usize, usize)>) {
+    let mut chars = Vec::new();
+    let mut ranges = Vec::new();
+    for (start_byte, ch) in s.char_indices() {
+        let end_byte = start_byte + ch.len_utf8();
+        if ['\u{FFFD}', '\u{FEFF}', '\u{200B}', '\u{200C}', '\u{200D}'].contains(&ch) {
+            continue;
+        }
+        let norm_ch = match ch {
+            '：' => ':',
+            '；' => ';',
+            '，' | '、' => ',',
+            '。' => '.',
+            '“' | '”' | '「' | '」' | '『' | '』' => '"',
+            '‘' | '’' => '\'',
+            '（' => '(',
+            '）' => ')',
+            '【' | '〔' | '［' => '[',
+            '】' | '〕' | '］' => ']',
+            '《' => '<',
+            '》' => '>',
+            '｛' => '{',
+            '｝' => '}',
+            '！' => '!',
+            '？' => '?',
+            '～' => '~',
+            '—' | '–' => '-',
+            '\u{3000}' | '\u{A0}' => ' ',
+            c => c,
+        };
+        if is_skipped_stream_char(norm_ch, strip_block_markers) {
+            continue;
+        }
+        for lower_ch in norm_ch.to_lowercase() {
+            chars.push(lower_ch);
+            ranges.push((start_byte, end_byte));
+        }
+    }
+    (chars, ranges)
+}
+
+fn normalize_target_stream(s: &str, strip_block_markers: bool) -> Vec<char> {
+    let mut chars = Vec::new();
+    for ch in s.chars() {
+        if ['\u{FFFD}', '\u{FEFF}', '\u{200B}', '\u{200C}', '\u{200D}'].contains(&ch) {
+            continue;
+        }
+        let norm_ch = match ch {
+            '：' => ':',
+            '；' => ';',
+            '，' | '、' => ',',
+            '。' => '.',
+            '“' | '”' | '「' | '」' | '『' | '』' => '"',
+            '‘' | '’' => '\'',
+            '（' => '(',
+            '）' => ')',
+            '【' | '〔' | '［' => '[',
+            '】' | '〕' | '］' => ']',
+            '《' => '<',
+            '》' => '>',
+            '｛' => '{',
+            '｝' => '}',
+            '！' => '!',
+            '？' => '?',
+            '～' => '~',
+            '—' | '–' => '-',
+            '\u{3000}' | '\u{A0}' => ' ',
+            c => c,
+        };
+        if is_skipped_stream_char(norm_ch, strip_block_markers) {
+            continue;
+        }
+        for lower_ch in norm_ch.to_lowercase() {
+            chars.push(lower_ch);
+        }
+    }
+    chars
+}
+
+/// Adjusts a matched `[byte_start, byte_end)` span from a normalized character stream
+/// so that surrounding inline Markdown delimiters (`**`, `_`, `` ` ``, `~`) and leading
+/// line-level Markdown block prefixes (`### `, `  - `, `> `) are neither duplicated
+/// nor left dangling when `replacement` is spliced into `original`.
+fn adjust_matched_byte_range(
+    original: &str,
+    mut byte_start: usize,
+    mut byte_end: usize,
+    replacement: &str,
+) -> (usize, usize) {
+    let line_start = original[..byte_start].rfind('\n').map(|p| p + 1).unwrap_or(0);
+    let raw_line_end = original[byte_end..]
+        .find('\n')
+        .map(|p| byte_end + p)
+        .unwrap_or(original.len());
+    let line_end = if raw_line_end > byte_end
+        && original.as_bytes().get(raw_line_end - 1) == Some(&b'\r')
+    {
+        raw_line_end - 1
+    } else {
+        raw_line_end
+    };
+
+    let matched_slice = &original[byte_start..byte_end];
+    let repl_trim_start = replacement.trim_start();
+    let repl_trim_end = replacement.trim_end();
+    let is_multiline = matched_slice.contains('\n');
+
+    // 1. Expand over immediately preceding inline decoration chars (`*`, `_`, `` ` ``, `~`)
+    // when the replacement already includes inline decorations, or when the matched slice
+    // crosses an inline delimiter boundary (or spans multiple lines).
+    while byte_start > line_start {
+        if let Some(prev_ch) = original[line_start..byte_start].chars().next_back() {
+            if matches!(prev_ch, '*' | '_' | '`' | '~') {
+                let prev_pos = byte_start - prev_ch.len_utf8();
+                // Do not treat a bullet list marker `* ` as an inline decoration
+                let is_bullet_star = prev_ch == '*'
+                    && original[line_start..prev_pos]
+                        .chars()
+                        .all(|c| c == ' ' || c == '\t')
+                    && original[byte_start..].starts_with(' ');
+                if !is_bullet_star
+                    && (is_multiline
+                        || repl_trim_start.starts_with(prev_ch)
+                        || matched_slice.contains(prev_ch))
+                {
+                    byte_start = prev_pos;
+                    continue;
+                }
+            }
+        }
+        break;
+    }
+
+    // 2. Expand over immediately trailing inline decoration chars (`*`, `_`, `` ` ``, `~`)
+    while byte_end < line_end {
+        if let Some(next_ch) = original[byte_end..line_end].chars().next() {
+            if matches!(next_ch, '*' | '_' | '`' | '~')
+                && (is_multiline
+                    || repl_trim_end.ends_with(next_ch)
+                    || matched_slice.contains(next_ch))
+            {
+                byte_end += next_ch.len_utf8();
+                continue;
+            }
+        }
+        break;
+    }
+
+    // 3. If everything before `byte_start` on the first matched line is a Markdown block prefix
+    // (`### `, `  - `, `* `, `+ `, `> `) AND `replacement` itself begins with a Markdown block
+    // prefix, snap `byte_start` to `line_start` so the prefix is not duplicated.
+    let prefix = &original[line_start..byte_start];
+    if !prefix.is_empty()
+        && prefix
+            .chars()
+            .all(|c| matches!(c, ' ' | '\t' | '#' | '-' | '*' | '+' | '>' | '|'))
+    {
+        let repl_has_block_prefix = repl_trim_start.starts_with('#')
+            || repl_trim_start.starts_with("- ")
+            || repl_trim_start.starts_with("* ")
+            || repl_trim_start.starts_with("+ ")
+            || repl_trim_start.starts_with('>')
+            || repl_trim_start.starts_with('|');
+        if repl_has_block_prefix {
+            byte_start = line_start;
+        }
+    }
+
+    (byte_start, byte_end)
 }
 
 fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
@@ -1484,10 +2151,12 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     if !abs.exists() {
         return Err(format!("file not found: {}", abs.to_string_lossy()));
     }
+
+    let original_bytes = fs::read(&abs).ok();
 
     // Detection read — the agent can now patch a GBK / Big5 note instead of
     // failing on `read_to_string`. `had_errors` means the bytes never decoded
@@ -1685,6 +2354,157 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
             }
         }
     }
+
+    // Tier 6: Continuous normalized stream alignment (resilient to line wrapping, soft breaks, formatting shifts, and DOM-rendered selections)
+    if matches == 0 {
+        for strip_blocks in [false, true] {
+            let (orig_chars, orig_ranges) = build_normalized_stream(&original, strip_blocks);
+            let target_chars = normalize_target_stream(target, strip_blocks);
+            if !target_chars.is_empty() && orig_chars.len() >= target_chars.len() {
+                let mut match_starts = Vec::new();
+                for i in 0..=(orig_chars.len() - target_chars.len()) {
+                    if orig_chars[i..i + target_chars.len()] == target_chars[..] {
+                        match_starts.push(i);
+                    }
+                }
+                if match_starts.len() > 1 && !allow_multiple {
+                    if !strip_blocks {
+                        return Err("target_content matches multiple locations (normalized). Set allow_multiple=true to replace all, or provide a more specific target_content.".into());
+                    }
+                    continue;
+                }
+                if match_starts.len() == 1 {
+                    let start_idx = match_starts[0];
+                    let raw_start = orig_ranges[start_idx].0;
+                    let raw_end = orig_ranges[start_idx + target_chars.len() - 1].1;
+                    let (byte_start, byte_end) =
+                        adjust_matched_byte_range(&original, raw_start, raw_end, replacement);
+                    start_line = original[..byte_start].matches('\n').count() + 1;
+                    let mut new_text = String::new();
+                    new_text.push_str(&original[..byte_start]);
+                    new_text.push_str(replacement);
+                    new_text.push_str(&original[byte_end..]);
+                    modified = new_text;
+                    matches = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Tier 7: Ellipsis / boundary head & tail match (for LLM outputs that summarize intermediate lines with `...`)
+    if matches == 0 {
+        let ellipsis_delims = ["\n...\n", "\n……\n", "\n…\n", "...", "……", "…"];
+        'ellipsis_search: for delim in &ellipsis_delims {
+            if let Some(pos) = target.find(delim) {
+                let head = target[..pos].trim();
+                let tail = target[pos + delim.len()..].trim();
+                if head.len() >= 4 && tail.len() >= 4 {
+                    for strip_blocks in [false, true] {
+                        let (orig_chars, orig_ranges) =
+                            build_normalized_stream(&original, strip_blocks);
+                        let head_chars = normalize_target_stream(head, strip_blocks);
+                        let tail_chars = normalize_target_stream(tail, strip_blocks);
+                        if !head_chars.is_empty() && !tail_chars.is_empty() {
+                            let mut head_matches = Vec::new();
+                            for i in 0..=(orig_chars.len().saturating_sub(head_chars.len())) {
+                                if orig_chars[i..i + head_chars.len()] == head_chars[..] {
+                                    head_matches.push(i);
+                                }
+                            }
+                            if head_matches.len() == 1 {
+                                let head_start_idx = head_matches[0];
+                                let head_end_idx = head_start_idx + head_chars.len();
+                                let mut tail_matches = Vec::new();
+                                for j in
+                                    head_end_idx..=(orig_chars.len().saturating_sub(tail_chars.len()))
+                                {
+                                    if orig_chars[j..j + tail_chars.len()] == tail_chars[..] {
+                                        tail_matches.push(j);
+                                    }
+                                }
+                                if tail_matches.len() == 1 {
+                                    let tail_start_idx = tail_matches[0];
+                                    let tail_end_idx = tail_start_idx + tail_chars.len();
+                                    let raw_start = orig_ranges[head_start_idx].0;
+                                    let raw_end = orig_ranges[tail_end_idx - 1].1;
+                                    let (byte_start, byte_end) = adjust_matched_byte_range(
+                                        &original,
+                                        raw_start,
+                                        raw_end,
+                                        replacement,
+                                    );
+                                    start_line = original[..byte_start].matches('\n').count() + 1;
+                                    let mut new_text = String::new();
+                                    new_text.push_str(&original[..byte_start]);
+                                    new_text.push_str(replacement);
+                                    new_text.push_str(&original[byte_end..]);
+                                    modified = new_text;
+                                    matches = 1;
+                                    break 'ellipsis_search;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Tier 8: Active selection exact or normalized fallback
+    if matches == 0 {
+        if let Some(active_sel) = args.get("_active_selection").and_then(|v| v.as_str()) {
+            let active_sel_trimmed = active_sel.trim();
+            if !active_sel_trimmed.is_empty() {
+                // Try direct match of active selection
+                if original.contains(active_sel_trimmed)
+                    && original.matches(active_sel_trimmed).count() == 1
+                {
+                    let match_idx = original.find(active_sel_trimmed).unwrap_or(0);
+                    start_line = original[..match_idx].matches('\n').count() + 1;
+                    let mut new_text = String::new();
+                    new_text.push_str(&original[..match_idx]);
+                    new_text.push_str(replacement);
+                    new_text.push_str(&original[match_idx + active_sel_trimmed.len()..]);
+                    modified = new_text;
+                    matches = 1;
+                } else {
+                    for strip_blocks in [false, true] {
+                        let (orig_chars, orig_ranges) =
+                            build_normalized_stream(&original, strip_blocks);
+                        let sel_chars = normalize_target_stream(active_sel_trimmed, strip_blocks);
+                        if !sel_chars.is_empty() && orig_chars.len() >= sel_chars.len() {
+                            let mut match_starts = Vec::new();
+                            for i in 0..=(orig_chars.len() - sel_chars.len()) {
+                                if orig_chars[i..i + sel_chars.len()] == sel_chars[..] {
+                                    match_starts.push(i);
+                                }
+                            }
+                            if match_starts.len() == 1 {
+                                let start_idx = match_starts[0];
+                                let raw_start = orig_ranges[start_idx].0;
+                                let raw_end = orig_ranges[start_idx + sel_chars.len() - 1].1;
+                                let (byte_start, byte_end) = adjust_matched_byte_range(
+                                    &original,
+                                    raw_start,
+                                    raw_end,
+                                    replacement,
+                                );
+                                start_line = original[..byte_start].matches('\n').count() + 1;
+                                let mut new_text = String::new();
+                                new_text.push_str(&original[..byte_start]);
+                                new_text.push_str(replacement);
+                                new_text.push_str(&original[byte_end..]);
+                                modified = new_text;
+                                matches = 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     if matches == 0 {
         return Err("target_content not found in file".into());
@@ -1704,12 +2524,22 @@ fn tool_patch_note(workspace: &Path, args: &Value) -> Result<Value, String> {
     }
     
     // Save backup for revert
-    let backup_dir = workspace.join(".backup");
+    let backup_dir = if abs.starts_with(workspace) {
+        workspace.join(".backup")
+    } else if let Some(parent) = abs.parent() {
+        parent.join(".backup")
+    } else {
+        workspace.join(".backup")
+    };
     let _ = fs::create_dir_all(&backup_dir);
     let timestamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
     let backup_name = format!("{}_{}", timestamp, abs.file_name().unwrap_or_default().to_string_lossy());
     let backup_path = backup_dir.join(&backup_name);
-    let _ = fs::write(&backup_path, &original);
+    if let Some(bytes) = &original_bytes {
+        let _ = fs::write(&backup_path, bytes);
+    } else {
+        let _ = fs::write(&backup_path, &original);
+    }
     
     // Atomic write — a crash mid-write must not truncate the note on disk.
     // Write back in the encoding the file was found in: the plain-UTF-8
@@ -1737,12 +2567,18 @@ fn tool_delete_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .get("path")
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     if !abs.exists() {
         return Err(format!("file not found: {}", abs.to_string_lossy()));
     }
     
-    let trash_dir = workspace.join(".trash");
+    let trash_dir = if abs.starts_with(workspace) {
+        workspace.join(".trash")
+    } else if let Some(parent) = abs.parent() {
+        parent.join(".trash")
+    } else {
+        workspace.join(".trash")
+    };
     fs::create_dir_all(&trash_dir).map_err(|e| format!("mkdir .trash: {e}"))?;
     
     let file_name = abs.file_name().unwrap_or_default();
@@ -1801,15 +2637,15 @@ fn tool_restore_note_backup(workspace: &Path, args: &Value) -> Result<Value, Str
         .get("backup_path")
         .and_then(|v| v.as_str())
         .ok_or("backup_path: required")?;
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     let backup = PathBuf::from(backup_arg);
 
     if !backup.exists() {
         return Err(format!("backup file not found: {}", backup.to_string_lossy()));
     }
-    let original = fs::read_to_string(&backup).map_err(|e| format!("read backup: {e}"))?;
+    let original_bytes = fs::read(&backup).map_err(|e| format!("read backup: {e}"))?;
     // Atomic write — a crash mid-restore must not truncate the note on disk.
-    super::commands::atomic_write(&abs, original.as_bytes()).map_err(|e| format!("write: {e}"))?;
+    super::commands::atomic_write(&abs, &original_bytes).map_err(|e| format!("write: {e}"))?;
 
     Ok(json!({
         "ok": true,
@@ -1824,7 +2660,7 @@ fn tool_list_folders(workspace: &Path, args: &Value) -> Result<Value, String> {
     let root = if subfolder.trim().is_empty() {
         workspace.to_path_buf()
     } else {
-        resolve_in_workspace(workspace, subfolder)?
+        resolve_in_workspace_ctx(workspace, subfolder, Some(args))?
     };
 
     if !root.exists() || !root.is_dir() {
@@ -1893,8 +2729,8 @@ fn tool_move_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let src_abs = resolve_in_workspace(workspace, source_arg)?;
-    let tgt_abs = resolve_in_workspace(workspace, target_arg)?;
+    let src_abs = resolve_in_workspace_ctx(workspace, source_arg, Some(args))?;
+    let tgt_abs = resolve_in_workspace_ctx(workspace, target_arg, Some(args))?;
 
     if !src_abs.exists() {
         return Err(format!("source file not found: {source_arg}"));
@@ -1933,7 +2769,7 @@ fn tool_create_folder(workspace: &Path, args: &Value) -> Result<Value, String> {
         .or_else(|| args.get("folder"))
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
-    let dir_abs = resolve_in_workspace(workspace, path_arg)?;
+    let dir_abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     fs::create_dir_all(&dir_abs).map_err(|e| format!("mkdir: {e}"))?;
 
     Ok(json!({
@@ -1950,7 +2786,7 @@ fn tool_delete_folder(workspace: &Path, args: &Value) -> Result<Value, String> {
         .or_else(|| args.get("folder"))
         .and_then(|v| v.as_str())
         .ok_or("path: required")?;
-    let abs = resolve_in_workspace(workspace, path_arg)?;
+    let abs = resolve_in_workspace_ctx(workspace, path_arg, Some(args))?;
     if !abs.exists() {
         return Err(format!("folder not found: {path_arg}"));
     }
@@ -2000,8 +2836,8 @@ fn tool_copy_note(workspace: &Path, args: &Value) -> Result<Value, String> {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let src_abs = resolve_in_workspace(workspace, source_arg)?;
-    let tgt_abs = resolve_in_workspace(workspace, target_arg)?;
+    let src_abs = resolve_in_workspace_ctx(workspace, source_arg, Some(args))?;
+    let tgt_abs = resolve_in_workspace_ctx(workspace, target_arg, Some(args))?;
 
     if !src_abs.exists() || !src_abs.is_file() {
         return Err(format!("source file not found: {source_arg}"));
@@ -2525,6 +3361,158 @@ mod tests {
         let updated = fs::read_to_string(&test_file).unwrap();
         assert!(updated.contains("- **平移**：`Shift` + 中键"));
         assert!(updated.contains("## 二、 其他操作"));
+
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn patch_note_dom_rendered_selection_and_ellipsis_and_active_selection_fallback() {
+        let ws = make_workspace();
+        let test_file = ws.join("65片独角兽磁力片玩具设计与包装交付实战指南.md");
+        let raw_markdown = "## 四、品牌外观与版权风控（防侵权红线）\n\n### 1. 绝对禁止直接照搬的知名品牌/IP特征\n- 🚫 **小马宝莉 (My Little Pony)**：不可使用其标志性臀部可爱标志（Cutie Mark）、完全一致的发型配色组合及专属字体。\n- 🚫 **Connetix / Magna-Tiles 标志性纹理**：\n  - 不可使用 Magna-Tiles 经典的「米字型加强筋 + 四个角金属圆铆钉外露」设计。\n  - 不可使用 Connetix 完全一致的「中心四棱锥凹陷斜面（Bevel）折光角度」。\n\n### 2. 原创差异化破局方案（安全且高级）\n- **磁力片纹理微创新**：采用**「星芒雪花折射纹」**或**「水晶钻石切割面（8切面/12切面）」**，在保证结构强度的同时，光影折射效果比普通平面更梦幻，且规避现有专利。\n- **独角兽形象原创化**：采用「圆润Q版微胖体态 + 渐变星云透明鬃毛 + 烫金流沙角」，区别于美系细长写实风，更符合亚洲及全球主流审美。\n\n---\n";
+        fs::write(&test_file, raw_markdown).unwrap();
+
+        // 1. Exact 405-char DOM-rendered selection from Live Edit mode (no ###, -, or **)
+        let dom_selection = "1. 绝对禁止直接照搬的知名品牌/IP特征\n🚫 小马宝莉 (My Little Pony)：不可使用其标志性臀部可爱标志（Cutie Mark）、完全一致的发型配色组合及专属字体。\n🚫 Connetix / Magna-Tiles 标志性纹理：\n不可使用 Magna-Tiles 经典的「米字型加强筋 + 四个角金属圆铆钉外露」设计。\n不可使用 Connetix 完全一致的「中心四棱锥凹陷斜面（Bevel）折光角度」。\n2. 原创差异化破局方案（安全且高级）\n磁力片纹理微创新：采用「星芒雪花折射纹」或「水晶钻石切割面（8切面/12切面）」，在保证结构强度的同时，光影折射效果比普通平面更梦幻，且规避现有专利。\n独角兽形象原创化：采用「圆润Q版微胖体态 + 渐变星云透明鬃毛 + 烫金流沙角」，区别于美系细长写实风，更符合亚洲及全球主流审美。";
+        let replacement_md = "### 1. 严禁直接照搬的知名品牌与IP特征\n- 🚫 **小马宝莉 (My Little Pony)**：严禁使用臀部可爱标志（Cutie Mark）及专属配色字体。\n- 🚫 **Connetix / Magna-Tiles 专利纹理**：严禁使用米字型加强筋、四角外露铆钉及四棱锥折光斜面。\n\n### 2. 原创差异化设计方案\n- **磁力片纹理创新**：采用「星芒雪花折射纹」或「水晶钻石切割面」。\n- **独角兽形象原创**：采用「圆润Q版体态 + 渐变星云透明鬃毛 + 烫金流沙角」。";
+
+        let res1 = tool_patch_note(&ws, &json!({
+            "path": "65片独角兽磁力片玩具设计与包装交付实战指南.md",
+            "target_content": dom_selection,
+            "replacement_content": replacement_md
+        })).unwrap();
+        assert_eq!(res1["ok"], true);
+        let updated1 = fs::read_to_string(&test_file).unwrap();
+        assert!(updated1.contains("### 1. 严禁直接照搬的知名品牌与IP特征"));
+        assert!(!updated1.contains("### ### 1."), "must not duplicate ### prefix");
+        assert!(updated1.contains("## 四、品牌外观与版权风控（防侵权红线）"));
+        assert!(updated1.contains("---"));
+
+        // 2. Ellipsis (`...`) abbreviated target_content (Tier 7)
+        let res2 = tool_patch_note(&ws, &json!({
+            "path": "65片独角兽磁力片玩具设计与包装交付实战指南.md",
+            "target_content": "### 1. 严禁直接照搬的知名品牌与IP特征\n...\n- **独角兽形象原创**：采用「圆润Q版体态 + 渐变星云透明鬃毛 + 烫金流沙角」。",
+            "replacement_content": "### 1. 版权合规与原创方案汇总\n- 已完成全项专利规避审查。"
+        })).unwrap();
+        assert_eq!(res2["ok"], true);
+        let updated2 = fs::read_to_string(&test_file).unwrap();
+        assert!(updated2.contains("### 1. 版权合规与原创方案汇总"));
+        assert!(!updated2.contains("### ### 1."));
+
+        // 3. Active selection fallback (Tier 8) when LLM target_content is paraphrased/wrong
+        let res3 = tool_patch_note(&ws, &json!({
+            "path": "65片独角兽磁力片玩具设计与包装交付实战指南.md",
+            "target_content": "完全不存在的幻觉文本段落",
+            "replacement_content": "### 1. 最终定稿风控条款\n- 全线通过欧盟 EN71 与 ASTM F963 检测。",
+            "_active_selection": "1. 版权合规与原创方案汇总\n已完 成全项专利规避审查。"
+        })).unwrap();
+        assert_eq!(res3["ok"], true);
+        let updated3 = fs::read_to_string(&test_file).unwrap();
+        assert!(updated3.contains("### 1. 最终定稿风控条款"));
+        assert!(!updated3.contains("### ### 1."));
+
+        let _ = fs::remove_dir_all(&ws);
+    }
+
+    #[test]
+    fn standalone_active_note_outside_workspace_allowed_and_arbitrary_rejected() {
+        let ws = make_workspace();
+        let ext_dir = make_workspace();
+        let standalone_note = ext_dir.join("65片独角兽磁力片玩具设计与包装交付实战指南.md");
+        let secret_note = ext_dir.join("secret.md");
+        fs::write(&standalone_note, "# 独角兽指南\n\n原始段落内容\n").unwrap();
+        fs::write(&secret_note, "top secret").unwrap();
+
+        let standalone_str = standalone_note.to_string_lossy().to_string();
+
+        // 1. Reading standalone active note by bare filename succeeds
+        let read_res = tool_read_note(&ws, &json!({
+            "path": "65片独角兽磁力片玩具设计与包装交付实战指南.md",
+            "_active_note_path": standalone_str
+        })).unwrap();
+        assert!(read_res["content"].as_str().unwrap().contains("原始段落内容"));
+
+        // 2. Patching standalone active note by bare filename succeeds and creates backup in ext_dir/.backup
+        let patch_res = tool_patch_note(&ws, &json!({
+            "path": "65片独角兽磁力片玩具设计与包装交付实战指南.md",
+            "target_content": "原始段落内容",
+            "replacement_content": "修改后的段落内容",
+            "_active_note_path": standalone_str
+        })).unwrap();
+        assert_eq!(patch_res["ok"], true);
+        assert!(fs::read_to_string(&standalone_note).unwrap().contains("修改后的段落内容"));
+
+        // 3. Restoring backup on standalone active note succeeds
+        let backup_path = patch_res["backup_path"].as_str().unwrap().to_string();
+        let restore_res = tool_restore_note_backup(&ws, &json!({
+            "path": standalone_str,
+            "backup_path": backup_path,
+            "_active_note_path": standalone_str
+        })).unwrap();
+        assert_eq!(restore_res["ok"], true);
+        assert!(fs::read_to_string(&standalone_note).unwrap().contains("原始段落内容"));
+
+        // 4. Arbitrary file in ext_dir that is NOT in _active_note_path / _open_notes is still rejected!
+        let unauthorized = tool_read_note(&ws, &json!({
+            "path": secret_note.to_string_lossy().to_string(),
+            "_active_note_path": standalone_str
+        }));
+        assert!(unauthorized.is_err(), "arbitrary file outside workspace must be rejected");
+
+        let _ = fs::remove_dir_all(&ws);
+        let _ = fs::remove_dir_all(&ext_dir);
+    }
+
+    #[test]
+    fn resolve_aliases_wikilinks_quotes_and_patch_fallback() {
+        let ws = make_workspace();
+        let target = ws.join("sub").join("chapter1.md");
+        fs::create_dir_all(ws.join("sub")).unwrap();
+        fs::write(&target, "# 第一章\n\n这是需要修改的句子。\n").unwrap();
+
+        let active_path_str = target.to_string_lossy().to_string();
+
+        // 1. Alias "当前笔记"
+        let res_alias = tool_read_note(&ws, &json!({
+            "path": "当前笔记",
+            "_active_note_path": active_path_str
+        })).unwrap();
+        assert!(res_alias["content"].as_str().unwrap().contains("这是需要修改的句子"));
+
+        // 2. English alias "active"
+        let res_active = tool_read_note(&ws, &json!({
+            "path": "active",
+            "_active_note_path": active_path_str
+        })).unwrap();
+        assert!(res_active["content"].as_str().unwrap().contains("这是需要修改的句子"));
+
+        // 3. Backtick wrapping `sub/chapter1.md`
+        let res_tick = tool_read_note(&ws, &json!({
+            "path": "`sub/chapter1.md`"
+        })).unwrap();
+        assert!(res_tick["content"].as_str().unwrap().contains("这是需要修改的句子"));
+
+        // 4. Wikilink [[chapter1]] without extension
+        let res_wiki = tool_read_note(&ws, &json!({
+            "path": "[[chapter1]]"
+        })).unwrap();
+        assert!(res_wiki["content"].as_str().unwrap().contains("这是需要修改的句子"));
+
+        // 5. Bare filename without .md: "chapter1"
+        let res_bare = tool_read_note(&ws, &json!({
+            "path": "chapter1"
+        })).unwrap();
+        assert!(res_bare["content"].as_str().unwrap().contains("这是需要修改的句子"));
+
+        // 6. patch_note with mismatched/hallucinated path "random.md", but target_content matches active note!
+        let patch_res = tool_patch_note(&ws, &json!({
+            "path": "random.md",
+            "target_content": "这是需要修改的句子",
+            "replacement_content": "这是已优化成功的句子",
+            "_active_note_path": active_path_str
+        })).unwrap();
+        assert_eq!(patch_res["ok"], true);
+        assert!(fs::read_to_string(&target).unwrap().contains("这是已优化成功的句子"));
 
         let _ = fs::remove_dir_all(&ws);
     }

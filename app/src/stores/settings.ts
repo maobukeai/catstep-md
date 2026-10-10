@@ -233,8 +233,9 @@ interface Settings {
   // unchanged sidebar. After the migration the user is free to toggle
   // it off via the command palette and the choice sticks.
   v4AgentPanelMigrated: boolean;
+  v4AgentAllowWriteMigrated: boolean;
   // v4.0 pillar 1: when true, the agent can call write_note / append_to_note
-  // from chat. Default off — the agent is read-only by default.
+  // from chat. Defaults to true so the agent can edit notes upon request.
   agentAllowWrite: boolean;
   // v4.0 pillar 1: max number of LLM ↔ tool round-trips per chat turn.
   // Cap protects against a runaway tool loop. C3.2 default is 8.
@@ -530,6 +531,8 @@ export interface PdfDefaults {
   footer: boolean;
   /** Code-block syntax highlighting in PDF: match preview / always light / always dark. */
   codeTheme: 'preview' | 'light' | 'dark';
+  /** Compression / quality preset: 'low' (high quality/large file) | 'medium' (balanced/recommended) | 'high' (compact/smallest size). */
+  compression: 'low' | 'medium' | 'high';
 }
 
 export function defaultPdfDefaults(): PdfDefaults {
@@ -546,6 +549,7 @@ export function defaultPdfDefaults(): PdfDefaults {
     fontSize: 11,
     footer: true,
     codeTheme: 'preview',
+    compression: 'medium',
   };
 }
 
@@ -682,7 +686,8 @@ function defaults(): Settings {
     // `load()`'s migration kicks in and force-enables the Agent Panel
     // once before setting the marker on disk.
     v4AgentPanelMigrated: true,
-    agentAllowWrite: false,
+    v4AgentAllowWriteMigrated: true,
+    agentAllowWrite: true,
     agentToolLoopCap: 8,
     agentMcpEnabled: false,
     agentMcpServers: [],
@@ -791,6 +796,7 @@ function mergePdfDefaults(saved: unknown): PdfDefaults {
   const okPageSize = ['A4', 'A5', 'Letter', 'Legal', 'Custom'] as const;
   const okMargin = ['Narrow', 'Normal', 'Wide', 'Custom'] as const;
   const okCodeTheme = ['preview', 'light', 'dark'] as const;
+  const okCompression = ['low', 'medium', 'high'] as const;
   return {
     pageSize: okPageSize.includes(s.pageSize as never) ? (s.pageSize as PdfDefaults['pageSize']) : base.pageSize,
     customWidthMm: clamp(s.customWidthMm, 50, 500, base.customWidthMm),
@@ -804,6 +810,7 @@ function mergePdfDefaults(saved: unknown): PdfDefaults {
     fontSize: clamp(s.fontSize, 9, 16, base.fontSize),
     footer: typeof s.footer === 'boolean' ? s.footer : base.footer,
     codeTheme: okCodeTheme.includes(s.codeTheme as never) ? (s.codeTheme as PdfDefaults['codeTheme']) : base.codeTheme,
+    compression: okCompression.includes(s.compression as never) ? (s.compression as PdfDefaults['compression']) : base.compression,
   };
 }
 
@@ -850,6 +857,10 @@ function load(): Settings {
       if (!parsed.v4AgentPanelMigrated) {
         merged.showAgentPanel = true;
         merged.v4AgentPanelMigrated = true;
+      }
+      if (!parsed.v4AgentAllowWriteMigrated) {
+        merged.agentAllowWrite = true;
+        merged.v4AgentAllowWriteMigrated = true;
       }
       if (merged.showAgentPanel && (!merged.sideSidebarWidth || merged.sideSidebarWidth <= 260)) {
         merged.sideSidebarWidth = 440;

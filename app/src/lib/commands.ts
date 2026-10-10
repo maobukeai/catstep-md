@@ -360,6 +360,9 @@ export interface AiChatRequest {
   mcp_servers: AiChatMcpServer[] | null;
   workspace: string | null;
   request_id: string;
+  active_note_path?: string | null;
+  open_notes?: string[] | null;
+  active_selection?: string | null;
 }
 
 /** Run the agent chat loop; progress streams via `solomd://ai-*` events. */
@@ -379,7 +382,7 @@ export function ragSearch<T = unknown>(args: {
 /** Agent tool: move a note within the workspace. */
 export function agentToolMoveNote(
   workspace: string | null | undefined,
-  args: { source_path: string; target_path: string; overwrite?: boolean },
+  args: { source_path: string; target_path: string; overwrite?: boolean; _active_note_path?: string },
 ): Promise<unknown> {
   return invokeCommand('agent_tool_move_note', { workspace, args });
 }
@@ -387,7 +390,7 @@ export function agentToolMoveNote(
 /** Agent tool: restore a note from the backup written before a patch. */
 export function agentToolRestoreNoteBackup(
   workspace: string | null | undefined,
-  args: { path: string; backup_path: string },
+  args: { path: string; backup_path: string; _active_note_path?: string },
 ): Promise<unknown> {
   return invokeCommand('agent_tool_restore_note_backup', { workspace, args });
 }

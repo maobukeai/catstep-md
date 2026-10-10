@@ -173,7 +173,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
         return filePath.slice(normFolder.length + 1);
       }
     }
-    return tab.fileName || filePath;
+    return tab.fileName || filePath.split('/').pop() || filePath;
   }
 
   function buildVaultContext(): string {
@@ -378,10 +378,8 @@ export function useAgentRun(options: UseAgentRunOptions) {
     const model = activeProfile?.selectedModel || settings.aiModel || cfg?.defaultModel || '';
     const baseUrl = activeProfile?.baseUrl || settings.aiBaseUrl || cfg?.defaultBaseUrl || null;
     const isOllama = apiFormat === 'ollama';
-    // Ollama runs the same tool loop as every other backend now (modern
-    // servers take OpenAI-style tools; models without a tool template error
-    // honestly), so a local model can be a full agent too.
-    const isToolAllowed = settings.agentAllowWrite;
+    // Active selection always permits in-place patching so the agent can edit selections directly.
+    const isToolAllowed = settings.agentAllowWrite || hasActiveSel;
 
     // Compose conversation: system + history with physical tool actions for context memory.
     const msgsToProcess = agent.messages.slice(0, -1);
@@ -592,7 +590,7 @@ export function useAgentRun(options: UseAgentRunOptions) {
         // passes `null` ⇒ all read-only tools by default; write tools
         // need explicit `allow_write: true`.
         tools: null,
-        allow_write: settings.agentAllowWrite,
+        allow_write: settings.agentAllowWrite || hasActiveSel,
         tool_loop_cap: settings.agentToolLoopCap,
         // v1.x MCP client — enabled servers ride along with every chat so
         // the backend tool loop can list and route their tools. The master
@@ -613,10 +611,25 @@ export function useAgentRun(options: UseAgentRunOptions) {
                 headers: s.headers ?? {},
               }))
           : null,
-        workspace:
-          workspace.currentFolder ||
-          (tabs.activeTab?.filePath ? tabs.activeTab.filePath.replace(/[\\/][^\\/]+$/, '') : null) ||
-          (tabs.tabs.find((t) => t.filePath)?.filePath?.replace(/[\\/][^\\/]+$/, '') ?? null),
+        workspace: (() => {
+          const tabPath = tabs.activeTab?.filePath;
+          const currentFolder = workspace.currentFolder;
+          if (currentFolder && tabPath) {
+            const normFolder = currentFolder.replace(/\\/g, '/').toLowerCase();
+            const normPath = tabPath.replace(/\\/g, '/').toLowerCase();
+            if (normPath.startsWith(normFolder + '/')) {
+              return currentFolder;
+            }
+          }
+          if (currentFolder) return currentFolder;
+          if (tabPath) return tabPath.replace(/[\\/][^\\/]+$/, '');
+          const anyTabPath = tabs.tabs.find((t) => t.filePath)?.filePath;
+          if (anyTabPath) return anyTabPath.replace(/[\\/][^\\/]+$/, '');
+          return null;
+        })(),
+        active_note_path: tabs.activeTab?.filePath ?? null,
+        open_notes: tabs.tabs.map((t) => t.filePath).filter(Boolean) as string[],
+        active_selection: hasActiveSel ? activeSel : null,
         request_id: requestId,
       });
     } catch (err) {
@@ -970,10 +983,14 @@ export function useAgentRun(options: UseAgentRunOptions) {
       const resultObj = JSON.parse(toolResultStr);
       if (original.type === 'move') {
         const moveInfo = JSON.parse(original.data);
-        await agentToolMoveNote(workspace.currentFolder, {
+        const moveWs =
+          workspace.currentFolder ||
+          (typeof moveInfo.from === 'string' ? moveInfo.from.replace(/[\\/][^\\/]+$/, '') : '');
+        await agentToolMoveNote(moveWs, {
           source_path: moveInfo.from,
           target_path: moveInfo.to,
           overwrite: true,
+          _active_note_path: moveInfo.from,
         });
         const tab = tabs.tabs.find((tb) => matchesTabPath(tb, moveInfo.from));
         if (tab && typeof tab.id === 'string') {
@@ -989,7 +1006,14 @@ export function useAgentRun(options: UseAgentRunOptions) {
       if (path) {
         let contentToRestore = '';
         if (original.type === 'path') {
-          await agentToolRestoreNoteBackup(workspace.currentFolder, { path, backup_path: original.data });
+          const restoreWs =
+            workspace.currentFolder ||
+            (typeof path === 'string' ? path.replace(/[\\/][^\\/]+$/, '') : '');
+          await agentToolRestoreNoteBackup(restoreWs, {
+            path,
+            backup_path: original.data,
+            _active_note_path: path,
+          });
           const backupResult = await readNote(original.data);
           contentToRestore = backupResult.content;
         } else {

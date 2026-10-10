@@ -44,6 +44,8 @@ export interface ResolvedPdfOptions {
   footer: boolean;
   /** Code-block syntax theme override. */
   codeTheme: 'preview' | 'light' | 'dark';
+  /** Compression / quality preset: 'low' | 'medium' | 'high'. */
+  compression: 'low' | 'medium' | 'high';
 }
 
 const PAGE_SIZES_MM: Record<string, { width: number; height: number }> = {
@@ -82,6 +84,7 @@ export function parsePdfFrontMatter(body: string): Partial<{
   fontFamily: string;
   fontSizePt: number;
   footer: boolean;
+  compression: 'low' | 'medium' | 'high';
 }> {
   const fmMatch = body.replace(/^﻿/, '').match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch) return {};
@@ -188,6 +191,14 @@ function parsePdfBody(lines: string[]): Partial<{
         if (/^(true|yes|on|1)$/i.test(val)) out.footer = true;
         else if (/^(false|no|off|0)$/i.test(val)) out.footer = false;
         break;
+      case 'compression':
+      case 'quality': {
+        const lower = val.toLowerCase();
+        if (lower === 'low' || lower === '\u4f4e' || lower === 'min') out.compression = 'low';
+        else if (lower === 'high' || lower === '\u9ad8' || lower === 'max') out.compression = 'high';
+        else if (lower === 'medium' || lower === '\u4e2d' || lower === 'normal' || lower === 'balanced') out.compression = 'medium';
+        break;
+      }
       default:
         break;
     }
@@ -204,6 +215,7 @@ function parsePdfBody(lines: string[]): Partial<{
     fontFamily: string;
     fontSizePt: number;
     footer: boolean;
+    compression: 'low' | 'medium' | 'high';
   }>;
 }
 
@@ -255,6 +267,7 @@ export function resolvePdfOptions(
       fontSizePt: 11,
       footer: false,
       codeTheme: 'preview',
+      compression: 'medium',
     };
   }
 
@@ -327,6 +340,7 @@ export function resolvePdfOptions(
       ? Math.max(6, Math.min(36, fm.fontSizePt))
       : settingsDefaults.fontSize;
   const footer = typeof fm.footer === 'boolean' ? fm.footer : settingsDefaults.footer;
+  const compression = fm.compression || settingsDefaults.compression || 'medium';
 
   return {
     pageSizeMm,
@@ -336,6 +350,7 @@ export function resolvePdfOptions(
     fontSizePt,
     footer,
     codeTheme: settingsDefaults.codeTheme,
+    compression,
   };
 }
 
@@ -386,7 +401,8 @@ export function userTouchedPdfDefaults(s: PdfDefaults): boolean {
     s.fontFamily !== d.fontFamily ||
     s.fontSize !== d.fontSize ||
     s.footer !== d.footer ||
-    s.codeTheme !== d.codeTheme
+    s.codeTheme !== d.codeTheme ||
+    (s.compression != null && s.compression !== d.compression)
   );
 }
 

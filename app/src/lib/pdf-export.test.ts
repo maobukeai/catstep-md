@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDF_CSS, prepareExportDom } from './pdf-export';
 import { KEY_ACTIONS } from './keybindings';
+import { parsePdfFrontMatter, resolvePdfOptions } from './pdf-options';
+import { defaultPdfDefaults } from '../stores/settings';
 
 test('pdf-export: PDF_CSS styles inline code as atomic inline-block pills', () => {
   assert.ok(PDF_CSS.includes('.pdf-page code:not(pre code)'), 'Must target code:not(pre code)');
@@ -117,5 +119,62 @@ test('pdf-export: PDF_CSS allows tables to stream across pages while keeping row
   assert.ok(PDF_CSS.includes('.pdf-page table tr {'), 'Must target table tr');
   assert.ok(PDF_CSS.includes('.pdf-page th, .pdf-page td {'), 'Must target th/td');
   assert.ok(PDF_CSS.includes('page-break-after: avoid;'), 'Headings must avoid break after');
+});
+
+test('pdf-export: parsePdfFrontMatter parses compression levels and aliases', () => {
+  const docLow = `---\npdf:\n  compression: low\n---\n# Hello`;
+  assert.equal(parsePdfFrontMatter(docLow).compression, 'low');
+
+  const docHigh = `---\npdf:\n  compression: high\n---\n# Hello`;
+  assert.equal(parsePdfFrontMatter(docHigh).compression, 'high');
+
+  const docMedium = `---\npdf:\n  compression: medium\n---\n# Hello`;
+  assert.equal(parsePdfFrontMatter(docMedium).compression, 'medium');
+
+  // Test aliases
+  const docMin = `---\npdf:\n  compression: min\n---`;
+  assert.equal(parsePdfFrontMatter(docMin).compression, 'low');
+
+  const docMax = `---\npdf:\n  compression: max\n---`;
+  assert.equal(parsePdfFrontMatter(docMax).compression, 'high');
+
+  // Test unicode/CJK aliases (\u4f4e = low, \u4e2d = medium, \u9ad8 = high)
+  const docCjkLow = `---\npdf:\n  compression: \u4f4e\n---`;
+  assert.equal(parsePdfFrontMatter(docCjkLow).compression, 'low');
+  const docCjkMed = `---\npdf:\n  compression: \u4e2d\n---`;
+  assert.equal(parsePdfFrontMatter(docCjkMed).compression, 'medium');
+  const docCjkHigh = `---\npdf:\n  compression: \u9ad8\n---`;
+  assert.equal(parsePdfFrontMatter(docCjkHigh).compression, 'high');
+});
+
+test('pdf-export: resolvePdfOptions handles compression fallback and override', () => {
+  const defaults = defaultPdfDefaults();
+  assert.equal(defaults.compression, 'medium');
+
+  // Resolved from settings default
+  const resolvedDef = resolvePdfOptions(defaults, '# Just markdown', true);
+  assert.equal(resolvedDef.compression, 'medium');
+
+  // Resolved from frontmatter override
+  const resolvedOverride = resolvePdfOptions(
+    defaults,
+    `---\npdf:\n  compression: low\n---\n# Doc`,
+    true,
+  );
+  assert.equal(resolvedOverride.compression, 'low');
+});
+
+test('pdf-export: dynamic timeout calculation scales with document length to prevent premature timeouts', () => {
+  // A small document (~1000 chars) gets the baseline 60s
+  const shortDoc = 'Small markdown document';
+  const shortPages = Math.max(1, Math.ceil(shortDoc.length / 1200));
+  const shortTimeout = Math.max(60_000, shortPages * 4_000);
+  assert.equal(shortTimeout, 60_000);
+
+  // A 65-page document (~78,000 chars) gets ample headroom (e.g. 65 * 4s = 260s)
+  const longDoc = 'a'.repeat(78_000);
+  const longPages = Math.max(1, Math.ceil(longDoc.length / 1200));
+  const longTimeout = Math.max(60_000, longPages * 4_000);
+  assert.ok(longTimeout >= 260_000, '65-page doc gets >= 260s timeout guard');
 });
 

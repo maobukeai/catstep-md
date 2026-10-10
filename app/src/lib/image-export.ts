@@ -287,11 +287,20 @@ export async function markdownToImageBlob(
     sanitizeModernColors(page);
     prepareExportDom(page);
 
+    // Safety guard against exceeding browser canvas limits (32,767px):
+    // For very long documents, dynamically scale down so canvas height stays safely within 30,000px.
+    const naturalHeight = page.offsetHeight || page.scrollHeight || 1000;
+    const maxSafeHeight = 30000;
+    let scale = 2;
+    if (naturalHeight * scale > maxSafeHeight) {
+      scale = Math.max(0.2, Math.floor((maxSafeHeight / naturalHeight) * 100) / 100);
+    }
+
     // Let html2canvas auto-size to the element's natural bounding box.
     const html2canvasMod = await import('html2canvas');
     const html2canvas = (html2canvasMod as any).default || html2canvasMod;
     const canvas = await html2canvas(page, {
-      scale: 2,
+      scale,
       useCORS: true,
       backgroundColor: '#ffffff',
       logging: false,

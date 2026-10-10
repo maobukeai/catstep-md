@@ -1167,6 +1167,9 @@ async fn run_recipe_chat_loop(
         request_id: None,
         // Recipes never mount third-party MCP servers — vault tools only.
         mcp_servers: None,
+        active_note_path: None,
+        open_notes: None,
+        active_selection: None,
     };
 
     // ----- 3. Pre-checkout agent branch + install write-cap -----

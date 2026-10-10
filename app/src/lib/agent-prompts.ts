@@ -183,21 +183,28 @@ export function selectionWriteDirective(
   activeSel: string,
   lang: PromptLang,
 ): string {
+  const hasSubfolder = activeRel.includes('/') || activeRel.includes('\\');
   if (lang === 'zh') {
+    const pathHint = hasSubfolder
+      ? `   - \`path\`: 必须精确填写 \`"${activeRel}"\`（严禁使用纯文件名，必须带完整子目录前缀）；\n`
+      : `   - \`path\`: 必须精确填写 \`"${activeRel}"\`；\n`;
     return (
       '【核心指令：直接局部修改所选片段】\n' +
-      `当前用户正在编辑的文件是：\`${activeRel}\`。\n` +
+      `当前用户正在编辑的文件路径是：\`${activeRel}\`。\n` +
       `用户已明确划选了该文件中的如下文本片段（共 ${activeSel.length} 字）：\n` +
       '```markdown\n' + activeSel + '\n```\n\n' +
       '当用户的请求是润色、改写、修正、精简或优化这段文字时：\n' +
       '1. 【必须且仅调用一次 patch_note】：必须直接调用 `patch_note` 自动替换文档中的选区内容！\n' +
-      `   - \`path\`: 必须精确填写当前文件的相对路径 \`"${activeRel}"\`（严禁省略子目录，严禁使用纯文件名或绝对路径！）；\n` +
-      '   - `target_content`: 必须完全填写上面用户划选的原文本片段（包含原样格式与换行）；\n' +
+      pathHint +
+      '   - `target_content`: 必须完整填写上面用户划选的原文本片段（包含原样格式与换行）；\n' +
       '   - `replacement_content`: 填入你润色精简优化后的优质正文（严禁包含客套寒暄、修改列表或说明）。\n' +
       '2. 【严禁多余工具调用】：你已经拥有用户划选的确切完整文本，严禁调用 search 检索，严禁调用 read_note 重复读取文件，严禁调用 write_note 覆盖全文件！\n' +
       '3. 【单次修改铁律】：一旦 `patch_note` 执行成功，编辑器已自动同步完成。严禁再次调用 patch_note、write_note 或 read_note！必须立即向用户输出针对修改亮点的文字总结并结束本轮回复。'
     );
   }
+  const enPathHint = hasSubfolder
+    ? `   - \`path\`: must be the exact relative path \`"${activeRel}"\` (never a bare filename — include the full subfolder prefix);\n`
+    : `   - \`path\`: must be \`"${activeRel}"\`;\n`;
   return (
     '[Core directive: patch the selected text in place]\n' +
     `The user is editing: \`${activeRel}\`.\n` +
@@ -205,7 +212,7 @@ export function selectionWriteDirective(
     '```markdown\n' + activeSel + '\n```\n\n' +
     'When the request is to polish, rewrite, fix, tighten, or improve this text:\n' +
     '1. [Call patch_note exactly once]: call `patch_note` to replace the selected text in the document.\n' +
-    `   - \`path\`: must be the exact relative path \`"${activeRel}"\` (never a bare file name or an absolute path);\n` +
+    enPathHint +
     '   - `target_content`: must be the full selected fragment above, verbatim including formatting and line breaks;\n' +
     '   - `replacement_content`: your polished text only (no pleasantries, no change list, no commentary).\n' +
     '2. [No extra tool calls]: you already hold the exact selected text — do not call search, do not re-read with read_note, and never overwrite the file with write_note.\n' +

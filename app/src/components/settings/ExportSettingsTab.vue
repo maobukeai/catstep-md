@@ -294,6 +294,25 @@ function onSelectPdfFont(v: string) {
           </div>
         </div>
 
+        <!-- PDF 压缩与画质级别 -->
+        <div class="setting-row">
+          <div class="setting-row__info">
+            <label class="setting-row__title">{{ t('settings.pdfDefaults.compression') }}</label>
+            <span class="setting-row__desc">{{ t('settings.pdfDefaults.compressionDesc') }}</span>
+          </div>
+          <div class="setting-row__control">
+            <select
+              class="setting-compact-select"
+              :value="settings.pdfDefaults.compression"
+              @change="settings.setPdfDefaults({ compression: ($event.target as HTMLSelectElement).value as any })"
+            >
+              <option value="medium">{{ t('settings.pdfDefaults.compressionMedium') }}</option>
+              <option value="low">{{ t('settings.pdfDefaults.compressionLow') }}</option>
+              <option value="high">{{ t('settings.pdfDefaults.compressionHigh') }}</option>
+            </select>
+          </div>
+        </div>
+
         <!-- 显示页码页脚 -->
         <label class="setting-row setting-row--clickable">
           <div class="setting-row__info">

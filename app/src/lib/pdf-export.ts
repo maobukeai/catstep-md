@@ -16,7 +16,6 @@ import type { ResolvedPdfOptions } from './pdf-options';
 import { rewriteImageUrls, rewriteLinkUrls } from './image-resolve';
 import { processMermaidBlocks } from './mermaid-lazy';
 
-const EXPORT_TIMEOUT_MS = 30_000;
 
 export const PDF_CSS = `
   body { margin: 0; }
@@ -647,10 +646,11 @@ export async function markdownToPdfBlob(
   };
 
   try {
-    // Timeout guard — prevents the export from hanging the UI indefinitely
-    // if html2pdf.js or Mermaid gets stuck.
+    // Dynamic timeout guard scaled by document size — prevents false timeouts on 65+ page documents
+    const estimatedPages = Math.max(1, Math.ceil((source || '').length / 1200));
+    const timeoutMs = Math.max(60_000, estimatedPages * 4_000);
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('PDF export timed out')), EXPORT_TIMEOUT_MS),
+      setTimeout(() => reject(new Error('PDF export timed out')), timeoutMs),
     );
 
     const work = async () => {
@@ -665,18 +665,31 @@ export async function markdownToPdfBlob(
       sanitizeModernColors(page);
       prepareExportDom(page);
 
+      // Resolve compression preset (low / medium / high)
+      const compression = pdfOpts?.compression || 'medium';
+      let scale = 1.5;
+      let jpegQuality = 0.75;
+      if (compression === 'low') {
+        scale = 2.0;
+        jpegQuality = 0.90;
+      } else if (compression === 'high') {
+        scale = 1.0;
+        jpegQuality = 0.55;
+      }
+
       // v2.5 F3: derive jsPDF / margin args from the resolved opts. When
       // the caller didn't customize anything, fall back to the legacy
       // hardcoded values so old users see exactly the same output as v2.4.
+      // html2pdf margin order: [top, left, bottom, right]
       let margins: [number, number, number, number] = [10, 10, 12, 10];
       let jsPdfFormat: string | [number, number] = 'a4';
       let orientation: 'portrait' | 'landscape' = 'portrait';
       if (pdfOpts && pdfOpts.pageSizeMm && pdfOpts.marginMm) {
         margins = [
           pdfOpts.marginMm.top,
-          pdfOpts.marginMm.right,
-          pdfOpts.marginMm.bottom,
           pdfOpts.marginMm.left,
+          pdfOpts.marginMm.bottom,
+          pdfOpts.marginMm.right,
         ];
         const named = pageSizeLabelToJsPdf(pdfOpts.pageSizeLabel);
         if (named) {
@@ -691,9 +704,9 @@ export async function markdownToPdfBlob(
       const opts: any = {
         margin: margins,
         filename: `${title || 'document'}.pdf`,
-        image: { type: 'jpeg', quality: 0.96 },
+        image: { type: 'jpeg', quality: jpegQuality },
         html2canvas: {
-          scale: 2,
+          scale,
           useCORS: true,
           backgroundColor: '#ffffff',
           letterRendering: true,
@@ -706,14 +719,6 @@ export async function markdownToPdfBlob(
         },
         pagebreak: {
           mode: ['css', 'legacy'],
-          // html2canvas rasterises the whole document and jsPDF slices it by
-          // page height, so a page break can shear a line of body text in
-          // half. `avoid` makes html2pdf's element-level pass push these whole
-          // elements onto the next page instead. Body paragraphs (`p`), list
-          // items (`li`) and images (`img`) were missing — that left running
-          // text getting cut across the page boundary. (We deliberately keep
-          // `ul`/`ol` OUT: avoiding those would treat a whole multi-page list
-          // as one unsplittable block; we break between `li`s instead.)
           avoid: [
             'pre', '.mermaid-block', 'tr', '.katex-display',
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -726,14 +731,129 @@ export async function markdownToPdfBlob(
       const worker = html2pdf().set(opts).from(page);
 
       await worker.toContainer();
-      if (worker.prop?.container && worker.prop?.pageSize?.inner?.px?.height) {
-        postProcessPagebreakPads(
-          worker.prop.container,
-          worker.prop.pageSize.inner.px.height,
-        );
+      const container = worker.prop?.container as HTMLElement | undefined;
+      const innerPxHeight = worker.prop?.pageSize?.inner?.px?.height;
+      if (container && innerPxHeight) {
+        postProcessPagebreakPads(container, innerPxHeight);
       }
 
-      const blob: Blob = await worker.outputPdf('blob');
+      // Initialize jsPDF constructor via a dummy 1x1 canvas to obtain the constructor
+      // without calling full-document toCanvas() (which allocates >140,000px on 65+ pages and fails).
+      const dummyCanvas = document.createElement('canvas');
+      dummyCanvas.width = 1;
+      dummyCanvas.height = 1;
+      worker.prop.canvas = dummyCanvas;
+      await worker.toPdf();
+
+      const JsPdfConstructor = (worker.prop.pdf as any).constructor;
+      const pdf = new JsPdfConstructor(opts.jsPDF);
+
+      const pageSize = worker.prop.pageSize;
+      const innerPxWidth = pageSize.inner.px.width;
+      const containerWidth = Math.ceil(container ? (container.offsetWidth || innerPxWidth) : innerPxWidth);
+      const totalHeight = Math.ceil(container ? (container.scrollHeight || container.offsetHeight) : innerPxHeight);
+      const totalPages = Math.max(1, Math.ceil(totalHeight / innerPxHeight));
+
+      // Calculate safe pages per chunk so canvas height never exceeds 6000px
+      // (well below the browser 32,767px limit on any device/GPU).
+      const maxCanvasChunkHeight = 6000;
+      const pagesPerChunk = Math.max(1, Math.floor(maxCanvasChunkHeight / (innerPxHeight * scale)));
+
+      const html2canvasMod = await import('html2canvas');
+      const html2canvas = (html2canvasMod as any).default || html2canvasMod;
+
+      const pageCanvas = document.createElement('canvas');
+      const pageCtx = pageCanvas.getContext('2d');
+      if (!pageCtx) throw new Error('Could not acquire 2D context for PDF export');
+
+      let pageIndex = 0;
+      while (pageIndex < totalPages) {
+        const chunkPages = Math.min(pagesPerChunk, totalPages - pageIndex);
+        const chunkStartY = pageIndex * innerPxHeight;
+        const chunkHeight = chunkPages * innerPxHeight;
+
+        // html2canvas renders ONLY this chunk into a small, bounded canvas
+        const chunkCanvas = await html2canvas(container!, {
+          scale,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          x: 0,
+          y: chunkStartY,
+          width: containerWidth,
+          height: chunkHeight,
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight,
+        });
+
+        for (let i = 0; i < chunkPages; i++) {
+          const curPage = pageIndex + i;
+          const isLastPage = curPage === totalPages - 1;
+
+          let currentPxHeight = innerPxHeight;
+          let targetPdfHeight = pageSize.inner.height;
+
+          if (isLastPage && (totalHeight % innerPxHeight) !== 0) {
+            currentPxHeight = totalHeight % innerPxHeight;
+            targetPdfHeight = (currentPxHeight * pageSize.inner.width) / containerWidth;
+          }
+
+          pageCanvas.width = Math.ceil(containerWidth * scale);
+          pageCanvas.height = Math.ceil(currentPxHeight * scale);
+
+          pageCtx.fillStyle = '#ffffff';
+          pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+
+          const srcY = Math.round(i * innerPxHeight * scale);
+          const srcH = Math.round(currentPxHeight * scale);
+
+          pageCtx.drawImage(
+            chunkCanvas,
+            0,
+            srcY,
+            Math.min(chunkCanvas.width, pageCanvas.width),
+            Math.min(srcH, chunkCanvas.height - srcY),
+            0,
+            0,
+            pageCanvas.width,
+            pageCanvas.height,
+          );
+
+          if (curPage > 0) {
+            pdf.addPage();
+          }
+
+          const imgData = pageCanvas.toDataURL('image/jpeg', jpegQuality);
+          pdf.addImage(
+            imgData,
+            'JPEG',
+            margins[1],
+            margins[0],
+            pageSize.inner.width,
+            targetPdfHeight,
+          );
+
+          if (pdfOpts?.footer) {
+            pdf.setFontSize(9);
+            pdf.setTextColor(150, 150, 150);
+            const pageNumText = String(curPage + 1);
+            const footerY = pageSize.height - Math.max(4, margins[2] / 2);
+            pdf.text(pageNumText, pageSize.width / 2, footerY, { align: 'center' });
+          }
+        }
+
+        // Immediately release chunk canvas GPU/RAM memory
+        chunkCanvas.width = 0;
+        chunkCanvas.height = 0;
+
+        pageIndex += chunkPages;
+      }
+
+      pageCanvas.width = 0;
+      pageCanvas.height = 0;
+
+      worker.prop.pdf = pdf;
+      const blob: Blob = await pdf.output('blob');
       return blob;
     };
 

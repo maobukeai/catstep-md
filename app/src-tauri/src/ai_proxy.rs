@@ -531,6 +531,12 @@ pub struct ChatRequest {
     /// settings store and travels with each request.
     #[serde(default)]
     pub mcp_servers: Option<Vec<super::mcp_client::McpServerConfig>>,
+    #[serde(default)]
+    pub active_note_path: Option<String>,
+    #[serde(default)]
+    pub open_notes: Option<Vec<String>>,
+    #[serde(default)]
+    pub active_selection: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2434,7 +2440,7 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
                     Some(ws) => {
                         let ws = ws.to_path_buf();
                         let tool = name.clone();
-                        let call_args = args.clone();
+                        let call_args = enrich_call_args(args, req);
                         match tauri::async_runtime::spawn_blocking(move || {
                             agent_tools::dispatch_tool_inner(&ws, &tool, call_args)
                         })
@@ -2715,7 +2721,12 @@ struct TurnOutcome {
 /// Build the Anthropic-flavored `tools: [...]` array from the requested
 /// tool list. Strips write-tools when `allow_write` is false.
 fn build_anthropic_tools(req: &ChatRequest) -> Value {
-    let allow_write = req.allow_write.unwrap_or(false);
+    let allow_write = req.allow_write.unwrap_or(false)
+        || req
+            .active_selection
+            .as_ref()
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
     // #247 — the default set has to follow `allow_write`. It used to be
     // READ_TOOLS unconditionally, and the filter below can only *remove*
     // entries, never add one — so `write_note` / `append_to_note` were never
@@ -2747,7 +2758,12 @@ fn build_anthropic_tools(req: &ChatRequest) -> Value {
 /// OpenAI-flavored tool array — wraps the same schema as
 /// `{"type":"function","function":{...}}`.
 fn build_openai_tools(req: &ChatRequest) -> Value {
-    let allow_write = req.allow_write.unwrap_or(false);
+    let allow_write = req.allow_write.unwrap_or(false)
+        || req
+            .active_selection
+            .as_ref()
+            .map(|s| !s.trim().is_empty())
+            .unwrap_or(false);
     // #247 — the default set has to follow `allow_write`. It used to be
     // READ_TOOLS unconditionally, and the filter below can only *remove*
     // entries, never add one — so `write_note` / `append_to_note` were never
@@ -2818,13 +2834,46 @@ async fn merge_mcp_tools(tools: &mut Value, req: &ChatRequest, anthropic_shape: 
 }
 
 /// Resolve the workspace path the loop should pass to `dispatch_tool`. We
-/// need it for every tool. If the request didn't carry one, tools that
-/// require workspace access fail loudly — better than silently using $CWD.
+/// need it for every tool. If the request didn't carry one, fall back to
+/// the folder containing the active note or open note, allowing single-file
+/// editing without a top-level workspace folder.
 fn workspace_from_req(req: &ChatRequest) -> Option<PathBuf> {
     req.workspace
         .as_ref()
         .filter(|s| !s.is_empty())
         .map(PathBuf::from)
+        .or_else(|| {
+            req.active_note_path
+                .as_ref()
+                .filter(|s| !s.is_empty())
+                .and_then(|p| PathBuf::from(p).parent().map(|d| d.to_path_buf()))
+        })
+        .or_else(|| {
+            req.open_notes
+                .as_ref()
+                .and_then(|notes| notes.first())
+                .filter(|s| !s.is_empty())
+                .and_then(|p| PathBuf::from(p).parent().map(|d| d.to_path_buf()))
+        })
+}
+
+fn enrich_call_args(args: &Value, req: &ChatRequest) -> Value {
+    let mut call_args = args.clone();
+    if let Some(obj) = call_args.as_object_mut() {
+        if let Some(active) = &req.active_note_path {
+            obj.insert("_active_note_path".to_string(), Value::String(active.clone()));
+        }
+        if let Some(notes) = &req.open_notes {
+            obj.insert(
+                "_open_notes".to_string(),
+                serde_json::to_value(notes).unwrap_or_default(),
+            );
+        }
+        if let Some(sel) = &req.active_selection {
+            obj.insert("_active_selection".to_string(), Value::String(sel.clone()));
+        }
+    }
+    call_args
 }
 
 /// Trim a result Value to a string preview suitable for the trace's
@@ -3048,7 +3097,7 @@ pub async fn run_chat_anthropic_loop(
                 }
             } else {
                 match &workspace {
-                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, args.clone()).await {
+                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, enrich_call_args(args, req)).await {
                         Ok(v) => (v, None),
                         Err(e) => (Value::String(e.clone()), Some(e)),
                     },
@@ -3657,7 +3706,7 @@ pub async fn run_chat_openai_loop(
                 }
             } else {
                 match &workspace {
-                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, args.clone()).await {
+                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, enrich_call_args(args, req)).await {
                         Ok(v) => (v, None),
                         Err(e) => (Value::String(e.clone()), Some(e)),
                     },
@@ -4117,6 +4166,9 @@ mod tests {
             allow_write,
             run_id: None,
             workspace: None,
+            active_note_path: None,
+            open_notes: None,
+            active_selection: None,
             tool_loop_cap: None,
             key_id: None,
             request_id: None,
@@ -4358,6 +4410,19 @@ mod tests {
         let explicit = Some(vec!["read_note".to_string(), "write_note".to_string()]);
         let names = tool_names(&super::build_openai_tools(&req_with(Some(false), explicit)));
         assert_eq!(names, vec!["read_note".to_string()]);
+    }
+
+    #[test]
+    fn write_tools_offered_when_active_selection_present_even_if_allow_write_is_false() {
+        let mut req = req_with(Some(false), None);
+        req.active_selection = Some("selected text".to_string());
+        for build in [super::build_openai_tools, super::build_anthropic_tools] {
+            let names = tool_names(&build(&req));
+            assert!(
+                names.iter().any(|n| n == "patch_note"),
+                "patch_note must be offered when active_selection is present, got {names:?}"
+            );
+        }
     }
 
     use super::*;
