@@ -16,12 +16,14 @@ import { cjkWordCount } from '../lib/chinese';
 import { useI18n } from '../i18n';
 import BrandMark from './BrandMark.vue';
 
-defineProps<{
+const props = defineProps<{
   open: boolean;
+  saving?: boolean;
 }>();
 
 const emit = defineEmits<{
   (e: 'close'): void;
+  (e: 'save'): void;
   (e: 'export', type: 'image' | 'pdf' | 'docx' | 'html'): void;
   (e: 'clean-ai'): void;
   (e: 'cjk-proofread'): void;
@@ -45,6 +47,13 @@ function toggleReadingMode() {
 
 const isZh = computed(() => (lang?.value || '').startsWith('zh'));
 const activeTab = computed(() => tabs.activeTab);
+
+function requestSave() {
+  if (!activeTab.value || props.saving) return;
+  // Save immediately: the shared pipeline captures this tab before waiting
+  // for IME. A delayed action could save a different tab after a switch.
+  emit('save');
+}
 
 const stats = computed(() => {
   const content = activeTab.value?.content ?? '';
@@ -187,6 +196,20 @@ function handleAction(callback: () => void) {
                 ✕
               </button>
             </div>
+
+            <button
+              type="button"
+              class="docinfo-save-btn"
+              :disabled="!activeTab || props.saving"
+              :aria-busy="!!props.saving"
+              @click="requestSave"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2Z" />
+                <path d="M17 21v-8H7v8M7 3v5h9" />
+              </svg>
+              <span>{{ t('menubar.save') }}</span>
+            </button>
 
             <div class="docinfo-grid">
               <div class="docinfo-stat">
@@ -348,7 +371,7 @@ function handleAction(callback: () => void) {
                 ❓
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ t('help.syntaxTitle') || (isZh ? 'Markdown 语法速查手册' : 'Markdown Cheat Sheet') }}</div>
+                <div class="list-item__name">{{ t('menubar.mdHelp') }}</div>
               </div>
               <span class="list-item__arrow">›</span>
             </button>
@@ -362,7 +385,7 @@ function handleAction(callback: () => void) {
                 <BrandMark :size="18" />
               </div>
               <div class="list-item__info">
-                <div class="list-item__name">{{ t('about.title') || (isZh ? '关于 猫步 MD (Catstep MD)' : 'About Catstep MD') }}</div>
+                <div class="list-item__name">{{ t('menubar.about') }}</div>
               </div>
               <span class="list-item__arrow">›</span>
             </button>
@@ -489,6 +512,26 @@ function handleAction(callback: () => void) {
 
 .docinfo-close-btn:active {
   background: var(--bg-hover);
+}
+
+.docinfo-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--fg);
+  background: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+.docinfo-save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .docinfo-grid {

@@ -1,0 +1,63 @@
+{
+  "checked_utc": "2026-10-31T03:23:53.5984947Z",
+  "only_own_final_normal_config_full_run_targets": true,
+  "method": "CredDeleteW exact target/type1; ERROR_NOT_FOUND confirms RAII already removed the key; no CredRead/enumeration",
+  "target_count": 6,
+  "already_absent": 6,
+  "results": [
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416912136004500",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416912136004500.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416912180122600",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416912180122600.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416947315827900",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416947315827900.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416947357738200",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416947357738200.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devA-1793416968392918000",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devA-1793416968392918000.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devB-1793416968467399600",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devB-1793416968467399600.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    }
+  ]
+}

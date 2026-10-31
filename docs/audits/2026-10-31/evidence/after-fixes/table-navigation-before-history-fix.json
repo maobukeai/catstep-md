@@ -1,0 +1,46 @@
+{
+  "build": "631-test production build",
+  "tabFocus": {
+    "col": "1",
+    "row": "0",
+    "text": "y"
+  },
+  "beforeNewRow": {
+    "col": "1",
+    "row": "1",
+    "rowCount": 2
+  },
+  "afterCol": {
+    "activeCol": "2",
+    "activeRow": "1",
+    "rows": [
+      [
+        "x",
+        "y",
+        ""
+      ],
+      [
+        "",
+        "NEW ROW",
+        ""
+      ]
+    ]
+  },
+  "undo": {
+    "activeCol": "2",
+    "activeRow": "1",
+    "rows": [
+      [
+        "x",
+        "y",
+        ""
+      ],
+      [
+        "",
+        "NEW ROW",
+        ""
+      ]
+    ]
+  },
+  "undoStructuralOperationPassed": false
+}

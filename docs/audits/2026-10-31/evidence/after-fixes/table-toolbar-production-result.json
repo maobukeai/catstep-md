@@ -1,0 +1,11 @@
+{
+  "source": "Prefix\n\n|      A      | B   |\n| :---------: | --- |\n| SECOND EDIT | y   |\n\nTail",
+  "checks": {
+    "newTextPreserved": true,
+    "center": true,
+    "prefix": true,
+    "tail": true
+  },
+  "passed": true,
+  "delayBetweenInputAndToolbar": "Separate tool call after more than the former 150ms blur timeout"
+}

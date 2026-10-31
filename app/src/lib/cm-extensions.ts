@@ -15,7 +15,7 @@ import {
   type KeyBinding,
   type ViewUpdate,
 } from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, redo } from '@codemirror/commands';
 import { searchKeymap, search } from '@codemirror/search';
 import {
   syntaxHighlighting,
@@ -290,6 +290,9 @@ export function buildCmExtensions(deps: CmExtensionDeps): Extension[] {
           return false;
         },
       },
+      // Match table/plain editors on Windows too. Reuse the existing history;
+      // upstream only provides Shift+Z redo on macOS/Linux.
+      { key: 'Mod-Shift-z', run: redo, preventDefault: true },
       ...filterDefaultKeymap(defaultKeymap),
       ...filterHistoryKeymap(historyKeymap),
       ...filterSearchKeymap(searchKeymap),

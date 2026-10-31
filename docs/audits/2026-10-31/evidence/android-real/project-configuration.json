@@ -1,0 +1,54 @@
+{
+  "capturedAt": "2026-10-31T11:31:01.3529719+08:00",
+  "files": [
+    {
+      "path": "app/src-tauri/tauri.conf.json",
+      "sha256": "1998D200DE72D42C0379431A4DBC23FBB733C155D5EC82E583C84B24B1207B77"
+    },
+    {
+      "path": "app/src-tauri/tauri.android.conf.json",
+      "sha256": "60154366CFE834193C128707E51BB02ECE9AA3A5D5622B149C5DE75DC285D0E2"
+    },
+    {
+      "path": "app/src-tauri/gen/android/app/build.gradle.kts",
+      "sha256": "EEDD2BC85F4625F0F376FC8C10BF83370CD7B6E44C70A2611370A2525344A7B8"
+    },
+    {
+      "path": "app/src-tauri/gen/android/build.gradle.kts",
+      "sha256": "60C4B3514C1D1A624EF4A666A7B9ADF18E08C2CE83A13B5C5043AF2AD6DF3EF0"
+    },
+    {
+      "path": "app/src-tauri/gen/android/settings.gradle",
+      "sha256": "E3BE4B523F18092A32D6207FF58391FDBF700AF7C12681494DC8C68D3CF96175"
+    },
+    {
+      "path": "app/src-tauri/gen/android/app/src/main/AndroidManifest.xml",
+      "sha256": "FA16A84BCB8AAD89DBBFF146B60851FBE0DF5B7D2D4968F9AC6BAB0A5BBE885F"
+    },
+    {
+      "path": "app/src-tauri/gen/android/app/src/main/java/app/catstepmd/MainActivity.kt",
+      "sha256": "C745246F37723082F38DE8D6EC5C0049EF9125C0858406CB31AC46695CBBE076"
+    },
+    {
+      "path": "app/src-tauri/src/saf_android.rs",
+      "sha256": "45EA2CE7E0FEF74C2EEDF626C473555B2BB6EE3432F06491DE67D898E6066AB2"
+    }
+  ],
+  "applicationId": "app.catstepmd",
+  "versionName": "1.0.12",
+  "versionCode": 1000012,
+  "minSdk": 24,
+  "targetSdk": 36,
+  "compileSdk": 36,
+  "gradle": "8.13",
+  "agp": "8.11.0",
+  "kotlin": "1.9.25",
+  "ndk": "26.3.11579264",
+  "sdkImage": "system-images;android-34;default;x86_64",
+  "rustTargets": [
+    "aarch64-linux-android",
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "x86_64-linux-android"
+  ]
+}

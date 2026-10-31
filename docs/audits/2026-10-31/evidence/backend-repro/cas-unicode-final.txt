@@ -1,0 +1,17 @@
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 32.26s
+     Running tests\note_write_conflict_test.rs (target\debug\deps\note_write_conflict_test-1a5f2e35fa60f426.exe)
+
+running 7 tests
+test compare_and_save_accepts_legacy_carriage_return_lines ... ok
+test deleted_target_is_a_conflict_instead_of_silent_recreation ... ok
+test compare_and_save_normalizes_crlf_and_decodes_utf16_baselines ... ok
+Windows filesystem alias Ä.md/ä.md: true
+test expected_missing_never_overwrites_a_newly_created_target ... ok
+test rename_with_assets_keeps_utf16_encoding_without_reentering_tree_lock ... ok
+test simultaneous_windows_cannot_both_save_the_same_old_baseline ... ok
+Windows filesystem alias I.md/ı.md: false
+test expected_missing_windows_unicode_case_aliases_cannot_both_create_the_file ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

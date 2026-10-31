@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-31",
+  "environment": "Windows Chrome extension browser, local Vite app at 127.0.0.1:1420",
+  "native_tauri_verified": false,
+  "final_visual_matrix_passed": false,
+  "earlier_observations": [
+    "Ordinary fenced Markdown/HTML samples remained code.",
+    "Table and rendered code used local horizontal scrolling without widening the whole live document.",
+    "These observations preceded the final table quiet-period correction and are not final visual signoff."
+  ],
+  "latest_browser_reproduction": {
+    "fixture": "Prefix\n\n| A | B |\n| --- | --- |\n| x | y |\n\nTail",
+    "actions": [
+      "Enter source mode and fill the fixture.",
+      "Enter live mode; Control+Home, type INSERTED, Enter.",
+      "Immediately fill cell x with EDITED.",
+      "Observe EDITED in the cell DOM, then enter source mode."
+    ],
+    "observed_before_final_correction": "Source still showed x while the cell DOM had shown EDITED; prefix and tail remained.",
+    "diagnosis": "The Windows input quiet period maps decoration ranges without updating the widget offsets.",
+    "subsequent_product_fix": "Resolve the current table range from the live decoration facet and parse the latest model before committing.",
+    "formal_regression": "app/src/lib/markdown-live-integration.test.ts: table input and toolbar use mapped ranges during the Windows input/IME quiet period",
+    "browser_recheck_after_correction": false
+  },
+  "later_module_only_corrections": [
+    "Rendered code clicks now resolve the mapped source range, immediately reveal it outside genuine composition, and retain undo history.",
+    "Destroying or resetting the editor that owns the IME guard clears its flags and timer; destroying another pane does not clear an active owner.",
+    "Both corrections have actual-module regressions, with no browser or native recheck after the UI stop."
+  ],
+  "interruption": {
+    "initial_problem": "Chrome CDP commands timed out or reported detached stale tabs.",
+    "final_stop": "Windows Computer Use stopped because it could not confidently determine the browser URL.",
+    "more_ui_actions_attempted_after_stop": false,
+    "final_after_fix_screenshot_obtained": false
+  },
+  "pending": [
+    "Final browser check for table offset, toolbar, Tab, Enter and undo.",
+    "Wide/narrow live and reading table/code screenshots.",
+    "Code wrap and line-number setting combinations.",
+    "Native WebView2 IME and two-window save/watcher lifecycle.",
+    "Android SAF device flow and actual Pandoc export artifact inspection."
+  ]
+}

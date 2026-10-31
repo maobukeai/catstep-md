@@ -1,0 +1,11 @@
+{
+  "build": "638-test final production build",
+  "source": "FINAL PREFIX\nPrefix\n\n|      A       | B   |\n| :----------: | --- |\n| FINAL SECOND | y   |\n\nTail",
+  "checks": {
+    "prefix": true,
+    "newCell": true,
+    "center": true,
+    "tail": true
+  },
+  "passed": true
+}

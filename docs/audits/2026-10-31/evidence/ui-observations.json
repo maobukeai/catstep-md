@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-31",
+  "environment": "Windows, Chrome extension browser, local Vite dev app at 127.0.0.1:1420",
+  "nativeTauriVerified": false,
+  "fixture": "# 排版回归检查\n\n先把光标放在这里。\n\n| 类型 | 内容 | 结果 |\n| :--- | :---: | ---: |\n| 中文 | **加粗**和\u0060code\u0060 | 123 |\n| 长内容 | https://example.com/a/very/long/path/without/spaces/and/more/segments | 456 |\n\n\u0060\u0060\u0060markdown\n| 不应渲染 | 示例 |\n| --- | --- |\n| 保持代码 | 原文 |\n\n<div>这应当是代码</div>\n\u0060\u0060\u0060\n\n\u0060\u0060\u0060javascript\nfunction hello() {\n  const longLine = \"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\";\n  return longLine;\n}\n\u0060\u0060\u0060\n\n最后一段。",
+  "liveEdit": {
+    "editorWidthPx": 429,
+    "scrollerClientWidthPx": 419,
+    "scrollerScrollWidthPx": 759,
+    "contentWidthPx": 759.34375,
+    "longUrlTableWidthPx": 671.34375,
+    "tablesFound": 2,
+    "secondTableWasInsideOrdinaryCodeFence": true,
+    "htmlInsideCodeRenderedAsBody": true,
+    "screenshot": "live-table-and-code.jpg"
+  },
+  "reading": {
+    "hostWidthPx": 429,
+    "hostClientWidthPx": 419,
+    "hostScrollWidthPx": 745,
+    "hostOverflowX": "hidden",
+    "tableWidthPx": 700.78125,
+    "firstHeaderWidthPx": 40.734375,
+    "lastHeaderLeftPx": 931.3125,
+    "hostRightPx": 669,
+    "screenshot": "reading-table-clipping.jpg"
+  },
+  "tableInteractionBrowserReproductions": [
+    "table-toolbar-browser-result.json",
+    "table-offset-browser-result.json"
+  ],
+  "consoleBoundary": "AgentPanel native event listener reports missing Tauri internals in plain browser. This expected browser-only error is not classified as a production desktop defect."
+}

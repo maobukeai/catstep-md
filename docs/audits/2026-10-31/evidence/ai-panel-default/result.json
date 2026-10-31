@@ -1,0 +1,36 @@
+{
+  "request": "右侧AI助手默认收起",
+  "source": "app/src/stores/settings.ts",
+  "sha256": "1e748b4f7250d74b25454982cc5e8094cf59c1505a1a87cf0edab99cbf9ba4b4",
+  "fresh_default_closed": true,
+  "old_settings_closed_once": true,
+  "post_migration_manual_choice_preserved": true,
+  "other_right_panes_unchanged": true,
+  "actual_store_smoke_checks_passed": 6,
+  "frontend_tests_passed": 654,
+  "type_check_passed": true,
+  "build_passed": true,
+  "diff_check_passed": true,
+  "gates": [
+    {
+      "command": "pnpm test",
+      "exit_code": 0,
+      "seconds": 3.575,
+      "log": "tests.txt"
+    },
+    {
+      "command": "pnpm test:type",
+      "exit_code": 0,
+      "seconds": 9.297,
+      "log": "test-types.txt"
+    },
+    {
+      "command": "pnpm build",
+      "exit_code": 0,
+      "seconds": 40.003,
+      "log": "build.txt"
+    }
+  ],
+  "previous_audit_artifacts_retained": true,
+  "desktop_or_android_installer_rebuilt": false
+}

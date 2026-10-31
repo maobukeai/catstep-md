@@ -53,6 +53,12 @@ export interface WriteNoteOptions {
    * original encoding instead of being silently transcoded.
    */
   encoding?: string;
+  /** Preserve the source file's BOM; omitted callers keep the existing BOM. */
+  hadBom?: boolean;
+  /** Normalized disk baseline for an atomic compare-and-save across windows. */
+  expectedContent?: string;
+  /** Refuse to overwrite a target that another writer has just created. */
+  expectMissing?: boolean;
   /**
    * Workspace folder the note lives in. When set, the Rust side fires the
    * on-save / on-tag-add recipe triggers after the write (detached,
@@ -103,6 +109,9 @@ export async function writeNote(
     path,
     content,
     encoding: opts.encoding || 'UTF-8',
+    hadBom: opts.hadBom,
+    expectedContent: opts.expectedContent,
+    expectMissing: opts.expectMissing,
     workspace: opts.workspace,
   });
 }

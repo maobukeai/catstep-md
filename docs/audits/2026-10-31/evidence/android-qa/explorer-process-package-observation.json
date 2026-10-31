@@ -1,0 +1,28 @@
+{
+  "capturedUtc": "2026-10-31T04:15:13.029751+00:00",
+  "context": "Root CUA Explorer launch of the unchanged v2 binary; exact task process chain supplied by root.",
+  "query": "GetPackageFullName with PROCESS_QUERY_LIMITED_INFORMATION; no process-memory or environment read.",
+  "processes": [
+    {
+      "pid": 44104,
+      "expectedImage": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\android-qa\\launch-qa-emulator-v2.exe",
+      "identityMatched": true,
+      "GetPackageFullNameCode": 15700,
+      "WindowsMessage": "该进程没有程序包标识符。"
+    },
+    {
+      "pid": 48732,
+      "expectedImage": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",
+      "identityMatched": true,
+      "GetPackageFullNameCode": 15700,
+      "WindowsMessage": "该进程没有程序包标识符。"
+    },
+    {
+      "pid": 28856,
+      "expectedImage": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\qemu-system-x86_64.exe",
+      "identityMatched": true,
+      "GetPackageFullNameCode": 15700,
+      "WindowsMessage": "该进程没有程序包标识符。"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 [package]
 name = "catstep-md"
-version = "1.0.12"
+version = "1.0.13"
 description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
 authors = ["maobukeai"]
 edition = "2021"
@@ -33,6 +33,12 @@ debug = 1
 
 [profile.test.package."*"]
 opt-level = 2
+
+[profile.dev.build-override]
+opt-level = 0
+
+[profile.test.build-override]
+opt-level = 0
 
 # v4.3.1 issue #73 — size-optimised release profile. Most of the Android
 # APK weight (22 MB out of 26 MB on arm64-v8a) is `libapp_lib.so` —
@@ -201,6 +207,7 @@ objc2-foundation = { version = "0.2", features = ["NSArray", "NSString", "NSUser
 windows-sys = { version = "0.61", features = [
   "Win32_UI_Shell",
   "Win32_Foundation",
+  "Win32_Globalization",
   "Win32_Graphics_Gdi",
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Input_KeyboardAndMouse",

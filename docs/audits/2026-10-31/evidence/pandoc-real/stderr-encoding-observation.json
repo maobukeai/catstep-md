@@ -1,0 +1,9 @@
+{
+  "real_process_exit": 1,
+  "stderr_utf8_valid": false,
+  "utf8_lossy": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\fixtures\\Դ Ŀ¼ ����\\���� ����\\�����ڵ�����.bib: withBinaryFile: does not exist (No such file or directory)\r\n",
+  "gb18030_decoded": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\fixtures\\源 目录 中文\\文献 资料\\不存在的文献.bib: withBinaryFile: does not exist (No such file or directory)\r\n",
+  "gb18030_contains_expected_unicode_path": true,
+  "observed_product_error": "pandoc failed: C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\fixtures\\源 目录 中文\\文献 资料/不存在的文献.bib: withBinaryFile: does not exist (No such file or directory)",
+  "product_diagnostic_unicode_path_readable": true
+}

@@ -1,0 +1,26 @@
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+warning: calls to `std::str::from_utf8` with an invalid literal always return an error
+   --> src\pandoc.rs:400:17
+    |
+398 |         let cp936 = b"missing C:\\\xc9\xf3\xbc\xc6 \xc4\xbf\xc2\xbc\\\xce\xc4\xcf\xd7.bib";
+    |                     ---------------------------------------------------------------------- the literal was valid UTF-8 up to the 11 bytes
+399 |         let expected = "missing C:\\审计 目录\\文献.bib";
+400 |         assert!(std::str::from_utf8(cp936).is_err());
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(invalid_from_utf8)]` on by default
+
+warning: `catstep-md` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.40s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-8975849f92d18118.exe)
+
+running 6 tests
+test pandoc::tests::utf8_diagnostics_are_preserved_before_any_system_code_page_fallback ... ok
+test pandoc::tests::relative_citations_need_an_explicit_source_and_relative_directories_are_rejected ... ok
+test pandoc::tests::windows_diagnostics_support_cp936_gb18030_and_other_active_code_pages ... ok
+test pandoc::tests::failed_export_also_cleans_input_and_preserves_failure_message ... ok
+test pandoc::tests::legacy_stderr_paths_remain_readable_and_failed_exports_clean_the_input ... ok
+test pandoc::tests::fake_pandoc_receives_source_context_and_resolves_relative_resources ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 266 filtered out; finished in 0.05s
+

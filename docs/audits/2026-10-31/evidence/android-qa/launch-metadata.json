@@ -1,0 +1,38 @@
+{
+  "CreatedUtc": "2026-10-31T03:58:16.4938867Z",
+  "GuiStarted": false,
+  "ApkInstalled": false,
+  "SystemEnvironmentChanged": false,
+  "Ports5580And5581FreeBeforeCreation": true,
+  "PointerPath": "C:\\Users\\20269\\.android\\avd\\catstep_qa_d11_20261031_isolated.ini",
+  "PointerContents": "avd.ini.encoding=UTF-8\r\npath=C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user\\avd\\catstep_qa_d11_20261031_isolated.avd\r\ntarget=android-34\r\n",
+  "ShortcutPath": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\android-qa\\launch-qa-emulator.lnk",
+  "TargetPath": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",
+  "Arguments": "-avd catstep_qa_d11_20261031_isolated -no-snapshot -no-metrics -port 5580 -datadir \"C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user\\avd\\catstep_qa_d11_20261031_isolated.avd\"",
+  "WorkingDirectory": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator",
+  "WindowStyle": 1,
+  "AvdDataDirectory": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user\\avd\\catstep_qa_d11_20261031_isolated.avd",
+  "CreatedFiles": [
+    {
+      "Path": "C:\\Users\\20269\\.android\\avd\\catstep_qa_d11_20261031_isolated.ini",
+      "Sha256": "F5B72E2CF8461BAB059900B81CAAA8131C855EC29DB5B9DD0D50444C9B245324"
+    },
+    {
+      "Path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\android-qa\\launch-qa-emulator.lnk",
+      "Sha256": "072DD4CBB41C13BDE6955DB8A93BA22BBBB53FE3557411CD247803C3A4CE614E"
+    }
+  ],
+  "OriginalMetadata": [
+    {
+      "Path": "C:\\Users\\20269\\.android\\avd\\maobu_test.ini",
+      "Sha256": "5E308DE50AA43C1E105E97605103F511540139B2C24A3D5B637B31D25ACBE9B4",
+      "Unchanged": true
+    },
+    {
+      "Path": "C:\\Users\\20269\\.android\\avd\\maobu_test.avd\\config.ini",
+      "Sha256": "B1A60B6751FE0F0F30630AA2E0C3FC92B4EDE009A7E91B4EA435C4D94F4212C5",
+      "Unchanged": true
+    }
+  ],
+  "CleanupRule": "Only remove the two exact created paths after matching the recorded SHA256; never remove original AVD or recursively delete shared directories."
+}

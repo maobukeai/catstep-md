@@ -1,0 +1,307 @@
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 49.08s
+     Running tests\agent_tool_authorization_test.rs (target\debug\deps\agent_tool_authorization_test-6102169d46ab9477.exe)
+
+running 1 test
+test all_provider_loops_enforce_request_permissions_before_writing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests\agent_tools_e2e_test.rs (target\debug\deps\agent_tools_e2e_test-3ce2b5bf2ee7318f.exe)
+
+running 21 tests
+test append_to_note_extends_existing_file ... ok
+test append_to_note_missing_file_created_as_utf8 ... ok
+test append_to_note_preserves_gbk_encoding ... ok
+test append_to_note_preserves_utf8_bom ... ok
+test get_backlinks_finds_referencing_notes ... ok
+test append_to_note_refuses_undecodable_file ... ok
+test get_outline_returns_heading_tree ... ok
+test list_notes_returns_seed_files ... ok
+test list_notes_scoped_by_folder ... ok
+test list_tags_aggregates_counts ... ok
+test read_agent_trace_parses_stored_steps ... ok
+test read_note_round_trips_frontmatter_and_links ... ok
+test search_finds_literal_match ... ok
+test unknown_tool_errors ... ok
+test workspace_traversal_blocked ... ok
+test write_note_creates_file_and_refuses_clobber ... ok
+test write_note_default_encoding_stays_utf8 ... ok
+test write_note_gbk_encoding_roundtrips_byte_exactly ... ok
+test write_note_gbk_rejects_unrepresentable_characters ... ok
+test write_note_rejects_unknown_encoding_label ... ok
+test semantic_search_e2e_fallback_and_indexed ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests\agent_trace_e2e_test.rs (target\debug\deps\agent_trace_e2e_test-79ed367aec6984f2.exe)
+
+running 2 tests
+test end_to_end_truncates_giant_tool_result ... ok
+test end_to_end_panel_chat_run ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\capture_e2e_test.rs (target\debug\deps\capture_e2e_test-4c597e0c2a380ef5.exe)
+
+running 9 tests
+test append_creates_file_and_prepends_newline ... ok
+test append_path_rejects_traversal_and_absolute_paths ... ok
+test full_capture_flow ... ok
+test handle_capture_with_append_path ... ok
+test iso8601_format_is_well_formed ... ok
+test live_http_append_round_trip ... ok
+test live_http_round_trip ... ok
+test test_shortcut_parsing ... ok
+test pure_write_works_without_globals ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests\cjk_proofread_test.rs (target\debug\deps\cjk_proofread_test-27fa8e283103f0e8.exe)
+
+running 10 tests
+test digit_unit_then_han_flagged ... ok
+test cjk_then_latin_flagged_with_thin_space ... ok
+test doubled_de_flagged_low ... ok
+test empty_input_yields_no_issues ... ok
+test feichang_de_followed_by_han_flagged_as_di ... ok
+test halfwidth_comma_after_han_flagged ... ok
+test halfwidth_question_after_han_flagged ... ok
+test latin_double_quotes_wrapping_han_flagged ... ok
+test smoke_mixed_quality_doc ... ok
+test pure_ascii_yields_no_issues ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\command_registration_test.rs (target\debug\deps\command_registration_test-ecc0dcba9a081366.exe)
+
+running 1 test
+test every_command_is_registered_in_both_compile_roots ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\copy_file_test.rs (target\debug\deps\copy_file_test-ee26133e0ef256d8.exe)
+
+running 4 tests
+test copy_missing_source_errors ... ok
+test copy_creates_parent_dirs ... ok
+test copy_overwrites_existing ... ok
+test write_binary_creates_parent_dirs ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\encoding_detection_test.rs (target\debug\deps\encoding_detection_test-33e34f0d47b52e18.exe)
+
+running 8 tests
+test frontmatter_delete_preserves_gbk_encoding ... ok
+test frontmatter_update_preserves_gbk_encoding ... ok
+test medium_gbk_note ... ok
+test frontmatter_update_preserves_utf8_bom ... ok
+test other_cjk_legacy_encodings ... ok
+test short_gbk_note ... ok
+test read_text_detected_gbk_roundtrips_byte_exactly ... ok
+test utf8_without_bom_survives_at_any_length ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\encoding_write_test.rs (target\debug\deps\encoding_write_test-8fddab97f8a87dfd.exe)
+
+running 4 tests
+test encoding_failure_never_replaces_existing_file ... ok
+test ordinary_save_preserves_utf8_bom_and_supports_explicit_removal ... ok
+test utf16_byte_order_surrogate_pairs_and_bom_roundtrip ... ok
+test utf16_frontmatter_edits_preserve_body_and_encoding ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\frontmatter_edit_test.rs (target\debug\deps\frontmatter_edit_test-02558e11ff1eaf89.exe)
+
+running 24 tests
+test appending_new_key_does_not_reflow_existing_inline_array ... ok
+test appends_new_key_at_end ... ok
+test boolean_and_number_types_are_bare ... ok
+test body_with_internal_hr_is_preserved_byte_for_byte ... ok
+test cjk_key_edit_preserves_other_cjk_keys_verbatim ... ok
+test cjk_key_round_trips ... ok
+test crlf_block_round_trips_with_crlf ... ok
+test deleting_block_style_array_removes_all_its_lines ... ok
+test deleting_last_key_drops_block_leaving_body ... ok
+test deleting_missing_key_is_noop_for_values ... ok
+test deleting_one_of_many_preserves_order_and_body ... ok
+test editing_a_block_style_array_replaces_only_its_lines ... ok
+test editing_one_key_preserves_comments ... ok
+test editing_one_key_preserves_inline_array_neighbor_verbatim ... ok
+test editing_preserves_block_style_array_neighbor ... ok
+test editing_preserves_single_quoted_neighbor_style ... ok
+test empty_string_value_round_trips ... ok
+test inline_array_value_round_trips ... ok
+test no_frontmatter_synthesis_has_no_blank_line_before_h1 ... ok
+test quoted_scalar_with_special_chars_round_trips ... ok
+test quoted_key_with_colon_round_trips_in_place ... ok
+test synthesizes_block_for_note_without_frontmatter ... ok
+test synthesizes_block_for_empty_file ... ok
+test updates_value_in_place_preserving_order_and_body ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests\git_history_e2e_test.rs (target\debug\deps\git_history_e2e_test-6f3673203cb229a2.exe)
+
+running 4 tests
+test autogit_history_for_file_outside_workspace_errors_cleanly ... ok
+test autogit_no_op_commit_returns_none ... ok
+test autogit_status_on_uninitialized_folder_is_safe ... ok
+test autogit_full_flow_init_commit_history_diff_rollback ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.36s
+
+     Running tests\gitea_selfhosted_e2e_test.rs (target\debug\deps\gitea_selfhosted_e2e_test-ce171013694241cb.exe)
+
+running 2 tests
+test gitea_push_fails_with_bad_token ... ignored, needs a live Gitea/Forgejo instance; see module docs
+test gitea_push_pull_roundtrip_over_http ... ignored, needs a live Gitea/Forgejo instance; see module docs
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\gitee_auth_e2e_test.rs (target\debug\deps\gitee_auth_e2e_test-9f69726bb6a2e637.exe)
+
+running 1 test
+test push_to_gitee_authenticates ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\github_sync_branch_test.rs (target\debug\deps\github_sync_branch_test-afcbb19432ceef6d.exe)
+
+running 2 tests
+test pull_falls_back_to_remote_master_for_legacy_repos ... ok
+test pull_normalizes_local_master_when_remote_has_main ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests\github_sync_e2e_test.rs (target\debug\deps\github_sync_e2e_test-6dc87f6f4d42ceed.exe)
+
+running 4 tests
+test github_sync_corrupted_config_fails_closed ... ok
+test github_pull_preserves_uncommitted_local_edits ... ok
+test github_sync_push_pull_roundtrip ... ok
+test github_sync_surfaces_conflicts_on_concurrent_edit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests\github_sync_e2ee_test.rs (target\debug\deps\github_sync_e2ee_test-1e68773485f96258.exe)
+
+running 1 test
+test e2ee_full_round_trip_two_devices ... FAILED
+
+failures:
+
+---- e2ee_full_round_trip_two_devices stdout ----
+
+thread 'e2ee_full_round_trip_two_devices' (2316) panicked at tests\github_sync_e2ee_test.rs:102:83:
+called `Result::unwrap()` on an `Err` value: "Platform secure storage failure: Windows error code 8"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    e2ee_full_round_trip_two_devices
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `--test github_sync_e2ee_test`
+     Running tests\mcp_client_e2e_test.rs (target\debug\deps\mcp_client_e2e_test-c62b82a7dfffc8c1.exe)
+
+running 1 test
+test mcp_transports_round_trip_real_servers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.82s
+
+     Running tests\note_write_conflict_test.rs (target\debug\deps\note_write_conflict_test-1a5f2e35fa60f426.exe)
+
+running 6 tests
+test compare_and_save_accepts_legacy_carriage_return_lines ... ok
+test deleted_target_is_a_conflict_instead_of_silent_recreation ... ok
+test compare_and_save_normalizes_crlf_and_decodes_utf16_baselines ... ok
+test expected_missing_never_overwrites_a_newly_created_target ... ok
+test rename_with_assets_keeps_utf16_encoding_without_reentering_tree_lock ... ok
+test simultaneous_windows_cannot_both_save_the_same_old_baseline ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\ollama_tools_e2e_test.rs (target\debug\deps\ollama_tools_e2e_test-2df6df5d09b62021.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\path_guard_test.rs (target\debug\deps\path_guard_test-db5ba684632437dc.exe)
+
+running 18 tests
+test a_forbidden_root_is_rejected_both_ways_round ... ok
+test allows_paths_inside_registered_process_roots ... ok
+test allows_paths_inside_the_registered_workspace ... ok
+test approvals_survive_a_store_round_trip ... ok
+test approve_root_refuses_to_grant_a_forbidden_path ... ok
+test approve_root_rejects_a_non_directory ... ok
+test approved_root_authorizes_paths_inside_it ... ok
+test dropping_a_file_authorizes_its_directory ... ok
+test early_in_memory_approvals_survive_load_approved_roots ... ok
+test os_opened_file_with_cjk_characters_and_spaces_is_authorized ... ok
+test path_within_is_component_wise_not_string_prefix ... ok
+test rejects_dotdot_escapes ... ok
+test rejects_paths_outside_every_root ... ok
+test rejects_symlinks_that_point_outside_the_root ... ok
+test switching_workspace_replaces_the_previous_root ... ok
+test the_one_shot_bootstrap_is_only_open_while_the_store_is_missing ... ok
+test windows_path_comparison_is_case_insensitive ... ok
+test with_no_workspace_and_no_process_roots_everything_is_rejected ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\rag_e2e_test.rs (target\debug\deps\rag_e2e_test-cf69fae5f2d2d826.exe)
+
+running 4 tests
+test rag_disabled_by_default_no_overhead ... ok
+test rag_full_flow_index_then_search_ranks_relevant_first ... ok
+test rag_search_on_empty_query_returns_empty ... ok
+test rag_incremental_update_picks_up_new_file ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests\read_file_test.rs (target\debug\deps\read_file_test-420a5d78805dfa97.exe)
+
+running 7 tests
+test detect_language_from_extension ... ok
+     Running tests\recipes_e2e_test.rs (target\debug\deps\recipes_e2e_test-55f6ea98bf9d89e1.exe)
+test read_gbk_chinese ... ok
+test read_utf16_le_bom ... ok
+test read_utf8_no_bom ... ok
+test read_utf8_with_bom ... ok
+test write_gbk_roundtrip ... ok
+test write_then_read_utf8_roundtrip ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 6 tests
+test ollama_smoke ... ignored
+test loader_skips_example_files ... ok
+test recipe_aborts_on_dirty_workspace ... ok
+test validate_run_id_accepts_canonical_shape ... ok
+test validate_run_id_rejects_traversal ... ok
+test recipe_run_creates_branch_and_trace ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\search_test.rs (target\debug\deps\search_test-c6ab23a52678c01c.exe)
+
+running 6 tests
+test empty_query_returns_empty ... ok
+test case_insensitive ... ok
+test finds_needle_across_files ... ok
+test respects_max_results ... ok
+test truncated_flag_clear_below_cap ... ok
+test truncated_flag_set_when_cap_binds ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: 1 target failed:
+    `--test github_sync_e2ee_test`

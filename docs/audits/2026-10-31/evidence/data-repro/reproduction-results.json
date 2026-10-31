@@ -1,0 +1,46 @@
+[
+  {
+    "case": "save marks later unwritten edits clean",
+    "disk": "v1",
+    "content": "v2 typed while saving",
+    "savedContent": "v2 typed while saving",
+    "dirty": false
+  },
+  {
+    "case": "goal stamp after write creates false clean state",
+    "disk": "---\ngoal: 100\n---\nBody",
+    "content": "---\ngoal: 100\ngoal_set_at: 2026-10-31\n---\nBody",
+    "savedContent": "---\ngoal: 100\ngoal_set_at: 2026-10-31\n---\nBody"
+  },
+  {
+    "case": "blur autosave checks stale clean state before any editor flush",
+    "disk": "old",
+    "content": "old"
+  },
+  {
+    "case": "property edit destroys dirty in-memory body",
+    "content": "---\ntitle: changed\n---\nold body",
+    "dirty": false
+  },
+  {
+    "case": "property response for A overwrites active B",
+    "a": "A disk",
+    "b": "---\ntitle: changed\n---\nA disk",
+    "bDirty": false
+  },
+  {
+    "case": "automatic reload overwrites edit made after initial clean check",
+    "content": "external disk",
+    "dirty": false
+  },
+  {
+    "case": "folder rename leaves descendant open tab at missing old path",
+    "path": "C:/notes/old/note.md"
+  },
+  {
+    "case": "session hydration revives cached clean content without disk reconciliation",
+    "disk": "NEWER EDIT made outside while app is closed",
+    "restored": "old saved body",
+    "dirty": false
+  }
+]

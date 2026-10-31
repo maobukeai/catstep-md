@@ -1,0 +1,33 @@
+✔ buildCmExtensions: plain Windows editor path assembles nothing (1.1604ms)
+✔ buildCmExtensions: Shift+Z redo alias uses the same existing grouped document history on every platform (4.1115ms)
+✔ buildCmExtensions: markdown tab installs markdown/rich/slash/aiKey/fold and per-setting compartments (0.7873ms)
+✔ buildCmExtensions: plaintext tab drops markdown-only extensions (0.3087ms)
+✔ buildCmExtensions: toggles off produce empty compartment contents (0.3744ms)
+✔ buildCmExtensions: windowsIme safe mode strips interactive groups (0.2259ms)
+✔ buildCmExtensions: markdown safe mode keeps compartments but skips markdown-only group (0.3505ms)
+✔ filterDefaultKeymap: removes the chords owned by the app (Mod-/, Mod-i, Mod-k shifts) (0.0982ms)
+✔ filterHistoryKeymap: removes Mod-u only (0.082ms)
+✔ filterSearchKeymap: removes select-all-matches and Mod-d (0.1374ms)
+✔ isInsideCodeContext: fenced code / inline code / frontmatter count as code context (5.0422ms)
+✔ isInsideCodeContext: plain prose is not code context (0.3446ms)
+✔ isInsideCodeContext: non-markdown language is always code context (0.1951ms)
+✔ tableNavPlan: mid-table Tab moves the caret without touching text (3.8082ms)
+✔ tableNavPlan: Tab on the last cell inserts a new row via table text replacement (0.7597ms)
+✔ tableNavPlan: Shift-Tab is selection-only even for text-changing results (0.3884ms)
+✔ tableNavPlan: Enter on the last row appends a row (0.3779ms)
+✔ tableNavPlan: declines non-empty selections, non-markdown docs and code contexts (0.4835ms)
+✔ tableNavPlan: declines prose without a table (falls back to default behavior) (0.3712ms)
+✔ default Zen chord yields to text history in CM, nested table content, plain and other text fields (183.4868ms)
+✔ empty redo history never falls back to starting a writing session (7.3236ms)
+✔ default Zen chord still starts from noneditable content, toolbar and nontext controls (40.5091ms)
+✔ an explicit same-chord Zen override wins once and prevents a nested redo side effect (12.0239ms)
+✔ different custom Zen chord remains usable in text; unbound and default-fallback bindings retain their meaning (22.0476ms)
+✔ composition and legacy IME keyCode 229 cannot start default or custom writing sessions (25.7492ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 735.8227

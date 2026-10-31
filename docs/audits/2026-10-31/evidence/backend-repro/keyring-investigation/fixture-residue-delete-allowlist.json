@@ -1,0 +1,155 @@
+{
+  "scope": "Only the 14 exact targets explicitly approved by root; no guard/pre-goal/unknown targets",
+  "approved_manifest": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\backend-repro\\keyring-investigation\\fixture-residue-preflight.json",
+  "approved_manifest_sha256": "7553cedc6f87b57c7403da2baf0674e2945a29c233a3aefb8abc83d3233576e9",
+  "source_sha256": "db23b54ed7b31ce84c7b5b3679e948b7c95eb925e927ad3eb704abc337f596cb",
+  "validated_started_utc": "2026-10-31T03:16:41.647215+00:00",
+  "validated_finished_utc": "2026-10-31T03:16:42.108040+00:00",
+  "active_relevant_processes_before": [],
+  "active_relevant_processes_after": [],
+  "credential_api_calls": false,
+  "deletion_performed": false,
+  "target_count": 14,
+  "verified_exact_targets": [
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793412729875285700",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793412729875285700",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793412729875285700.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793412729882776700",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793412729882776700",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793412729882776700.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793412751802278500",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793412751802278500",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793412751802278500.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793412751806668200",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793412751806668200",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793412751806668200.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413015072419500",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413015072419500",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413015072419500.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413015075211900",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413015075211900",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413015075211900.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413085479547100",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413085479547100",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413085479547100.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413085481283200",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413085481283200",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413085481283200.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413565995963000",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413565995963000",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413565995963000.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413566023037800",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413566023037800",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413566023037800.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413581894860600",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413581894860600",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793413581894860600.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413581915570600",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413581915570600",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413581915570600.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413736172293000",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413736172293000",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793413736172293000.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793414162407407400",
+      "exact_legacy_credential_identity": {
+        "type": 1,
+        "service": "solomd-encryption-key",
+        "user": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793414162407407400",
+        "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793414162407407400.solomd-encryption-key"
+      },
+      "file_set_and_hashes_match_approved_manifest": true
+    }
+  ]
+}

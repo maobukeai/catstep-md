@@ -621,6 +621,17 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    // Test workspaces are not authorized IPC roots. Use the internal teardown
+    // primitive, never the guarded command whose error would be ignored.
+    struct FixtureKey(PathBuf);
+    impl Drop for FixtureKey {
+        fn drop(&mut self) {
+            if let Err(error) = delete_key_from_keyring(&self.0) {
+                eprintln!("fixture key cleanup failed: {error}");
+            }
+        }
+    }
+
     fn fresh(label: &str) -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -712,6 +723,7 @@ mod tests {
         fs::write(ws.join(".solomd/sync.json"), b"{}").unwrap();
 
         let folder = ws.to_string_lossy().to_string();
+        let _key = FixtureKey(ws.clone());
         crypto_set_passphrase_inner(folder.clone(), "hunter2".into()).unwrap();
         let shadow = crypto_encrypt_for_push_inner(folder.clone()).unwrap();
         let shadow_dir = PathBuf::from(&shadow);
@@ -730,11 +742,11 @@ mod tests {
     #[test]
     fn second_set_passphrase_with_wrong_word_fails() {
         let ws = fresh("ws-pp");
+        let _key = FixtureKey(ws.clone());
         let folder = ws.to_string_lossy().to_string();
         crypto_set_passphrase_inner(folder.clone(), "correct".into()).unwrap();
         let bad = crypto_set_passphrase_inner(folder, "guess".into());
         assert!(bad.is_err());
-        let _ = crypto_clear_passphrase(ws.to_string_lossy().to_string());
     }
 
     /// S20 — `crypto_set_passphrase` is a guarded shell: a vault path the

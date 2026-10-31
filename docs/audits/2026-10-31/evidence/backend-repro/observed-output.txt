@@ -1,0 +1,25 @@
+执行日期：2026-10-31
+源函数与完整 MCP 模块均来自本次审计工作区。
+
+CSV=
+| name | value |
+| --- | --- |
+| alpha | a|b |
+| beta | line1
+line2 |
+
+BOLD=**Bold****Plain**
+
+TABLE=
+| A1 | A2 | B |
+| --- | --- | --- |
+| C | D |
+
+NAMES=["mcp_audit_read_note", "mcp_audit_read_note"]
+FIRST_DISPATCH="A:read_note"
+AFTER_CONFIG_UPDATE="A:read_note"
+CONFIG_TIMEOUT_1SEC_ACTUAL=1.6061614s; OUTER_TIMEOUT=true
+
+running 1 test
+test every_command_is_registered_in_both_compile_roots ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored

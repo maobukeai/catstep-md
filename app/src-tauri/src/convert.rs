@@ -85,128 +85,211 @@ fn convert_docx(path: &str) -> Result<String, String> {
     docx_xml_to_markdown(&xml)
 }
 
+/// Escape imported literal text before adding Markdown formatting of our own.
+fn markdown_literal(text: &str) -> String {
+    let mut out = String::new();
+    for ch in text.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '\\' | '*' | '_' | '`' | '[' | ']' => {
+                out.push('\\');
+                out.push(ch);
+            }
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+/// Shared by Word, CSV and spreadsheets. Paragraph boundaries stay in one cell.
+fn markdown_table_cell(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .replace('|', "\\|")
+        .replace('\n', "<br>")
+}
+
+fn push_markdown_row(out: &mut String, cells: &[String]) {
+    out.push_str("| ");
+    out.push_str(
+        &cells
+            .iter()
+            .map(|s| markdown_table_cell(s))
+            .collect::<Vec<_>>()
+            .join(" | "),
+    );
+    out.push_str(" |\n");
+}
+
 fn docx_xml_to_markdown(xml: &str) -> Result<String, String> {
     use quick_xml::events::Event;
     use quick_xml::Reader;
 
     let mut reader = Reader::from_str(xml);
+    reader.config_mut().expand_empty_elements = true;
     let mut out = String::new();
-    let mut current_line = String::new();
-    let mut in_table_row = false;
-    let mut table_cells: Vec<String> = Vec::new();
-    let mut table_started = false;
-    let mut heading_level: u8 = 0;
-    let mut is_bold = false;
-    let mut is_italic = false;
-    let mut is_list_item = false;
-    let mut buf = Vec::new();
+    let mut paragraph = String::new();
+    let mut run = String::new();
+    let mut in_text = false;
+    let mut bold = false;
+    let mut italic = false;
+    let mut heading = 0usize;
+    let mut list = false;
+    let mut in_table = false;
+    let mut rows: Vec<Vec<String>> = Vec::new();
+    let mut cells = Vec::new();
+    let mut cell_paragraphs = Vec::new();
+    let mut cell_span = 1usize;
+    let mut previous_style = None;
+
+    fn finish_run(
+        paragraph: &mut String,
+        run: &mut String,
+        bold: bool,
+        italic: bool,
+        previous_style: &mut Option<(bool, bool)>,
+    ) {
+        if run.is_empty() {
+            return;
+        } // Property-only runs must not change emitted formatting.
+        let core = run.trim();
+        if core.is_empty() {
+            paragraph.push_str(run);
+        } else {
+            let start = run.len() - run.trim_start().len();
+            let end = run.trim_end().len();
+            let marker = match (bold, italic) {
+                (true, true) => "***",
+                (true, false) => "**",
+                (false, true) => "*",
+                _ => "",
+            };
+            let merge = !marker.is_empty()
+                && *previous_style == Some((bold, italic))
+                && paragraph.ends_with(marker);
+            if merge {
+                paragraph.truncate(paragraph.len() - marker.len());
+            }
+            paragraph.push_str(&run[..start]);
+            if !merge {
+                paragraph.push_str(marker);
+            }
+            paragraph.push_str(&markdown_literal(core));
+            paragraph.push_str(marker);
+            paragraph.push_str(&run[end..]);
+        }
+        *previous_style = Some((bold, italic));
+        run.clear();
+    }
 
     loop {
-        match reader.read_event_into(&mut buf) {
-            Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
-                let name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
-                match name.as_str() {
-                    "p" => {
-                        current_line.clear();
-                        heading_level = 0;
-                        is_list_item = false;
-                    }
-                    "pStyle" => {
-                        for attr in e.attributes().flatten() {
-                            if attr.key.as_ref() == b"w:val" {
-                                let val =
-                                    String::from_utf8_lossy(&attr.value).to_ascii_lowercase();
-                                if val.starts_with("heading") || val.starts_with("title") {
-                                    heading_level = val
-                                        .chars()
-                                        .last()
-                                        .and_then(|c| c.to_digit(10))
-                                        .unwrap_or(1)
-                                        as u8;
-                                }
-                                if val.contains("list") {
-                                    is_list_item = true;
-                                }
-                            }
+        match reader.read_event() {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+                let name = e.local_name();
+                let val = e
+                    .attributes()
+                    .flatten()
+                    .find(|a| a.key.local_name().as_ref() == b"val")
+                    .map(|a| String::from_utf8_lossy(&a.value).into_owned());
+                match name.as_ref() {
+                    b"tbl" => {
+                        if in_table {
+                            return Err(
+                                "Nested Word tables cannot be represented as a Markdown table"
+                                    .into(),
+                            );
                         }
+                        in_table = true;
+                        rows.clear();
                     }
-                    "b" => is_bold = true,
-                    "i" => is_italic = true,
-                    "tr" => {
-                        in_table_row = true;
-                        table_cells.clear();
+                    b"tr" => cells.clear(),
+                    b"tc" => {
+                        cell_paragraphs.clear();
+                        cell_span = 1;
                     }
-                    "tc" => {
-                        current_line.clear();
+                    b"gridSpan" => {
+                        cell_span = val.and_then(|v| v.parse().ok()).unwrap_or(1).clamp(1, 1000)
                     }
+                    b"p" => {
+                        paragraph.clear();
+                        previous_style = None;
+                        heading = 0;
+                        list = false;
+                    }
+                    b"pStyle" => {
+                        let style = val.unwrap_or_default().to_ascii_lowercase();
+                        if let Some(level) = style.strip_prefix("heading") {
+                            heading = level.parse::<usize>().unwrap_or(1).clamp(1, 6);
+                        } else if style.starts_with("title") {
+                            heading = 1;
+                        }
+                        list = style.contains("list");
+                    }
+                    b"numPr" => list = true,
+                    b"r" => {
+                        run.clear();
+                        bold = false;
+                        italic = false;
+                    }
+                    b"b" => bold = !matches!(val.as_deref(), Some("0" | "false" | "off")),
+                    b"i" => italic = !matches!(val.as_deref(), Some("0" | "false" | "off")),
+                    b"t" => in_text = true,
+                    b"tab" => run.push('\t'),
+                    b"br" | b"cr" => run.push('\n'),
                     _ => {}
                 }
             }
-            Ok(Event::Text(ref e)) => {
-                if let Ok(text) = e.unescape() {
-                    let t = text.to_string();
-                    if is_bold && is_italic {
-                        current_line.push_str(&format!("***{t}***"));
-                    } else if is_bold {
-                        current_line.push_str(&format!("**{t}**"));
-                    } else if is_italic {
-                        current_line.push_str(&format!("*{t}*"));
-                    } else {
-                        current_line.push_str(&t);
-                    }
-                }
+            Ok(Event::Text(e)) if in_text => {
+                run.push_str(&e.unescape().map_err(|e| format!("XML text: {e}"))?)
             }
-            Ok(Event::End(ref e)) => {
-                let name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
-                match name.as_str() {
-                    "b" => is_bold = false,
-                    "i" => is_italic = false,
-                    "p" => {
-                        let line = current_line.trim().to_string();
-                        if in_table_row {
-                            table_cells.push(line);
-                        } else if !line.is_empty() {
-                            if heading_level > 0 && heading_level <= 6 {
-                                let hashes = "#".repeat(heading_level as usize);
-                                out.push_str(&format!("{hashes} {line}\n\n"));
-                            } else if is_list_item {
-                                out.push_str(&format!("- {line}\n"));
-                            } else {
-                                out.push_str(&format!("{line}\n\n"));
-                            }
-                        }
-                        current_line.clear();
-                    }
-                    "tr" => {
-                        if !table_cells.is_empty() {
-                            out.push_str("| ");
-                            out.push_str(&table_cells.join(" | "));
-                            out.push_str(" |\n");
-                            if !table_started {
-                                out.push('|');
-                                for _ in &table_cells {
-                                    out.push_str(" --- |");
-                                }
-                                out.push('\n');
-                                table_started = true;
-                            }
-                        }
-                        in_table_row = false;
-                    }
-                    "tbl" => {
-                        table_started = false;
-                        out.push('\n');
-                    }
-                    _ => {}
+            Ok(Event::CData(e)) if in_text => run.push_str(&String::from_utf8_lossy(e.as_ref())),
+            Ok(Event::End(e)) => match e.local_name().as_ref() {
+                b"t" => in_text = false,
+                b"r" => {
+                    finish_run(&mut paragraph, &mut run, bold, italic, &mut previous_style);
+                    bold = false;
+                    italic = false;
                 }
-            }
+                b"p" => {
+                    if in_table {
+                        cell_paragraphs.push(paragraph.trim().to_string());
+                    } else if !paragraph.trim().is_empty() {
+                        if heading > 0 {
+                            out.push_str(&format!("{} ", "#".repeat(heading)));
+                        } else if list {
+                            out.push_str("- ");
+                        }
+                        out.push_str(paragraph.trim());
+                        out.push_str(if list { "\n" } else { "\n\n" });
+                    }
+                    paragraph.clear();
+                }
+                b"tc" => {
+                    cells.push(cell_paragraphs.join("\n"));
+                    cells.extend(std::iter::repeat_n(String::new(), cell_span - 1));
+                }
+                b"tr" => rows.push(std::mem::take(&mut cells)),
+                b"tbl" => {
+                    let width = rows.iter().map(Vec::len).max().unwrap_or(0);
+                    for (i, row) in rows.iter_mut().enumerate() {
+                        row.resize(width, String::new());
+                        push_markdown_row(&mut out, row);
+                        if i == 0 {
+                            push_markdown_row(&mut out, &vec!["---".to_string(); width]);
+                        }
+                    }
+                    out.push('\n');
+                    in_table = false;
+                }
+                _ => {}
+            },
             Ok(Event::Eof) => break,
             Err(e) => return Err(format!("XML parse error: {e}")),
             _ => {}
         }
-        buf.clear();
     }
-
     Ok(out.trim().to_string())
 }
 
@@ -288,12 +371,18 @@ fn convert_csv(path: &str) -> Result<String, String> {
         .headers()
         .map_err(|e| format!("CSV header error: {e}"))?
         .iter()
-        .map(|h| h.to_string())
+        .map(markdown_literal)
         .collect();
 
     if !headers.is_empty() {
         out.push_str("| ");
-        out.push_str(&headers.join(" | "));
+        out.push_str(
+            &headers
+                .iter()
+                .map(|s| markdown_table_cell(s))
+                .collect::<Vec<_>>()
+                .join(" | "),
+        );
         out.push_str(" |\n|");
         for _ in &headers {
             out.push_str(" --- |");
@@ -305,7 +394,10 @@ fn convert_csv(path: &str) -> Result<String, String> {
     for result in rdr.records() {
         let record = result.map_err(|e| format!("CSV row error: {e}"))?;
         out.push_str("| ");
-        let cells: Vec<&str> = record.iter().collect();
+        let cells: Vec<String> = record
+            .iter()
+            .map(|s| markdown_table_cell(&markdown_literal(s)))
+            .collect();
         out.push_str(&cells.join(" | "));
         out.push_str(" |\n");
     }
@@ -346,7 +438,13 @@ fn convert_xlsx(path: &str) -> Result<String, String> {
                         _ => cell.to_string(),
                     })
                     .collect();
-                out.push_str(&cells.join(" | "));
+                out.push_str(
+                    &cells
+                        .iter()
+                        .map(|s| markdown_table_cell(&markdown_literal(s)))
+                        .collect::<Vec<_>>()
+                        .join(" | "),
+                );
                 out.push_str(" |\n");
                 if first_row {
                     out.push('|');
@@ -396,11 +494,9 @@ fn convert_pdf(path: &str) -> Result<String, String> {
         .map_err(|e| format!("PDF extraction failed: {e}"))?;
 
     if text.trim().is_empty() {
-        return Err(
-            "No text found in PDF (scanned/image PDF). \
+        return Err("No text found in PDF (scanned/image PDF). \
              For OCR, install markitdown: pip install 'markitdown[all]'"
-                .to_string(),
-        );
+            .to_string());
     }
 
     // Clean up: PDF extraction often includes garbage strings like resource
@@ -435,7 +531,10 @@ fn convert_pdf(path: &str) -> Result<String, String> {
 fn is_pdf_garbage(line: &str) -> bool {
     // Lines that are mostly hex/base64 hash-like characters (no spaces, long)
     if line.len() > 20 && !line.contains(' ') {
-        let alnum = line.chars().filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '~').count();
+        let alnum = line
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '~')
+            .count();
         if alnum as f64 / line.len() as f64 > 0.85 {
             return true;
         }
@@ -519,6 +618,7 @@ fn extract_pptx_texts(xml: &str) -> Vec<String> {
     use quick_xml::Reader;
 
     let mut reader = Reader::from_str(xml);
+    reader.config_mut().expand_empty_elements = true;
     let mut paragraphs: Vec<String> = Vec::new();
     let mut current = String::new();
     let mut in_text = false;
@@ -534,12 +634,11 @@ fn extract_pptx_texts(xml: &str) -> Vec<String> {
                     current.clear();
                 }
             }
-            Ok(Event::Text(ref e))
-                if in_text => {
-                    if let Ok(text) = e.unescape() {
-                        current.push_str(&text);
-                    }
+            Ok(Event::Text(ref e)) if in_text => {
+                if let Ok(text) = e.unescape() {
+                    current.push_str(&text);
                 }
+            }
             Ok(Event::End(ref e)) => {
                 let name = String::from_utf8_lossy(e.local_name().as_ref()).to_string();
                 if name == "t" {
@@ -599,5 +698,104 @@ fn convert_via_markitdown(path: &str) -> Result<String, String> {
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         Err(format!("markitdown failed: {stderr}"))
+    }
+}
+
+#[cfg(test)]
+mod fidelity_tests {
+    use super::*;
+
+    #[test]
+    fn word_run_properties_do_not_leak_and_false_properties_are_respected() {
+        let xml = r#"<w:document xmlns:w="urn:w"><w:body>
+        <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Bold</w:t></w:r><w:r><w:t>Plain</w:t></w:r>
+        <w:r><w:rPr><w:i/></w:rPr><w:t> italic </w:t></w:r>
+        <w:r><w:rPr><w:b w:val="0"/><w:i w:val="false"/></w:rPr><w:t>normal</w:t></w:r></w:p>
+        </w:body></w:document>"#;
+        assert_eq!(
+            docx_xml_to_markdown(xml).unwrap(),
+            "**Bold**Plain *italic* normal"
+        );
+    }
+
+    #[test]
+    fn word_adjacent_styled_runs_form_one_valid_emphasis_span() {
+        let xml = r#"<w:p xmlns:w="urn:w"><w:r><w:rPr><w:b/></w:rPr><w:t>A</w:t></w:r><w:r><w:rPr><w:i/></w:rPr></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>B</w:t></w:r><w:r><w:t>Plain</w:t></w:r></w:p>"#;
+        assert_eq!(docx_xml_to_markdown(xml).unwrap(), "**AB**Plain");
+    }
+
+    #[test]
+    fn word_cell_paragraphs_and_empty_cells_keep_the_original_columns() {
+        let xml = r#"<w:document xmlns:w="urn:w"><w:body><w:tbl><w:tr>
+        <w:tc><w:p><w:r><w:t>A1</w:t></w:r></w:p><w:p><w:r><w:t>A2|part</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc></w:tr>
+        <w:tr><w:tc/><w:tc><w:p><w:r><w:t>D</w:t><w:br/><w:t>E</w:t></w:r></w:p></w:tc></w:tr>
+        </w:tbl></w:body></w:document>"#;
+        assert_eq!(
+            docx_xml_to_markdown(xml).unwrap(),
+            "| A1<br>A2\\|part | B |\n| --- | --- |\n|  | D<br>E |"
+        );
+    }
+
+    #[test]
+    fn word_horizontal_spans_are_padded_without_shifting_later_cells() {
+        let xml = r#"<w:tbl xmlns:w="urn:w"><w:tr><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr><w:p><w:r><w:t>Wide</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>C</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"#;
+        assert_eq!(
+            docx_xml_to_markdown(xml).unwrap(),
+            "| Wide |  | C |\n| --- | --- | --- |"
+        );
+    }
+
+    #[test]
+    fn csv_import_keeps_literal_pipes_backslashes_markup_and_newlines() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("table.csv");
+        std::fs::write(
+            &path,
+            "name,value\nalpha,\"a|b\"\nbeta,\"line1\r\nline2\"\ngamma,\"\\*literal*\"\n",
+        )
+        .unwrap();
+        assert_eq!(convert_csv(path.to_str().unwrap()).unwrap(),
+            "| name | value |\n| --- | --- |\n| alpha | a\\|b |\n| beta | line1<br>line2 |\n| gamma | \\\\\\*literal\\* |");
+    }
+
+    #[test]
+    fn real_xlsx_import_keeps_cells_with_pipes_and_newlines() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("table.xlsx");
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        let files = [
+            (
+                "[Content_Types].xml",
+                r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>"#,
+            ),
+            (
+                "_rels/.rels",
+                r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"#,
+            ),
+            (
+                "xl/workbook.xml",
+                r#"<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>"#,
+            ),
+            (
+                "xl/_rels/workbook.xml.rels",
+                r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#,
+            ),
+            (
+                "xl/worksheets/sheet1.xml",
+                r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>name</t></is></c><c r="B1" t="inlineStr"><is><t>value</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>alpha</t></is></c><c r="B2" t="inlineStr"><is><t>a|b&#10;c</t></is></c></row></sheetData></worksheet>"#,
+            ),
+        ];
+        for (name, xml) in files {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(xml.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+        assert_eq!(
+            convert_xlsx(path.to_str().unwrap()).unwrap(),
+            "| name | value |\n| --- | --- |\n| alpha | a\\|b<br>c |"
+        );
     }
 }

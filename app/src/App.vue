@@ -102,6 +102,8 @@ import { useViewport } from './composables/useViewport';
 import { nativeMenuAccelerators } from './lib/keybindings';
 import { useI18n } from './i18n';
 import { quickCaptureError } from './lib/quick-capture-status';
+import { isSafPicking, clearSafPicking } from './lib/saf-picker-state';
+import { waitForNoteEditors } from './lib/editor-flush';
 import { tableEditor, closeTableEditor } from './lib/table-editor-bus';
 import { formulaEditor, closeFormulaEditor } from './lib/formula-editor-bus';
 import { openWelcomeTour, getWelcomeTourDocs } from './lib/welcome-tour';
@@ -123,6 +125,17 @@ const settings = useSettingsStore();
 const windowsStore = useWindowsStore();
 const tiles = useTilesStore();
 const files = useFiles();
+const mobileSavePending = ref(false);
+
+async function saveActiveFromMobile() {
+  if (mobileSavePending.value || !tabs.activeTab) return;
+  mobileSavePending.value = true;
+  try {
+    await files.saveActive();
+  } finally {
+    mobileSavePending.value = false;
+  }
+}
 const { openTodayNote } = useDailyNotes();
 const exporter = useExport();
 const workspace = useWorkspaceStore();
@@ -496,7 +509,7 @@ function onEsc(e: KeyboardEvent) {
   else if (aboutOpen.value) aboutOpen.value = false;
   else if (cjkProofreadOpen.value) cjkProofreadOpen.value = false;
   else if (ragSearchOpen.value) ragSearchOpen.value = false;
-  else if (fileChangedOpen.value) fileChangedOpen.value = false;
+  else if (fileChangedOpen.value) onFileChangedAction('cancel');
   else if (searchOpen.value) searchOpen.value = false;
   else if (helpOpen.value) helpOpen.value = false;
   else if (quickSwitcherOpen.value) quickSwitcherOpen.value = false;
@@ -1391,7 +1404,7 @@ onMounted(async () => {
     // drain it on resume. The 'solomd:saf-picking' flag (set in openFolder)
     // scopes this to an in-flight pick.
     const resolveSafPick = async () => {
-      if (localStorage.getItem('solomd:saf-picking') !== '1') return;
+      if (!isSafPicking(localStorage)) return;
       const { safResolvePicked } = await import('./lib/saf-fs');
       for (let i = 0; i < 12; i++) {
         let r: Awaited<ReturnType<typeof safResolvePicked>>;
@@ -1404,7 +1417,7 @@ onMounted(async () => {
           await new Promise((res) => setTimeout(res, 300));
           continue;
         }
-        localStorage.removeItem('solomd:saf-picking');
+        clearSafPicking(localStorage);
         if (r) {
           workspace.setSafVault(r.treeUri, `saf:${r.rootDocId}`, r.name);
           if (!settings.showFileTree) settings.toggleFileTree();
@@ -1617,9 +1630,9 @@ onMounted(async () => {
         // auto-save off, leave on disk) a stale document — the tail of the
         // edit was silently lost. Flush first so the dirty check below and
         // the persisted session both see the last keystroke. While an IME
-        // composition is in flight the flush stays a no-op, the same accepted
-        // edge as closeTabSafe (#222/#186).
-        window.dispatchEvent(new Event('solomd:flush-content-sync'));
+        // composition is in flight, wait for its commit before deciding which
+        // buffers need saving or including them in the persisted session.
+        await waitForNoteEditors();
         const dirty = tabs.tabs.filter((t) => t.content !== t.savedContent);
         if (dirty.length > 0) {
           const action = await showUnsavedDialog('window', dirty[0].fileName, dirty.length);
@@ -1630,7 +1643,7 @@ onMounted(async () => {
             // nothing is discarded behind the user's back.
             for (const tab of dirty) {
               const ok = await files.saveTab(tab, { silent: true });
-              if (!ok) return;
+              if (!ok || tabs.isDirty(tab.id)) return;
             }
           }
           // 'discard' → the dirty content is part of the persisted session
@@ -2530,6 +2543,8 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
       killer feature capsules, and window caption controls.
     -->
     <Toolbar
+      :mobile-saving="mobileSavePending"
+      @save="saveActiveFromMobile"
       @open-palette="paletteOpen = true"
       @open-settings="(sec?: string) => openSettingsAt(sec)"
       @open-help="helpOpen = true"
@@ -2881,7 +2896,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
       <MobileAgentView
         v-if="isNarrow && mobileAgentOpen"
         @close="mobileAgentOpen = false"
-        @open-settings="(sec) => openSettingsAt(sec)"
+        @open-settings="(sec?: string) => openSettingsAt(sec)"
       />
 
       <StatusBar v-if="!isNarrow" :line="cursorLine" :col="cursorCol" :selection-text="selectionText" />

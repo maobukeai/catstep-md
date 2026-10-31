@@ -1,0 +1,12 @@
+1793419756: Preflight passed; launching only C:\Users\20269\AppData\Local\Android\Sdk\emulator\emulator.exe / catstep_qa_d11_20261031_isolated / C:\Users\20269\AppData\Local\Temp\catstep-android-d11-qa-20261031\android-user\avd\catstep_qa_d11_20261031_isolated.avd
+1793419756: Official emulator child PID 20836
+1793419848: Official emulator exited: exit code: 0xc0000135
+1793419939: Preflight passed; launching only C:\Users\20269\AppData\Local\Android\Sdk\emulator\emulator.exe / catstep_qa_d11_20261031_isolated / C:\Users\20269\AppData\Local\Temp\catstep-android-d11-qa-20261031\android-user\avd\catstep_qa_d11_20261031_isolated.avd
+1793419939: Official emulator child PID 24956
+1793420027: Official emulator exited: exit code: 0xc0000135
+1793420046: Preflight passed; launching only C:\Users\20269\AppData\Local\Android\Sdk\emulator\emulator.exe / catstep_qa_d11_20261031_isolated / C:\Users\20269\AppData\Local\Temp\catstep-android-d11-qa-20261031\android-user\avd\catstep_qa_d11_20261031_isolated.avd
+1793420046: Official emulator child PID 48732
+1793420933: Official emulator exited: exit code: 0
+1793420960: Preflight passed; launching only C:\Users\20269\AppData\Local\Android\Sdk\emulator\emulator.exe / catstep_qa_d11_20261031_isolated / C:\Users\20269\AppData\Local\Temp\catstep-android-d11-qa-20261031\android-user\avd\catstep_qa_d11_20261031_isolated.avd
+1793420960: Official emulator child PID 51080
+1793421188: Official emulator exited: exit code: 0

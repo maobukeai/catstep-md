@@ -1,0 +1,32 @@
+[
+  {
+    "command": "pnpm test",
+    "exit_code": 0,
+    "seconds": 3.489,
+    "log": "test-final.txt"
+  },
+  {
+    "command": "pnpm test:type",
+    "exit_code": 0,
+    "seconds": 3.755,
+    "log": "test-type-final.txt"
+  },
+  {
+    "command": "pnpm i18n:check",
+    "exit_code": 0,
+    "seconds": 0.599,
+    "log": "i18n-check-final.txt"
+  },
+  {
+    "command": "pnpm i18n:toast",
+    "exit_code": 0,
+    "seconds": 0.481,
+    "log": "i18n-toast-final.txt"
+  },
+  {
+    "command": "pnpm build",
+    "exit_code": 0,
+    "seconds": 24.238,
+    "log": "build-final.txt"
+  }
+]

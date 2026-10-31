@@ -1,5 +1,7 @@
 import { ref, nextTick, type Ref } from 'vue';
 import { EditorView } from '@codemirror/view';
+import { isolateHistory } from '@codemirror/commands';
+import { prepareImeSafeReveal } from '../lib/cm-ime-guard';
 import {
   findTableSpan,
   findTableAtCursor,
@@ -77,6 +79,7 @@ export function useEditorTable(options: {
     row: number;
     col: number;
     source: string;
+    resolve?: () => { blockFrom: number; blockTo: number; source: string } | null;
   } | null>(null);
 
   let tableSpotlightTimer: any = null;
@@ -88,6 +91,9 @@ export function useEditorTable(options: {
   function onTableToolbarShow(e: Event) {
     const d = (e as CustomEvent).detail;
     if (!d) return;
+    // More than one Editor can be mounted (split panes). Window events must
+    // never transfer a widget's write target to a different editor.
+    if (d.view && d.view !== options.getView()) return;
     activeTableWidgetInfo.value = d;
     inPlaceTableState.value = {
       visible: true,
@@ -97,6 +103,21 @@ export function useEditorTable(options: {
       canDeleteRow: d.canDeleteRow,
       canDeleteCol: d.canDeleteCol,
     };
+  }
+
+  function currentWidgetInfo(view: EditorView) {
+    const info = activeTableWidgetInfo.value;
+    if (!info) return null;
+    const target = info.resolve ? info.resolve() : info;
+    if (!target || view.state.doc.sliceString(target.blockFrom, target.blockTo) !== target.source) {
+      activeTableWidgetInfo.value = null;
+      inPlaceTableState.value.visible = false;
+      return null;
+    }
+    // Reparse the current document; a focus-time snapshot is not a save base.
+    const current = findTableAtCursor(view.state.doc.toString(), target.blockFrom);
+    if (!current || current.from !== target.blockFrom || current.to !== target.blockTo) return null;
+    return { ...info, ...target, source: current.source };
   }
 
   function onTableToolbarHide() {
@@ -195,7 +216,8 @@ export function useEditorTable(options: {
     if (!view) return;
 
     if (activeTableWidgetInfo.value) {
-      const info = activeTableWidgetInfo.value;
+      const info = currentWidgetInfo(view);
+      if (!info) return;
       const model = parseTable(info.source);
       if (!model) return;
 
@@ -242,8 +264,13 @@ export function useEditorTable(options: {
           updatedModel = setAlign(model, info.col, 'right');
           break;
         case 'deleteTable':
+          const reveal = prepareImeSafeReveal(view);
+          if (!reveal) return;
           view.dispatch({
             changes: { from: info.blockFrom, to: info.blockTo, insert: '' },
+            effects: reveal,
+            annotations: isolateHistory.of('full'),
+            userEvent: 'input.table.structure',
           });
           inPlaceTableState.value.visible = false;
           activeTableWidgetInfo.value = null;
@@ -253,11 +280,21 @@ export function useEditorTable(options: {
 
       if (updatedModel) {
         const newSource = serializeTable(updatedModel);
+        const structural = updatedModel.header.length !== model.header.length ||
+          updatedModel.rows.length !== model.rows.length;
+        const reveal = structural ? prepareImeSafeReveal(view) : undefined;
+        if (reveal === null) return;
         view.dispatch({
           changes: { from: info.blockFrom, to: info.blockTo, insert: newSource },
+          effects: reveal ? [reveal] : [],
+          annotations: structural ? [isolateHistory.of('full')] : [],
         });
         activeTableWidgetInfo.value = {
           ...info,
+          // Structural edits may recreate the DOM/controller. The next cell
+          // focus installs its new resolver; until then this exact slice is
+          // validated against the document before another action is allowed.
+          resolve: undefined,
           source: newSource,
           blockTo: info.blockFrom + newSource.length,
           row: newRow,
@@ -272,12 +309,12 @@ export function useEditorTable(options: {
           canDeleteRow: newRow >= 0 && updatedModel.rows.length > 0,
           canDeleteCol: updatedModel.header.length > 1,
         };
-        setTimeout(() => {
-          const cell = document.querySelector(
-            `.cm-interactive-table [data-row="${newRow}"][data-col="${newCol}"]`
-          ) as HTMLElement | null;
-          cell?.focus();
-        }, 35);
+        const wrap = Array.from(view.dom.querySelectorAll('.cm-live-block--table'))
+          .find((el) => (el as any).__tableWidget?.blockFrom === info.blockFrom);
+        const cell = wrap?.querySelector(
+          `[data-row="${newRow}"][data-col="${newCol}"]`
+        ) as HTMLElement | null;
+        cell?.focus();
       }
       return;
     }
@@ -286,15 +323,21 @@ export function useEditorTable(options: {
     const caret = view.state.selection.main.head;
     const res = performTableAction(docText, caret, action);
     if (res) {
+      const reveal = action.startsWith('align') ? undefined : prepareImeSafeReveal(view);
+      if (reveal === null) return;
       if (res.from !== undefined && res.to !== undefined && res.tableText !== undefined) {
         view.dispatch({
           changes: { from: res.from, to: res.to, insert: res.tableText },
           selection: { anchor: res.newCaret },
+          effects: reveal ? [reveal] : [],
+          annotations: reveal ? [isolateHistory.of('full')] : [],
         });
       } else {
         view.dispatch({
           changes: { from: 0, to: docText.length, insert: res.text },
           selection: { anchor: res.newCaret },
+          effects: reveal ? [reveal] : [],
+          annotations: reveal ? [isolateHistory.of('full')] : [],
         });
       }
       view.focus();
@@ -353,15 +396,20 @@ export function useEditorTable(options: {
 
   function onInPlaceTableOpenFull() {
     if (activeTableWidgetInfo.value) {
-      const info = activeTableWidgetInfo.value;
+      const view = options.getView();
+      if (!view) return;
+      const info = currentWidgetInfo(view);
+      if (!info) return;
       inPlaceTableState.value.visible = false;
       options.openTableEditor({
         source: info.source,
         apply: (markdown: string) => {
           const view = options.getView();
           if (!view) return;
+          if (view.state.doc.sliceString(info.blockFrom, info.blockTo) !== info.source) return;
           view.dispatch({
             changes: { from: info.blockFrom, to: info.blockTo, insert: markdown },
+            annotations: isolateHistory.of('full'),
           });
         },
       });
@@ -380,11 +428,13 @@ export function useEditorTable(options: {
         cmView.dispatch({
           changes: { from: res.from, to: res.to, insert: res.tableText },
           selection: { anchor: res.newCaret },
+          annotations: isolateHistory.of('full'),
         });
       } else {
         cmView.dispatch({
           changes: { from: 0, to: docText.length, insert: res.text },
           selection: { anchor: res.newCaret },
+          annotations: isolateHistory.of('full'),
         });
       }
     } else {

@@ -1,0 +1,78 @@
+{
+  "active_windows_code_page": 936,
+  "all_driver_assertions_passed": true,
+  "cases": [
+    {
+      "actual_success": true,
+      "assertion_passed": true,
+      "case": "epub_relative_images_bib_csl_different_unicode_directory",
+      "elapsed_ms": 141,
+      "error": null,
+      "expected_success": true,
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\A 与源不同/导出 样本.epub",
+      "output_bytes": 6628,
+      "output_exists": true,
+      "temp_inputs_after": [],
+      "temp_inputs_before": []
+    },
+    {
+      "actual_success": true,
+      "assertion_passed": true,
+      "case": "odt_relative_images_bib_csl_different_unicode_directory",
+      "elapsed_ms": 139,
+      "error": null,
+      "expected_success": true,
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\B 空格 中文/导出 样本.odt",
+      "output_bytes": 8724,
+      "output_exists": true,
+      "temp_inputs_after": [],
+      "temp_inputs_before": []
+    },
+    {
+      "actual_success": false,
+      "assertion_passed": true,
+      "case": "real_pandoc_invalid_option_cleans_input",
+      "elapsed_ms": 78,
+      "error": "pandoc failed: Unknown option --catstep-deliberately-invalid-option.\r\nTry pandoc.exe --help for more information.",
+      "expected_success": false,
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\A 与源不同/failed-option.epub",
+      "output_bytes": 24,
+      "output_exists": true,
+      "temp_inputs_after": [],
+      "temp_inputs_before": []
+    },
+    {
+      "actual_success": false,
+      "assertion_passed": true,
+      "case": "real_pandoc_missing_bibliography_cleans_input",
+      "elapsed_ms": 117,
+      "error": "pandoc failed: C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\fixtures\\源 目录 中文\\文献 资料/不存在的文献.bib: withBinaryFile: does not exist (No such file or directory)",
+      "expected_success": false,
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\B 空格 中文/failed-bib.odt",
+      "output_bytes": null,
+      "output_exists": false,
+      "temp_inputs_after": [],
+      "temp_inputs_before": []
+    },
+    {
+      "actual_success": true,
+      "assertion_passed": true,
+      "case": "real_pandoc_creates_nested_output_parent_and_cleans_input",
+      "elapsed_ms": 138,
+      "error": null,
+      "expected_success": true,
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\新建 嵌套输出目录/成功 样本.odt",
+      "output_bytes": 8724,
+      "output_exists": true,
+      "temp_inputs_after": [],
+      "temp_inputs_before": []
+    }
+  ],
+  "detected": {
+    "path": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\portable\\pandoc-3.13\\pandoc.exe",
+    "version": "3.13"
+  },
+  "entry": "pandoc_export_inner",
+  "real_process": true,
+  "system_path_modified": false
+}

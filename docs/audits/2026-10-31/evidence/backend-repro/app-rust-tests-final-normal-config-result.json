@@ -1,0 +1,9 @@
+{
+  "command": "cargo test --locked --offline -j2 --no-fail-fast -- --test-threads=2",
+  "started_utc": "2026-10-31T03:21:39.6483369Z",
+  "finished_utc": "2026-10-31T03:22:53.5819017Z",
+  "exit_code": 0,
+  "tauri_config_absent_in_test_child": true,
+  "tauri_config_was_removed_from_child": false,
+  "system_or_parent_environment_modified": false
+}

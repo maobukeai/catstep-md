@@ -1,0 +1,9 @@
+Captured verbatim from the native probe tool stdout on 2026-10-31; the initial Console.WriteLine output bypassed PowerShell Tee-Object.
+fresh_presence_check; target=CatstepMD-6713d1a59e9542a4b29d5aab4106ba16; error=1168; payload_read=false
+fresh_presence_check; target=CatstepMD-87c1d6f18bdb4ff8862022b4e7782629; error=1168; payload_read=false
+hold-own-A; target=CatstepMD-6713d1a59e9542a4b29d5aab4106ba16; target_chars=42; user_chars=7; comment_chars=14; blob_bytes=128; persist=3; ok=True; error=0
+create-own-B-with-A-held; target=CatstepMD-87c1d6f18bdb4ff8862022b4e7782629; target_chars=42; user_chars=7; comment_chars=14; blob_bytes=128; persist=3; ok=True; error=0
+own_cleanup; target=CatstepMD-6713d1a59e9542a4b29d5aab4106ba16; delete_ok=True; delete_error=0; remains=False; final_presence_error=1168; payload_read=false
+retry-own-B-after-A-deleted; target=CatstepMD-87c1d6f18bdb4ff8862022b4e7782629; target_chars=42; user_chars=7; comment_chars=14; blob_bytes=128; persist=3; ok=True; error=0
+own_cleanup; target=CatstepMD-6713d1a59e9542a4b29d5aab4106ba16; delete_ok=False; delete_error=1168; remains=False; final_presence_error=1168; payload_read=false
+own_cleanup; target=CatstepMD-87c1d6f18bdb4ff8862022b4e7782629; delete_ok=True; delete_error=0; remains=False; final_presence_error=1168; payload_read=false

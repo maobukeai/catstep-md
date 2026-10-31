@@ -1,0 +1,10 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.03s
+     Running unittests src\main.rs (target\debug\deps\CatstepMD-1a8f6210ea571ba8.exe)
+
+running 1 test
+test runner::crypto::tests::workspace_round_trip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 283 filtered out; finished in 0.10s
+

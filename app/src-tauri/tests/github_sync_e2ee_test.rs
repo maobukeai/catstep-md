@@ -11,7 +11,7 @@
 //!      ends up with the original plaintext content
 
 use app_lib::crypto::{
-    crypto_encrypt_for_push_inner as crypto_encrypt_for_push,
+    crypto_clear_passphrase, crypto_encrypt_for_push_inner as crypto_encrypt_for_push,
     crypto_set_passphrase_inner as crypto_set_passphrase,
 };
 use app_lib::github_sync::{github_pull_inner, github_push_inner};
@@ -20,6 +20,33 @@ use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Remove only credentials created for this invocation's random workspaces,
+/// even if secure storage or a later assertion fails. No historical keys.
+#[derive(Default)]
+struct FixtureKeys(Vec<PathBuf>);
+
+impl FixtureKeys {
+    fn track(&mut self, path: &Path) {
+        // The public cleanup command enforces the normal native-root guard.
+        // This test process has no app bootstrap; authorize its own fixture.
+        app_lib::commands::path_guard::approve_from_os_drop(path);
+        assert!(app_lib::commands::path_guard::is_authorized(
+            &path.to_string_lossy()
+        ));
+        self.0.push(path.to_path_buf());
+    }
+}
+
+impl Drop for FixtureKeys {
+    fn drop(&mut self) {
+        for path in &self.0 {
+            if let Err(error) = crypto_clear_passphrase(path.to_string_lossy().into_owned()) {
+                eprintln!("fixture key cleanup failed: {error}");
+            }
+        }
+    }
+}
 
 fn fresh(label: &str) -> PathBuf {
     let nanos = SystemTime::now()
@@ -90,12 +117,14 @@ fn init_shadow_with_remote(folder: &Path, remote_url: &str) {
 
 #[test]
 fn e2ee_full_round_trip_two_devices() {
+    let mut fixture_keys = FixtureKeys::default();
     let bare = fresh("bare");
     Repository::init_bare(&bare).unwrap();
     let bare_url = file_url(&bare);
 
     // ---- Device A ----
     let dev_a = fresh("devA");
+    fixture_keys.track(&dev_a);
     fs::write(dev_a.join("note.md"), "# Hello\n\nplain on device A\n").unwrap();
     fs::create_dir_all(dev_a.join("assets")).unwrap();
     fs::write(dev_a.join("assets/img.png"), b"\x89PNG fake bytes").unwrap();
@@ -147,6 +176,7 @@ fn e2ee_full_round_trip_two_devices() {
 
     // ---- Device B (bootstrap flow) ----
     let dev_b = fresh("devB");
+    fixture_keys.track(&dev_b);
     write_sync_json(&dev_b, &bare_url);
     init_shadow_with_remote(&dev_b, &bare_url);
     let folder_b = dev_b.to_string_lossy().to_string();

@@ -1,0 +1,92 @@
+$ node --experimental-strip-types scripts/check-i18n.mjs && node scripts/check-cjk.mjs
+🔍 Checking i18n dictionary coverage (graded gate: en/zh hard, others report-only)...
+Base locale (en): 2514 keys
+  ✓ zh  : 100% (2514/2514 keys)
+  ○ ja  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ ko  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ de  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ fr  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ es  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ pt  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ it  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ pl  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ nl  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ tr  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ sv  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+  ○ uk  : 89.8% (2258/2514 keys) — 256 keys missing, falls back to en at runtime (debt, not blocking)
+
+📋 Community-locale translation debt: 3072 keys across 12 locales (report only — these fall back to English via src/i18n/index.ts).
+   To pay some down, copy the missing keys from en.ts into the locale file and translate.
+
+📋 CJK translation debt: 1126 grandfathered literals across 69 files (ratcheted — adding new ones fails):
+    129 / 129   components/ThemeMarketplace.vue
+     91 / 91    components/settings/ShortcutsSettingsTab.vue
+     88 / 88    components/CommandPalette.vue
+     88 / 88    components/SettingsPanel.vue
+     73 / 73    components/EditorContextMenu.vue
+     67 / 67    components/CjkProofread.vue
+     33 / 33    components/PomodoroPopover.vue
+     32 / 32    components/MobileAccessoryBar.vue
+     29 / 29    components/AgentSetupWizard.vue
+     28 / 28    components/AboutDialog.vue
+     28 / 28    components/settings/EditorSettingsTab.vue
+     27 / 27    components/MobileActionSheet.vue
+     26 / 26    components/InPlaceFormulaBar.vue
+     24 / 24    components/InPlaceTableToolbar.vue
+     23 / 23    components/Editor.vue
+     20 / 20    components/AboutSettings.vue
+     17 / 17    components/FileTree.vue
+     17 / 17    components/Slideshow.vue
+     17 / 17    components/UpdateModal.vue
+     15 / 15    components/AISettings.vue
+     15 / 15    components/markdown-help/CliHelpTab.vue
+     15 / 15    components/PomodoroPiP.vue
+     14 / 14    components/SponsorModal.vue
+     13 / 13    components/settings/AdvancedSettingsTab.vue
+     13 / 13    components/settings/ExportSettingsTab.vue
+     12 / 12    components/settings/GeneralSettingsTab.vue
+     12 / 12    components/RecipesSettings.vue
+     11 / 11    components/MarkdownHelp.vue
+     11 / 11    composables/useAgentRun.ts
+     10 / 10    components/MobileAgentView.vue
+     10 / 10    components/PomodoroPill.vue
+      9 / 9     components/SelectionBubbleBar.vue
+      9 / 9     components/settings/ShortcutRecorder.vue
+      8 / 8     components/RestApiSettings.vue
+      7 / 7     App.vue
+      7 / 7     components/MobileOutlineSheet.vue
+      6 / 6     components/MobileBottomDock.vue
+      6 / 6     components/MobileFindBar.vue
+      6 / 6     composables/useInbox.ts
+      5 / 5     components/markdown-help/ShortcutsHelpTab.vue
+      4 / 4     components/GithubSyncSettings.vue
+      4 / 4     composables/useGlobalSearch.ts
+      4 / 4     lib/daily-notes.ts
+      3 / 3     components/markdown-help/SyntaxHelpTab.vue
+      3 / 3     components/settings/SettingSlider.vue
+      3 / 3     components/settings/SyncSettingsTab.vue
+      3 / 3     components/Toolbar.vue
+      3 / 3     stores/agentPanel.ts
+      3 / 3     stores/themes.ts
+      2 / 2     components/AndroidFolderPicker.vue
+      2 / 2     components/HistoryPanel.vue
+      2 / 2     components/PaneHost.vue
+      2 / 2     components/ReadingView.vue
+      2 / 2     composables/useCommands.ts
+      1 / 1     components/AIRewriteOverlay.vue
+      1 / 1     components/BacklinksPanel.vue
+      1 / 1     components/CitationPickerSettings.vue
+      1 / 1     components/GlobalSearch.vue
+      1 / 1     components/Outline.vue
+      1 / 1     components/PropertiesInspector.vue
+      1 / 1     components/TagsPanel.vue
+      1 / 1     components/TasksPanel.vue
+      1 / 1     components/UiPreview.vue
+      1 / 1     lib/check-update.ts
+      1 / 1     lib/cm-heading-fold.ts
+      1 / 1     lib/cm-live-blocks.ts
+      1 / 1     lib/image-export.ts
+      1 / 1     lib/pip-window.ts
+      1 / 1     lib/tasks.ts
+
+✅ CJK literal gate passed.

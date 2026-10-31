@@ -1,0 +1,37 @@
+{
+  "completedAt": "2026-10-31T11:57:22.5800069+08:00",
+  "command": "pnpm exec tauri android build --debug --apk --target x86_64 --ci --config <evidence/android-real/build-override.json>",
+  "buildExitCode": 0,
+  "distIndexSHA256Before": "2F83244FD16DC43B70CFDD0774D6636B3B6D3CAFFBA349B7C9265FB72D5F7799",
+  "distIndexSHA256After": "2F83244FD16DC43B70CFDD0774D6636B3B6D3CAFFBA349B7C9265FB72D5F7799",
+  "frontendBuildHooksDisabled": true,
+  "devicesStarted": false,
+  "apkInstalled": false,
+  "sdkRoot": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk",
+  "ndkRoot": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\ndk\\26.3.11579264",
+  "javaHome": "C:\\Users\\20269\\.jdks\\jdk-21",
+  "androidUserHome": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user",
+  "cargoTargetDir": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\rust-target-ascii",
+  "artifacts": [
+    {
+      "FullName": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-arm64-v8a-debug.apk",
+      "Length": 7535235,
+      "LastWriteTime": "2026-10-31T11:57:21.3031785+08:00"
+    },
+    {
+      "FullName": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-armeabi-v7a-debug.apk",
+      "Length": 7535235,
+      "LastWriteTime": "2026-10-31T11:57:21.3031785+08:00"
+    },
+    {
+      "FullName": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-universal-debug.apk",
+      "Length": 163391585,
+      "LastWriteTime": "2026-10-31T11:57:21.4996257+08:00"
+    },
+    {
+      "FullName": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-x86_64-debug.apk",
+      "Length": 163391585,
+      "LastWriteTime": "2026-10-31T11:57:21.4437184+08:00"
+    }
+  ]
+}

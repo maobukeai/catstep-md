@@ -1,10 +1,21 @@
 import { defineStore } from 'pinia';
 import { useTabsStore } from './tabs';
 import { useAgentPanelStore } from './agentPanel';
+import { flushNoteEditors, waitForNoteEditors } from '../lib/editor-flush';
 
 const LS_KEY = 'solomd.workspace.v1';
 const MAX_RECENT = 12;
 const MAX_RECENT_FOLDERS = 8;
+let folderChangeRequest = 0;
+
+function readyToChangeFolder(retry: () => void): boolean {
+  const request = ++folderChangeRequest;
+  if (flushNoteEditors()) return true;
+  void waitForNoteEditors().then(() => {
+    if (request === folderChangeRequest) retry();
+  });
+  return false;
+}
 
 interface WorkspaceState {
   recentFiles: string[];
@@ -72,6 +83,7 @@ export const useWorkspaceStore = defineStore('workspace', {
      *  recent-folders MRU through it keeps both lists in sync without extra
      *  call sites. `null` (closed workspace) doesn't get pushed. */
     setFolder(folder: string | null) {
+      if (!readyToChangeFolder(() => this.setFolder(folder))) return;
       const prev = this.currentFolder;
       // Leaving (or replacing) a SAF vault with an ordinary folder clears the
       // SAF context so the file layer stops routing through ContentResolver.
@@ -103,6 +115,7 @@ export const useWorkspaceStore = defineStore('workspace', {
     },
     /** #148 — open a SAF (content-URI) vault. `rootPath` is `saf:<rootDocId>`. */
     setSafVault(treeUri: string, rootPath: string, name: string) {
+      if (!readyToChangeFolder(() => this.setSafVault(treeUri, rootPath, name))) return;
       this.safTreeUri = treeUri;
       this.safName = name;
       // Reuse setFolder for tab-scoping/recents, but it would null out the SAF

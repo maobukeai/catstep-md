@@ -1,0 +1,8 @@
+{
+  "time_utc": "2026-10-31T03:27:10.226691+00:00",
+  "root_cua_observation": "Loader could not locate TaskDialogIndirect; dialog dismissed with Enter; entry main not reached and QA root absent",
+  "audit_before_sha256": "989b67518650666a28cc9faa0cc2676ddc8eac06f701cce073acaa3c6a6c4839",
+  "audit_before_bytes": 36075008,
+  "standard_bin_sha256": "22794ef8d264ec62be52b2cae75e8a4325d0af1609237a0692710464d7911ba9",
+  "sdk_mt_path": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\mt.exe"
+}

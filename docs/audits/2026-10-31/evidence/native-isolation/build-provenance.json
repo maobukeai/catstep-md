@@ -1,0 +1,16 @@
+{
+  "command": "cargo build --locked --offline -j2 --example native_audit",
+  "working_directory": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri",
+  "started_utc": "2026-10-31T03:17:04.601866+00:00",
+  "finished_utc": "2026-10-31T03:17:32.450049+00:00",
+  "exit_code": 0,
+  "TAURI_CONFIG": "child-process override only",
+  "config_sha256": "9569af4208816b8275d5812af4aec42dd7f494cd1c81282d212afb1fbf9c4be7",
+  "source_manifest_count": 649,
+  "source_changes_during_build": [],
+  "gui_started": false,
+  "tests_started": false,
+  "binary_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.exe",
+  "binary_sha256": "989b67518650666a28cc9faa0cc2676ddc8eac06f701cce073acaa3c6a6c4839",
+  "binary_bytes": 36075008
+}

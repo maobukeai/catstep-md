@@ -5,6 +5,7 @@ import { loadLanguage, type Lang } from './i18n';
 import './styles/tokens.css';
 import './styles/cjk-font.css';
 import './styles/main.css';
+import './styles/markdown-layout.css';
 import './styles/hljs-theme.css';
 import 'katex/dist/katex.min.css';
 

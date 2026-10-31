@@ -1,5 +1,5 @@
 import { StateEffect, type Extension, type Transaction } from '@codemirror/state';
-import { EditorView, type DecorationSet, type ViewUpdate } from '@codemirror/view';
+import { EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
 /**
  * IME composition guard (#108).
@@ -33,10 +33,25 @@ export function frozenDuringComposition(
 let imeComposing = false;
 let imeFreezeActive = false;
 let imeIdleTimer: ReturnType<typeof setTimeout> | null = null;
+let imeOwner: EditorView | null = null;
 const isWindowsImeHost =
   typeof navigator !== 'undefined' && /Win/i.test(navigator.platform);
 
 export const imeSafeFlushEffect = StateEffect.define<void>();
+
+/** An explicit click on a rendered read surface may end the input quiet
+ * period, but must never tear down DOM owned by an active composition. The
+ * caller dispatches this effect together with its reveal selection. */
+export function prepareImeSafeReveal(view: Pick<EditorView, 'composing'>): StateEffect<void> | null {
+  if (imeComposing || view.composing) return null;
+  imeFreezeActive = false;
+  imeOwner = null;
+  if (imeIdleTimer) {
+    clearTimeout(imeIdleTimer);
+    imeIdleTimer = null;
+  }
+  return imeSafeFlushEffect.of();
+}
 
 export function isImeComposingActive(): boolean {
   return imeComposing || imeFreezeActive;
@@ -59,6 +74,7 @@ export function isImeSafeFlushTransaction(tr: Transaction): boolean {
 }
 
 function holdImeFreeze(view: EditorView, composing: boolean) {
+  imeOwner = view;
   imeComposing = composing;
   if (!isWindowsImeHost) return;
   imeFreezeActive = true;
@@ -67,6 +83,7 @@ function holdImeFreeze(view: EditorView, composing: boolean) {
     imeIdleTimer = null;
     if (imeComposing) return;
     imeFreezeActive = false;
+    imeOwner = null;
     view.dispatch({ effects: imeSafeFlushEffect.of() });
   }, composing ? 240 : 180);
 }
@@ -110,6 +127,21 @@ export function imeCompositionGuard(): Extension {
         holdImeFreeze(view, false);
         return false;
       },
+    }),
+    ViewPlugin.fromClass(class {
+      view: EditorView;
+      constructor(view: EditorView) { this.view = view; }
+      destroy() {
+        // Native WebViews may omit compositionend when setState/unmount
+        // tears down their input DOM. Do not strand the next editor behind
+        // that old flag, or release a different pane's active composition.
+        if (imeOwner !== this.view) return;
+        imeOwner = null;
+        imeComposing = false;
+        imeFreezeActive = false;
+        if (imeIdleTimer) clearTimeout(imeIdleTimer);
+        imeIdleTimer = null;
+      }
     }),
   ];
 }

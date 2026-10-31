@@ -1,0 +1,6 @@
+{
+  "command": "cargo test --locked --offline -j2 --test github_sync_e2ee_test e2ee_full_round_trip_two_devices -- --exact --nocapture --test-threads=1",
+  "started_utc": "2026-10-31T03:17:45.9210231Z",
+  "finished_utc": "2026-10-31T03:17:55.4021331Z",
+  "exit_code": 0
+}

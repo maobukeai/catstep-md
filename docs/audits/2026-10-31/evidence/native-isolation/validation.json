@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-31",
+  "cargo_check": {
+    "command": "cargo check --example native_audit --locked --offline",
+    "TAURI_CONFIG": "full contents of tauri.audit.override.json, child process only",
+    "exit_code": 0,
+    "duration_seconds": 16.97
+  },
+  "merged_tauri_schema": "valid",
+  "gui_started": false,
+  "binary_built": true,
+  "archive_matches_example": true,
+  "sha256": {
+    "native_audit.rs": "ed72a8301edde2252f743e282c4ab3ed47fb293d5cbf278168971021e8196829",
+    "tauri.audit.override.json": "9569af4208816b8275d5812af4aec42dd7f494cd1c81282d212afb1fbf9c4be7",
+    "native-acceptance.wsb": "96a5ce20eae001c6432610f64537705c2567f9124974db1a2c07e0ce08109d32"
+  },
+  "cargo_build": {
+    "command": "cargo build --locked --offline -j2 --example native_audit",
+    "exit_code": 0,
+    "binary_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.exe",
+    "binary_sha256": "989b67518650666a28cc9faa0cc2676ddc8eac06f701cce073acaa3c6a6c4839",
+    "binary_bytes": 36075008,
+    "source_files": 649,
+    "source_changes_during_build": []
+  },
+  "post_build_manifest_repair": {
+    "binary_sha256": "2aa8ae2be14093a519097493197f48b10dd055a0e6b4e7d16c04a5fb255acdd6",
+    "binary_bytes": 36075520,
+    "sdk_validate_manifest_exit_code": 31,
+    "extracted_manifest_matches_standard": true,
+    "source_changed": false,
+    "gui_started_by_subagent": false,
+    "sdk_validate_manifest_standard_control_exit_code": 31,
+    "sdk_validate_manifest_interpretation": "Both standard and audit executable manifests lack standalone definition identity, so schema validation is not claimed.",
+    "Windows_CreateActCtxW_audit_success": true,
+    "Windows_CreateActCtxW_standard_success": true,
+    "final_binary_hash_matches_repair_provenance": true
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-31",
+  "input": "Prefix\n\n| A | B |\n| --- | --- |\n| x | y |\n\nTail",
+  "actions": [
+    "source content entered",
+    "switch live edit",
+    "fill cell x with EDITEDLONG",
+    "click center alignment",
+    "switch source"
+  ],
+  "actual": "Prefix\n\n|  A  | B   |\n| :-: | --- |\n|  x  | y   | | --- |\n| EDITEDLONG | y   |\n\nTail"
+}

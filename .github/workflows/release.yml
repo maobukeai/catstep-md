@@ -540,38 +540,33 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm tauri android build --apk --aab
 
+      - name: Validate and prepare Android Artifacts
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s scripts/lib -p 'test_prepare_android_release.py' -v
+          VERSION=$(node -p "require('./app/package.json').version")
+          python3 scripts/lib/prepare_android_release.py \
+            --outputs app/src-tauri/gen/android/app/build/outputs \
+            --output "$RUNNER_TEMP/catstep-android-release" \
+            --version "$VERSION"
+
       - name: Upload Android Artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           gh release view "${{ github.ref_name }}" || gh release create "${{ github.ref_name }}" --draft --title "猫步 MD (Catstep MD) ${{ github.ref_name }}" --notes "Auto-built by GitHub Actions"
-          VERSION=$(node -p "require('./app/package.json').version")
-          echo "Processing Android APK outputs for version ${VERSION}..."
-          
-          # Upload per-abi and universal APKs
-          find app/src-tauri/gen/android/app/build/outputs/apk -name "*release*.apk" | while read -r apk; do
-            abi="universal"
-            if [[ "$apk" == *"/arm64-v8a/"* ]]; then abi="arm64-v8a";
-            elif [[ "$apk" == *"/armeabi-v7a/"* ]]; then abi="armeabi-v7a";
-            elif [[ "$apk" == *"/x86_64/"* ]]; then abi="x86_64";
-            elif [[ "$apk" == *"/universal/"* ]]; then abi="universal";
-            fi
-            
-            target="CatstepMD_${VERSION}_${abi}.apk"
-            cp "$apk" "$target"
-            echo "Uploading $target..."
-            gh release upload "${{ github.ref_name }}" "$target" --clobber
-            
-          done
+          python3 - "$RUNNER_TEMP/catstep-android-release/manifest.json" "${{ github.ref_name }}" <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          from scripts.lib.prepare_android_release import verified_prepared_paths
 
-          # Upload Google Play AAB
-          find app/src-tauri/gen/android/app/build/outputs/bundle -name "*.aab" | while read -r aab; do
-            target="CatstepMD_${VERSION}_play.aab"
-            cp "$aab" "$target"
-            echo "Uploading $target..."
-            gh release upload "${{ github.ref_name }}" "$target" --clobber
-          done
+          # Validate the complete explicit manifest before the first upload.
+          paths = verified_prepared_paths(Path(sys.argv[1]))
+          for path in paths:
+              subprocess.run(['gh', 'release', 'upload', sys.argv[2], str(path), '--clobber'], check=True)
+          PY
 
   # ---------------------------------------------------------------------------
   # SHA256SUMS.txt over every asset on the draft release.

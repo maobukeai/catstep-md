@@ -745,8 +745,7 @@ export async function markdownToPdfBlob(
       worker.prop.canvas = dummyCanvas;
       await worker.toPdf();
 
-      const JsPdfConstructor = (worker.prop.pdf as any).constructor;
-      const pdf = new JsPdfConstructor(opts.jsPDF);
+      const pdf = worker.prop.pdf as any;
 
       const pageSize = worker.prop.pageSize;
       const innerPxWidth = pageSize.inner.px.width;

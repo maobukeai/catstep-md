@@ -1,0 +1,339 @@
+{
+  "totals": {
+    "passed": 699,
+    "failed": 0,
+    "ignored": 4
+  },
+  "aggregate": {
+    "lib": {
+      "targets": 1,
+      "passed": 272,
+      "failed": 0,
+      "ignored": 0
+    },
+    "bin": {
+      "targets": 1,
+      "passed": 284,
+      "failed": 0,
+      "ignored": 0
+    },
+    "integration": {
+      "targets": 24,
+      "passed": 143,
+      "failed": 0,
+      "ignored": 4
+    },
+    "doc": {
+      "targets": 1,
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0
+    }
+  },
+  "targets": [
+    {
+      "kind": "lib",
+      "target": "app_lib",
+      "result": "ok",
+      "passed": 272,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 35.16
+    },
+    {
+      "kind": "bin",
+      "target": "CatstepMD",
+      "result": "ok",
+      "passed": 284,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 17.51
+    },
+    {
+      "kind": "integration",
+      "target": "agent_tool_authorization_test",
+      "result": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.14
+    },
+    {
+      "kind": "integration",
+      "target": "agent_tools_e2e_test",
+      "result": "ok",
+      "passed": 21,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.35
+    },
+    {
+      "kind": "integration",
+      "target": "agent_trace_e2e_test",
+      "result": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "integration",
+      "target": "capture_e2e_test",
+      "result": "ok",
+      "passed": 9,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.14
+    },
+    {
+      "kind": "integration",
+      "target": "cjk_proofread_test",
+      "result": "ok",
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "integration",
+      "target": "command_registration_test",
+      "result": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.02
+    },
+    {
+      "kind": "integration",
+      "target": "copy_file_test",
+      "result": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.01
+    },
+    {
+      "kind": "integration",
+      "target": "encoding_detection_test",
+      "result": "ok",
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.03
+    },
+    {
+      "kind": "integration",
+      "target": "encoding_write_test",
+      "result": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.06
+    },
+    {
+      "kind": "integration",
+      "target": "frontmatter_edit_test",
+      "result": "ok",
+      "passed": 24,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "integration",
+      "target": "git_history_e2e_test",
+      "result": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 2.29
+    },
+    {
+      "kind": "integration",
+      "target": "gitea_selfhosted_e2e_test",
+      "result": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 2,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "integration",
+      "target": "gitee_auth_e2e_test",
+      "result": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "integration",
+      "target": "github_sync_branch_test",
+      "result": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.13
+    },
+    {
+      "kind": "integration",
+      "target": "github_sync_e2e_test",
+      "result": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.33
+    },
+    {
+      "kind": "integration",
+      "target": "github_sync_e2ee_test",
+      "result": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.41
+    },
+    {
+      "kind": "integration",
+      "target": "mcp_client_e2e_test",
+      "result": "ok",
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 3.44
+    },
+    {
+      "kind": "integration",
+      "target": "note_write_conflict_test",
+      "result": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.06
+    },
+    {
+      "kind": "integration",
+      "target": "ollama_tools_e2e_test",
+      "result": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "integration",
+      "target": "path_guard_test",
+      "result": "ok",
+      "passed": 18,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.02
+    },
+    {
+      "kind": "integration",
+      "target": "rag_e2e_test",
+      "result": "ok",
+      "passed": 4,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.14
+    },
+    {
+      "kind": "integration",
+      "target": "read_file_test",
+      "result": "ok",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.01
+    },
+    {
+      "kind": "integration",
+      "target": "recipes_e2e_test",
+      "result": "ok",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 1,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.17
+    },
+    {
+      "kind": "integration",
+      "target": "search_test",
+      "result": "ok",
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    },
+    {
+      "kind": "doc",
+      "target": "app_lib",
+      "result": "ok",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0,
+      "seconds": 0.0
+    }
+  ],
+  "ignored_test_lines": [
+    "test gitea_push_fails_with_bad_token ... ignored, needs a live Gitea/Forgejo instance; see module docs",
+    "test gitea_push_pull_roundtrip_over_http ... ignored, needs a live Gitea/Forgejo instance; see module docs",
+    "test push_to_gitee_authenticates ... ignored",
+    "test ollama_smoke ... ignored"
+  ],
+  "normal_configuration_result": "app-rust-tests-final-normal-config-result.json"
+}

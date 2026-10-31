@@ -2,6 +2,8 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue';
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, lineNumbers, drawSelection } from '@codemirror/view';
+import { editorLayoutExtension } from '../lib/cm-layout';
+import { wrapScrollableTables } from '../lib/markdown-layout';
 import { undo, redo } from '@codemirror/commands';
 import { openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -233,6 +235,11 @@ let cleanupRelayout: (() => void) | null = null;
 let cleanupTransformCase: (() => void) | null = null;
 let cleanupPlainSelection: (() => void) | null = null;
 let contentSyncTimer: ReturnType<typeof setTimeout> | null = null;
+// Props may already identify the next tab while this view still holds the
+// outgoing document. Delayed writes always belong to the rendered identity.
+let renderedTabId = props.tab.id;
+let compositionFinishTimer: ReturnType<typeof setTimeout> | null = null;
+let plainCompositionRange: { from: number; to: number; hasTrailingNewline: boolean } | null = null;
 
 const themeCompartment = new Compartment();
 const langCompartment = new Compartment();
@@ -289,16 +296,9 @@ if (!(globalThis as { __solomdVimEx?: boolean }).__solomdVimEx) {
 // can only be set programmatically (the Tauri shell has no URL bar), so it is
 // inert for real users.
 const isWindows = isWindowsEditorRuntime();
-// Windows normally uses the plain-textarea editor: WebView2 + contentEditable drops the
-// first IME character and doubles CJK punctuation (worst on Sogou), and even
-// freezing CodeMirror's decorations during composition does not fix it — the
-// bug is in WebView2's contentEditable IME handling itself. A plain <textarea>
-// relies on the browser's native IME path and avoids both. (Verified: a
-// CodeMirror spike on Windows still ate the first char + doubled punctuation.)
-// Vim emulation, however, is a CodeMirror extension and cannot run in the
-// textarea fallback. Opting into Vim therefore explicitly opts into CodeMirror
-// on Windows; PaneContent keys the editor by this setting so the switch happens
-// immediately instead of requiring an app restart (#194).
+// CodeMirror is the default on all desktop platforms. The older textarea
+// implementation is retained behind forcePlain for IME diagnostics; Vim
+// always uses CodeMirror. Keep this decision aligned with platform.ts.
 const usePlainWindowsEditor = shouldUsePlainWindowsEditor(isWindows, settings.vimMode);
 
 // Synchronous counterpart to the debounce below. `saveTab` broadcasts
@@ -308,15 +308,60 @@ const usePlainWindowsEditor = shouldUsePlainWindowsEditor(isWindows, settings.vi
 // save and silently drops the not-yet-synced tail of the edit. While an IME
 // composition is in flight the timer is left armed instead (same reasoning as
 // #186: never commit a half-composed doc).
-function flushContentSync() {
+function flushContentSync(event?: Event) {
+  const detail = (event as CustomEvent<{ tabId?: string; blocked?: boolean }> | undefined)?.detail;
+  if (detail?.tabId && detail.tabId !== renderedTabId) return;
+  if (view?.composing || (usePlainWindowsEditor && plainComposing)) {
+    if (detail) detail.blocked = true;
+    return;
+  }
   if (!contentSyncTimer || !view || view.composing) return;
   clearTimeout(contentSyncTimer);
   contentSyncTimer = null;
-  tabs.setContent(props.tab.id, view.state.doc.toString());
+  tabs.setContent(renderedTabId, view.state.doc.toString());
+}
+
+function scheduleCompositionFinish() {
+  if (compositionFinishTimer) clearTimeout(compositionFinishTimer);
+  compositionFinishTimer = setTimeout(() => {
+    compositionFinishTimer = null;
+    if (view?.composing || plainComposing) {
+      scheduleCompositionFinish();
+      return;
+    }
+    if (view) {
+      syncEditorContentSoon(view.state.doc.toString());
+      flushContentSync();
+    }
+    window.dispatchEvent(new CustomEvent('solomd:composition-finished', { detail: { tabId: renderedTabId } }));
+  }, 25);
+}
+
+/** Unmounting/rebinding terminates native composition. Preserve the visible
+ * draft under its old identity and release operations waiting for that editor. */
+function finishCompositionAtBoundary(tabId: string) {
+  if (!view?.composing && !plainComposing && !compositionFinishTimer) return;
+  if (compositionFinishTimer) clearTimeout(compositionFinishTimer);
+  compositionFinishTimer = null;
+  let draft = view?.state.doc.toString();
+  if (usePlainWindowsEditor) {
+    draft = plainEditor.value?.value ?? plainText.value;
+    const blockEditor = plainBlockEditors.value[plainActiveBlock.value];
+    if (blockEditor && plainCompositionRange) {
+      draft = plainText.value.slice(0, plainCompositionRange.from) + blockEditor.value +
+        (plainCompositionRange.hasTrailingNewline ? '\n' : '') +
+        plainText.value.slice(plainCompositionRange.to);
+    }
+  }
+  if (draft !== undefined) tabs.setContent(tabId, draft);
+  plainComposing = false;
+  plainCompositionRange = null;
+  queueMicrotask(() => window.dispatchEvent(new CustomEvent('solomd:composition-finished', { detail: { tabId } })));
 }
 
 function syncEditorContentSoon(text: string) {
   if (contentSyncTimer) clearTimeout(contentSyncTimer);
+  const tabId = renderedTabId;
   contentSyncTimer = setTimeout(() => {
     contentSyncTimer = null;
     // #186 — read the doc at fire time, not schedule time. A snapshot taken
@@ -325,15 +370,15 @@ function syncEditorContentSoon(text: string) {
     // replace, killing the composition and mapping the caret to offset 0
     // (the reported cursor-jumps-to-top). While composing, re-arm instead:
     // the candidate commit lands as a non-composing update and syncs then.
-    if (view) {
+    if (view && renderedTabId === tabId) {
       if (view.composing) {
         syncEditorContentSoon(text);
         return;
       }
-      tabs.setContent(props.tab.id, view.state.doc.toString());
+      tabs.setContent(tabId, view.state.doc.toString());
       return;
     }
-    tabs.setContent(props.tab.id, text);
+    tabs.setContent(tabId, text);
   }, 350);
 }
 
@@ -622,6 +667,7 @@ async function processPlainLiveRenderedBlocks() {
   if (!plainLiveEnabled.value || !plainLiveHost.value) return;
   await nextTick();
   const hostEl = plainLiveHost.value;
+  wrapScrollableTables(hostEl, t('tableEditor.heading'));
   installSvgImageFallbacks(hostEl);
 
   const plainLinks = hostEl.querySelectorAll('.plain-block__render a');
@@ -1283,11 +1329,12 @@ function syncPlainEditorAfterModeSwitch() {
   });
 }
 
-function handlePlainInput(event: Event) {
+function handlePlainInput(event: Event, recordHistory = true) {
   if (plainLiveEnabled.value) return;
   const el = event.target as HTMLTextAreaElement;
-  if (!plainComposing) recordPlainHistory();
+  if (!plainComposing && recordHistory) recordPlainHistory();
   plainText.value = el.value;
+  if (plainComposing) return;
   tabs.setContent(props.tab.id, el.value);
   lastKnownCaret = el.selectionStart ?? el.value.length;
   emitPlainCursorAndSelection('doc-edit');
@@ -2047,6 +2094,9 @@ function handlePlainBlockInput(index: number, event: Event) {
 }
 
 function handlePlainBlockCompositionStart() {
+  if (!plainLiveEnabled.value) recordPlainHistory();
+  const block = plainLiveEnabled.value ? plainBlocks.value[plainActiveBlock.value] : undefined;
+  plainCompositionRange = block ? { from: block.start, to: block.end, hasTrailingNewline: block.hasTrailingNewline } : null;
   plainComposing = true;
 }
 
@@ -2055,6 +2105,15 @@ function handlePlainBlockCompositionEnd(index: number, event: CompositionEvent) 
   const el = event.target as HTMLTextAreaElement;
   autoSizePlainBlock(el);
   updatePlainBlock(index, el.value, el.selectionStart ?? el.value.length);
+  plainCompositionRange = null;
+  scheduleCompositionFinish();
+}
+
+function handlePlainSourceCompositionEnd(event: CompositionEvent) {
+  plainComposing = false;
+  handlePlainInput(event, false);
+  plainCompositionRange = null;
+  scheduleCompositionFinish();
 }
 
 /**
@@ -2293,6 +2352,8 @@ function richExtensionsFor(tab: Tab) {
     const filePathFn = () => tab.filePath;
     return liveEditExtension([
       liveBlocksExtension({
+        renderCodeBlocks: true,
+        getCodeLabel: () => t('toolbar.copy'),
         getImageRoot: imageRootFn,
         getFilePath: filePathFn,
         // F7 — live tldraw whiteboard theme + writeback.
@@ -2394,6 +2455,17 @@ function isInsideCodeContext(state: EditorState, pos: number): boolean {
   return isInsideCodeContextIn(state, pos, props.tab.language);
 }
 
+function emitCmCursorAndSelection(state: EditorState) {
+  const sel = state.selection.main;
+  const line = state.doc.lineAt(sel.head);
+  emit('cursor', line.number, sel.head - line.from + 1);
+  const text = sel.empty ? '' : state.sliceDoc(sel.from, sel.to);
+  emit('selection', text);
+  tabs.setActiveSelection(
+    text ? { text, tabId: props.tab.id, filePath: props.tab.filePath, from: sel.from, to: sel.to } : null
+  );
+}
+
 /**
  * CodeMirror 扩展装配已抽到 lib/cm-extensions.ts（第三轮抽离，含表格导航
  * 键位的纯决策层 tableNavPlan 与键位表过滤）。这里只负责把组件绑定的
@@ -2449,6 +2521,8 @@ function buildExtensions() {
       spellCheckAttr: spellCheckExt,
     },
     domHandlers: {
+      compositionend: () => { scheduleCompositionFinish(); return false; },
+      compositioncancel: () => { scheduleCompositionFinish(); return false; },
       // S14 — rich-text paste → Markdown (CodeMirror path). The image-paste
       // extension is registered first and only claims image clipboards, so
       // reaching here means no image is present. Wrapper-only HTML falls
@@ -2484,10 +2558,11 @@ function buildExtensions() {
         tabs.setTabScroll(props.tab.id, lineNum, top);
         return false;
       },
-      blur: () => {
+      blur: (_event, cmView) => {
         setTimeout(() => {
           const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
-          if (!activeEl?.closest('.inplace-tbl-toolbar, .selection-bubble-bar, .inplace-formula-bar')) {
+          const inOwnTable = !!activeEl?.closest('.cm-interactive-table') && cmView.dom.contains(activeEl);
+          if (!inOwnTable && !activeEl?.closest('.inplace-tbl-toolbar, .selection-bubble-bar, .inplace-formula-bar')) {
             selectionBubbleState.value.visible = false;
             inPlaceTableState.value.visible = false;
             inPlaceFormulaState.value.visible = false;
@@ -2507,17 +2582,7 @@ function buildExtensions() {
         if (!u.view.composing) syncEditorContentSoon(text);
       }
       if (u.selectionSet) {
-        const head = u.state.selection.main.head;
-        const line = u.state.doc.lineAt(head);
-        emit('cursor', line.number, head - line.from + 1);
-        // v4.3.0 issue #70: emit selection text so StatusBar can show
-        // selected word/char count. Empty string when nothing's selected.
-        const sel = u.state.selection.main;
-        const text = sel.empty ? '' : u.state.sliceDoc(sel.from, sel.to);
-        emit('selection', text);
-        tabs.setActiveSelection(
-          text ? { text, tabId: props.tab.id, filePath: props.tab.filePath, from: sel.from, to: sel.to } : null
-        );
+        emitCmCursorAndSelection(u.state);
       }
       if (u.selectionSet || u.docChanged) {
         updateInPlaceOverlays(u.view);
@@ -2972,6 +3037,7 @@ function restorePlainScroll(saved?: { caret: number; scrollTop: number }) {
 }
 
 onMounted(() => {
+  window.addEventListener('solomd:flush-content-sync', flushContentSync);
   // Registered before the plain-editor early return below — this listener has
   // to exist on ALL three editor paths, and the CodeMirror-only setup that
   // follows is unreachable on Windows. (Putting it further down is what made
@@ -3023,7 +3089,7 @@ onMounted(() => {
   view = new EditorView({
     state: EditorState.create({
       doc: props.tab.content,
-      extensions: buildExtensions(),
+      extensions: [buildExtensions(), editorLayoutExtension],
       selection: { anchor: initialCaret },
     }),
     parent: host.value,
@@ -3055,11 +3121,14 @@ onMounted(() => {
   // by the search pane toggle (PR #50) and the rs-pane-host stack.
   const onRelayout = () => view?.requestMeasure();
   window.addEventListener('solomd:relayout', onRelayout);
-  window.addEventListener('solomd:flush-content-sync', flushContentSync);
   const onEditorDomMouseDown = (ev: MouseEvent) => {
+    // A widget can handle the press and synchronously replace its own DOM
+    // while revealing source. Do not reinterpret that same press as blank
+    // editor space against the new geometry.
+    if (ev.defaultPrevented) return;
     if (ev.button === 0 && !ev.shiftKey && !ev.altKey && !ev.ctrlKey && !ev.metaKey && view) {
       const target = ev.target as HTMLElement | null;
-      if (target && !target.closest('.cm-content') && !target.closest('.cm-gutters') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
+      if (target && view.dom.contains(target) && !target.closest('.cm-content') && !target.closest('.cm-gutters') && !target.closest('button, input, select, textarea, [role="button"], .cm-foldGutter')) {
         const pos = view.posAtCoords({ x: ev.clientX, y: ev.clientY }, false) ?? view.state.doc.length;
         view.dispatch({ selection: { anchor: pos, head: pos }, scrollIntoView: false });
         view.focus();
@@ -3267,6 +3336,8 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 }
 
 onBeforeUnmount(() => {
+  window.removeEventListener('solomd:flush-content-sync', flushContentSync);
+  finishCompositionAtBoundary(renderedTabId);
   cancelCurrentSmoothScroll();
   window.removeEventListener('pointerup', handleGlobalPointerUp);
   window.removeEventListener('keydown', onGlobalKeyDown);
@@ -3293,7 +3364,7 @@ onBeforeUnmount(() => {
     // A Vim-mode toggle remounts the Windows editor. Flush the current
     // CodeMirror document before cancelling the debounce so the last keystroke
     // cannot disappear during that hand-off.
-    if (view && !view.composing) tabs.setContent(props.tab.id, view.state.doc.toString());
+    if (view && !view.composing) tabs.setContent(renderedTabId, view.state.doc.toString());
     clearTimeout(contentSyncTimer);
     contentSyncTimer = null;
   }
@@ -3336,6 +3407,16 @@ onBeforeUnmount(() => {
 watch(
   () => props.tab.id,
   (newId, oldId) => {
+    if (oldId && renderedTabId === oldId) finishCompositionAtBoundary(oldId);
+    const hadPendingEdits = contentSyncTimer !== null;
+    if (contentSyncTimer) clearTimeout(contentSyncTimer);
+    contentSyncTimer = null;
+    if (hadPendingEdits && oldId && renderedTabId === oldId && view) {
+      // Preserve the outgoing document before setState replaces it. A tab
+      // switch must not let a timer read the incoming document under old id.
+      tabs.setContent(oldId, view.state.doc.toString());
+    }
+    renderedTabId = newId;
     selectionBubbleState.value.visible = false;
     inPlaceTableState.value.visible = false;
     inPlaceFormulaState.value.visible = false;
@@ -3390,11 +3471,14 @@ watch(
     view.setState(
       EditorState.create({
         doc: props.tab.content,
-        extensions: buildExtensions(),
+        extensions: [buildExtensions(), editorLayoutExtension],
         selection: { anchor: Math.min(saved?.caret ?? 0, props.tab.content.length) },
       })
     );
     maybeRestoreSession();
+    // setState does not run update listeners. Publish the incoming state
+    // after restoring its session, including a cleared outgoing selection.
+    emitCmCursorAndSelection(view.state);
     if (saved) {
       // #169 — one synchronous assignment is not enough: async widget renders
       // (tables / images / mermaid) and CM's post-setState measure pass can
@@ -4285,6 +4369,7 @@ const cls = computed(() => ({
   // plain block editor both render through this host). Same class name +
   // CSS as the preview so behaviour matches across modes.
   'cb-wrap-on': settings.codeBlockWrap,
+  'cb-numbered-on': settings.codeBlockLineNumbers,
 }));
 
 const editorHostStyle = computed(() => ({
@@ -4342,6 +4427,7 @@ const editorHostStyle = computed(() => ({
           @input="(event) => handlePlainBlockInput(index, event)"
           @compositionstart="handlePlainBlockCompositionStart"
           @compositionend="(event) => handlePlainBlockCompositionEnd(index, event)"
+          @compositioncancel="(event: CompositionEvent) => handlePlainBlockCompositionEnd(index, event)"
           @click="handlePlainTextAreaClick"
           @keyup="emitPlainCursorAndSelection()"
           @mouseup="emitPlainCursorAndSelection()"
@@ -4390,6 +4476,9 @@ const editorHostStyle = computed(() => ({
         @keydown="handlePlainEditorKeydown"
         @paste="handlePlainPaste"
         @input="handlePlainInput"
+        @compositionstart="handlePlainBlockCompositionStart"
+        @compositionend="handlePlainSourceCompositionEnd"
+        @compositioncancel="handlePlainSourceCompositionEnd"
         @scroll="onPlainScroll"
         @mousedown="clearStrayDocumentSelection($event.currentTarget as HTMLElement)"
         @click="handlePlainTextAreaClick"
@@ -4532,7 +4621,7 @@ const editorHostStyle = computed(() => ({
   padding: 32px 44px 120px 44px;
 }
 .cm-host--limit-width :deep(.cm-scroller) {
-  overflow-x: hidden;
+  overflow-x: auto;
 }
 .cm-host--limit-width :deep(.cm-gutters) {
   width: 0 !important;

@@ -1,0 +1,26 @@
+{
+  "evidence_kind": "Structured record of observed native-probe tool stdout before approved cleanup; not a raw output file",
+  "source": "native-capacity-probe.cs",
+  "credential_type": 1,
+  "persist": 3,
+  "short_target_chars": 42,
+  "user_chars": 7,
+  "comment_chars": 14,
+  "blob_bytes": 128,
+  "same_shape_pair_observed_steps": [
+    {"step": "hold-own-A", "write_ok": true, "win32_error": 0},
+    {"step": "create-own-B-with-A-held", "write_ok": false, "win32_error": 8},
+    {"step": "delete-only-own-A", "delete_ok": true, "win32_error": 0},
+    {"step": "retry-exact-same-own-B-after-A-deleted", "write_ok": true, "win32_error": 0}
+  ],
+  "same_long_target_observed_steps": {
+    "target_chars_tested": [100, 110],
+    "create_blob_128": {"write_ok": false, "win32_error": 8},
+    "same_target_create_blob_0": {"write_ok": true, "win32_error": 0},
+    "same_target_update_blob_128": {"write_ok": false, "win32_error": 8}
+  },
+  "all_probe_targets_fresh_random_and_cleanup_verified_missing": true,
+  "credential_enumeration": false,
+  "historical_or_user_credential_mutation": false,
+  "interpretation": "Available secure-storage capacity affects otherwise identical writes; target-length-only validation is not the cause. Exact internal quota and occupancy were not enumerated."
+}

@@ -19,6 +19,7 @@ import { useFiles } from '../composables/useFiles';
 import PreviewSearch from './PreviewSearch.vue';
 import InPlaceTableToolbar from './InPlaceTableToolbar.vue';
 import { attachCodeCopyButtons as attachSharedCodeCopyButtons } from '../lib/code-copy';
+import { wrapScrollableTables } from '../lib/markdown-layout';
 import {
   findTableSpan,
   findTableAtCursor,
@@ -433,6 +434,7 @@ watch(html, async () => {
   // A re-render (incl. our own math write-back) invalidates popup geometry.
   mathEdit.value = null;
   await nextTick();
+  if (host.value) wrapScrollableTables(host.value, t('tableEditor.heading'));
   processPlantuml();
   await processMermaid();
   await processWhiteboards();
@@ -450,6 +452,7 @@ watch(
     if (!host.value) return;
     host.value.innerHTML = html.value;
     await nextTick();
+    wrapScrollableTables(host.value, t('tableEditor.heading'));
     processPlantuml();
     await processMermaid();
     await processWhiteboards();

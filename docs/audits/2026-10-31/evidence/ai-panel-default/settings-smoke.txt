@@ -1,0 +1,17 @@
+✓ Lockfile passes supply-chain policies (verified 29d ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 770ms using pnpm v11.9.0
+{
+  "checks": [
+    "fresh default is closed",
+    "old open default closes once without altering other right panes",
+    "explicit reopen persists across startup",
+    "explicit close persists across startup",
+    "legacy storage migration no longer force-opens the panel",
+    "post-migration explicit open preference is respected"
+  ],
+  "passed": 6,
+  "failed": 0
+}

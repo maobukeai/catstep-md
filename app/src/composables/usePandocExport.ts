@@ -141,7 +141,7 @@ export function usePandocExport() {
     }
   }
 
-  function activeContext(): { content: string; baseName: string } | null {
+  function activeContext(): { content: string; baseName: string; sourceDir?: string } | null {
     const tab = tabs.activeTab;
     if (!tab) {
       toasts.error(t('toast.noActiveDoc'));
@@ -150,9 +150,16 @@ export function usePandocExport() {
     const name = (tab as { fileName?: string; title?: string }).fileName
       ?? (tab as { title?: string }).title
       ?? 'Untitled';
+    // Preserve Windows verbatim/UNC prefixes; on Unix a backslash can be
+    // part of the filename, so only Windows paths treat it as a separator.
+    const path = tab.filePath;
+    const windowsPath = !!path && /^(?:[a-z]:[\\/]|\\\\)/i.test(path);
+    const virtualPath = !!path && /^[a-z][a-z0-9+.-]*:/i.test(path) && !/^[a-z]:[\\/]/i.test(path);
+    const slash = path ? Math.max(path.lastIndexOf('/'), windowsPath ? path.lastIndexOf('\\') : -1) : -1;
     return {
       content: tab.content ?? '',
       baseName: name.replace(/\.[^.]+$/, ''),
+      sourceDir: path && !virtualPath && slash >= 0 ? path.slice(0, slash + 1) : undefined,
     };
   }
 
@@ -216,7 +223,7 @@ export function usePandocExport() {
       // dialog. Default to .out so they're forced to think about it.
       ext = '*';
       filterName = 'Pandoc output';
-      if (opts.template) extraArgs.push(`--template=${opts.template}`);
+      // The structured template field is resolved against source_dir by Rust.
     } else {
       const spec = FORMATS[format];
       ext = spec.ext;
@@ -247,6 +254,8 @@ export function usePandocExport() {
       await invoke('pandoc_export', {
         args: {
           input_markdown: content,
+          source_dir: ctx.sourceDir ?? null,
+          resource_paths: ctx.sourceDir ? [ctx.sourceDir] : [],
           format,
           output_path: outputPath,
           bibliography: bibliography ?? null,

@@ -33,7 +33,8 @@
 //! store. Tool results are untrusted content and flow through the same
 //! history cap (`cap_for_history`) as built-in tool results.
 
-use std::collections::HashMap;
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, HashMap};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -83,7 +84,10 @@ pub struct McpServerConfig {
 
 impl McpServerConfig {
     fn is_http(&self) -> bool {
-        self.url.as_deref().map(|u| !u.trim().is_empty()).unwrap_or(false)
+        self.url
+            .as_deref()
+            .map(|u| !u.trim().is_empty())
+            .unwrap_or(false)
     }
 }
 
@@ -109,34 +113,95 @@ pub struct McpToolDef {
 /// OpenAI caps tool names at 64 chars of `[a-zA-Z0-9_-]`; Anthropic allows
 /// more but we stay inside the stricter bound. Everything outside the set
 /// (dots, slashes, CJK — server tool names are arbitrary) collapses to `_`.
+#[allow(dead_code)] // Public naming helper, also used by standalone clients/tests.
 pub fn sanitize_tool_name(server_id: &str, tool_name: &str) -> String {
+    model_tool_name(server_id, tool_name, "")
+}
+
+fn model_tool_name(server_id: &str, tool_name: &str, session_key: &str) -> String {
     let raw = format!("mcp_{server_id}_{tool_name}");
-    let sanitized: String = raw
+    let prefix: String = raw
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(43)
         .collect();
-    sanitized.chars().take(64).collect()
+    // Include boundaries: (a_b,c) and (a,b_c) must not alias either.
+    let digest = Sha256::digest(
+        serde_json::to_vec(&(server_id, tool_name, session_key)).expect("string tuple"),
+    );
+    format!("{prefix}_{}", &hex::encode(digest)[..20])
+}
+
+fn session_key(config: &McpServerConfig) -> String {
+    let env: BTreeMap<_, _> = config.env.iter().collect();
+    let headers: BTreeMap<_, _> = config.headers.iter().collect();
+    let bytes = serde_json::to_vec(&(
+        &config.id,
+        &config.command,
+        &config.args,
+        env,
+        &config.url,
+        headers,
+        config.timeout_secs,
+    ))
+    .expect("MCP config");
+    hex::encode(Sha256::digest(bytes))
+}
+
+fn configured_timeout(config: &McpServerConfig) -> Duration {
+    Duration::from_secs(
+        config
+            .timeout_secs
+            .unwrap_or(DEFAULT_CALL_TIMEOUT_SECS)
+            .max(1),
+    )
+}
+
+async fn bounded<T>(
+    timeout: Duration,
+    cancel: Option<&AtomicBool>,
+    future: impl std::future::Future<Output = Result<T, String>>,
+) -> Result<T, String> {
+    let cancelled = async {
+        loop {
+            if cancel.is_some_and(|flag| flag.load(Ordering::SeqCst)) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    };
+    tokio::select! {
+        biased;
+        _ = cancelled => Err("cancelled".into()),
+        result = tokio::time::timeout(timeout, future) => result.map_err(|_| "MCP operation timed out".to_string())?,
+    }
 }
 
 pub fn is_mcp_name(name: &str) -> bool {
     name.starts_with("mcp_")
 }
 
-/// server config id → per-call timeout. Filled when tools are listed.
+/// Connection configuration digest → per-call timeout. Filled at discovery.
 static TIMEOUTS: Lazy<AsyncMutex<HashMap<String, Duration>>> =
     Lazy::new(|| AsyncMutex::new(HashMap::new()));
 
-/// model-facing name → (server config id, original tool name). Filled when
+/// model-facing name → (connection configuration digest, original tool name). Filled when
 /// tools are listed (once per run) so dispatch needs no parsing of the
 /// sanitized name — sanitization is lossy and a parsed id could be wrong.
 static TOOL_ROUTES: Lazy<AsyncMutex<HashMap<String, (String, String)>>> =
     Lazy::new(|| AsyncMutex::new(HashMap::new()));
 
 async fn register_route(model_name: &str, server_id: &str, tool_name: &str) {
-    TOOL_ROUTES
-        .lock()
-        .await
-        .insert(model_name.to_string(), (server_id.to_string(), tool_name.to_string()));
+    TOOL_ROUTES.lock().await.insert(
+        model_name.to_string(),
+        (server_id.to_string(), tool_name.to_string()),
+    );
 }
 
 async fn lookup_route(model_name: &str) -> Option<(String, String)> {
@@ -147,7 +212,20 @@ async fn lookup_route(model_name: &str) -> Option<(String, String)> {
 // Session — one stdio MCP server process
 // ---------------------------------------------------------------------------
 
-type PendingMap = Arc<AsyncMutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>;
+type PendingMap = Arc<std::sync::Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>;
+
+// Dropping a timed out/cancelled request also removes its pending response slot.
+struct PendingRequest {
+    map: PendingMap,
+    id: u64,
+}
+impl Drop for PendingRequest {
+    fn drop(&mut self) {
+        if let Ok(mut map) = self.map.lock() {
+            map.remove(&self.id);
+        }
+    }
+}
 
 struct McpSession {
     child: tokio::process::Child,
@@ -187,7 +265,7 @@ impl McpSession {
             .take()
             .ok_or_else(|| "MCP server stdout unavailable".to_string())?;
 
-        let pending: PendingMap = Arc::new(AsyncMutex::new(HashMap::new()));
+        let pending: PendingMap = Arc::new(std::sync::Mutex::new(HashMap::new()));
         spawn_reader(stdout, Arc::clone(&pending));
 
         Ok(Self {
@@ -222,7 +300,11 @@ impl McpSession {
     async fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed) + 1;
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().await.insert(id, tx);
+        self.pending.lock().expect("MCP pending map").insert(id, tx);
+        let _pending = PendingRequest {
+            map: Arc::clone(&self.pending),
+            id,
+        };
         let msg = serde_json::json!({
             "jsonrpc": "2.0",
             "id": id,
@@ -274,18 +356,11 @@ impl McpSession {
 
     async fn list_tools(&self) -> Result<Vec<McpToolDef>, String> {
         self.ensure_initialized().await?;
-        let result = self
-            .request("tools/list", serde_json::json!({}))
-            .await?;
+        let result = self.request("tools/list", serde_json::json!({})).await?;
         parse_tools_list(&result)
     }
 
-    async fn call_tool(
-        &self,
-        tool: &str,
-        args: Value,
-        timeout: Duration,
-    ) -> Result<Value, String> {
+    async fn call_tool(&self, tool: &str, args: Value, timeout: Duration) -> Result<Value, String> {
         self.ensure_initialized().await?;
         let fut = self.request(
             "tools/call",
@@ -324,7 +399,7 @@ fn spawn_reader(stdout: tokio::process::ChildStdout, pending: PendingMap) {
             let Some(id) = v.get("id").and_then(|x| x.as_u64()) else {
                 continue; // notification
             };
-            if let Some(tx) = pending.lock().await.remove(&id) {
+            if let Some(tx) = pending.lock().expect("MCP pending map").remove(&id) {
                 if let Some(err) = v.get("error") {
                     let msg = err
                         .get("message")
@@ -338,7 +413,7 @@ fn spawn_reader(stdout: tokio::process::ChildStdout, pending: PendingMap) {
             }
         }
         // EOF — the server died; fail everything in flight.
-        let mut map = pending.lock().await;
+        let mut map = pending.lock().expect("MCP pending map");
         for (_, tx) in map.drain() {
             let _ = tx.send(Err("MCP server process exited".to_string()));
         }
@@ -368,9 +443,10 @@ fn parse_tools_list(result: &Value) -> Result<Vec<McpToolDef>, String> {
                 .and_then(|d| d.as_str())
                 .unwrap_or("")
                 .to_string(),
-            input_schema: t.get("inputSchema").cloned().unwrap_or_else(|| {
-                serde_json::json!({"type": "object", "properties": {}})
-            }),
+            input_schema: t
+                .get("inputSchema")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({"type": "object", "properties": {}})),
         });
     }
     Ok(out)
@@ -381,7 +457,11 @@ fn parse_tools_list(result: &Value) -> Result<Vec<McpToolDef>, String> {
 /// (and gets the `is_error` trace flag). Text content parts are joined;
 /// non-text parts are noted as placeholders.
 fn tool_result_to_text(result: &Value) -> Result<Value, String> {
-    if result.get("isError").and_then(|b| b.as_bool()).unwrap_or(false) {
+    if result
+        .get("isError")
+        .and_then(|b| b.as_bool())
+        .unwrap_or(false)
+    {
         let msg = result
             .get("content")
             .and_then(|c| c.as_array())
@@ -472,7 +552,7 @@ impl HttpMcpSession {
         for (k, v) in &self.headers {
             req = req.header(k, v);
         }
-        let resp = req
+        let mut resp = req
             .send()
             .await
             .map_err(|e| format!("MCP HTTP request failed ({}): {e}", self.endpoint))?;
@@ -501,12 +581,24 @@ impl HttpMcpSession {
             .unwrap_or("")
             .to_ascii_lowercase();
         if content_type.contains("text/event-stream") {
-            let body = resp.text().await.unwrap_or_default();
             let id = msg.get("id").and_then(|x| x.as_u64()).unwrap_or(0);
-            match sse_response_for(&body, id) {
-                Some(r) => r.map(Some),
-                None => Err("MCP HTTP SSE stream ended without a matching response".into()),
+            let mut body = Vec::new();
+            while let Some(chunk) = resp
+                .chunk()
+                .await
+                .map_err(|e| format!("MCP SSE body: {e}"))?
+            {
+                body.extend_from_slice(&chunk);
+                if body.len() > 8 * 1024 * 1024 {
+                    return Err("MCP SSE response too large".into());
+                }
+                if let Some(result) = sse_response_for(&String::from_utf8_lossy(&body), id) {
+                    return result.map(|result| {
+                        Some(serde_json::json!({"jsonrpc":"2.0", "id":id, "result":result}))
+                    });
+                }
             }
+            Err("MCP HTTP SSE stream ended without a matching response".into())
         } else {
             let body = resp.text().await.unwrap_or_default();
             let v: Value = serde_json::from_str(&body)
@@ -670,7 +762,9 @@ impl McpConn {
 }
 
 // ---------------------------------------------------------------------------
-// Registry — connections keyed by server config id
+// Registry — connections keyed by complete configuration digest. Changed
+// credentials/commands get a fresh connection; older request bindings retain
+// their own connection until idle cleanup instead of being silently retargeted.
 // ---------------------------------------------------------------------------
 
 type RegistryEntry = (Arc<AsyncMutex<McpConn>>, std::time::Instant);
@@ -696,42 +790,52 @@ fn start_idle_reaper() {
         tick.tick().await; // first tick fires immediately — nothing to reap yet
         loop {
             tick.tick().await;
-            let mut reg = REGISTRY.lock().await;
-            let expired: Vec<String> = reg
+            let expired: Vec<String> = REGISTRY
+                .lock()
+                .await
                 .iter()
                 .filter(|(_, (_, used))| used.elapsed() > IDLE_TTL)
                 .map(|(id, _)| id.clone())
                 .collect();
             for id in expired {
-                if let Some((conn, _)) = reg.remove(&id) {
-                    conn.lock().await.kill().await;
+                let idle = {
+                    let reg = REGISTRY.lock().await;
+                    reg.get(&id).is_some_and(|(conn, used)| {
+                        used.elapsed() > IDLE_TTL && conn.try_lock().is_ok()
+                    })
+                };
+                if idle {
+                    drop_session(&id).await;
                 }
-                TOOL_ROUTES.lock().await.retain(|_, (sid, _)| sid != &id);
-                TIMEOUTS.lock().await.remove(&id);
             }
         }
     });
 }
 
-async fn get_or_spawn_session(config: &McpServerConfig) -> Result<Arc<AsyncMutex<McpConn>>, String> {
+async fn get_or_spawn_session(
+    config: &McpServerConfig,
+) -> Result<Arc<AsyncMutex<McpConn>>, String> {
     start_idle_reaper();
+    let key = session_key(config);
     let mut reg = REGISTRY.lock().await;
-    if let Some((existing, used)) = reg.get_mut(&config.id) {
+    if let Some((existing, used)) = reg.get_mut(&key) {
         // Reuse unless the process died underneath us (HTTP connections
         // are always considered alive — a dead server errors on call and
         // is dropped there).
-        let dead = {
-            let mut conn = existing.lock().await;
-            match &mut *conn {
+        // A busy connection is in use. Do not hold the global registry lock
+        // while waiting for it: unrelated servers must remain responsive.
+        let dead = existing
+            .try_lock()
+            .map(|mut conn| match &mut *conn {
                 McpConn::Stdio(s) => !s.is_alive(),
                 McpConn::Http(_) => false,
-            }
-        };
+            })
+            .unwrap_or(false);
         if !dead {
             *used = std::time::Instant::now();
             return Ok(Arc::clone(existing));
         }
-        reg.remove(&config.id);
+        reg.remove(&key);
     }
     let conn = if config.is_http() {
         let url = config.url.as_deref().unwrap_or_default();
@@ -745,12 +849,23 @@ async fn get_or_spawn_session(config: &McpServerConfig) -> Result<Arc<AsyncMutex
         ))
     };
     let conn = Arc::new(AsyncMutex::new(conn));
-    reg.insert(config.id.clone(), (Arc::clone(&conn), std::time::Instant::now()));
+    reg.insert(key, (Arc::clone(&conn), std::time::Instant::now()));
     Ok(conn)
 }
 
 async fn drop_session(server_id: &str) {
-    REGISTRY.lock().await.remove(server_id);
+    let removed = REGISTRY.lock().await.remove(server_id);
+    TOOL_ROUTES
+        .lock()
+        .await
+        .retain(|_, (sid, _)| sid != server_id);
+    TIMEOUTS.lock().await.remove(server_id);
+    if let Some((conn, _)) = removed {
+        let _ = tokio::time::timeout(Duration::from_secs(2), async {
+            conn.lock().await.kill().await
+        })
+        .await;
+    }
 }
 
 fn touch_session(server_id: &str) {
@@ -771,9 +886,17 @@ fn touch_session(server_id: &str) {
 /// hook for an app-exit handler.
 #[allow(dead_code)]
 pub async fn shutdown_all() {
-    let mut reg = REGISTRY.lock().await;
-    for (_, (conn, _)) in reg.drain() {
-        conn.lock().await.kill().await;
+    let entries: Vec<_> = REGISTRY
+        .lock()
+        .await
+        .drain()
+        .map(|(_, entry)| entry)
+        .collect();
+    for (conn, _) in entries {
+        let _ = tokio::time::timeout(Duration::from_secs(2), async {
+            conn.lock().await.kill().await
+        })
+        .await;
     }
     TOOL_ROUTES.lock().await.clear();
     TIMEOUTS.lock().await.clear();
@@ -781,28 +904,45 @@ pub async fn shutdown_all() {
 
 /// List a server's tools (spawning + handshaking if needed), registering the
 /// model-facing route for each. Called by the tool loop once per run.
-pub async fn list_server_tools(config: &McpServerConfig) -> Result<Vec<(String, McpToolDef)>, String> {
-    let conn = get_or_spawn_session(config).await?;
-    touch_session(&config.id);
-    let listed = {
+pub async fn list_server_tools(
+    config: &McpServerConfig,
+) -> Result<Vec<(String, McpToolDef)>, String> {
+    list_server_tools_with_cancel(config, None).await
+}
+
+pub async fn list_server_tools_with_cancel(
+    config: &McpServerConfig,
+    cancel: Option<&AtomicBool>,
+) -> Result<Vec<(String, McpToolDef)>, String> {
+    let timeout = configured_timeout(config);
+    let key = session_key(config);
+    let acquired = AtomicBool::new(false);
+    let listed = bounded(timeout, cancel, async {
+        let conn = get_or_spawn_session(config).await?;
+        touch_session(&key);
         let mut c = conn.lock().await;
+        acquired.store(true, Ordering::SeqCst);
         c.list_tools().await
+    })
+    .await;
+    let listed = match listed {
+        Ok(listed) => listed,
+        Err(e) => {
+            if acquired.load(Ordering::SeqCst) {
+                drop_session(&key).await;
+            }
+            return Err(e);
+        }
     };
-    if let Err(e) = listed {
-        // A broken/handshake-failing server poisons the session — drop it so
-        // the next attempt starts from a fresh process.
-        drop_session(&config.id).await;
-        return Err(e);
-    }
-    let listed = listed.unwrap();
-    TIMEOUTS.lock().await.insert(
-        config.id.clone(),
-        Duration::from_secs(config.timeout_secs.unwrap_or(DEFAULT_CALL_TIMEOUT_SECS)),
-    );
+    TIMEOUTS.lock().await.insert(key.clone(), timeout);
     let mut out = Vec::with_capacity(listed.len());
+    let mut names = std::collections::HashSet::new();
     for def in listed {
-        let model_name = sanitize_tool_name(&config.id, &def.name);
-        register_route(&model_name, &config.id, &def.name).await;
+        let model_name = model_tool_name(&config.id, &def.name, &key);
+        if !names.insert(model_name.clone()) {
+            return Err("MCP server returned duplicate tool names".into());
+        }
+        register_route(&model_name, &key, &def.name).await;
         out.push((model_name, def));
     }
     Ok(out)
@@ -810,7 +950,16 @@ pub async fn list_server_tools(config: &McpServerConfig) -> Result<Vec<(String, 
 
 /// Route a model tool call to its server. `model_name` must have been
 /// registered by `list_server_tools` earlier in the same run.
+#[allow(dead_code)] // Non-cancellable API retained for integrations and tests.
 pub async fn dispatch(model_name: &str, args: Value) -> Result<Value, String> {
+    dispatch_with_cancel(model_name, args, None).await
+}
+
+pub async fn dispatch_with_cancel(
+    model_name: &str,
+    args: Value,
+    cancel: Option<&AtomicBool>,
+) -> Result<Value, String> {
     let Some((server_id, tool)) = lookup_route(model_name).await else {
         return Err(format!("unknown MCP tool `{model_name}`"));
     };
@@ -828,16 +977,23 @@ pub async fn dispatch(model_name: &str, args: Value) -> Result<Value, String> {
         return Err(format!("MCP server `{server_id}` is not connected"));
     };
     touch_session(&server_id);
-    let call = {
+    let acquired = AtomicBool::new(false);
+    let call = bounded(timeout, cancel, async {
         let mut c = conn.lock().await;
+        acquired.store(true, Ordering::SeqCst);
         c.call_tool(&tool, args, timeout).await
-    };
-    if call.is_err() {
+    })
+    .await;
+    if let Err(err) = &call {
         // Process-level failures (write failed / dropped response) poison the
         // session; drop it so the next call respawns. Tool-level errors
         // (isError=true) keep the session.
-        let err = call.clone().err().unwrap();
-        if err.contains("process exited") || err.contains("write failed") {
+        if acquired.load(Ordering::SeqCst)
+            && (err.contains("process exited")
+                || err.contains("write failed")
+                || err.contains("timed out")
+                || err == "cancelled")
+        {
             drop_session(&server_id).await;
         }
     }
@@ -872,18 +1028,30 @@ mod tests {
 
     #[test]
     fn sanitize_produces_openai_safe_names() {
-        // Allowed charset passes through with the mcp_ prefix.
-        assert_eq!(
+        let names = [
             sanitize_tool_name("fetch", "get_page"),
-            "mcp_fetch_get_page"
-        );
-        // Dots, slashes, colons and non-ASCII collapse to underscores.
-        assert_eq!(
             sanitize_tool_name("my.server", "docs/read"),
-            "mcp_my_server_docs_read"
+            sanitize_tool_name("笔记", "搜索"),
+        ];
+        for name in names {
+            assert!(name.starts_with("mcp_"));
+            assert!(name.len() <= 64);
+            assert!(name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'));
+        }
+        assert_ne!(
+            sanitize_tool_name("a", "read.note"),
+            sanitize_tool_name("a", "read_note")
         );
-        // 9 chars (mcp_ + 2 + _ + 2), every non-ASCII one becomes an underscore.
-        assert_eq!(sanitize_tool_name("笔记", "搜索"), "mcp______");
+        assert_ne!(
+            sanitize_tool_name("a_b", "c"),
+            sanitize_tool_name("a", "b_c")
+        );
+        assert_ne!(
+            sanitize_tool_name("a", &"x".repeat(100)),
+            sanitize_tool_name("a", &format!("{}y", "x".repeat(100)))
+        );
         // OpenAI's 64-char cap is enforced.
         let long = sanitize_tool_name(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -906,7 +1074,10 @@ mod tests {
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0].name, "search");
         assert_eq!(tools[0].description, "Search the web");
-        assert_eq!(tools[1].input_schema["type"], "object", "missing schema defaults to empty object");
+        assert_eq!(
+            tools[1].input_schema["type"], "object",
+            "missing schema defaults to empty object"
+        );
 
         assert!(parse_tools_list(&serde_json::json!({})).is_err());
     }
@@ -951,7 +1122,9 @@ mod tests {
 
 ",
         );
-        let out = sse_response_for(body, 7).expect("found").expect("ok result");
+        let out = sse_response_for(body, 7)
+            .expect("found")
+            .expect("ok result");
         assert_eq!(out["ok"], serde_json::json!(true));
         // No matching id -> None.
         assert!(sse_response_for(body, 9).is_none());

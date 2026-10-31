@@ -1244,10 +1244,9 @@ pub fn github_pull_inner(folder: String, token: String) -> Result<PullResult, St
     // must not be downgraded to "no encryption".
     let cfg = load_config(&workspace)?.unwrap_or_default();
     let path = git_dir(&workspace)?;
-    // PR #24 file-watcher integration: a successful pull legitimately
-    // rewrites many files. Open a 30s rewrite window so the watcher
-    // doesn't pop the "external change" dialog for every file.
-    super::watcher::mark_workspace_rewrite_window(&workspace);
+    // Keep file notifications active throughout fetch/checkout. The frontend
+    // reconciles clean/dirty buffers both on these events and after pull;
+    // a fixed suppression window could hide unrelated external edits.
     if cfg.encrypted {
         // First-pull bootstrap: when the user has linked an encrypted
         // remote but not yet entered the passphrase on this device,

@@ -54,6 +54,8 @@ import type { RecoverySnapshot } from '../lib/recovery';
 import { isAuxLabel } from '../stores/windows';
 import { useTabsStore } from '../stores/tabs';
 import { useWorkspaceStore } from '../stores/workspace';
+import { waitForNoteEditors } from '../lib/editor-flush';
+import { queueNoteWrite } from '../lib/note-write-queue';
 
 /** Snapshot cadence — "独立 15s debounce" from the F3 plan. */
 const BEAT_MS = 15_000;
@@ -90,7 +92,9 @@ export interface RecoveryAvailableDetail {
 /** notePath → the content+root of the snapshot we last wrote. Module-level
  *  so `purgeRecoverySnapshot` (called from useFiles, outside any composable
  *  instance) shares the same bookkeeping. One entry per webview window. */
-const lastWritten = new Map<string, { content: string; root: string }>();
+// An entry is also the identity token for in-flight/queued writes. Purging
+// removes it synchronously, invalidating every older task before deleting disk.
+const lastWritten = new Map<string, { content?: string; root: string }>();
 
 /** Is `filePath` a real filesystem path (not Android SAF / content://)? */
 function isFsPath(p: string | null | undefined): p is string {
@@ -122,7 +126,10 @@ export async function purgeRecoverySnapshot(notePath: string | undefined): Promi
   const root = recorded?.root ?? useWorkspaceStore().currentFolder;
   if (!root || !isFsPath(root) || !isFsPath(notePath)) return;
   try {
-    await deletePath(snapshotFilePath(root, notePath));
+    const snapshotPath = snapshotFilePath(root, notePath);
+    // An already-started native write cannot be cancelled. Delete after it,
+    // so its late completion cannot recreate a discarded recovery copy.
+    await queueNoteWrite(snapshotPath, () => deletePath(snapshotPath));
   } catch {
     // Idempotent on the Rust side; anything else is not worth surfacing.
   }
@@ -208,36 +215,65 @@ export function useRecovery() {
 
   /** The 15s beat: snapshot every open dirty tab inside the workspace. */
   async function writeSnapshots(): Promise<void> {
+    await waitForNoteEditors();
+    if (!started) return;
     const root = fsRoot();
     if (!root) return;
     // Editors flush doc→tab.content synchronously on this event — the same
     // prelude `saveTab` uses (#222) — so the beat reads the live document
     // instead of a copy lagging up to 350ms behind the editor.
-    window.dispatchEvent(new Event('solomd:flush-content-sync'));
     for (const tab of tabs.tabs) {
       if (!isFsPath(tab.filePath)) continue;
       if (tab.content === tab.savedContent) {
-        lastWritten.delete(tab.filePath);
+        if (lastWritten.has(tab.filePath)) await purgeRecoverySnapshot(tab.filePath);
         continue; // clean — nothing to protect
       }
       if (!pathInside(tab.filePath, root)) continue;
-      const prev = lastWritten.get(tab.filePath);
-      if (prev && prev.content === tab.content) continue; // unchanged since last beat
-      const snap: RecoverySnapshot = {
-        v: RECOVERY_SNAPSHOT_VERSION,
-        notePath: tab.filePath,
-        name: tab.fileName,
-        content: tab.content,
-        savedAt: Date.now(),
-      };
+      const notePath = tab.filePath;
+      let state = lastWritten.get(notePath);
+      if (state && state.root !== root) {
+        await purgeRecoverySnapshot(notePath);
+        if (fsRoot() !== root) return;
+        state = lastWritten.get(notePath);
+      }
+      if (state?.root !== root) {
+        state = { root };
+        lastWritten.set(notePath, state);
+      }
+      if (state.content === tab.content) continue;
+      const token = state;
+      const snapshotPath = snapshotFilePath(root, notePath);
       try {
-        // App-owned UTF-8 JSON via the writeNote facade (atomic write +
-        // Rust-side self-write marking); `ensureDir` creates
-        // <ws>/.solomd/recovery on first use.
-        await writeNote(snapshotFilePath(root, tab.filePath), encodeSnapshot(snap), {
-          ensureDir: true,
+        await queueNoteWrite(snapshotPath, async () => {
+          await waitForNoteEditors(tab.id);
+          const current = tabs.tabs.find((item) => item.id === tab.id);
+          if (!started || lastWritten.get(notePath) !== token) return;
+          if (!current || current.filePath !== notePath || current.content === current.savedContent) {
+            lastWritten.delete(notePath);
+            await deletePath(snapshotPath);
+            return;
+          }
+          // Capture at execution time, after preceding beats have finished.
+          // Queued duplicate beats coalesce; newer text gets its own snapshot.
+          if (token.content === current.content) return;
+          const snap: RecoverySnapshot = {
+            v: RECOVERY_SNAPSHOT_VERSION,
+            notePath,
+            name: current.fileName,
+            content: current.content,
+            savedAt: Date.now(),
+          };
+          await writeNote(snapshotPath, encodeSnapshot(snap), { ensureDir: true });
+          const after = tabs.tabs.find((item) => item.id === tab.id);
+          if (lastWritten.get(notePath) !== token || !after || after.filePath !== notePath ||
+              after.content === after.savedContent) {
+            if (lastWritten.get(notePath) === token) lastWritten.delete(notePath);
+            await deletePath(snapshotPath);
+            return;
+          }
+          // A keystroke while writeNote was pending is not part of these bytes.
+          token.content = snap.content;
         });
-        lastWritten.set(tab.filePath, { content: tab.content, root });
       } catch (e) {
         console.warn('recovery snapshot write failed', e);
       }
@@ -313,7 +349,10 @@ export function useRecovery() {
     // dispatch this (non-SAF paths; SAF tabs are never snapshotted).
     onSaved = (e: Event) => {
       const filePath = (e as CustomEvent).detail?.filePath;
-      if (typeof filePath === 'string') void purgeRecoverySnapshot(filePath);
+      if (typeof filePath === 'string' && !tabs.tabs.some((tab) =>
+        tab.filePath === filePath && tab.content !== tab.savedContent)) {
+        void purgeRecoverySnapshot(filePath);
+      }
     };
     window.addEventListener('solomd:saved', onSaved as EventListener);
 

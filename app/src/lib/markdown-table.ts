@@ -16,6 +16,8 @@
  * way to answer that.
  */
 
+import { markdownCodeLines, parseMarkdownBlocks } from './markdown-structure';
+
 export type TableAlign = 'left' | 'center' | 'right' | null;
 
 export interface TableModel {
@@ -34,12 +36,6 @@ export interface TableSpan {
 /** Strip optional Markdown blockquote prefix (`> ` or `>> `). */
 export function stripBlockquotePrefix(line: string): string {
   return line.replace(/^\s*(?:>\s*)+/, '');
-}
-
-/** A line that could be part of a pipe table body. */
-function looksLikeRow(line: string): boolean {
-  const t = stripBlockquotePrefix(line).trim();
-  return t.includes('|') && t !== '';
 }
 
 /** `|---|:--:|` and friends. */
@@ -100,40 +96,27 @@ function alignOf(cell: string): TableAlign {
  */
 export function findTableSpan(lines: string[], line0: number): TableSpan | null {
   if (line0 < 0 || line0 >= lines.length) return null;
-  if (!looksLikeRow(lines[line0])) return null;
-
-  let start = line0;
-  while (start > 0 && looksLikeRow(lines[start - 1])) start--;
-  let end = line0;
-  while (end < lines.length - 1 && looksLikeRow(lines[end + 1])) end++;
-
-  // The second line of the block must be the delimiter row; anything else is
-  // a run of lines that merely contain pipes.
-  if (end - start < 1 || !isDelimiterRow(lines[start + 1])) return null;
-  return { startLine: start, endLine: end };
+  return findMarkdownTables(lines.join('\n')).find(
+    (span) => span.startLine <= line0 && span.endLine >= line0,
+  ) ?? null;
 }
 
 /** Parse a whole table block (header + delimiter + body). */
 export function parseTable(text: string): TableModel | null {
-  const rawLines = text.split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l.trim() === ''));
-  if (rawLines.length < 2) return null;
-  // Detect common prefix like '> '
-  const firstPrefixMatch = rawLines[0].match(/^(\s*(?:>\s*)+)/);
-  const commonPrefix = firstPrefixMatch ? firstPrefixMatch[1] : '';
-  const hasCommonPrefix = commonPrefix !== '' && rawLines.every((l) => l.startsWith(commonPrefix));
-  const lines = hasCommonPrefix ? rawLines.map((l) => l.slice(commonPrefix.length)) : rawLines;
-
-  if (lines.length < 2 || !isDelimiterRow(lines[1])) return null;
+  const span = findMarkdownTables(text).find((table) => table.startLine === 0);
+  if (!span) return null;
+  if (/^\s*(?:[-+*]|\d+[.)])\s+/.test(stripBlockquotePrefix(text.split('\n')[0]))) return null;
+  const rawLines = normalizeTableDelimiters(text).split('\n').slice(0, span.endLine + 1);
+  // Keep the container on every structural edit, including empty/new rows.
+  const commonPrefix = rawLines[0].match(/^(\s*(?:>\s*)*)/)?.[0] ?? '';
+  const hasCommonPrefix = commonPrefix !== '' && rawLines.every((line) => line.startsWith(commonPrefix));
+  const lines = hasCommonPrefix ? rawLines.map((line) => line.slice(commonPrefix.length)) : rawLines;
   const header = splitRow(lines[0]);
   const delim = splitRow(lines[1]);
-  const width = Math.max(header.length, delim.length);
+  const width = header.length;
   const aligns: TableAlign[] = [];
   for (let i = 0; i < width; i++) aligns.push(alignOf(delim[i] ?? ''));
-  const bodyLines: string[] = [];
-  for (let i = 2; i < lines.length; i++) {
-    if (!looksLikeRow(lines[i])) break;
-    bodyLines.push(lines[i]);
-  }
+  const bodyLines = lines.slice(2);
   const rows = bodyLines.map((l) => {
     const cells = splitRow(l);
     // Ragged rows are common in hand-written tables; pad rather than reject so
@@ -247,7 +230,7 @@ export function insertColumn(t: TableModel, at: number): TableModel {
     row.splice(idx, 0, '');
     return row;
   });
-  return { header, aligns, rows };
+  return { ...t, header, aligns, rows };
 }
 
 /** Deleting the last column would leave a table with no columns, which is not
@@ -263,7 +246,7 @@ export function deleteColumn(t: TableModel, at: number): TableModel {
     row.splice(at, 1);
     return row;
   });
-  return { header, aligns, rows };
+  return { ...t, header, aligns, rows };
 }
 
 export function moveColumn(t: TableModel, from: number, to: number): TableModel {
@@ -276,6 +259,7 @@ export function moveColumn(t: TableModel, from: number, to: number): TableModel 
     return next;
   };
   return {
+    ...t,
     header: move(t.header),
     aligns: move(t.aligns),
     rows: t.rows.map((r) => move(r)),
@@ -702,5 +686,107 @@ export function performTableAction(
   const newText = docText.slice(0, from) + serialized + docText.slice(to);
   const newCaret = getCellDocOffset(newText, startLine, targetRow, targetCol);
   return { text: newText, newCaret, from, to, tableText: serialized };
+}
+
+
+/** Source ranges (inclusive, zero-based) shared by navigation and live widgets. */
+export function findMarkdownTables(source: string): TableSpan[] {
+  return parseMarkdownBlocks(normalizeTableDelimiters(source))
+    .filter((token) => token.type === 'table_open' && token.map)
+    .map((token) => ({ startLine: token.map![0], endLine: token.map![1] - 1 }));
+}
+
+// ---- Malformed table-delimiter normalization ------------------------------
+// GFM (and markdown-it) require the delimiter row (the `|---|---|` line under
+// the header) to have EXACTLY the same number of cells as the header row. If
+// it doesn't — one cell too many or too few — markdown-it rejects the *entire*
+// block and renders it as a plain paragraph, so the whole table collapses into
+// literal `| … |` text in the preview. AI/LLM exports and PDF-to-Markdown tools
+// frequently emit a stray extra `|---|` cell in the delimiter row (e.g. a
+// 3-column header with a 4-cell delimiter), which silently breaks the table.
+// Typora/Obsidian tolerate this; we do too — same philosophy as the list-indent
+// and inline-HTML-block fixups above.
+const TABLE_DELIM_CELL_RE = /^\s*:?-+:?\s*$/;
+
+/** The model and renderer repair must agree on escaped-pipe cell counts. */
+function tableRowCells(line: string): string[] {
+  return splitRow(line);
+}
+
+function isTableDelimiterRow(line: string): boolean {
+  const cells = tableRowCells(line);
+  if (cells.length === 0) return false;
+  // Tolerate empty cells (AI exports emit `| --- |  | --- |`); markdown-it
+  // rejects those outright, but as long as there's at least one real `---`
+  // cell and no cell holds actual content, it's a mangled delimiter row we
+  // can repair. Requiring ≥1 real cell keeps an all-empty `|  |  |` — which
+  // is a data row, not a delimiter — from being misclassified.
+  let hasRealCell = false;
+  for (const c of cells) {
+    if (c.trim() === '') continue;
+    if (!TABLE_DELIM_CELL_RE.test(c)) return false;
+    hasRealCell = true;
+  }
+  return hasRealCell;
+}
+
+/** Rebuild one delimiter cell, preserving its alignment colons. */
+function normalizeDelimiterCell(raw: string | undefined): string {
+  const t = (raw ?? '').trim();
+  const left = t.startsWith(':');
+  const right = t.endsWith(':');
+  if (left && right) return ':---:';
+  if (right) return '---:';
+  if (left) return ':---';
+  return '---';
+}
+
+/** When a delimiter row is malformed — its cell count differs from the header,
+ *  or it contains an empty cell markdown-it rejects — rewrite it to exactly the
+ *  header's column count, padding missing cells with `---`, dropping surplus
+ *  ones, and keeping each surviving cell's alignment. Fenced code is skipped so
+ *  `| a | b |` samples inside ``` blocks are left untouched. */
+export function normalizeTableDelimiters(source: string): string {
+  const lines = source.split('\n');
+  const out: string[] = [];
+  const codeLines = markdownCodeLines(source);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (codeLines.has(i) || codeLines.has(i + 1)) {
+      out.push(line);
+      continue;
+    }
+
+    const next = lines[i + 1];
+    const headerLooksTabular = line.includes('|') && line.trim() !== '';
+    if (
+      headerLooksTabular &&
+      next !== undefined &&
+      next.includes('|') &&
+      isTableDelimiterRow(next)
+    ) {
+      const headerCells = tableRowCells(line);
+      const delimCells = tableRowCells(next);
+      // Repair when the delimiter's column count differs from the header, OR
+      // when it has an empty cell markdown-it would choke on. A count-matched,
+      // fully-valid delimiter is left byte-for-byte untouched.
+      const needsRepair =
+        delimCells.length !== headerCells.length ||
+        delimCells.some((c) => c.trim() === '');
+      if (headerCells.length >= 1 && needsRepair) {
+        const fixed: string[] = [];
+        for (let k = 0; k < headerCells.length; k++) {
+          fixed.push(normalizeDelimiterCell(delimCells[k]));
+        }
+        const indent = next.match(/^(\s*(?:>\s*)*)/)?.[0] ?? '';
+        out.push(line); // header unchanged
+        out.push(`${indent}| ${fixed.join(' | ')} |`); // corrected delimiter
+        i++; // skip the original malformed delimiter
+        continue;
+      }
+    }
+    out.push(line);
+  }
+  return out.join('\n');
 }
 

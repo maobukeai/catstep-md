@@ -1,0 +1,8 @@
+{
+  "Path": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-native-audit-r20261031n1\\workspace\\native-audit.md",
+  "ContainsChinese": true,
+  "ContainsEmoji": true,
+  "CodeWhitespace": true,
+  "Content": "# 原生验收\n\nPrefix\n\n| A | B |\n| --- | --- |\n| 原生中文 | 😀 |\n\nTail\n\n```text\n  keep whitespace\n\nnext line\n```\n\n快速输入后立即保存：你好，世界。\n",
+  "Sha256": "0159119C377949E39A1515A32E0A9F9056D3BCD3A8320D2430613662ED7BB50C"
+}

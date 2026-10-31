@@ -25,6 +25,18 @@ interface Hooks {
   openCjkProofread?: () => void;
 }
 
+function isEditableTextTarget(target: Element | null): boolean {
+  if (!target) return false;
+  // Includes inherited contenteditable on CM lines and nested table content.
+  if ((target as HTMLElement).isContentEditable) return true;
+  const field = target as HTMLInputElement | HTMLTextAreaElement;
+  if (field.disabled || field.readOnly) return false;
+  if (target.tagName === 'TEXTAREA') return true;
+  return target.tagName === 'INPUT' && ![
+    'button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'range', 'color', 'image', 'hidden',
+  ].includes((target as HTMLInputElement).type);
+}
+
 export function useShortcuts(hooks: Hooks = {}) {
   const files = useFiles();
   const exporter = useExport();
@@ -232,11 +244,27 @@ export function useShortcuts(hooks: Hooks = {}) {
     }
 
     if (e.defaultPrevented) return;
-    const combo = eventToCombo(e);
-    if (!combo) return;
+    const composing = e.isComposing || e.keyCode === 229;
     const bindings = resolveBindings(settings.keybindings);
-    const actionId = bindings.get(combo);
+    let combo = eventToCombo(e);
+    let actionId = combo ? bindings.get(combo) : undefined;
+    if (!actionId && composing && (e.ctrlKey || e.metaKey)) {
+      // IMEs can report Ctrl+S as composing/Process/229. Only recover an
+      // explicitly resolved Save command: saveActive already waits for the
+      // editor's composition-finished event before taking its snapshot.
+      const key = ['Process', 'Unidentified', 'Dead'].includes(e.key) && /^Key[A-Z]$/.test(e.code)
+        ? e.code.slice(3) : e.key;
+      const saveCombo = eventToCombo({ key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey,
+        altKey: e.altKey, shiftKey: e.shiftKey, isComposing: false } as KeyboardEvent);
+      if (saveCombo && bindings.get(saveCombo) === 'file.save') {
+        combo = saveCombo;
+        actionId = 'file.save';
+      }
+    }
     if (!actionId) return;
+    // The new Zen/history conflict protection must not swallow save requests
+    // or other commands that already own a safe composition-waiting path.
+    if (actionId === 'pomodoro.startLast' && composing) return;
 
     // Intercept custom-bound fullscreen shortcut immediately
     if (actionId === 'view.toggleFullscreen') {
@@ -247,6 +275,14 @@ export function useShortcuts(hooks: Hooks = {}) {
     }
 
     const target = e.target instanceof Element ? e.target : null;
+    // The shipped Zen chord is also editor redo. Yield in text controls even
+    // when redo has no entries; starting a timer is never a redo fallback.
+    // A nonempty explicit override (including this same chord) is user intent.
+    const hasCustomBinding = Object.prototype.hasOwnProperty.call(settings.keybindings, actionId)
+      && !!settings.keybindings[actionId];
+    if (actionId === 'pomodoro.startLast' && combo === 'Mod+Shift+Z'
+        && !hasCustomBinding && isEditableTextTarget(target)) return;
+
     const isInsideEditor = !!target?.closest(
       '.plain-host, .pane--editor, .cm-editor, .plain-block__textarea, .plain-editor'
     );
@@ -290,6 +326,9 @@ export function useShortcuts(hooks: Hooks = {}) {
     if (!run) return;
     if (run() === false) return; // action declined — leave the event alone
     e.preventDefault();
+    // An explicit Zen override owns its chord. Nested table/plain handlers
+    // cannot undo an action that already ran in this window capture handler.
+    if (actionId === 'pomodoro.startLast') e.stopPropagation();
   }
 
   onMounted(() => window.addEventListener('keydown', handler, true));

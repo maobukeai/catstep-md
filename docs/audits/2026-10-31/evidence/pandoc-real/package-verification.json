@@ -1,0 +1,68 @@
+{
+  "pandoc_version": "3.13",
+  "real_product_entry_executed": "pandoc_export_inner",
+  "all_packaging_assertions_passed": true,
+  "package_checks": [
+    {
+      "format": "epub",
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\A 与源不同\\导出 样本.epub",
+      "artifact": "artifacts\\relative-resources.epub",
+      "zip_crc_valid": true,
+      "embedded_pngs": [
+        "EPUB/media/file1.png",
+        "EPUB/media/file0.png"
+      ],
+      "image_hashes_match_source_and_extra_resources": true,
+      "image_references_all_resolve_in_package": true,
+      "citation_processed": true,
+      "custom_csl_marker": true,
+      "bibliography_processed": true,
+      "unicode_captions_preserved": true,
+      "archive_members": [
+        "mimetype",
+        "META-INF/container.xml",
+        "META-INF/com.apple.ibooks.display-options.xml",
+        "EPUB/content.opf",
+        "EPUB/toc.ncx",
+        "EPUB/nav.xhtml",
+        "EPUB/text/title_page.xhtml",
+        "EPUB/styles/stylesheet1.css",
+        "EPUB/media/file1.png",
+        "EPUB/media/file0.png",
+        "EPUB/text/ch001.xhtml"
+      ],
+      "archive_sha256": "2d0757f8df4bbd235fb511c6dce90a5a8fccc1393c175ab69aa762b0367682e9"
+    },
+    {
+      "format": "odt",
+      "output": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs\\B 空格 中文\\导出 样本.odt",
+      "artifact": "artifacts\\relative-resources.odt",
+      "zip_crc_valid": true,
+      "embedded_pngs": [
+        "Pictures/1.png",
+        "Pictures/0.png"
+      ],
+      "image_hashes_match_source_and_extra_resources": true,
+      "image_references_all_resolve_in_package": true,
+      "citation_processed": true,
+      "custom_csl_marker": true,
+      "bibliography_processed": true,
+      "unicode_captions_preserved": true,
+      "archive_members": [
+        "mimetype",
+        "meta.xml",
+        "META-INF/manifest.xml",
+        "content.xml",
+        "Pictures/1.png",
+        "Pictures/0.png",
+        "manifest.rdf",
+        "styles.xml"
+      ],
+      "archive_sha256": "7eba16b5ef08198d7e43565daed5ec41d3084502d264102b4d47f2103b46d46a"
+    }
+  ],
+  "driver_cases_passed": 5,
+  "temp_inputs_leaked": 0,
+  "raw_process_uses_legacy_stderr": true,
+  "diagnostic_fix_verified": true
+}

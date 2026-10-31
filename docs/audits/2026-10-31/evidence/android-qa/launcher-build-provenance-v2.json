@@ -1,0 +1,83 @@
+{
+  "recorded_utc": "2026-10-31T04:12:42.782074+00:00",
+  "working_directory": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器",
+  "compile_argv": [
+    "rustc",
+    "--edition=2021",
+    "--crate-name",
+    "catstep_android_qa_launcher_v2",
+    "--target",
+    "x86_64-pc-windows-msvc",
+    "-C",
+    "opt-level=2",
+    "-C",
+    "debuginfo=0",
+    "-o",
+    "docs\\audits\\2026-10-31\\evidence\\android-qa\\launch-qa-emulator-v2.exe",
+    "docs\\audits\\2026-10-31\\evidence\\android-qa\\launch_qa_emulator_v2.rs"
+  ],
+  "compile_exit_code": 0,
+  "compiler": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-pc-windows-msvc\nrelease: 1.95.0\nLLVM version: 22.1.2",
+  "compiled_only_not_run": true,
+  "gui_started_by_subagent": false,
+  "adb_commands": false,
+  "SDK_changed": false,
+  "system_environment_changed": false,
+  "source_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\android-qa\\launch_qa_emulator_v2.rs",
+  "source_sha256": "e3626efd829dc57a99af7d72d9dd92dabec6a19b39b803dbdf6d3b8911d9fe95",
+  "binary_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\android-qa\\launch-qa-emulator-v2.exe",
+  "binary_sha256": "bb9f9031f93d1a27de9481829e5e660ff58852bf06f2494e7f749ac6fb32f08e",
+  "binary_bytes": 288768,
+  "PE_subsystem": 2,
+  "PE_machine": "0x8664",
+  "import_DLLs": [
+    "api-ms-win-core-synch-l1-2-0.dll",
+    "KERNEL32.dll",
+    "ntdll.dll",
+    "WS2_32.dll",
+    "VCRUNTIME140.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-math-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll",
+    "api-ms-win-crt-locale-l1-1-0.dll",
+    "api-ms-win-crt-heap-l1-1-0.dll"
+  ],
+  "fixed_emulator": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",
+  "fixed_emulator_sha256": "dede05844d17902a7c74f2cee2bbe97ec9afaaf22ebc35a7cdc6d7c1eaa0b9dd",
+  "fixed_avd_name": "catstep_qa_d11_20261031_isolated",
+  "qa_directory": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031",
+  "stdout_log": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\emulator-stdout.log",
+  "stderr_log": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\emulator-stderr.log",
+  "launcher_log": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\emulator-launcher.log",
+  "child_env_only": {
+    "ANDROID_USER_HOME": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user",
+    "ANDROID_AVD_HOME": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user\\avd",
+    "ANDROID_EMULATOR_HOME": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user",
+    "ANDROID_HOME": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk",
+    "ANDROID_SDK_ROOT": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk",
+    "PATH_prepend_only": [
+      "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator",
+      "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64",
+      "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib"
+    ]
+  },
+  "original_avd_metadata": [
+    {
+      "path": "C:/Users/20269/.android/avd/maobu_test.ini",
+      "sha256": "5e308de50aa43c1e105e97605103f511540139b2c24a3d5b637b31d25acbe9b4",
+      "unchanged": true
+    },
+    {
+      "path": "C:/Users/20269/.android/avd/maobu_test.avd/config.ini",
+      "sha256": "b1a60b6751fe0f0f30630aa2e0c3fc92b4ede009a7e91b4ea435c4d94f4212c5",
+      "unchanged": true
+    }
+  ],
+  "runtime_preconditions": "Reject extra args, reparse QA paths/subtree, wrong INI target/config ABI/system image, external writable paths, busy fixed loopback ports; no retry or alternate target",
+  "launcher_version": 2,
+  "v1_source_and_binary_preserved": true,
+  "change": "Only add SDK emulator root and reorder child PATH to root;lib64;qt/lib;inherited. All fixed target/arguments/isolated guards unchanged.",
+  "static_dependency_evidence": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\android-qa\\dll-static-dependencies.json",
+  "static_dependency_modules_checked": 33,
+  "unresolved_static_imports": []
+}

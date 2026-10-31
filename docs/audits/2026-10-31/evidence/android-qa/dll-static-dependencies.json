@@ -1,0 +1,2267 @@
+{
+  "sdkEmulatorVersion": "37.1.11",
+  "sdkBuildId": "15917651",
+  "method": "Static PE import recursion using official installed llvm-readobj; no module loaded/executed.",
+  "seeds": [
+    "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",
+    "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\qemu-system-x86_64.exe",
+    "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\plugins\\platforms\\qwindowsAndroidEmu.dll"
+  ],
+  "childPathPrefix": [
+    "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator",
+    "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64",
+    "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib"
+  ],
+  "exeApplicationDirectory": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64",
+  "systemDllDirectory": "C:\\WINDOWS\\System32",
+  "sdkModulesChecked": 33,
+  "unresolvedImports": [],
+  "modules": [
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",
+      "imports": [
+        {
+          "name": "libandroid-emu-base-logging.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-base-logging.dll"
+        },
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "SETUPAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\setupapi.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "MFPlat.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\mfplat.dll"
+        },
+        {
+          "name": "bcrypt.dll",
+          "resolved": "C:\\WINDOWS\\System32\\bcrypt.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "Secur32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\secur32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-locale-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-process-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\qemu-system-x86_64.exe",
+      "imports": [
+        {
+          "name": "WINMM.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winmm.dll"
+        },
+        {
+          "name": "libandroid-emu-metrics.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-metrics.dll"
+        },
+        {
+          "name": "libglib2_windows_msvc-x86_64.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libglib2_windows_msvc-x86_64.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "liblibprotobuf.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\liblibprotobuf.dll"
+        },
+        {
+          "name": "libandroid-emu-agents.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-agents.dll"
+        },
+        {
+          "name": "libandroid-emu-base-logging.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-base-logging.dll"
+        },
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "IPHLPAPI.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\IPHLPAPI.DLL"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "libandroid-emu-tracing.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\libandroid-emu-tracing.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "libandroid-emu-protos.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-protos.dll"
+        },
+        {
+          "name": "SETUPAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\setupapi.dll"
+        },
+        {
+          "name": "libandroid-emu-curl.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-curl.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "RPCRT4.dll",
+          "resolved": "C:\\WINDOWS\\System32\\rpcrt4.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "d3d9.dll",
+          "resolved": "C:\\WINDOWS\\System32\\d3d9.dll"
+        },
+        {
+          "name": "SHLWAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shlwapi.dll"
+        },
+        {
+          "name": "WINHTTP.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winhttp.dll"
+        },
+        {
+          "name": "Qt6SvgWidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6SvgWidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WebEngineWidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebEngineWidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WebSocketsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebSocketsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6NetworkAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6NetworkAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WebChannelAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebChannelAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WebEngineCoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebEngineCoreAndroidEmu.dll"
+        },
+        {
+          "name": "MFPlat.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\mfplat.dll"
+        },
+        {
+          "name": "Qt6SvgAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6SvgAndroidEmu.dll"
+        },
+        {
+          "name": "bcrypt.dll",
+          "resolved": "C:\\WINDOWS\\System32\\bcrypt.dll"
+        },
+        {
+          "name": "CRYPT32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\crypt32.dll"
+        },
+        {
+          "name": "Secur32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\secur32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-locale-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-process-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\plugins\\platforms\\qwindowsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "dwmapi.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dwmapi.dll"
+        },
+        {
+          "name": "GDI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\gdi32.dll"
+        },
+        {
+          "name": "IMM32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\imm32.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "OLEAUT32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\oleaut32.dll"
+        },
+        {
+          "name": "SETUPAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\setupapi.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "SHLWAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shlwapi.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "WINMM.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winmm.dll"
+        },
+        {
+          "name": "WTSAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\wtsapi32.dll"
+        },
+        {
+          "name": "api-ms-win-shcore-scaling-l1-1-1.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "COMDLG32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\comdlg32.dll"
+        },
+        {
+          "name": "d3d9.dll",
+          "resolved": "C:\\WINDOWS\\System32\\d3d9.dll"
+        },
+        {
+          "name": "api-ms-win-core-winrt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-core-winrt-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-base-logging.dll",
+      "imports": [
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll",
+      "imports": [
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "dbghelp.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dbghelp.dll"
+        },
+        {
+          "name": "bcrypt.dll",
+          "resolved": "C:\\WINDOWS\\System32\\bcrypt.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll",
+      "imports": [
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-locale-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll",
+      "imports": [
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll",
+      "imports": [
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-metrics.dll",
+      "imports": [
+        {
+          "name": "libandroid-emu-curl.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-curl.dll"
+        },
+        {
+          "name": "liblibprotobuf.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\liblibprotobuf.dll"
+        },
+        {
+          "name": "libandroid-emu-agents.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-agents.dll"
+        },
+        {
+          "name": "libandroid-emu-base-logging.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-base-logging.dll"
+        },
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "RPCRT4.dll",
+          "resolved": "C:\\WINDOWS\\System32\\rpcrt4.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libglib2_windows_msvc-x86_64.dll",
+      "imports": [
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-locale-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-process-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\liblibprotobuf.dll",
+      "imports": [
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-agents.dll",
+      "imports": [
+        {
+          "name": "libandroid-emu-base-logging.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-base-logging.dll"
+        },
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\libandroid-emu-tracing.dll",
+      "imports": [
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-protos.dll",
+      "imports": [
+        {
+          "name": "liblibprotobuf.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\liblibprotobuf.dll"
+        },
+        {
+          "name": "libabseil_dll.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libabseil_dll.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-curl.dll",
+      "imports": [
+        {
+          "name": "libandroid-emu-base-logging.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\libandroid-emu-base-logging.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "CRYPT32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\crypt32.dll"
+        },
+        {
+          "name": "WLDAP32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\Wldap32.dll"
+        },
+        {
+          "name": "Normaliz.dll",
+          "resolved": "C:\\WINDOWS\\System32\\normaliz.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "api-ms-win-core-synch-l1-2-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "MPR.dll",
+          "resolved": "C:\\WINDOWS\\System32\\mpr.dll"
+        },
+        {
+          "name": "USERENV.dll",
+          "resolved": "C:\\WINDOWS\\System32\\userenv.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "AUTHZ.dll",
+          "resolved": "C:\\WINDOWS\\System32\\authz.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "NETAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\netapi32.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "VERSION.dll",
+          "resolved": "C:\\WINDOWS\\System32\\version.dll"
+        },
+        {
+          "name": "WINMM.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winmm.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "MSVCP140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_1.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "OLEAUT32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\oleaut32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WidgetsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "dwmapi.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dwmapi.dll"
+        },
+        {
+          "name": "UxTheme.dll",
+          "resolved": "C:\\WINDOWS\\System32\\uxtheme.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "GDI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\gdi32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "MSVCP140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_1.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "d3d11.dll",
+          "resolved": "C:\\WINDOWS\\System32\\d3d11.dll"
+        },
+        {
+          "name": "dxgi.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dxgi.dll"
+        },
+        {
+          "name": "GDI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\gdi32.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "DWrite.dll",
+          "resolved": "C:\\WINDOWS\\System32\\DWrite.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "MSVCP140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_1.dll"
+        },
+        {
+          "name": "MSVCP140_2.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_2.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6SvgWidgetsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6SvgAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6SvgAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebEngineWidgetsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6QuickWidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QuickWidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WebEngineCoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebEngineCoreAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6QuickAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QuickAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebSocketsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6NetworkAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6NetworkAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6NetworkAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "DNSAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dnsapi.dll"
+        },
+        {
+          "name": "IPHLPAPI.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\IPHLPAPI.DLL"
+        },
+        {
+          "name": "Secur32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\secur32.dll"
+        },
+        {
+          "name": "WINHTTP.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winhttp.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebChannelAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6QmlAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebEngineCoreAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "ADVAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\advapi32.dll"
+        },
+        {
+          "name": "dbghelp.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dbghelp.dll"
+        },
+        {
+          "name": "GDI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\gdi32.dll"
+        },
+        {
+          "name": "OLEAUT32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\oleaut32.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "SHLWAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shlwapi.dll"
+        },
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "VERSION.dll",
+          "resolved": "C:\\WINDOWS\\System32\\version.dll"
+        },
+        {
+          "name": "WS2_32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ws2_32.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "ole32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ole32.dll"
+        },
+        {
+          "name": "pdh.dll",
+          "resolved": "C:\\WINDOWS\\System32\\pdh.dll"
+        },
+        {
+          "name": "CFGMGR32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\cfgmgr32.dll"
+        },
+        {
+          "name": "POWRPROF.dll",
+          "resolved": "C:\\WINDOWS\\System32\\powrprof.dll"
+        },
+        {
+          "name": "PROPSYS.dll",
+          "resolved": "C:\\WINDOWS\\System32\\propsys.dll"
+        },
+        {
+          "name": "SETUPAPI.dll",
+          "resolved": "C:\\WINDOWS\\System32\\setupapi.dll"
+        },
+        {
+          "name": "USERENV.dll",
+          "resolved": "C:\\WINDOWS\\System32\\userenv.dll"
+        },
+        {
+          "name": "ncrypt.dll",
+          "resolved": "C:\\WINDOWS\\System32\\ncrypt.dll"
+        },
+        {
+          "name": "WINHTTP.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winhttp.dll"
+        },
+        {
+          "name": "CRYPT32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\crypt32.dll"
+        },
+        {
+          "name": "IPHLPAPI.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\IPHLPAPI.DLL"
+        },
+        {
+          "name": "Secur32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\secur32.dll"
+        },
+        {
+          "name": "urlmon.dll",
+          "resolved": "C:\\WINDOWS\\System32\\urlmon.dll"
+        },
+        {
+          "name": "d3d11.dll",
+          "resolved": "C:\\WINDOWS\\System32\\d3d11.dll"
+        },
+        {
+          "name": "dxgi.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dxgi.dll"
+        },
+        {
+          "name": "dwmapi.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dwmapi.dll"
+        },
+        {
+          "name": "WTSAPI32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\wtsapi32.dll"
+        },
+        {
+          "name": "DWrite.dll",
+          "resolved": "C:\\WINDOWS\\System32\\DWrite.dll"
+        },
+        {
+          "name": "d3d9.dll",
+          "resolved": "C:\\WINDOWS\\System32\\d3d9.dll"
+        },
+        {
+          "name": "IMM32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\imm32.dll"
+        },
+        {
+          "name": "bthprops.cpl",
+          "resolved": "C:\\WINDOWS\\System32\\bthprops.cpl"
+        },
+        {
+          "name": "BluetoothApis.dll",
+          "resolved": "C:\\WINDOWS\\System32\\BluetoothApis.dll"
+        },
+        {
+          "name": "dxva2.dll",
+          "resolved": "C:\\WINDOWS\\System32\\dxva2.dll"
+        },
+        {
+          "name": "COMCTL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\comctl32.dll"
+        },
+        {
+          "name": "HID.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\hid.dll"
+        },
+        {
+          "name": "WINUSB.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\winusb.dll"
+        },
+        {
+          "name": "Qt6WebChannelAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WebChannelAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6PositioningAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6PositioningAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6QuickAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QuickAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6QmlAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6NetworkAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6NetworkAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-time-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-filesystem-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-environment-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-utility-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-locale-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "USP10.dll",
+          "resolved": "C:\\WINDOWS\\System32\\usp10.dll"
+        },
+        {
+          "name": "dhcpcsvc.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\dhcpcsvc.dll"
+        },
+        {
+          "name": "WINMM.dll",
+          "resolved": "C:\\WINDOWS\\System32\\winmm.dll"
+        },
+        {
+          "name": "MF.dll",
+          "resolved": "C:\\WINDOWS\\System32\\mf.dll"
+        },
+        {
+          "name": "MFPlat.DLL",
+          "resolved": "C:\\WINDOWS\\System32\\mfplat.dll"
+        },
+        {
+          "name": "MFReadWrite.dll",
+          "resolved": "C:\\WINDOWS\\System32\\mfreadwrite.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6SvgAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_1.dll",
+      "imports": [
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_2.dll",
+      "imports": [
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-locale-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QuickWidgetsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6QuickAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QuickAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6QmlAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6WidgetsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6WidgetsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QuickAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "USER32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\user32.dll"
+        },
+        {
+          "name": "Qt6QmlModelsAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlModelsAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6QmlAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6NetworkAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6NetworkAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6OpenGLAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6OpenGLAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "MSVCP140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_1.dll"
+        },
+        {
+          "name": "MSVCP140_2.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140_2.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-convert-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6NetworkAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6NetworkAndroidEmu.dll"
+        },
+        {
+          "name": "SHELL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\shell32.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6PositioningAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-stdio-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlModelsAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6QmlAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6QmlAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "MSVCP140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\msvcp140.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "VCRUNTIME140_1.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140_1.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    },
+    {
+      "module": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6OpenGLAndroidEmu.dll",
+      "imports": [
+        {
+          "name": "Qt6GuiAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6GuiAndroidEmu.dll"
+        },
+        {
+          "name": "Qt6CoreAndroidEmu.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\lib64\\qt\\lib\\Qt6CoreAndroidEmu.dll"
+        },
+        {
+          "name": "VCRUNTIME140.dll",
+          "resolved": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\qemu\\windows-x86_64\\vcruntime140.dll"
+        },
+        {
+          "name": "api-ms-win-crt-heap-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-math-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-string-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "api-ms-win-crt-runtime-l1-1-0.dll",
+          "resolution": "Windows API set"
+        },
+        {
+          "name": "KERNEL32.dll",
+          "resolved": "C:\\WINDOWS\\System32\\kernel32.dll"
+        }
+      ]
+    }
+  ],
+  "boundary": "API sets provided virtually by Windows; dynamic LoadLibrary/Qt graphics/plugin behavior and emulator child PATH rewriting remain runtime checks."
+}

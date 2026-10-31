@@ -108,6 +108,17 @@ test('indented code blocks keep their content', () => {
   assert.ok(code.includes('x ~~y~~ z'), code);
 });
 
+test('rendered code keeps empty lines and whitespace-only lines byte-exact for copying', () => {
+  for (const body of [
+    'x\n\n  y',
+    'value = """a\n\nb"""',
+    'x\n \n\t\n  \ny\n',
+    '',
+  ]) {
+    assert.equal(codeText(renderMarkdown(fenced(body, 'text'))), body);
+  }
+});
+
 test('scopeTyporaCss does not map pre container styles onto line-level .cm-md-fenced-line', () => {
   const inputCss = `
     #write pre {

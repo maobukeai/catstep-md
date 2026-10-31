@@ -1,0 +1,30 @@
+{
+  "owned_native_and_emulator_windows_closed": true,
+  "own_qemu_and_launcher_processes_absent": true,
+  "adb_devices_empty_after_shutdown": true,
+  "both_successful_emulator_runs_exit_code": 0,
+  "global_QA_pointer_moved_to_task_TEMP_archive": true,
+  "global_QA_pointer_deleted": false,
+  "QA_data_and_APKs_retained": true,
+  "original_AVD_metadata_and_SDK_executable_checks": [
+    {
+      "path": "C:\\Users\\20269\\.android\\avd\\maobu_test.ini",
+      "sha256": "5e308de50aa43c1e105e97605103f511540139b2c24a3d5b637b31d25acbe9b4",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\20269\\.android\\avd\\maobu_test.avd\\config.ini",
+      "sha256": "b1a60b6751fe0f0f30630aa2e0c3fc92b4ede009a7e91b4ea435c4d94f4212c5",
+      "unchanged": true
+    },
+    {
+      "path": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\emulator\\emulator.exe",
+      "sha256": "dede05844d17902a7c74f2cee2bbe97ec9afaaf22ebc35a7cdc6d7c1eaa0b9dd",
+      "unchanged": true
+    }
+  ],
+  "original_AVD_used": false,
+  "user_data_deleted": false,
+  "preview_servers": "owned Vite preview 1420 and report HTTP 1422 stopped through exact tracked sessions",
+  "owned_browser_QA_tabs_closed": true
+}

@@ -1,0 +1,254 @@
+{
+  "date": "2026-10-31",
+  "updated_utc": "2026-10-31T04:36:26.583541+00:00",
+  "status": "scoped_browser_windows_native_and_android_SAF_passed",
+  "environment": "Chrome production browser plus isolated Windows Tauri/WebView2 audit entry, localhost frontend",
+  "scoped_ui_signoff": true,
+  "native_tauri_verified": true,
+  "final_visual_matrix_passed": true,
+  "final_after_fix_screenshot_obtained": true,
+  "all_platforms_signed_off": false,
+  "full_product_visual_signoff": false,
+  "scope_note": "Completed means the explicit scenarios and evidence below; no full platform, IME, credentials, installer or failure matrix signoff. Earlier cases were not all replayed on frontend 650.",
+  "historical_snapshot": {
+    "path": "ui-validation-before-native.json",
+    "sha256": "5a5a4a521c8c5d2eeab7c626d8deeccd6f0f1981fdd34e9b270b53ef46899430",
+    "copied_original_bytes_without_edit": true,
+    "reason": "Preserve the earlier browser interruption and pre-native pending state."
+  },
+  "browser_production": {
+    "status": "completed_for_listed_cases",
+    "table_offsets_and_latest_cell_input": {
+      "passed": true,
+      "evidence": [
+        "table-offset-production-result.json",
+        "table-offset-toolbar-final-production.json",
+        "table-offset-production-source.jpg"
+      ]
+    },
+    "toolbar_persists_after_delayed_blur_and_keeps_alignment_text": {
+      "passed": true,
+      "evidence": [
+        "table-toolbar-production-result.json",
+        "table-offset-toolbar-final-production.json"
+      ]
+    },
+    "wide_narrow_live_and_reading_layout": {
+      "passed": true,
+      "scope": "1920 and 932 viewport samples; local table/code overflow, keyboard scrolling to final reading-table column",
+      "evidence": [
+        "layout-production-results.json",
+        "live-wide-production.jpg",
+        "live-narrow-production.jpg",
+        "reading-narrow-production.jpg",
+        "reading-narrow-last-column.jpg"
+      ]
+    },
+    "table_navigation_structure_and_history": {
+      "passed": true,
+      "scope": "Added row and continued input, column insertion, Ctrl+Z/redo grid and focus recovery in the recorded production cases",
+      "evidence": [
+        "table-navigation-history-production-result.json",
+        "table-history-final-production.jpg"
+      ]
+    },
+    "rendered_code_click_and_existing_undo": {
+      "passed": true,
+      "evidence": [
+        "code-click-undo-production-result.json"
+      ]
+    },
+    "code_wrap_line_numbers_four_combinations": {
+      "passed": true,
+      "combinations": [
+        "wrap on/numbers on",
+        "wrap off/numbers on",
+        "wrap on/numbers off",
+        "wrap off/numbers off"
+      ],
+      "original_settings_restored": true,
+      "evidence": [
+        "code-settings-production-results.json",
+        "code-wrap-numbered-production.jpg"
+      ]
+    },
+    "final_redo_650_without_timer_side_effect": {
+      "passed": true,
+      "frontend": 650,
+      "environment": "Chrome production browser; not native Tauri",
+      "evidence": [
+        "shortcut-redo-final-650-result.json",
+        "table-redo-final-650.jpg"
+      ]
+    }
+  },
+  "windows_native": {
+    "status": "completed_for_listed_cases",
+    "audit_identifier": "app.catstepmd.audit.r20261031n1",
+    "credential_backend": "process-local keyring mock; no claim of real credential persistence",
+    "qa_note": "C:/Users/20269/AppData/Local/Temp/catstep-native-audit-r20261031n1/workspace/native-audit.md",
+    "not_an_OS_sandbox_or_formal_installer": true,
+    "acceptance_summary": "../native-isolation/acceptance-summary.md",
+    "machine_readable_summary": "../native-isolation/acceptance-summary.json",
+    "passed_cases": [
+      "W01 native quick typing and save with Chinese/emoji/code whitespace",
+      "W02 clean external file refresh",
+      "W03 external write 1ms after observed own save",
+      "W04 main save reaches auxiliary window",
+      "W05 main watcher remains after auxiliary window closes",
+      "W06 dirty conflict Escape keeps local draft and external disk",
+      "W07 Ctrl+S reopens conflict and explicit overwrite saves QA draft",
+      "W08 frontend648 one Ctrl+S queues through Microsoft Pinyin commit; no second save",
+      "W09 frontend648 commit then immediate new tab preserves original-file identity",
+      "W10 frontend650 cursor 33:15 to blank 1:1/count0 to restored33:15",
+      "W11 frontend650 1200x800 native Markdown live/reading, local table scroll, 3/4-column undo/redo with no timer, code click19:1 and exact fixture save"
+    ],
+    "IME_scope": "Microsoft Pinyin ni'hao/Space path; not other IMEs or complete composition lifecycle matrix",
+    "multiwindow_scope": "Sequential save notification and subscription lifecycle; not same-baseline simultaneous native UI saving",
+    "dirty_conflict_scope": "Escape cancellation and explicit overwrite; reload-from-disk branch not exercised",
+    "cursor_650": {
+      "passed": true,
+      "evidence": [
+        "native-cursor-final-650-result.json",
+        "native-cursor-original-final-650.png",
+        "native-cursor-blank-final-650.png",
+        "native-cursor-restored-final-650.png"
+      ]
+    },
+    "markdown_desktop_650": {
+      "passed": true,
+      "frontend": 650,
+      "window": "1200x800",
+      "columns": [
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "timer_started": false,
+      "code_click": [
+        19,
+        1
+      ],
+      "fixture_characters": 447,
+      "saved_UTF8_bytes": 551,
+      "saved_sha256": "8f8c5991cdb22bae90c11e2f274c797753fe2854338d6cf5b7d7e977b411fcb1",
+      "evidence": [
+        "native-markdown-layout-final-650-result.json",
+        "native-markdown-live-650.png",
+        "native-table-local-scroll-650.png",
+        "native-table-column-add-650.png",
+        "native-table-column-undo-650.png",
+        "native-table-column-redo-650.png",
+        "native-code-click-650.png",
+        "native-markdown-reading-650.png"
+      ],
+      "native_narrow_and_four_setting_matrix_signed_off": false
+    }
+  },
+  "automated_frontend_gates": {
+    "tests_passed": 654,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "test_log": "test-final.txt",
+    "type_log": "test-type-final.txt",
+    "i18n_log": "i18n-check-final.txt",
+    "toast_log": "i18n-toast-final.txt",
+    "production_build_log": "build-final.txt",
+    "not_substitute_for_unrun_native_cases": true,
+    "gate_results": "gate-results-final.json"
+  },
+  "android": {
+    "status": "scoped_passed",
+    "SAF_actual_ui_signed_off": true,
+    "frontend": 654,
+    "device": {
+      "avd": "catstep_qa_d11_20261031_isolated",
+      "serial": "emulator-5580",
+      "android": 14,
+      "api": 34,
+      "abi": "x86_64",
+      "source": "official Android SDK AOSP image",
+      "freshIsolatedUserdata": true,
+      "existingAvdUsed": false,
+      "accountsAdded": false
+    },
+    "apk": {
+      "frontendTests": 654,
+      "path": "TEMP/catstep-android-d11-qa-20261031/artifacts/654/CatstepMD-654-x86_64-debug.apk",
+      "sha256": "22549a7f8d907577a10affb03f3a089e9ec59d9a91ad009774868d73c9b1271d",
+      "package": "app.catstepmd",
+      "version": "1.0.12",
+      "debug": true,
+      "installedSuccessfully": true
+    },
+    "provider": "actual Android DocumentsProvider; no mock",
+    "workspace": "/sdcard/Documents/CatstepQA",
+    "checks": {
+      "initialPickerCancelAndReopen": true,
+      "systemTreeGrantOwnEmptySubdirectory": true,
+      "createFromProductFileTree": true,
+      "update650To654RestoredUnsavedDraft": true,
+      "touchSaveButtonVisibleAndEnglishLocalized": true,
+      "firstTouchSaveExactUtf8": true,
+      "existingWorkspacePickerCanceledToApp": true,
+      "unsavedDraftPreservedAcrossPickerReturn": true,
+      "diskUnchangedOnCancel": true,
+      "secondSaveExactUtf8": true,
+      "fullDeviceColdBootNoSnapshots": true,
+      "coldBootRetainedTreeAndListing": true,
+      "coldBootCloseTabReopenReadsProvider": true,
+      "coldBootWriteViaTouchSaveExactUtf8": true,
+      "cleanIndicatorAfterEachSuccessfulSave": true
+    },
+    "disk_copy_bytes": [
+      122,
+      122,
+      150,
+      172
+    ],
+    "cold_boot": {
+      "oldQemu": 28856,
+      "oldEmulator": 48732,
+      "oldEmulatorExit": 0,
+      "newQemu": 5940,
+      "newEmulator": 51080,
+      "arguments": "same isolated AVD; -no-snapshot -no-metrics -port 5580 -datadir dedicatedQA"
+    },
+    "evidence": "../android-real/saf-ui-result.json",
+    "report": "../android-real/SAF实际验收.md",
+    "evidence_index": "../android-real/evidence-index.json",
+    "first650_empty_disk_interpretation": {
+      "issue": "D13: no direct touch Save action in mobile sheet; note remained dirty and disk empty; close-tab Save was an indirect existing path",
+      "physicalCtrlS": "did not save in Qt emulator; not attributed to product shortcut without isolating Qt capture"
+    },
+    "boundaries": [
+      "One fresh API34 AOSP x86_64 emulator, not a physical device or OEM/cloud DocumentsProvider matrix",
+      "Debug single ABI package, not a full multi ABI release or store install",
+      "SAF product path is UTF-8 only; no desktop Rust encoding/BOM/CAS/atomic save guarantee claimed",
+      "No provider quota/permission revocation/mid-write failure test, no SAF rename/delete UI acceptance",
+      "Direct CUA spawned emulator had DLL search failure; the same verified launcher opened through Explorer worked; cause remains undetermined",
+      "Original AVD/user data and SDK files unchanged; QA uses common host SDK/ADB and is not an OS security sandbox"
+    ],
+    "does_not_sign_off_all_Android_or_all_platforms": true
+  },
+  "pandoc": {
+    "status": "real_artifacts_verified_separately",
+    "official_portable_version": "3.13",
+    "real_product_core_driver_cases_passed": 5,
+    "EPUB_ODT_package_checks_passed": true,
+    "evidence": "../pandoc-real/README.md",
+    "native_UI_file_picker_and_reader_visual_signoff": false
+  },
+  "remaining_boundaries": [
+    "Android654 scoped cases passed; physical/OEM/cloud/readonly Provider matrix, SAF other encodings/CAS/atomic/mid-write failure/rename/delete/cross-tree dirty cases remain untested",
+    "Other platforms and other IMEs not signed off",
+    "Windows same-baseline concurrent native saves, alias matrix, dirty reload branch and injected native IPC/failure races not replayed",
+    "Windows forced-crash dirty recovery and further workspace/directory/properties flows not fully signed off; Android cold-boot tree/read/save scope has passed",
+    "Native Windows narrow-window and four code-setting matrix remain beyond passed1200x800 W11 sample",
+    "Real keyring persistence, cloud accounts, installer/default associations not part of mock-backed Windows audit entry",
+    "Pandoc native export UI and exported-reader page visuals remain separate from verified real artifact structure"
+  ],
+  "earlier_interruption_preserved": true
+}

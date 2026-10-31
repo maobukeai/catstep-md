@@ -1,0 +1,119 @@
+{
+  "wrapOnNumbersOn": {
+    "blocks": [
+      {
+        "lines": [
+          {
+            "height": 24.5,
+            "text": "| 不应渲染 | 示例 |",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 24.5,
+            "text": "| --- | --- |",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 24.5,
+            "text": "| 保持代码 | 原文 |",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 24.5,
+            "text": "",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 24.5,
+            "text": "<div>这应当是代码</div>",
+            "whiteSpace": "pre-wrap"
+          }
+        ],
+        "scroll": 592,
+        "whiteSpace": "pre-wrap",
+        "width": 592
+      },
+      {
+        "lines": [
+          {
+            "height": 24.5,
+            "text": "function hello() {",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 73.5,
+            "text": "  const longLine = \"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\";",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 24.5,
+            "text": "  return longLine;",
+            "whiteSpace": "pre-wrap"
+          },
+          {
+            "height": 24.5,
+            "text": "}",
+            "whiteSpace": "pre-wrap"
+          }
+        ],
+        "scroll": 592,
+        "whiteSpace": "pre-wrap",
+        "width": 592
+      }
+    ],
+    "host": "cm-host cm-host--limit-width cb-wrap-on cb-numbered-on",
+    "scrollerWidth": 682
+  },
+  "wrapOffNumbersOn": {
+    "blocks": [
+      {
+        "lineCount": 5,
+        "scroll": 602,
+        "whiteSpace": "pre",
+        "width": 602
+      },
+      {
+        "lineCount": 4,
+        "scroll": 1092,
+        "whiteSpace": "pre",
+        "width": 602
+      }
+    ],
+    "host": "cm-host cm-host--limit-width cb-numbered-on"
+  },
+  "wrapOnNumbersOff": {
+    "blocks": [
+      {
+        "lineCount": 5,
+        "scroll": 602,
+        "whiteSpace": "pre-wrap",
+        "width": 602
+      },
+      {
+        "lineCount": 4,
+        "scroll": 602,
+        "whiteSpace": "pre-wrap",
+        "width": 602
+      }
+    ],
+    "host": "cm-host cm-host--limit-width cb-wrap-on"
+  },
+  "wrapOffNumbersOff": {
+    "blocks": [
+      {
+        "lineCount": 5,
+        "scroll": 602,
+        "whiteSpace": "pre",
+        "width": 602
+      },
+      {
+        "lineCount": 4,
+        "scroll": 1066,
+        "whiteSpace": "pre",
+        "width": 602
+      }
+    ],
+    "host": "cm-host cm-host--limit-width"
+  },
+  "originalSettingsRestored": true
+}

@@ -226,13 +226,11 @@ interface Settings {
   showTypesPanel: boolean;
   // v4.0 pillar 1: Inline Agent Panel — chat-with-vault sidebar.
   showAgentPanel: boolean;
-  // v4.0 release migration marker: set on first launch after upgrading
-  // to v4.0. If absent or false, `load()` force-enables `showAgentPanel`
-  // once so users coming from v3.6.x or any v4-beta build (where the
-  // default was false) actually see the marquee feature instead of an
-  // unchanged sidebar. After the migration the user is free to toggle
-  // it off via the command palette and the choice sticks.
+  // Legacy v4.0 marker; upgrades no longer force the panel open.
   v4AgentPanelMigrated: boolean;
+  // Apply the closed default once to old saved settings, then preserve
+  // subsequent explicit panel choices.
+  agentPanelDefaultClosedMigrated: boolean;
   v4AgentAllowWriteMigrated: boolean;
   // v4.0 pillar 1: when true, the agent can call write_note / append_to_note
   // from chat. Defaults to true so the agent can edit notes upon request.
@@ -680,12 +678,9 @@ function defaults(): Settings {
     showTasksPanel: false,
     showNeighborhood: false,
     showTypesPanel: false,
-    showAgentPanel: true,
-    // True for fresh installs (defaults are already v4.0). Existing
-    // localStorage blobs from v3.6.x / v4-beta won't have this key, so
-    // `load()`'s migration kicks in and force-enables the Agent Panel
-    // once before setting the marker on disk.
+    showAgentPanel: false,
     v4AgentPanelMigrated: true,
+    agentPanelDefaultClosedMigrated: true,
     v4AgentAllowWriteMigrated: true,
     agentAllowWrite: true,
     agentToolLoopCap: 8,
@@ -849,14 +844,15 @@ function load(): Settings {
           if (clean.zh || clean.en) merged.agentPromptOverrides[id] = clean;
         }
       }
-      // One-time v4.0 upgrade: any saved settings blob written before
-      // v4.0 release (or by a v4 beta where the panel defaulted off)
-      // will not have the `v4AgentPanelMigrated` marker. Force-enable
-      // the Agent Panel once and set the marker; subsequent toggles by
-      // the user persist normally.
+      // Retire the old force-open upgrade without enabling the panel.
       if (!parsed.v4AgentPanelMigrated) {
-        merged.showAgentPanel = true;
         merged.v4AgentPanelMigrated = true;
+      }
+      // Old installs persisted the previous open default. Close it once;
+      // opening the panel afterwards persists this marker with that choice.
+      if (!parsed.agentPanelDefaultClosedMigrated) {
+        merged.showAgentPanel = false;
+        merged.agentPanelDefaultClosedMigrated = true;
       }
       if (!parsed.v4AgentAllowWriteMigrated) {
         merged.agentAllowWrite = true;

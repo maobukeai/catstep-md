@@ -1,0 +1,10 @@
+{
+  "build": "631-test production build",
+  "clickedSecondCode": true,
+  "expectedBodyLine": 20,
+  "status": "行 20，列 1",
+  "firstUndoRemovedParagraphBreak": true,
+  "secondUndoRestoredExactSource": true,
+  "source": "# 排版回归检查\n\n先把光标放在这里。\n\n| 类型 | 内容 | 结果 |\n| :--- | :---: | ---: |\n| 中文 | **加粗**和`code` | 123 |\n| 长内容 | https://example.com/a/very/long/path/without/spaces/and/more/segments | 456 |\n\n```markdown\n| 不应渲染 | 示例 |\n| --- | --- |\n| 保持代码 | 原文 |\n\n<div>这应当是代码</div>\n```\n\n```javascript\nfunction hello() {\n  const longLine = \"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\";\n  return longLine;\n}\n```\n\n最后一段。",
+  "passed": true
+}

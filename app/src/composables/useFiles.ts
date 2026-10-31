@@ -4,6 +4,7 @@ import {
   convertFileToMarkdown,
   listDir,
   openPathExternal,
+  pathExists,
   readNote,
   writeBinaryFile,
   writeNote,
@@ -25,6 +26,12 @@ import type { Tab } from '../types';
 import { isSafPath, fromSafPath, safRead, safWrite, safLaunchPicker } from '../lib/saf-fs';
 import { baseNameOf, fileNameOf, claimImportName, joinInFolder } from '../lib/import-plan';
 import { purgeRecoverySnapshot } from './useRecovery';
+import { stampGoalSetAtIfMissing } from './useWritingGoals';
+import { applyNoteRead, matchesNoteVersion, normalizeNoteContent, notePathKey, notePayload, noteVersion } from '../lib/note-document';
+import { queueNoteWrite } from '../lib/note-write-queue';
+import { resolveFileConflict } from '../lib/file-conflicts';
+import { setSafPicking, clearSafPicking } from '../lib/saf-picker-state';
+import { waitForNoteEditors } from '../lib/editor-flush';
 
 // Save dialogs only — opening uses no filter so any file is selectable.
 // (rfd treats `'*'` literally as the extension `*`, not as wildcard, so we
@@ -307,9 +314,19 @@ export function useFiles() {
       // #148 — SAF vault file: read through ContentResolver. The parent is
       // already the open vault, so skip the reveal-parent dance below.
       const isSaf = isSafPath(path);
+      const alreadyOpen = tabs.tabs.find((tab) => tab.filePath && notePathKey(tab.filePath) === notePathKey(path));
+      const requestedVersion = alreadyOpen && noteVersion(alreadyOpen);
       const result = isSaf
         ? await safRead(workspace.safTreeUri!, fromSafPath(path))
         : await readNote(path);
+      await waitForNoteEditors(alreadyOpen?.id);
+      if (requestedVersion && !matchesNoteVersion(tabs.tabs.find((tab) => tab.id === requestedVersion.id), requestedVersion)) {
+        // An overlapping open must not replace newer edits or resurrect a
+        // tab that was closed while its read was pending.
+        const current = tabs.tabs.find((tab) => tab.id === requestedVersion.id);
+        if (current) tabs.activate(current.id);
+        return;
+      }
 
       // C20 — reveal the file inside the CURRENT file tree (expand its
       // ancestor chain, scroll the row into view, flash) instead of the old
@@ -587,10 +604,10 @@ export function useFiles() {
         // Launch and mark that a pick is in flight; App.vue resolves the result
         // on resume (the picker backgrounds our WebView, so we can't await it
         // inline — the JS poll loop is lost across the transition).
-        localStorage.setItem('catstep:saf-picking', '1');
+        setSafPicking(localStorage);
         await safLaunchPicker();
       } catch (e) {
-        localStorage.removeItem('catstep:saf-picking');
+        clearSafPicking(localStorage);
         toasts.error(String(e));
       }
       return;
@@ -640,23 +657,124 @@ export function useFiles() {
     await writeTextFile(uri as unknown as string, payload);
   }
 
-  /** Display name for a content:// URI ("…%2Fnote.md" → "note.md"). */
-  function contentUriName(uri: string): string {
+  async function saveToPath(
+    tab: Tab,
+    path: string,
+    originPath: string | undefined,
+    opts: { silent?: boolean; saveAs?: boolean; overwriteExternal?: boolean } = {},
+  ): Promise<boolean> {
     try {
-      return decodeURIComponent(uri).split(/[\\/:]/).filter(Boolean).pop() ?? uri;
-    } catch {
-      return uri.split(/[\\/]/).pop() ?? uri;
+      return await queueNoteWrite(path, async () => {
+        await waitForNoteEditors(tab.id);
+        const current = tabs.tabs.find((item) => item.id === tab.id);
+        if (!current || current.filePath !== originPath) return false;
+
+        // Every transform runs before capturing the bytes. markSaved only
+        // records this immutable snapshot, never the current mutable buffer.
+        current.content = stampGoalSetAtIfMissing(normalizeNoteContent(current.content));
+        let snapshot = noteVersion(current);
+        const encoding = current.encoding;
+        const hadBom = current.hadBom;
+        const lineEnding = current.lineEnding;
+        const isSaf = isSafPath(path);
+        const isContentUri = path.startsWith('content://');
+        const treeUri = workspace.safTreeUri;
+        let expectedContent: string | undefined;
+        let expectMissing = false;
+
+        if (!isSaf && !isContentUri) {
+          // Session hydration or another writer may have changed disk since
+          // this buffer's baseline. Check even when no watcher event arrived.
+          let disk: Awaited<ReturnType<typeof readNote>> | null = null;
+          try {
+            disk = await readNote(path);
+          } catch (error) {
+            if (await pathExists(path)) throw error;
+          }
+          if (tabs.tabs.find((item) => item.id === tab.id) !== current ||
+              current.filePath !== originPath || current.savedContent !== snapshot.savedContent) return false;
+          if ((!opts.saveAs || isIOS()) && !opts.overwriteExternal &&
+              disk && normalizeNoteContent(disk.content) !== snapshot.savedContent &&
+              normalizeNoteContent(disk.content) !== snapshot.content) {
+            const authorized = noteVersion(current);
+            const action = await resolveFileConflict(current.fileName);
+            await waitForNoteEditors(tab.id);
+            if (!matchesNoteVersion(tabs.tabs.find((item) => item.id === tab.id), authorized)) return false;
+            if (action === 'cancel') return false;
+            if (action === 'reload') {
+              const latest = await readNote(path);
+              await waitForNoteEditors(tab.id);
+              applyNoteRead(tabs.tabs.find((item) => item.id === tab.id), authorized, latest);
+              return false;
+            }
+            snapshot = authorized;
+            // Compare-and-swap the disk version observed after the explicit
+            // overwrite decision. A further writer must cause a conflict,
+            // never an automatic retry that erases their newer version.
+            try {
+              disk = await readNote(path);
+            } catch (error) {
+              if (await pathExists(path)) throw error;
+              disk = null;
+            }
+          }
+          expectedContent = disk ? normalizeNoteContent(disk.content) : undefined;
+          expectMissing = !disk;
+        }
+
+        if (tabs.tabs.find((item) => item.id === tab.id) !== current ||
+            current.filePath !== originPath || current.savedContent !== snapshot.savedContent) return false;
+        const payload = notePayload(snapshot.content, lineEnding);
+        if (isSaf) {
+          if (!treeUri) throw new Error('SAF workspace is no longer available');
+          await safWrite(treeUri, fromSafPath(path), payload);
+        } else if (isContentUri) {
+          await writeContentUri(path, payload);
+        } else {
+          const root = workspace.currentFolder;
+          const inWorkspace = root && notePathKey(path).startsWith(notePathKey(root) + '/');
+          await writeNote(path, payload, {
+            encoding,
+            hadBom,
+            expectedContent,
+            expectMissing,
+            workspace: inWorkspace ? root : undefined,
+          });
+        }
+        // The native write can outlast the editor's sync debounce. Closing
+        // immediately after this save must still see the latest keystroke.
+        await waitForNoteEditors(tab.id);
+        const savedTab = tabs.tabs.find((item) => item.id === tab.id);
+        if (!savedTab || savedTab.filePath !== originPath) return false;
+        tabs.markSaved(tab.id, path, snapshot.content);
+        if (!isSaf && !isContentUri) {
+          workspace.pushRecent(path);
+          recentEdits.recordEdit(path);
+          window.dispatchEvent(new CustomEvent('solomd:saved', { detail: { filePath: path } }));
+        }
+        if (!opts.silent) {
+          const name = savedTab.fileName;
+          const key = isIOS() ? 'toast.savedToDocuments' : opts.saveAs ? 'toast.savedAsName' : 'toast.savedName';
+          toasts.success(t(key, { name }));
+        }
+        return true;
+      });
+    } catch (error) {
+      console.error('save failed', error);
+      toasts.error(t('toast.saveFailed', { error: String(error) }));
+      return false;
     }
   }
 
-  async function saveTab(tab: Tab, opts: { silent?: boolean } = {}): Promise<boolean> {
+  async function saveTab(tab: Tab, opts: { silent?: boolean; overwriteExternal?: boolean } = {}): Promise<boolean> {
     // #222 — the CodeMirror editor syncs doc→tab.content on a 350ms debounce.
     // A save issued inside that window (vim `:w`/`:wq`, a fast Ctrl+S) would
     // read a stale document; for `:wq` the tab then closes and the tail of the
     // edit is silently lost. Editors flush their pending sync synchronously on
     // this event, so `tab.content` below is current.
-    window.dispatchEvent(new Event('solomd:flush-content-sync'));
-    let path = tab.filePath;
+    await waitForNoteEditors(tab.id);
+    const originPath = tab.filePath;
+    let path = originPath;
     if (isIOS()) {
       // On iOS, never trust the existing path — it may have come from a
       // deep-link "Open With" and not be writable from Rust fs. Always
@@ -665,55 +783,12 @@ export function useFiles() {
     } else if (!path) {
       return saveTabAs(tab);
     }
-    try {
-      // Restore the file's original line endings on write — we
-      // normalize CRLF→LF on open so CodeMirror behaves, but the user
-      // expects a Windows-saved file to stay Windows-saved.
-      const payload =
-        tab.lineEnding === 'crlf' ? tab.content.replace(/\n/g, '\r\n') : tab.content;
-      // #148 — SAF vault: write through ContentResolver. Git/AutoGit can't
-      // operate on content-URI paths, so skip the recent/MFU/AutoGit hooks
-      // (they key off real filesystem paths) for SAF saves.
-      const isSaf = isSafPath(path);
-      const isContentUri = path.startsWith('content://');
-      if (isSaf) {
-        await safWrite(workspace.safTreeUri!, fromSafPath(path), payload);
-      } else if (isContentUri) {
-        // Android — a tab previously Saved-As through the SAF dialog keeps
-        // its content:// URI as filePath; Ctrl+S must take the same
-        // ContentResolver route as the original save.
-        await writeContentUri(path, payload);
-      } else {
-        await writeNote(path, payload, { encoding: tab.encoding });
-      }
-      tabs.markSaved(tab.id, path);
-      if (!isSaf && !isContentUri) {
-        workspace.pushRecent(path);
-        // v2.5: feed the ⌘P quick-switcher's MFU ranking.
-        recentEdits.recordEdit(path);
-        // v2.2: notify the AutoGit composable so the debounced auto-commit
-        // pipeline picks up this save. Listener is in `useAutoCommit.ts`.
-        window.dispatchEvent(
-          new CustomEvent('solomd:saved', { detail: { filePath: path } }),
-        );
-      }
-      if (!opts.silent) {
-        if (isIOS()) {
-          const fname = path.split(/[\\/]/).pop() ?? path;
-          toasts.success(t('toast.savedToDocuments', { name: fname }));
-        } else {
-          toasts.success(t('toast.savedName', { name: tab.fileName }));
-        }
-      }
-      return true;
-    } catch (e) {
-      console.error('save failed', e);
-      toasts.error(t('toast.saveFailed', { error: String(e) }));
-      return false;
-    }
+    return saveToPath(tab, path, originPath, opts);
   }
 
   async function saveTabAs(tab: Tab): Promise<boolean> {
+    await waitForNoteEditors(tab.id);
+    const originPath = tab.filePath;
     const defaultName =
       deriveNameFromHeading(tab) ||
       tab.fileName ||
@@ -730,37 +805,7 @@ export function useFiles() {
       });
       if (!path) return false;
     }
-    try {
-      const payload =
-        tab.lineEnding === 'crlf' ? tab.content.replace(/\n/g, '\r\n') : tab.content;
-      // Android — the SAF save dialog returns a content:// URI (and has
-      // already created the empty document); write the bytes through
-      // ContentResolver, not std::fs. The fs-path-keyed hooks below
-      // (recents/MFU/AutoGit) are skipped, same as SAF-vault saves.
-      const isContentUri = path.startsWith('content://');
-      if (isContentUri) {
-        await writeContentUri(path, payload);
-        tabs.markSaved(tab.id, path);
-        const fileName = contentUriName(path);
-        toasts.success(t('toast.savedAsName', { name: fileName }));
-        return true;
-      }
-      await writeNote(path, payload, { encoding: tab.encoding });
-      tabs.markSaved(tab.id, path);
-      workspace.pushRecent(path);
-      // v2.5: feed the ⌘P quick-switcher's MFU ranking.
-      recentEdits.recordEdit(path);
-      window.dispatchEvent(
-        new CustomEvent('solomd:saved', { detail: { filePath: path } }),
-      );
-      const fileName = path.split(/[\\/]/).pop() ?? path;
-      toasts.success(t(isIOS() ? 'toast.savedToDocuments' : 'toast.savedAsName', { name: fileName }));
-      return true;
-    } catch (e) {
-      console.error('save-as failed', e);
-      toasts.error(t('toast.saveFailed', { error: String(e) }));
-      return false;
-    }
+    return saveToPath(tab, path, originPath, { saveAs: true });
   }
 
   async function saveActive() {
@@ -778,6 +823,7 @@ export function useFiles() {
   // failed background save isn't swallowed.
   async function autoSaveDirtyTabs(): Promise<void> {
     if (!settings.autoSaveOnBlur) return;
+    await waitForNoteEditors();
     for (const tab of tabs.tabs) {
       if (tab.filePath && tabs.isDirty(tab.id)) {
         await saveTab(tab, { silent: true });
@@ -822,13 +868,13 @@ export function useFiles() {
     // tab.content, which lags the CodeMirror doc by up to 350ms. A close
     // landing inside that window (vim `:q`, fast Ctrl+W) saw a clean tab and
     // discarded the unsynced tail without the unsaved-changes dialog.
-    window.dispatchEvent(new Event('solomd:flush-content-sync'));
+    await waitForNoteEditors(id);
     const showUnsavedDialog = getUnsavedDialog();
     if (tab.content !== tab.savedContent && showUnsavedDialog) {
       const action = await showUnsavedDialog('tab', tab.fileName, 1);
       if (action === 'save') {
         const ok = await saveTab(tab);
-        if (!ok) return false;
+        if (!ok || tabs.isDirty(tab.id)) return false;
       } else if (action === 'cancel') {
         return false; // go back to editing
       }
@@ -849,7 +895,7 @@ export function useFiles() {
   async function closeManySafe(ids: string[]): Promise<void> {
     // Flush once up front so the dirty checks below read the live doc (same
     // #222 stale-window hazard closeTabSafe guards for its own single close).
-    window.dispatchEvent(new Event('solomd:flush-content-sync'));
+    await Promise.all(ids.map((id) => waitForNoteEditors(id)));
     const dirty = ids
       .map((id) => tabs.tabs.find((t) => t.id === id))
       .filter((t): t is Tab => !!t && t.content !== t.savedContent);

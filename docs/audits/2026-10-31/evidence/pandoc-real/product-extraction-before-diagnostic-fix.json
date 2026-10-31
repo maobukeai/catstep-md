@@ -1,0 +1,11 @@
+{
+  "product": "app/src-tauri/src/pandoc.rs",
+  "product_sha256": "3f47920d0eb2ba93cfe88fa785bf57cfc7c79cb6c2bcbf247dc8184b000f69eb",
+  "source_sha256": "84896079d1198006abd30a829701caad82ffd64f4e0b6b007c989d807526c838",
+  "removed": [
+    "#[tauri::command] attributes",
+    "async pandoc_export IPC authorization/spawn wrapper only"
+  ],
+  "entry_executed": "pandoc_export_inner -> locate_pandoc -> run_export -> real pandoc 3.13",
+  "system_path_modified": false
+}

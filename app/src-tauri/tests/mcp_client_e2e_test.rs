@@ -79,23 +79,20 @@ async fn stdio_flow() {
     let cfg = test_config(&script);
 
     // list → spawn + handshake + tools/list + route registration.
-    let listed = tokio::time::timeout(
-        Duration::from_secs(20),
-        mcp_client::list_server_tools(&cfg),
-    )
-    .await
-    .expect("list within timeout")
-    .expect("list ok");
+    let listed = tokio::time::timeout(Duration::from_secs(20), mcp_client::list_server_tools(&cfg))
+        .await
+        .expect("list within timeout")
+        .expect("list ok");
     assert_eq!(listed.len(), 1);
     let (model_name, def) = &listed[0];
-    assert_eq!(model_name, "mcp_test_echo", "namespaced tool name");
+    assert!(model_name.starts_with("mcp_test_echo_"));
     assert_eq!(def.name, "echo");
     assert_eq!(def.description, "Echo the given text back");
 
     // call → route lookup + tools/call + text flattening.
     let out = tokio::time::timeout(
         Duration::from_secs(20),
-        mcp_client::dispatch("mcp_test_echo", json!({ "text": "hi" })),
+        mcp_client::dispatch(model_name, json!({ "text": "hi" })),
     )
     .await
     .expect("call within timeout")
@@ -141,10 +138,11 @@ const server = http.createServer((req, res) => {
       return;
     }
     if (msg.method === 'tools/call') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      // A valid response does not require the SSE connection to close.
+      res.write('data: ' + JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: {
         content: [{ type: 'text', text: 'http-echo:' + (msg.params.arguments.text || '') }],
-        isError: false } }));
+        isError: false } }) + '\n\n');
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -208,21 +206,18 @@ async fn http_flow() {
     };
 
     // list → initialize (captures Mcp-Session-Id) + tools/list.
-    let listed = tokio::time::timeout(
-        Duration::from_secs(20),
-        mcp_client::list_server_tools(&cfg),
-    )
-    .await
-    .expect("list within timeout")
-    .expect("list ok");
+    let listed = tokio::time::timeout(Duration::from_secs(20), mcp_client::list_server_tools(&cfg))
+        .await
+        .expect("list within timeout")
+        .expect("list ok");
     assert_eq!(listed.len(), 1);
-    assert_eq!(listed[0].0, "mcp_httptest_echo");
+    assert!(listed[0].0.starts_with("mcp_httptest_echo_"));
     assert_eq!(listed[0].1.description, "Echo text over HTTP");
 
     // call → session id rides along (server 404s without it).
     let out = tokio::time::timeout(
         Duration::from_secs(20),
-        mcp_client::dispatch("mcp_httptest_echo", json!({ "text": "hi" })),
+        mcp_client::dispatch(&listed[0].0, json!({ "text": "hi" })),
     )
     .await
     .expect("call within timeout")
@@ -240,4 +235,77 @@ async fn http_flow() {
 async fn mcp_transports_round_trip_real_servers() {
     stdio_flow().await;
     http_flow().await;
+    regression_flow().await;
+}
+
+async fn regression_flow() {
+    if !node_available() {
+        return;
+    }
+    let script = r#"
+const rl=require('readline').createInterface({input:process.stdin});
+rl.on('line',s=>{const m=JSON.parse(s);if(m.id===undefined || m.method===process.env.SILENT)return;
+const result=m.method==='initialize'?{capabilities:{}}:m.method==='tools/list'?{tools:[{name:'read.note'},{name:'read_note'}]}:{content:[{type:'text',text:process.env.LABEL+':'+m.params.name}]};
+process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\n');});
+"#;
+    let mut cfg = McpServerConfig {
+        id: "regression".into(),
+        command: "node".into(),
+        args: vec!["-e".into(), script.into()],
+        env: [("LABEL".into(), "A".into())].into_iter().collect(),
+        enabled: true,
+        timeout_secs: Some(1),
+        url: None,
+        headers: Default::default(),
+    };
+    let a = mcp_client::list_server_tools(&cfg).await.unwrap();
+    assert_ne!(a[0].0, a[1].0);
+    assert_eq!(
+        mcp_client::dispatch(&a[0].0, json!({})).await.unwrap(),
+        json!("A:read.note")
+    );
+    cfg.env.insert("LABEL".into(), "B".into());
+    let b = mcp_client::list_server_tools(&cfg).await.unwrap();
+    assert_ne!(a[0].0, b[0].0, "configuration change gets a fresh binding");
+    assert_eq!(
+        mcp_client::dispatch(&b[0].0, json!({})).await.unwrap(),
+        json!("B:read.note")
+    );
+    assert_eq!(
+        mcp_client::dispatch(&a[0].0, json!({})).await.unwrap(),
+        json!("A:read.note"),
+        "in-flight requests retain their own server"
+    );
+    for method in ["initialize", "tools/list"] {
+        cfg.env.insert("SILENT".into(), method.into());
+        let t = std::time::Instant::now();
+        assert!(mcp_client::list_server_tools(&cfg)
+            .await
+            .unwrap_err()
+            .contains("timed out"));
+        assert!(t.elapsed() < Duration::from_millis(2500));
+    }
+    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    cfg.timeout_secs = Some(10);
+    let flag = cancel.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        flag.store(true, std::sync::atomic::Ordering::SeqCst);
+    });
+    let t = std::time::Instant::now();
+    assert_eq!(
+        mcp_client::list_server_tools_with_cancel(&cfg, Some(&cancel))
+            .await
+            .unwrap_err(),
+        "cancelled"
+    );
+    assert!(t.elapsed() < Duration::from_secs(1));
+    cfg.env.insert("SILENT".into(), "tools/call".into());
+    cfg.timeout_secs = Some(1);
+    let calls = mcp_client::list_server_tools(&cfg).await.unwrap();
+    assert!(mcp_client::dispatch(&calls[0].0, json!({}))
+        .await
+        .unwrap_err()
+        .contains("timed out"));
+    mcp_client::shutdown_all().await;
 }

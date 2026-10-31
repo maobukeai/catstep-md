@@ -1,0 +1,36 @@
+{
+  "checked_utc": "2026-10-31T03:18:56.7040637Z",
+  "only_own_isolated_rerun_targets": true,
+  "method": "CredDeleteW exact target/type1: ERROR_NOT_FOUND confirms test RAII already removed key; no CredRead or enumeration",
+  "target_count": 3,
+  "already_absent": 3,
+  "results": [
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416660850117700",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416660850117700.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devA-1793416674966990100",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devA-1793416674966990100.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devB-1793416675039019500",
+      "target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devB-1793416675039019500.solomd-encryption-key",
+      "type": 1,
+      "win32_error": 1168,
+      "already_absent_after_raii": true,
+      "credential_content_read": false,
+      "directory_deleted": false
+    }
+  ]
+}

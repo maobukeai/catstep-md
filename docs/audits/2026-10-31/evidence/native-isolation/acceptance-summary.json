@@ -1,0 +1,662 @@
+{
+  "date": "2026-10-31",
+  "scope": "Windows Tauri/WebView2 evidence review; existing root CUA observations only",
+  "reviewer_started_gui_or_emulator": false,
+  "product_source_or_main_report_changed": false,
+  "native_acceptance_is_partial": true,
+  "all_platforms_signed_off": false,
+  "environment": {
+    "native_entry": "app/src-tauri/target/debug/examples/native_audit.exe",
+    "identifier": "app.catstepmd.audit.r20261031n1",
+    "credential_backend": "process-local keyring mock; no system persistence claim",
+    "qa_note": "C:/Users/20269/AppData/Local/Temp/catstep-native-audit-r20261031n1/workspace/native-audit.md",
+    "frontend_url": "http://127.0.0.1:1420",
+    "frontend_identity_note": "Native binary and later frontend builds are separate layers. IME wait/switch records identify frontend 648; final cursor records identify 650; earlier native screenshots have no explicit frontend build label.",
+    "native_binary_built_sha256": "989b67518650666a28cc9faa0cc2676ddc8eac06f701cce073acaa3c6a6c4839",
+    "native_binary_after_manifest_sha256": "2aa8ae2be14093a519097493197f48b10dd055a0e6b4e7d16c04a5fb255acdd6",
+    "operating_system_sandbox": false,
+    "formal_installer_or_offline_embedded_frontend_tested": false
+  },
+  "native_cases": [
+    {
+      "id": "W01",
+      "name": "Quick typing followed by native Save",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "Type Chinese, emoji, Markdown table and code whitespace into the dedicated QA note",
+        "Save immediately after typing"
+      ],
+      "observed": [
+        "Chinese and emoji present on disk",
+        "Two-space indentation and code blank lines preserved",
+        "QA file content and SHA256 recorded"
+      ],
+      "evidence": [
+        "../after-fixes/native-save-result.json",
+        "../after-fixes/native-save-source.png"
+      ],
+      "limits": [
+        "Single QA sample; does not establish native UTF-16/BOM/CRLF matrix or a paused-write typing race"
+      ]
+    },
+    {
+      "id": "W02",
+      "name": "Clean native tab reloads external changes",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "Modify the QA file externally while its clean native tab remains open"
+      ],
+      "observed": [
+        "External-change sentence becomes visible in the native editor"
+      ],
+      "evidence": [
+        "../after-fixes/native-external-change.png"
+      ],
+      "limits": [
+        "One observed external update; not sustained filesystem event stress"
+      ]
+    },
+    {
+      "id": "W03",
+      "name": "External change immediately after an own save",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "Observe an own save on the host",
+        "Write AFTER_SAVE_EXTERNAL_MARKER into the QA file 1ms later"
+      ],
+      "observed": [
+        "Native editor shows AFTER_SAVE_EXTERNAL_MARKER"
+      ],
+      "measured_delay_after_observed_save_ms": 1,
+      "evidence": [
+        "../after-fixes/native-fast-external-change-result.json",
+        "../after-fixes/native-fast-external-change.png"
+      ],
+      "limits": [
+        "Delay is measured from host observation, not atomic-write internals or event delivery",
+        "One sequence, not simultaneous CAS stress or arbitrary scheduling proof"
+      ]
+    },
+    {
+      "id": "W04",
+      "name": "Save notification reaches another native window",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "Open the same QA file in a second native window",
+        "Save CROSS_WINDOW_MAIN_SAVE in the main window"
+      ],
+      "observed": [
+        "Second window displays CROSS_WINDOW_MAIN_SAVE"
+      ],
+      "root_confirmation": "Root explicitly confirmed main-save to auxiliary-refresh direction during evidence review",
+      "evidence": [
+        "../after-fixes/native-second-window-open.png",
+        "../after-fixes/native-cross-window-save.png"
+      ],
+      "limits": [
+        "Sequential main-to-auxiliary notification, not two dirty windows saving from the same baseline simultaneously"
+      ]
+    },
+    {
+      "id": "W05",
+      "name": "Closing another window retains the main watcher",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "Close the auxiliary native window",
+        "Modify the same QA file externally"
+      ],
+      "observed": [
+        "Main window displays AFTER_SECOND_WINDOW_CLOSED"
+      ],
+      "root_confirmation": "Root confirmed this lifecycle sequence during evidence review",
+      "evidence": [
+        "../after-fixes/native-watcher-after-second-close.png"
+      ],
+      "limits": [
+        "Does not cover different spelling/Unicode aliases, two processes, or dirty auxiliary close behavior"
+      ]
+    },
+    {
+      "id": "W06",
+      "name": "Escape cancels a dirty external-change conflict safely",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "Type UNSAVED_LOCAL_MARKER locally without saving",
+        "Modify the QA file externally",
+        "Press Escape on the conflict dialog"
+      ],
+      "observed": [
+        "Local draft and dirty indicator remain visible",
+        "Disk still contains the external version",
+        "Unsaved local draft is not written to disk"
+      ],
+      "root_confirmation": "Root explicitly identified Escape as the cancellation gesture",
+      "evidence": [
+        "../after-fixes/native-dirty-file-conflict.png",
+        "../after-fixes/native-conflict-cancel-preserves-draft.png",
+        "../after-fixes/native-conflict-cancel-result.json"
+      ],
+      "limits": [
+        "Does not exercise the reload-from-disk branch"
+      ]
+    },
+    {
+      "id": "W07",
+      "name": "Save reopens the conflict and explicit overwrite writes only the QA draft",
+      "result": "passed_within_observed_scope",
+      "frontend_label": null,
+      "actions": [
+        "After Escape cancellation, press Ctrl+S",
+        "Choose Overwrite external changes on the renewed conflict dialog"
+      ],
+      "observed": [
+        "Conflict reappears instead of silently overwriting",
+        "Local draft is then on disk by explicit choice",
+        "External sentinel removed and committed Chinese retained"
+      ],
+      "root_confirmation": "Root confirmed Ctrl+S reopening and the explicit overwrite button; only the dedicated QA note was changed",
+      "evidence": [
+        "../after-fixes/native-conflict-reopened-on-save.png",
+        "../after-fixes/native-conflict-overwrite-result.json"
+      ],
+      "limits": [
+        "No additional external write during the dialog/CAS interval was injected"
+      ]
+    },
+    {
+      "id": "W08",
+      "name": "One Ctrl+S waits for genuine Microsoft Pinyin commit",
+      "result": "passed_within_observed_scope",
+      "frontend_label": "648-test production build",
+      "actions": [
+        "Open the Microsoft Pinyin ni'hao candidate",
+        "Press Ctrl+S once while composition is active",
+        "Commit with Space",
+        "Do not send a second Save"
+      ],
+      "observed": [
+        "Prefix and partial pinyin not written before commit",
+        "Complete Chinese saved after commit",
+        "Recorded secondSaveSent=false and savedOnlyAfterCommit=true"
+      ],
+      "evidence": [
+        "../after-fixes/native-ime-wait-save-before-commit.json",
+        "../after-fixes/native-ime-wait-composing.png",
+        "../after-fixes/native-ime-wait-save-after-fix.json",
+        "../after-fixes/native-ime-wait-saved.png"
+      ],
+      "limits": [
+        "One Microsoft Pinyin path, not Sogou/Japanese/Korean/voice/cancellation matrix",
+        "Custom Save shortcuts and Meta save have module evidence, not this native UI run"
+      ]
+    },
+    {
+      "id": "W09",
+      "name": "Committed Chinese remains with its original tab after immediate new-tab creation",
+      "result": "data_identity_passed_with_followup_cursor_fix",
+      "frontend_label": "648-test production build",
+      "actions": [
+        "Commit Chinese text",
+        "Immediately create a new tab"
+      ],
+      "observed": [
+        "New tab body is blank",
+        "Committed Chinese remains saved to the original QA file",
+        "The screenshot also exposes the old 33:15 status on the blank tab; W10 verifies its fix"
+      ],
+      "evidence": [
+        "../after-fixes/native-ime-switch-result.json",
+        "../after-fixes/native-ime-switch-new-tab.png"
+      ],
+      "limits": [
+        "This is commit-then-switch, not comprehensive switching during uncommitted composition",
+        "The JSON passed=true covers body/file identity, not the old cursor display"
+      ]
+    },
+    {
+      "id": "W10",
+      "name": "Native tab cursor display matches actual blank/restored state",
+      "result": "passed_within_observed_scope",
+      "frontend_label": "650",
+      "actions": [
+        "Observe original tab at line 33 column 15",
+        "Switch to blank Untitled",
+        "Return to original tab"
+      ],
+      "observed": [
+        "Blank displays line 1 column 1 and wordCount 0",
+        "Original tab restores line 33 column 15"
+      ],
+      "evidence": [
+        "../after-fixes/native-cursor-final-650-result.json",
+        "../after-fixes/native-cursor-original-final-650.png",
+        "../after-fixes/native-cursor-blank-final-650.png",
+        "../after-fixes/native-cursor-restored-final-650.png"
+      ],
+      "limits": [
+        "Selected-character display and all selection branches are not independently demonstrated by these three screenshots; actual SFC/CM state regressions cover clearing old selection metadata"
+      ]
+    },
+    {
+      "id": "W11",
+      "name": "Native desktop Markdown live/reading sample, local table scroll, table history and code reveal/save round-trip",
+      "result": "passed_within_observed_scope",
+      "frontend_label": "650",
+      "window": "1200x800",
+      "actions": [
+        "View Markdown table and ordinary Markdown/HTML fenced code in live mode",
+        "Scroll the table locally to reveal its final column",
+        "Insert right column, Ctrl+Z, Ctrl+Shift+Z, Ctrl+Z",
+        "Click the second JS block, Enter, Ctrl+Z, save layout-native.md",
+        "View the saved document in reading mode"
+      ],
+      "observed": [
+        "Table last column reachable through local horizontal scroll",
+        "Ordinary fenced Markdown/HTML stays literal code",
+        "Column counts 3->4->3->4->3, timerStarted=false",
+        "Code click status line19 column1",
+        "Root recorded saved content exactly equal to fixture after Enter/undo",
+        "Reading screenshot preserves the table and literal code sample"
+      ],
+      "evidence": [
+        "../after-fixes/native-markdown-layout-final-650-result.json",
+        "../after-fixes/native-markdown-live-650.png",
+        "../after-fixes/native-table-local-scroll-650.png",
+        "../after-fixes/native-table-column-add-650.png",
+        "../after-fixes/native-table-column-undo-650.png",
+        "../after-fixes/native-table-column-redo-650.png",
+        "../after-fixes/native-code-click-650.png",
+        "../after-fixes/native-markdown-reading-650.png"
+      ],
+      "root_recorded_exact_fixture_round_trip": true,
+      "reviewer_saved_file_observation": {
+        "path": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-native-audit-r20261031n1\\workspace\\layout-native.md",
+        "characters": 447,
+        "UTF8_bytes": 551,
+        "sha256": "8f8c5991cdb22bae90c11e2f274c797753fe2854338d6cf5b7d7e977b411fcb1"
+      },
+      "limits": [
+        "Native 1200x800 sample only; not narrow-window or four-code-setting native matrix",
+        "This is frontend650 evidence, not a replay on654"
+      ]
+    }
+  ],
+  "historical_failures_preserved": [
+    {
+      "name": "Missing example Common-Controls manifest stopped loader before main",
+      "evidence": [
+        "loader-failure.json",
+        "manifest-extract.json"
+      ],
+      "closure": [
+        "manifest-repair-provenance.json",
+        "activation-context-check.json",
+        "Subsequent native UI and QA disk evidence in W01-W10"
+      ]
+    },
+    {
+      "name": "Earlier IME Save shortcut was dropped rather than queued",
+      "evidence": [
+        "../after-fixes/native-ime-before-commit.json",
+        "../after-fixes/native-ime-after-commit.json",
+        "../after-fixes/native-ime-composing.png",
+        "../after-fixes/native-ime-committed-before-second-save.png"
+      ],
+      "important_false_value": "HasCommittedPhrase=false after Space with no second Save; these files are failure evidence, not final acceptance",
+      "closure": [
+        "../after-fixes/shortcut-conflict-followup.md",
+        "W08 frontend 648 native retest"
+      ]
+    },
+    {
+      "name": "Blank new tab retained old 33:15 cursor status",
+      "evidence": [
+        "../after-fixes/native-ime-switch-new-tab.png"
+      ],
+      "closure": [
+        "W10 frontend 650 native retest"
+      ]
+    }
+  ],
+  "browser_only_supplement": {
+    "environment_confirmed_by_root": "Chrome production browser, not native Tauri",
+    "frontend": 650,
+    "table_columns": [
+      3,
+      2,
+      3
+    ],
+    "sequence": [
+      "Add column",
+      "Ctrl+Z",
+      "Ctrl+Shift+Z"
+    ],
+    "source_undo_redo_passed": true,
+    "timer_visible": false,
+    "evidence": [
+      "../after-fixes/shortcut-redo-final-650-result.json",
+      "../after-fixes/table-redo-final-650.jpg"
+    ],
+    "not_promoted_to_native_signoff": true
+  },
+  "automated_gates_observed": {
+    "full_frontend_tests": {
+      "passed": 654,
+      "failed": 0,
+      "skipped": 0,
+      "evidence": "../after-fixes/test-final.txt"
+    },
+    "typecheck": "../after-fixes/test-type-final.txt",
+    "i18n": "../after-fixes/i18n-check-final.txt",
+    "toast_literals": "../after-fixes/i18n-toast-final.txt",
+    "production_build": "../after-fixes/build-final.txt",
+    "gate_exit_codes": "../after-fixes/gate-results-final.json",
+    "not_equivalent_to_replaying_every_native_case_on_frontend_654": true
+  },
+  "not_covered_by_this_native_evidence": [
+    "Two native windows simultaneously saving the same old baseline; Rust CAS/thread tests are a separate layer",
+    "Native Windows case/Unicode path aliases and separate-process contention",
+    "Dirty reload-from-disk, repeated external mutation while conflict is open, CAS failure interaction, both windows dirty",
+    "Native typing while artificially delayed read/write IPC remains outstanding",
+    "Other IMEs, composition cancellation, voice input, uncommitted candidate plus close/workspace-switch; W09 is commit-then-switch",
+    "Native custom/Meta Save shortcut matrix",
+    "Native UTF-16 LE/BE, BOM and CRLF matrix",
+    "Crash/restart recovery, recovery retries, workspace switching, directory rename/move/delete and properties concurrency as full native flows",
+    "Native disk-full/permission/locked-file faults",
+    "Native narrow windows, four code-wrap/number settings and additional style combinations beyond passed W11 desktop sample",
+    "Formal installer/offline packaged frontend, real keyring persistence, real cloud sync, external client config/default association",
+    "Android654 SAF acceptance is separately documented; iOS/macOS/Linux and export-reader visual signoff remain outside this Windows evidence"
+  ],
+  "historical_status_files_not_rewritten": [
+    "../after-fixes/ui-validation-before-native.json is the byte-for-byte pre-native interruption snapshot",
+    "../after-fixes/validation-summary.json contains an older frontend count",
+    "README.md describes the earlier static preparation phase"
+  ],
+  "input_file_inventory": [
+    {
+      "path": "../after-fixes/build-final.txt",
+      "bytes": 40623,
+      "sha256": "6be6865e35ebce32b0792340066657bb1538032d3257bbf93ebaadbd7d39dcb9"
+    },
+    {
+      "path": "../after-fixes/gate-results-final.json",
+      "bytes": 605,
+      "sha256": "7f907645a17e6aa0b34d9c671ede08c6e066c09c19f9173b0ab91d1678b7a87b"
+    },
+    {
+      "path": "../after-fixes/i18n-check-final.txt",
+      "bytes": 5243,
+      "sha256": "16672db77fa72e8aa5f9f39863d7948a7bef27ea0b26b5b222e02d84941231ed"
+    },
+    {
+      "path": "../after-fixes/i18n-toast-final.txt",
+      "bytes": 128,
+      "sha256": "3d19a077c30978524174e75c9ea0bb06e2301e5108e4389b4c5a47c3763d3397"
+    },
+    {
+      "path": "../after-fixes/native-code-click-650.png",
+      "bytes": 79131,
+      "sha256": "06dd53e0f04b877df7d9d75689a52ef38110342ea0c59f9adf367bbe2bfedd67"
+    },
+    {
+      "path": "../after-fixes/native-conflict-cancel-preserves-draft.png",
+      "bytes": 62092,
+      "sha256": "68ef270eaf2265d2b25f81d1ead01f59c624b803d1344f1f873436806ba8138c"
+    },
+    {
+      "path": "../after-fixes/native-conflict-cancel-result.json",
+      "bytes": 158,
+      "sha256": "0f3fad0bb505dffd59a9c4cf1426e74fd839c366367aff3a705d420b3df7ddfd"
+    },
+    {
+      "path": "../after-fixes/native-conflict-overwrite-result.json",
+      "bytes": 324,
+      "sha256": "529470898e14364e394d12a0ccdc290ba6d465f1002d798cdaca57bae71ca30e"
+    },
+    {
+      "path": "../after-fixes/native-conflict-reopened-on-save.png",
+      "bytes": 55140,
+      "sha256": "1a25986ece382f55a19f391750bc946167fcf97e3f8becf7b05508ae0d3974c3"
+    },
+    {
+      "path": "../after-fixes/native-cross-window-save.png",
+      "bytes": 58742,
+      "sha256": "f1b97bb4c097277c1cda91cfb7bde48da17dd983b6ade495057aea377f14b967"
+    },
+    {
+      "path": "../after-fixes/native-cursor-blank-final-650.png",
+      "bytes": 42694,
+      "sha256": "e8de607bc1421ce4387d968533ff05abad95fa680cfb8e82c558b85286976a39"
+    },
+    {
+      "path": "../after-fixes/native-cursor-final-650-result.json",
+      "bytes": 470,
+      "sha256": "12ad651c5cb9d5db18fd67bac857c210902ce1fd81fc216f7483d5bc68437045"
+    },
+    {
+      "path": "../after-fixes/native-cursor-original-final-650.png",
+      "bytes": 66017,
+      "sha256": "b2290e6078c6091c8ee6328c9741072ed029351f97c9b035397de2062c8b2880"
+    },
+    {
+      "path": "../after-fixes/native-cursor-restored-final-650.png",
+      "bytes": 64017,
+      "sha256": "2dc2687bc377aac6f6aa8f4448870851b2ca20de8743aabbdfae5f4218e659fe"
+    },
+    {
+      "path": "../after-fixes/native-dirty-file-conflict.png",
+      "bytes": 55140,
+      "sha256": "1a25986ece382f55a19f391750bc946167fcf97e3f8becf7b05508ae0d3974c3"
+    },
+    {
+      "path": "../after-fixes/native-external-change.png",
+      "bytes": 60320,
+      "sha256": "a86bb639da3ee1133192a1434c3b0b767b737da54495ee0feae4b7e7b7f944ad"
+    },
+    {
+      "path": "../after-fixes/native-fast-external-change-result.json",
+      "bytes": 196,
+      "sha256": "a4b19e2ab6f637c930a6e350b51d655037a3574e25b514301ee140748ba42efb"
+    },
+    {
+      "path": "../after-fixes/native-fast-external-change.png",
+      "bytes": 65058,
+      "sha256": "19312c9b8dbc8f63769360de1356c5cc4c893efd7ee5c83efc2958f926f5f824"
+    },
+    {
+      "path": "../after-fixes/native-ime-after-commit.json",
+      "bytes": 339,
+      "sha256": "87691c0165290007f41589125fa6493201658030152dd5671d4aca0852937ff9"
+    },
+    {
+      "path": "../after-fixes/native-ime-before-commit.json",
+      "bytes": 246,
+      "sha256": "bda70c5a549c408aa2c8c40e53c3ca63d748fbfbde4485b23da1148cff3018d8"
+    },
+    {
+      "path": "../after-fixes/native-ime-committed-before-second-save.png",
+      "bytes": 60895,
+      "sha256": "7aacc792caaa629759be509abbd6f1f2e8a52491dfee892c945225662ec3b7bd"
+    },
+    {
+      "path": "../after-fixes/native-ime-composing.png",
+      "bytes": 67134,
+      "sha256": "2d277840ef2b28a30c9c75e88d04509e0c8b1f806fc28dfd31890fefa84e178e"
+    },
+    {
+      "path": "../after-fixes/native-ime-switch-new-tab.png",
+      "bytes": 44249,
+      "sha256": "5f64d0da4cec7a8be606748d36a48a4f0e3553ea7d4024efdafd24684b4c7324"
+    },
+    {
+      "path": "../after-fixes/native-ime-switch-result.json",
+      "bytes": 264,
+      "sha256": "e53a291b810ab2d7b4866c2c99d5eb5f3870321c4d3ac6284478042317f6245b"
+    },
+    {
+      "path": "../after-fixes/native-ime-wait-composing.png",
+      "bytes": 69054,
+      "sha256": "66a94a47d9945d01ca537d4fba11044a87a4abad18793b58f2723b8e281cdafc"
+    },
+    {
+      "path": "../after-fixes/native-ime-wait-save-after-fix.json",
+      "bytes": 316,
+      "sha256": "dc0d171eef29809b405aad377991bc9810f9b8af5a9852b522f5e724ccdd68f8"
+    },
+    {
+      "path": "../after-fixes/native-ime-wait-save-before-commit.json",
+      "bytes": 238,
+      "sha256": "95438fdb1bfb182c323dad3dc6030ecb5b3709c6caf36bacf63803e2ac0a0988"
+    },
+    {
+      "path": "../after-fixes/native-ime-wait-saved.png",
+      "bytes": 62997,
+      "sha256": "4d9597f9d4f5b11a7198e22f43b4d07cac92997309d51498b5bc4294e9b6d3d3"
+    },
+    {
+      "path": "../after-fixes/native-markdown-layout-final-650-result.json",
+      "bytes": 1041,
+      "sha256": "941eda1bd159f27e2a40f1c423c1328f23f3dbd2783d2128bd98b8c4976adea7"
+    },
+    {
+      "path": "../after-fixes/native-markdown-live-650.png",
+      "bytes": 77952,
+      "sha256": "5d1555fdd1415476b842837665b9346636d2a2ae10cf1c4d4719ef117a2440b3"
+    },
+    {
+      "path": "../after-fixes/native-markdown-reading-650.png",
+      "bytes": 83364,
+      "sha256": "dce6d89ed215905fb76e5325e6cc2dc58c3b7472ce7393c08d5c3f6d51b3b8a9"
+    },
+    {
+      "path": "../after-fixes/native-save-result.json",
+      "bytes": 485,
+      "sha256": "9ecb09fb949672ddf97ea752a85f6c6dac126617132a52ee61465861f428a44e"
+    },
+    {
+      "path": "../after-fixes/native-save-source.png",
+      "bytes": 58872,
+      "sha256": "0c1298218f6c11bc2186c7b33cafee9d6192dc680c23fc3a75d0f7c66ef318e1"
+    },
+    {
+      "path": "../after-fixes/native-second-window-open.png",
+      "bytes": 55082,
+      "sha256": "31eae134aa45883c5bd626d39c45ce215a11e09b89903a52076ca6c94f699a5e"
+    },
+    {
+      "path": "../after-fixes/native-table-column-add-650.png",
+      "bytes": 80836,
+      "sha256": "9fdc43bbc9f5becfbb50cbd0a1b7c42dd85e0e5c8ccb983fae7e1ad1347d6b41"
+    },
+    {
+      "path": "../after-fixes/native-table-column-redo-650.png",
+      "bytes": 80836,
+      "sha256": "9fdc43bbc9f5becfbb50cbd0a1b7c42dd85e0e5c8ccb983fae7e1ad1347d6b41"
+    },
+    {
+      "path": "../after-fixes/native-table-column-undo-650.png",
+      "bytes": 83507,
+      "sha256": "67c3f9dac54081fddc7fd1071cc20735a4ecd145eec1d7f86a3aa0b085dd34b5"
+    },
+    {
+      "path": "../after-fixes/native-table-local-scroll-650.png",
+      "bytes": 78203,
+      "sha256": "6b1a8e32a354b9246dd93b07f25658ab4ef591968469a7c225988076af860c7b"
+    },
+    {
+      "path": "../after-fixes/native-watcher-after-second-close.png",
+      "bytes": 67794,
+      "sha256": "3afdca2d0214a63f96ac101328439730363d0f8237ccf80d93c29c6598051704"
+    },
+    {
+      "path": "../after-fixes/shortcut-conflict-followup.md",
+      "bytes": 5397,
+      "sha256": "2d2cb76aa7f5e5bfbec961b3be69a8ce2119511ac1b06c2b196597845958c785"
+    },
+    {
+      "path": "../after-fixes/shortcut-redo-final-650-result.json",
+      "bytes": 2378,
+      "sha256": "ee2a325e31402870fe1aed1743526c30b420c29adc5289cebdef388da15761dd"
+    },
+    {
+      "path": "../after-fixes/table-redo-final-650.jpg",
+      "bytes": 43236,
+      "sha256": "96795832aa36674c129f3ab71957dd46af5a09ad3b8b0d02b6f140de1e3b00cd"
+    },
+    {
+      "path": "../after-fixes/test-final.txt",
+      "bytes": 50339,
+      "sha256": "1d1049bcc02ea42ef0446e254b1fa883ac188d2f5007866c51944ebcf42d56bc"
+    },
+    {
+      "path": "../after-fixes/test-type-final.txt",
+      "bytes": 42,
+      "sha256": "3f748d3e45d45ace3bdffd32c8bc82ba654d4929b5df86a74d4861e4af3312d1"
+    },
+    {
+      "path": "../after-fixes/ui-validation-before-native.json",
+      "bytes": 2553,
+      "sha256": "5a5a4a521c8c5d2eeab7c626d8deeccd6f0f1981fdd34e9b270b53ef46899430"
+    },
+    {
+      "path": "../android-real/SAF实际验收.md",
+      "bytes": 8150,
+      "sha256": "72c7b4ce378c885d9000b869a125d268c5a3d8abe24438e6bdd4ffdb54447ba4"
+    },
+    {
+      "path": "../android-real/evidence-index.json",
+      "bytes": 9550,
+      "sha256": "560a108658301d1ec383b90699e2904196a70fba4d9c87626f649fee41536ee8"
+    },
+    {
+      "path": "../android-real/saf-ui-result.json",
+      "bytes": 3455,
+      "sha256": "281835b76f76fbf5bfbe69c32475509be38067e491e912e0fc66830ece0f39d4"
+    },
+    {
+      "path": "activation-context-check.json",
+      "bytes": 642,
+      "sha256": "7a334ca2cff7faf10f6f161635ec63939b8d7dbd2a88ff86db84f49730bf5362"
+    },
+    {
+      "path": "build-provenance.json",
+      "bytes": 821,
+      "sha256": "fea2c5c24da8e1e05d05c46464d53fae54bd85e93ae34d81475963122fb755c3"
+    },
+    {
+      "path": "loader-failure.json",
+      "bytes": 519,
+      "sha256": "0e9f59ace10513666ff518cee38d2d61d5d85607ddf794fcc83d8c85b398587a"
+    },
+    {
+      "path": "manifest-extract.json",
+      "bytes": 1256,
+      "sha256": "a507eab330785b7fdcd2cbd55488ccf97fdaf3cc390738695bfa68bfb1b74228"
+    },
+    {
+      "path": "manifest-repair-provenance.json",
+      "bytes": 2004,
+      "sha256": "5ebcfc0055a1903f474d3544c24bd0ffb17e7c1272ead0e13dcb7b86a70cca4e"
+    },
+    {
+      "path": "native_audit.rs",
+      "bytes": 6444,
+      "sha256": "ed72a8301edde2252f743e282c4ab3ed47fb293d5cbf278168971021e8196829"
+    },
+    {
+      "path": "tauri.audit.override.json",
+      "bytes": 750,
+      "sha256": "9569af4208816b8275d5812af4aec42dd7f494cd1c81282d212afb1fbf9c4be7"
+    }
+  ],
+  "reviewed_utc": "2026-10-31T04:36:26.569586+00:00",
+  "current_ui_status": "../after-fixes/ui-validation-status.json",
+  "pre_native_status_snapshot_sha256": "5a5a4a521c8c5d2eeab7c626d8deeccd6f0f1981fdd34e9b270b53ef46899430",
+  "android_separate_acceptance": "../android-real/SAF实际验收.md"
+}

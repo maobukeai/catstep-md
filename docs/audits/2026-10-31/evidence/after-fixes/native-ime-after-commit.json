@@ -1,0 +1,12 @@
+{
+  "Stage": "After Space committed the Chinese candidate; no second Save was sent",
+  "HasCommittedPhrase": false,
+  "HasPartialPinyin": false,
+  "ContentSha256": "C8005A6A43AC333C540D80D2BA1A0A91DE78B73148AF415454742BF305F1AFB5",
+  "Tail": [
+    "CROSS_WINDOW_MAIN_SAVE",
+    "",
+    "AFTER_SECOND_WINDOW_CLOSED",
+    ""
+  ]
+}

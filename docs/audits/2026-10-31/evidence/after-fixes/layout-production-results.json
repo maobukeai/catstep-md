@@ -1,0 +1,146 @@
+{
+  "liveWide": {
+    "code": [
+      {
+        "client": 690,
+        "overflowX": "auto",
+        "scroll": 690,
+        "width": 690
+      },
+      {
+        "client": 690,
+        "overflowX": "auto",
+        "scroll": 1066,
+        "width": 690
+      }
+    ],
+    "codeCount": 2,
+    "codeText": [
+      "| 不应渲染 | 示例 |\n| --- | --- |\n| 保持代码 | 原文 |\n\n<div>这应当是代码</div>",
+      "function hello() {\n  const longLine = \"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\";\n  return longLine;\n}"
+    ],
+    "content": {
+      "client": 780,
+      "overflowX": "visible",
+      "scroll": 780,
+      "width": 780
+    },
+    "editor": {
+      "client": 1680,
+      "overflowX": "visible",
+      "scroll": 1680,
+      "width": 1680
+    },
+    "scroller": {
+      "client": 1670,
+      "overflowX": "auto",
+      "scroll": 1670,
+      "width": 1680
+    },
+    "tableCount": 1,
+    "tables": [
+      {
+        "client": 692,
+        "overflowX": "auto",
+        "scroll": 730,
+        "width": 692
+      }
+    ],
+    "viewport": 1920
+  },
+  "liveNarrow": {
+    "code": [
+      {
+        "client": 592,
+        "overflowX": "auto",
+        "scroll": 592,
+        "width": 592
+      },
+      {
+        "client": 592,
+        "overflowX": "auto",
+        "scroll": 1066,
+        "width": 592
+      }
+    ],
+    "codeCount": 2,
+    "content": {
+      "client": 682,
+      "overflowX": "visible",
+      "scroll": 682,
+      "width": 682
+    },
+    "scroller": {
+      "client": 682,
+      "overflowX": "auto",
+      "scroll": 682,
+      "width": 692
+    },
+    "tableCount": 1,
+    "tableWidths": [
+      {
+        "client": 730,
+        "overflowX": "hidden",
+        "scroll": 730,
+        "width": 730.34375
+      }
+    ],
+    "tables": [
+      {
+        "client": 594,
+        "overflowX": "auto",
+        "scroll": 730,
+        "width": 594
+      }
+    ],
+    "viewport": 932
+  },
+  "readNarrow": {
+    "code": [
+      {
+        "client": 592,
+        "overflowX": "auto",
+        "scroll": 592,
+        "width": 592
+      },
+      {
+        "client": 592,
+        "overflowX": "auto",
+        "scroll": 1270,
+        "width": 592
+      }
+    ],
+    "host": {
+      "client": 682,
+      "overflowX": "visible",
+      "scroll": 682,
+      "width": 682
+    },
+    "tableContainers": [
+      {
+        "client": 594,
+        "overflowX": "auto",
+        "role": "region",
+        "scroll": 769,
+        "tabIndex": 0,
+        "width": 594
+      }
+    ],
+    "tables": [
+      {
+        "client": 769,
+        "overflowX": "visible",
+        "scroll": 769,
+        "width": 769
+      }
+    ],
+    "viewport": 932
+  },
+  "keyboardScrollFinal": {
+    "containerRight": 878,
+    "lastHeader": "结果",
+    "lastHeaderRight": 877.5,
+    "maxScroll": 175,
+    "scrollLeft": 175
+  }
+}

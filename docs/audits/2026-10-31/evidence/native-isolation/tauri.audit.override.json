@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Catstep MD Audit",
+  "identifier": "app.catstepmd.audit.r20261031n1",
+  "build": {
+    "beforeDevCommand": null,
+    "beforeBuildCommand": null,
+    "beforeBundleCommand": null,
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Catstep MD Audit r20261031n1",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 480,
+        "minHeight": 360,
+        "visible": false,
+        "center": true,
+        "decorations": false,
+        "shadow": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": false
+  }
+}

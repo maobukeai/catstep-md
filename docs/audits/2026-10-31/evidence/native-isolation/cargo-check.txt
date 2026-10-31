@@ -1,0 +1,9 @@
+Working directory: app/src-tauri
+Command: cargo check --example native_audit --locked --offline
+TAURI_CONFIG: contents of tauri.audit.override.json supplied only to the cargo child process
+
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.97s
+
+Exit code: 0
+This was a compile check. No native GUI or native audit executable was run.

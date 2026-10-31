@@ -1,0 +1,40 @@
+{
+  "createdAt": "2026-10-31T11:26:25.2519486+08:00",
+  "qaRoot": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031",
+  "avdName": "catstep_qa_d11_20261031_isolated",
+  "avdPath": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user\\avd\\catstep_qa_d11_20261031_isolated.avd",
+  "androidUserHome": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user",
+  "androidAvdHome": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user\\avd",
+  "imagePackage": "system-images;android-34;default;x86_64",
+  "apiLevel": 34,
+  "osVersion": "Android 14",
+  "abi": "x86_64",
+  "launched": false,
+  "installedApk": false,
+  "originalAvdMetadataUnchanged": true,
+  "originalMetadataSHA256": [
+    "5E308DE50AA43C1E105E97605103F511540139B2C24A3D5B637B31D25ACBE9B4",
+    "B1A60B6751FE0F0F30630AA2E0C3FC92B4EDE009A7E91B4EA435C4D94F4212C5"
+  ],
+  "sourceOfUserdata": "New AVD initialized by avdmanager from SDK pristine image; no existing AVD user data read or copied.",
+  "isolatedListAvds": [
+    "catstep_qa_d11_20261031_isolated"
+  ],
+  "qaFiles": [
+    {
+      "Name": "config.ini",
+      "Length": 3512
+    },
+    {
+      "Name": "userdata.img",
+      "Length": 1048576
+    }
+  ],
+  "tunedAt": "2026-10-31T11:37:38.4306282+08:00",
+  "qaHardware": {
+    "dataPartition": "2G",
+    "ram": "2048M",
+    "physicalKeyboard": true,
+    "coldBoot": true
+  }
+}

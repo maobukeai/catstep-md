@@ -39,6 +39,7 @@
 import { syntaxTree, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Facet, type Range } from '@codemirror/state';
 import { IMAGE_LINE_RE, trackImageHeights } from './cm-live-blocks';
+import { renderedCodeBlocks } from './cm-code-block';
 import {
   installSvgImageFallbacks,
   isLocalSvgPath,
@@ -613,6 +614,10 @@ function buildDecorations(view: EditorView): DecorationSet {
 
         // ---- Fenced code block background + copy button ----
         if (name === 'FencedCode' || name === 'CodeBlock') {
+          if (view.state.facet(renderedCodeBlocks) &&
+              !view.state.selection.ranges.some((range) => range.from <= nTo && range.to >= nFrom)) {
+            return false;
+          }
           const startLine = view.state.doc.lineAt(nFrom).number;
           const endLine = view.state.doc.lineAt(
             Math.min(nTo, view.state.doc.length),

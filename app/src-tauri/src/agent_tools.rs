@@ -1134,7 +1134,7 @@ fn tool_list_notes(workspace: &Path, args: &Value) -> Result<Value, String> {
     } else {
         collect_external_open_files(workspace, args)
     };
-    for path in walk_md_files(&scan_root).chain(external_files.into_iter()) {
+    for path in walk_md_files(&scan_root).chain(external_files) {
         if notes.len() >= limit {
             break;
         }
@@ -1318,7 +1318,7 @@ fn tool_search(workspace: &Path, args: &Value) -> Result<Value, String> {
         // regex-lite already in deps — compile and walk ourselves.
         let re = Regex::new(&query).map_err(|e| format!("bad regex: {e}"))?;
         let mut hits: Vec<Value> = Vec::new();
-        for path in walk_md_files(workspace).chain(external_files.into_iter()) {
+        for path in walk_md_files(workspace).chain(external_files) {
             if hits.len() >= limit {
                 break;
             }
@@ -1515,7 +1515,7 @@ fn tool_get_backlinks(workspace: &Path, args: &Value) -> Result<Value, String> {
 
     let mut out: Vec<Value> = Vec::new();
     let external_files = collect_external_open_files(workspace, args);
-    for path in walk_md_files(workspace).chain(external_files.into_iter()) {
+    for path in walk_md_files(workspace).chain(external_files) {
         // Detection read — legacy-encoded notes link too; skip junk.
         let det = match super::commands::read_text_detected(&path) {
             Ok(d) => d,
@@ -1574,7 +1574,7 @@ fn tool_list_tags(workspace: &Path, args: &Value) -> Result<Value, String> {
     // front-matter `tags:` arrays were silently dropped.
     let mut frontmatter_errors: Vec<Value> = Vec::new();
     let external_files = collect_external_open_files(workspace, args);
-    for path in walk_md_files(workspace).chain(external_files.into_iter()) {
+    for path in walk_md_files(workspace).chain(external_files) {
         // Detection read — legacy-encoded notes carry tags too; skip junk.
         let det = match super::commands::read_text_detected(&path) {
             Ok(d) => d,
@@ -2867,8 +2867,9 @@ fn tool_copy_note(workspace: &Path, args: &Value) -> Result<Value, String> {
 /// reserved for future tools that need it (notify the frontend, emit events,
 /// etc.); current tools only need the workspace path. We accept it now so
 /// `ai_proxy` doesn't have to refactor when those tools arrive.
-pub async fn dispatch_tool(
-    _app: &AppHandle,
+#[allow(dead_code)] // Direct command clients can reuse this async wrapper.
+pub async fn dispatch_tool<R: tauri::Runtime>(
+    _app: &AppHandle<R>,
     workspace: &Path,
     tool: &str,
     args: Value,

@@ -1,0 +1,21 @@
+<Configuration>
+  <VGpu>Disable</VGpu>
+  <Networking>Disable</Networking>
+  <AudioInput>Disable</AudioInput>
+  <VideoInput>Disable</VideoInput>
+  <ProtectedClient>Enable</ProtectedClient>
+  <PrinterRedirection>Disable</PrinterRedirection>
+  <ClipboardRedirection>Disable</ClipboardRedirection>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\Users\20269\Desktop\项目文件夹\md管理器\docs\audits\2026-10-31\evidence\native-isolation\input</HostFolder>
+      <SandboxFolder>C:\CatstepAuditInput</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+    <MappedFolder>
+      <HostFolder>C:\Users\20269\Desktop\项目文件夹\md管理器\docs\audits\2026-10-31\evidence\native-isolation\output</HostFolder>
+      <SandboxFolder>C:\CatstepAuditOutput</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+</Configuration>

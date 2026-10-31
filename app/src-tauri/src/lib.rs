@@ -445,6 +445,12 @@ pub fn run() {
             updater::updater_cancel_download,
             updater::updater_install_and_restart,
         ])
+        .on_window_event(|window, event| {
+            use tauri::Manager;
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                watcher::unwatch_window(window.app_handle(), window.label());
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

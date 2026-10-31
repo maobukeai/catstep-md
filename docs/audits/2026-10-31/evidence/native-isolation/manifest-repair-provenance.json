@@ -1,0 +1,39 @@
+{
+  "time_utc": "2026-10-31T03:27:34.444889+00:00",
+  "operation": "Embed exact standard-bin RT_MANIFEST #1 into audit example only",
+  "audit_before_sha256": "989b67518650666a28cc9faa0cc2676ddc8eac06f701cce073acaa3c6a6c4839",
+  "audit_after_sha256": "2aa8ae2be14093a519097493197f48b10dd055a0e6b4e7d16c04a5fb255acdd6",
+  "audit_after_bytes": 36075520,
+  "binary_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.exe",
+  "backup_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.pre-manifest.exe",
+  "backup_sha256": "989b67518650666a28cc9faa0cc2676ddc8eac06f701cce073acaa3c6a6c4839",
+  "manifest_sha256": "a8943b08ccc582f6e15af6b5400ccf9464496b14f0353213f3013bb6503bca3f",
+  "extracted_manifest_matches_standard": true,
+  "gui_started": false,
+  "product_source_changed": false,
+  "calls": [
+    {
+      "operation": "embed",
+      "argv": [
+        "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\mt.exe",
+        "-nologo",
+        "-manifest",
+        "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\native-isolation\\standard-bin.manifest",
+        "-outputresource:C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.exe;#1"
+      ],
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "operation": "extract-after",
+      "argv": [
+        "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\mt.exe",
+        "-nologo",
+        "-inputresource:C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.exe;#1",
+        "-out:C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\native-isolation\\audit-after.manifest"
+      ],
+      "exit_code": 0,
+      "output": ""
+    }
+  ]
+}

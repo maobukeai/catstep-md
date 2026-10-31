@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-31",
+  "input": "Prefix\n\n| A | B |\n| --- | --- |\n| x | y |\n\nTail",
+  "actions": [
+    "source content entered",
+    "switch live edit",
+    "Control+Home",
+    "type INSERTED and Enter",
+    "fill cell x with EDITED",
+    "switch source"
+  ],
+  "actual": "INSERTED| A      | B   |\n| ------ | --- |\n| EDITED | y   || x | y |\n\nTail"
+}

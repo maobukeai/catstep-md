@@ -1,0 +1,3 @@
+$ node scripts/check-toast-literals.mjs
+
+✅ Toast/confirm literal gate passed (0 raw-literal calls exempted via allowlist).

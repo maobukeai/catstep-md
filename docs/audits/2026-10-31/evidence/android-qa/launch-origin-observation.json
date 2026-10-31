@@ -1,0 +1,38 @@
+{
+  "recordedUtc": "2026-10-31T04:15:13.030649+00:00",
+  "v2BinarySHA256": "bb9f9031f93d1a27de9481829e5e660ff58852bf06f2494e7f749ac6fb32f08e",
+  "unchangedSinceCompilation": true,
+  "SDKModified": false,
+  "launcherChangedAfterV2": false,
+  "sourceOfUIObservations": "Root CUA observations and root coordination messages; subagent performed no GUI/device/emulator launch.",
+  "directCuaV1": {
+    "result": "Windows missing-DLL error dialogs",
+    "reportedDllNames": [
+      "libglib2_windows_msvc-x86_64.dll",
+      "libandroid-emu-metrics.dll",
+      "liblibprotobuf.dll",
+      "libandroid-emu-agents.dll"
+    ]
+  },
+  "directCuaV2": {
+    "result": "Same libglib2 missing-DLL dialog despite root;lib64;qt/lib PATH prefix",
+    "processChain": [
+      37148,
+      24956,
+      28588
+    ],
+    "packageIdentityCaptured": false,
+    "reason": "Root closed process before attempted PATH diagnostic; OpenProcess returned87. No environment value was read."
+  },
+  "explorerV2": {
+    "action": "Root used actual Explorer address bar with a fresh exact v2 executable path",
+    "processChain": [
+      44104,
+      48732,
+      28856
+    ],
+    "reportedResult": "No DLL dialogs; WHPX startup reached; emulator-5580 initially offline during first boot",
+    "fullAndroidBootOrSafResult": "Not established by this observation; see root subsequent runtime evidence"
+  },
+  "boundary": "Launch origin correlates with the different loader outcome. Packaged-parent inheritance/search-policy causation is a hypothesis, not proven: failed process package identity/PATH was not captured. Dynamic runtime provider and SAF grant checks remain separate."
+}

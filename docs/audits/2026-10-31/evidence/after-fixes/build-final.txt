@@ -1,0 +1,288 @@
+$ vue-tsc --noEmit && vite build
+vite v6.4.2 building for production...
+transforming...
+node_modules/.pnpm/@radix-ui+react-avatar@1.1._2c9f259e62f8cce7edfa15a77d6bb269/node_modules/@radix-ui/react-avatar/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-avatar@1.1._2c9f259e62f8cce7edfa15a77d6bb269/node_modules/@radix-ui/react-avatar/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-accordion@1_2cba4bfeb2ddee1e2c469fe709a913a2/node_modules/@radix-ui/react-accordion/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-accordion@1_2cba4bfeb2ddee1e2c469fe709a913a2/node_modules/@radix-ui/react-accordion/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-direction@1_03e0ab84b2f5c6751abdd7bc926caecb/node_modules/@radix-ui/react-direction/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-direction@1_03e0ab84b2f5c6751abdd7bc926caecb/node_modules/@radix-ui/react-direction/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-alert-dialo_43023d23e2be03d346e8283564cd63a5/node_modules/@radix-ui/react-alert-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-alert-dialo_43023d23e2be03d346e8283564cd63a5/node_modules/@radix-ui/react-alert-dialog/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-collapsible_d6868ce93f9b2562df27718ec771a35a/node_modules/@radix-ui/react-collapsible/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-collapsible_d6868ce93f9b2562df27718ec771a35a/node_modules/@radix-ui/react-collapsible/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-checkbox@1._c2b24e10d7c6f0fc373f9fd857c6266f/node_modules/@radix-ui/react-checkbox/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-checkbox@1._c2b24e10d7c6f0fc373f9fd857c6266f/node_modules/@radix-ui/react-checkbox/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-dialog@1.1._1fa14c606ddb9f3fb8787d3248e07810/node_modules/@radix-ui/react-dialog/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-dialog@1.1._1fa14c606ddb9f3fb8787d3248e07810/node_modules/@radix-ui/react-dialog/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-dropdown-me_ac58230ab2bf0f876bf3c8ae79af5fb9/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-dropdown-me_ac58230ab2bf0f876bf3c8ae79af5fb9/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-hover-card@_8480f2ea8fed94edc542756d8538d332/node_modules/@radix-ui/react-hover-card/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-hover-card@_8480f2ea8fed94edc542756d8538d332/node_modules/@radix-ui/react-hover-card/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-context-men_d21345b52a6c9121eece8204179e03a8/node_modules/@radix-ui/react-context-menu/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-context-men_d21345b52a6c9121eece8204179e03a8/node_modules/@radix-ui/react-context-menu/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-label@2.1.9_4d960d03235d43d6d2e529dd942045f9/node_modules/@radix-ui/react-label/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-label@2.1.9_4d960d03235d43d6d2e529dd942045f9/node_modules/@radix-ui/react-label/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-form@0.1.9__c858e81afb9910c5932c97fd82ec87c2/node_modules/@radix-ui/react-form/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-form@0.1.9__c858e81afb9910c5932c97fd82ec87c2/node_modules/@radix-ui/react-form/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-one-time-pa_085ab25725d07cebec254e641d9aa245/node_modules/@radix-ui/react-one-time-password-field/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-one-time-pa_085ab25725d07cebec254e641d9aa245/node_modules/@radix-ui/react-one-time-password-field/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-popover@1.1_e38c16f6a5fa4f24fe3e37a8bf4cb428/node_modules/@radix-ui/react-popover/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-popover@1.1_e38c16f6a5fa4f24fe3e37a8bf4cb428/node_modules/@radix-ui/react-popover/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-portal@1.1._a201d07b874b71bd93a8c3bc6f0982e5/node_modules/@radix-ui/react-portal/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-portal@1.1._a201d07b874b71bd93a8c3bc6f0982e5/node_modules/@radix-ui/react-portal/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-navigation-_4eb5965c0294e572e0f6a53c6076e833/node_modules/@radix-ui/react-navigation-menu/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-navigation-_4eb5965c0294e572e0f6a53c6076e833/node_modules/@radix-ui/react-navigation-menu/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-progress@1._297aa3b0769ecefee3bde344448c00ba/node_modules/@radix-ui/react-progress/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-progress@1._297aa3b0769ecefee3bde344448c00ba/node_modules/@radix-ui/react-progress/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-password-to_bef18edfd45114d77ca67f05892a87ea/node_modules/@radix-ui/react-password-toggle-field/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-password-to_bef18edfd45114d77ca67f05892a87ea/node_modules/@radix-ui/react-password-toggle-field/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-radio-group_f9fffaa64b3705e0df29ddc5878c704b/node_modules/@radix-ui/react-radio-group/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-radio-group_f9fffaa64b3705e0df29ddc5878c704b/node_modules/@radix-ui/react-radio-group/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-menubar@1.1_17dbab34cf2a6047805f44097fa1e10c/node_modules/@radix-ui/react-menubar/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-menubar@1.1_17dbab34cf2a6047805f44097fa1e10c/node_modules/@radix-ui/react-menubar/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-scroll-area_fb7b8fdce7ac6b469f287d31a7040ef9/node_modules/@radix-ui/react-scroll-area/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-scroll-area_fb7b8fdce7ac6b469f287d31a7040ef9/node_modules/@radix-ui/react-scroll-area/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-switch@1.3._21edd7c37f6cf766f78d501ec4c728b5/node_modules/@radix-ui/react-switch/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-switch@1.3._21edd7c37f6cf766f78d501ec4c728b5/node_modules/@radix-ui/react-switch/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-tabs@1.1.14_3c08eb63a6e80f22aba00135eccc80f3/node_modules/@radix-ui/react-tabs/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-tabs@1.1.14_3c08eb63a6e80f22aba00135eccc80f3/node_modules/@radix-ui/react-tabs/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-toggle@1.1._c6f54e686d3f3162f2114ebdb4c56b93/node_modules/@radix-ui/react-toggle/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-toggle@1.1._c6f54e686d3f3162f2114ebdb4c56b93/node_modules/@radix-ui/react-toggle/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-toggle-grou_507411b73f6c1111d3b5d60683e7b617/node_modules/@radix-ui/react-toggle-group/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-toggle-grou_507411b73f6c1111d3b5d60683e7b617/node_modules/@radix-ui/react-toggle-group/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-toolbar@1.1_f1fc3f438a9570fd2f7c3c06a7408b52/node_modules/@radix-ui/react-toolbar/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-toolbar@1.1_f1fc3f438a9570fd2f7c3c06a7408b52/node_modules/@radix-ui/react-toolbar/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-slider@1.4._ac4e052525a7f6cd84c5fd149906fa29/node_modules/@radix-ui/react-slider/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-slider@1.4._ac4e052525a7f6cd84c5fd149906fa29/node_modules/@radix-ui/react-slider/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-toast@1.2.1_764639a277aa5f54312310ce21bdca4d/node_modules/@radix-ui/react-toast/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-toast@1.2.1_764639a277aa5f54312310ce21bdca4d/node_modules/@radix-ui/react-toast/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-tooltip@1.2_834bcc8c1fa544ab0c53d2ba6dc16639/node_modules/@radix-ui/react-tooltip/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-tooltip@1.2_834bcc8c1fa544ab0c53d2ba6dc16639/node_modules/@radix-ui/react-tooltip/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-select@2.3._214d42ab200aaa021fac17363d87d1f9/node_modules/@radix-ui/react-select/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-select@2.3._214d42ab200aaa021fac17363d87d1f9/node_modules/@radix-ui/react-select/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-presence@1._dcd2172d161be68b0f7e3bfe31aff518/node_modules/@radix-ui/react-presence/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-presence@1._dcd2172d161be68b0f7e3bfe31aff518/node_modules/@radix-ui/react-presence/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-focus-guard_350e7c0071104f8fc00cc3a5a4003a4c/node_modules/@radix-ui/react-focus-guards/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-focus-guard_350e7c0071104f8fc00cc3a5a4003a4c/node_modules/@radix-ui/react-focus-guards/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-focus-scope_1208a7d081be7db086412200d014e5ff/node_modules/@radix-ui/react-focus-scope/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-focus-scope_1208a7d081be7db086412200d014e5ff/node_modules/@radix-ui/react-focus-scope/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-collection@_02066adf8adbfefbfb8cca0280a34236/node_modules/@radix-ui/react-collection/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-collection@_02066adf8adbfefbfb8cca0280a34236/node_modules/@radix-ui/react-collection/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-dismissable_73c7bc8f5cad65bae593ba1fe3bba9e4/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-dismissable_73c7bc8f5cad65bae593ba1fe3bba9e4/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-roving-focu_1d56a16177bab61549440137cc92b61f/node_modules/@radix-ui/react-roving-focus/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-roving-focu_1d56a16177bab61549440137cc92b61f/node_modules/@radix-ui/react-roving-focus/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-menu@2.1.17_7e6703f4cc90433ed0332fa34892c139/node_modules/@radix-ui/react-menu/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-menu@2.1.17_7e6703f4cc90433ed0332fa34892c139/node_modules/@radix-ui/react-menu/dist/index.mjs" was ignored.
+node_modules/.pnpm/@radix-ui+react-popper@1.3._6e8adea682514cf4c9e78c9084a1fe1e/node_modules/@radix-ui/react-popper/dist/index.mjs (1:0): Module level directives cause errors when bundled, "use client" in "node_modules/.pnpm/@radix-ui+react-popper@1.3._6e8adea682514cf4c9e78c9084a1fe1e/node_modules/@radix-ui/react-popper/dist/index.mjs" was ignored.
+✓ 3486 modules transformed.
+rendering chunks...
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/node_modules/.pnpm/@tauri-apps+api@2.10.1/node_modules/@tauri-apps/api/webviewWindow.js is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/pip-window.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useCommands.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useFiles.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/new-window.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/pip-window.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/node_modules/.pnpm/@tauri-apps+plugin-clipboard-manager@2.3.2/node_modules/@tauri-apps/plugin-clipboard-manager/dist-js/index.js is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Preview.vue?vue&type=script&setup=true&lang.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/FileTree.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/IntegrationsSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/McpProfilesSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useCommands.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useExport.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/code-copy.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/stores/toasts.ts is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/AISettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/AboutDialog.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/AboutSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/AgentPanel.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/AgentSetupWizard.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/CaptureEndpointSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/CitationPickerSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/CjkProofread.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/CostMeterSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/CreateTypeDialog.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Editor.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/FileTree.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/GithubConflictPanel.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/GithubSyncSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/GlobalSearch.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/HistoryPanel.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/IntegrationsSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/McpProfilesSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/MobileAccessoryBar.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Preview.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/ProxySettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/RagSearch.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/RecipesSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/RecoveryDialog.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/RestApiSettings.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/SessionRestoreDialog.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/SyncStatusPill.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/ThemeMarketplace.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Toast.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Toolbar.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/TypeCustomizePopover.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/TypeLensView.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/UpdateModal.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/settings/AISettingsTab.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/settings/AdvancedSettingsTab.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/settings/EditorSettingsTab.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/settings/GeneralSettingsTab.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/settings/ShortcutsSettingsTab.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useAgentRun.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useAutoCommit.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useCommands.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useDailyNotes.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useExport.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useFiles.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useGithubSync.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useGlobalSearch.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useInbox.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/usePandocExport.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useProperties.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useRelationships.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useTasks.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/custom-theme.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/saf-fs.ts is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/App.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/FileTree.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/FileTree.vue?vue&type=script&setup=true&lang.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/FileTree.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useFileWatcher.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useFiles.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useRecovery.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/image-resolve.ts is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Editor.vue?vue&type=script&setup=true&lang.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Editor.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Preview.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useExport.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/cm-live-blocks.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/cm-live-render.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/docx-export.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/image-export.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/pdf-export.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/pdf-export.ts is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useExport.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/composables/useExport.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/image-export.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/tldraw-board.ts is dynamically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Preview.vue?vue&type=script&setup=true&lang.ts but also statically imported by C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/Editor.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/components/WhiteboardOverlay.vue?vue&type=script&setup=true&lang.ts, C:/Users/20269/Desktop/项目文件夹/md管理器/app/src/lib/cm-live-blocks.ts, dynamic import will not move module into another chunk.
+
+dist/index.html                                           1.48 kB
+dist/assets/KaTeX_Size3-Regular-CTq5MqoE.woff             4.42 kB
+dist/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2            4.93 kB
+dist/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2            5.21 kB
+dist/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2            5.47 kB
+dist/assets/KaTeX_Size4-Regular-BF-4gkZK.woff             5.98 kB
+dist/assets/KaTeX_Size2-Regular-oD1tc_U0.woff             6.19 kB
+dist/assets/KaTeX_Size1-Regular-C195tn64.woff             6.50 kB
+dist/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2      6.91 kB
+dist/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2         6.91 kB
+dist/assets/KaTeX_Size3-Regular-DgpXs0kz.ttf              7.59 kB
+dist/assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff       7.66 kB
+dist/assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff          7.72 kB
+dist/assets/KaTeX_Script-Regular-D3wIWfF6.woff2           9.64 kB
+dist/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2       10.34 kB
+dist/assets/KaTeX_Size4-Regular-DWFBv043.ttf             10.36 kB
+dist/assets/KaTeX_Script-Regular-D5yQViql.woff           10.59 kB
+dist/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2         11.32 kB
+dist/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2            11.35 kB
+dist/assets/KaTeX_Size2-Regular-B7gKUWhC.ttf             11.51 kB
+dist/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2        12.03 kB
+dist/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2          12.22 kB
+dist/assets/KaTeX_Size1-Regular-Dbsnue_I.ttf             12.23 kB
+dist/assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff        12.32 kB
+dist/assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf       12.34 kB
+dist/assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf          12.37 kB
+dist/assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff          13.21 kB
+dist/assets/KaTeX_Fraktur-Bold-BsDP51OF.woff             13.30 kB
+dist/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2      13.57 kB
+dist/assets/sponsor_qr-wHClGc80.webp                     13.68 kB
+dist/assets/KaTeX_SansSerif-Italic-DN2j7dab.woff         14.11 kB
+dist/assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff           14.41 kB
+dist/assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff       16.03 kB
+dist/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2         16.40 kB
+dist/assets/KaTeX_Math-Italic-t53AETM-.woff2             16.44 kB
+dist/assets/KaTeX_Script-Regular-C5JkGWo-.ttf            16.65 kB
+dist/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2         16.78 kB
+dist/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2             16.99 kB
+dist/assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff          18.67 kB
+dist/assets/KaTeX_Math-Italic-DA0__PXp.woff              18.75 kB
+dist/assets/contact_qr-CTBR15gl.webp                     19.22 kB
+dist/assets/KaTeX_Main-BoldItalic-SpSLRI95.woff          19.41 kB
+dist/assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf         19.44 kB
+dist/assets/KaTeX_Fraktur-Regular-CB_wures.ttf           19.57 kB
+dist/assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf              19.58 kB
+dist/assets/KaTeX_Main-Italic-BMLOBm91.woff              19.68 kB
+dist/assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf          22.36 kB
+dist/assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf            24.50 kB
+dist/assets/KaTeX_Main-Bold-Cx986IdX.woff2               25.32 kB
+dist/assets/KaTeX_Main-Regular-B22Nviop.woff2            26.27 kB
+dist/assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf        27.56 kB
+dist/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2             28.08 kB
+dist/assets/KaTeX_Main-Bold-Jm3AIy58.woff                29.91 kB
+dist/assets/KaTeX_Main-Regular-Dr94JaBh.woff             30.77 kB
+dist/assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf           31.20 kB
+dist/assets/KaTeX_Math-Italic-flOr_0UB.ttf               31.31 kB
+dist/assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf           32.97 kB
+dist/assets/KaTeX_AMS-Regular-DMm9YOAa.woff              33.52 kB
+dist/assets/KaTeX_Main-Italic-3WenGoN9.ttf               33.58 kB
+dist/assets/KaTeX_Main-Bold-waoOVXN0.ttf                 51.34 kB
+dist/assets/KaTeX_Main-Regular-ypZvNtVU.ttf              53.58 kB
+dist/assets/KaTeX_AMS-Regular-DRggAlZN.ttf               63.63 kB
+dist/assets/SessionRestoreDialog-DrHawJ1p.css             0.09 kB
+dist/assets/ImageUrlDialog-CMAGYfiq.css                   0.22 kB
+dist/assets/FileChangedDialog-C67Kaews.css                0.27 kB
+dist/assets/RecoveryDialog-CFQZ2eJm.css                   0.77 kB
+dist/assets/QuickCapture-Dpu-FpBA.css                     1.01 kB
+dist/assets/WhiteboardOverlay-6H6qRZDh.css                1.24 kB
+dist/assets/ViewNoteList-C9H7lglL.css                     1.27 kB
+dist/assets/QuickSwitcher-Dz3rx2Wy.css                    1.37 kB
+dist/assets/UiPreview-BToNY0-H.css                        1.46 kB
+dist/assets/BacklinksPanel-D8XS6DQl.css                   1.92 kB
+dist/assets/ViewsPanel-CAfl5S3U.css                       2.03 kB
+dist/assets/TypesPanel-DJTOP9xy.css                       2.21 kB
+dist/assets/TagsPanel-B_IdNFvU.css                        2.35 kB
+dist/assets/AndroidFolderPicker-ChSueVx5.css              2.36 kB
+dist/assets/MobileBottomDock-lMBzH2PL.css                 2.42 kB
+dist/assets/RelationshipsPanel-DhyA1q3a.css               2.53 kB
+dist/assets/UnsavedDialog-DGaHABkh.css                    2.64 kB
+dist/assets/SponsorModal-BFZECmUE.css                     2.79 kB
+dist/assets/ReadingView-CC9FB6oZ.css                      2.80 kB
+dist/assets/TypeLensView-C86mTlpz.css                     2.92 kB
+dist/assets/TasksPanel-DRcAOwuY.css                       2.94 kB
+dist/assets/FormulaEditor-DoAirvPg.css                    2.99 kB
+dist/assets/MobileFindBar-z6rEgMp7.css                    3.11 kB
+dist/assets/MobileAgentView-Bx0T_eG_.css                  3.36 kB
+dist/assets/NeighborhoodPanel-C_3gd6bm.css                3.58 kB
+dist/assets/TypeCustomizePopover-DHBNAhaD.css             3.66 kB
+dist/assets/TableEditor-DndEZ1cd.css                      3.84 kB
+dist/assets/ViewEditorDialog-kRFnS7J-.css                 4.33 kB
+dist/assets/InboxView-UQe01HZq.css                        4.42 kB
+dist/assets/RagSearch-DsqCWtmW.css                        4.73 kB
+dist/assets/BasesView-clXkp5yi.css                        4.80 kB
+dist/assets/AIRewriteOverlay-CsBOxh9Z.css                 5.01 kB
+dist/assets/HistoryPanel-BiHPSOAf.css                     5.28 kB
+dist/assets/MobileAccessoryBar-C6CYYkVO.css               6.16 kB
+dist/assets/MobileActionSheet-Cs59qDgl.css                6.24 kB
+dist/assets/MobileOutlineSheet-DtT1TEqL.css               6.58 kB
+dist/assets/PomodoroPiP-yKmr_W9f.css                      7.24 kB
+dist/assets/ProviderSelect-DxLyL47h.css                   7.44 kB
+dist/assets/GlobalSearch-DvDdEfEp.css                     8.31 kB
+dist/assets/Slideshow-CIlU-ORd.css                        8.38 kB
+dist/assets/Outline-vOCfOIGQ.css                          8.56 kB
+dist/assets/AboutDialog-BE43b3UA.css                      9.73 kB
+dist/assets/DsTabs-BFhP99ht.css                          11.91 kB
+dist/assets/CommandPalette-BOd-fXpS.css                  11.93 kB
+dist/assets/PropertiesInspector-BzZqCC7i.css             13.23 kB
+dist/assets/UpdateModal-B6nWSep_.css                     14.69 kB
+dist/assets/ThemeMarketplace-0T9JvV4H.css                17.42 kB
+dist/assets/CjkProofread-DSLevKgy.css                    18.64 kB
+dist/assets/AgentSetupWizard-Bs0ydVSy.css                22.33 kB
+dist/assets/MarkdownHelp-BJKARL29.css                    28.64 kB
+dist/assets/katex-CfVKi3_s.css                           29.27 kB
+dist/assets/reveal-1AR1WyDG.css                          53.73 kB
+dist/assets/AgentPanel-DSumtCdi.css                      54.28 kB
+dist/assets/tldraw-BuwNkqWY.css                          79.23 kB
+dist/assets/index-CvdVHy4c.css                          110.17 kB
+dist/assets/App-Bypf8r98.css                            116.90 kB
+dist/assets/SettingsPanel-Qn5PJejx.css                  423.24 kB
+dist/assets/core-C1V3-PH7.js                              0.17 kB
+dist/assets/wikilinks-C_j6oGVu.js                         0.55 kB
+dist/assets/markdown-format-BhZLPzrx.js                   0.67 kB
+dist/assets/DsInput-DHT9xCMu.js                           0.71 kB
+dist/assets/DsSelect-BpQQNy2b.js                          0.92 kB
+dist/assets/DsChip-BuMcmato.js                            0.94 kB
+dist/assets/DsButton-Cm6C3v_X.js                          1.08 kB
+dist/assets/preload-helper-BlTxHScW.js                    1.11 kB
+dist/assets/DsListRow-BWxSb7_a.js                         1.17 kB
+dist/assets/DsTooltip-BjAaKt3p.js                         1.32 kB
+dist/assets/FileChangedDialog-CC7xk1Ow.js                 1.44 kB
+dist/assets/index-C6WDsf_g.js                             1.46 kB
+dist/assets/index-j9d2teNw.js                             1.57 kB
+dist/assets/DsPanel-Dw4vbQvu.js                           1.73 kB
+dist/assets/ImageUrlDialog-DqkO1GoO.js                    1.88 kB
+dist/assets/QuickCapture-CHxWuAFI.js                      2.05 kB
+dist/assets/MobileBottomDock-Ah28LHcx.js                  2.11 kB
+dist/assets/AndroidFolderPicker-DcV8uyXf.js               2.57 kB
+dist/assets/WhiteboardOverlay-Clk7s3vk.js                 2.60 kB
+dist/assets/MobileAgentView-eaSTHxVh.js                   2.63 kB
+dist/assets/ViewNoteList-RuYfq3Ae.js                      3.04 kB
+dist/assets/DsModal-f8zp2bYM.js                           3.10 kB
+dist/assets/SessionRestoreDialog-DelRXfnI.js              3.11 kB
+dist/assets/BacklinksPanel-CH6hiyUl.js                    3.29 kB
+dist/assets/QuickSwitcher-CtMLow9D.js                     3.34 kB
+dist/assets/RecoveryDialog-BCqIHlWo.js                    3.36 kB
+dist/assets/tldraw-runtime-BQ2kyowy.js                    3.36 kB
+dist/assets/TagsPanel-D3G3Ol4k.js                         3.40 kB
+dist/assets/UnsavedDialog-DL-xkcZw.js                     3.68 kB
+dist/assets/ReadingView-C0CFgRTC.js                       3.77 kB
+dist/assets/_plugin-vue_export-helper-B-i6lRTe.js         3.86 kB
+dist/assets/MobileFindBar-BB97Gd7Z.js                     4.41 kB
+dist/assets/TypeLensView-Drogr1c7.js                      4.55 kB
+dist/assets/ViewsPanel-BFDL0uiU.js                        4.60 kB
+dist/assets/DsPopover-CMcUiWKR.js                         4.67 kB
+dist/assets/TasksPanel-zI_lhEat.js                        5.16 kB
+dist/assets/FormulaEditor-pACFqTWV.js                     5.38 kB
+dist/assets/MobileOutlineSheet-B7XBNG-w.js                5.58 kB
+dist/assets/TypesPanel-nqBKNeJH.js                        5.61 kB
+dist/assets/TableEditor-DTTadj7T.js                       5.80 kB
+dist/assets/prompt-templates-C5oI-wz0.js                  6.23 kB
+dist/assets/SponsorModal-OFi8HqC3.js                      6.32 kB
+dist/assets/InboxView-oNjc7tdb.js                         7.64 kB
+dist/assets/HistoryPanel-BVt9kaQH.js                      7.82 kB
+dist/assets/AIRewriteOverlay-DDZ-ndd6.js                  7.85 kB
+dist/assets/Slideshow-BWIkTfNa.js                         7.99 kB
+dist/assets/RagSearch-D10hE9bq.js                         8.04 kB
+dist/assets/UiPreview-B1CItuk5.js                         8.56 kB
+dist/assets/PomodoroPiP-B9R1qONV.js                       8.76 kB
+dist/assets/ProviderSelect-A3BTBSuA.js                    9.09 kB
+dist/assets/TypeCustomizePopover-BGmfTuap.js              9.67 kB
+dist/assets/image-export-BUH2qsjb.js                      9.86 kB
+dist/assets/BasesView-_-CCpnQy.js                        10.15 kB
+dist/assets/NeighborhoodPanel-CUpU9QV3.js                10.65 kB
+dist/assets/GlobalSearch-Dw3smbbI.js                     10.92 kB
+dist/assets/MobileActionSheet-DNVQwbkI.js                11.38 kB
+dist/assets/check-update-vBDqtVc-.js                     11.62 kB
+dist/assets/ViewEditorDialog-D-UCGjzI.js                 11.68 kB
+dist/assets/Outline-C1Y-t_Ux.js                          12.17 kB
+dist/assets/AboutDialog-DtwVpoCQ.js                      13.49 kB
+dist/assets/RelationshipsPanel-D-21VnhE.js               13.66 kB
+dist/assets/docx-export-CoTVlaMe.js                      14.28 kB
+dist/assets/CommandPalette-B5nIYjyQ.js                   14.39 kB
+dist/assets/tabs-C50OSCBg.js                             14.79 kB
+dist/assets/pip-window-CAZ5USIL.js                       14.99 kB
+dist/assets/wardley-RL74JXVD-BEeNVp4F.js                 15.70 kB
+dist/assets/UpdateModal-DqIhR8E3.js                      16.62 kB
+dist/assets/MobileAccessoryBar-BGQsFZxP.js               16.90 kB
+dist/assets/workspace-BeyEdLfl.js                        18.64 kB
+dist/assets/AgentSetupWizard-CL3aswZ3.js                 23.26 kB
+dist/assets/CjkProofread-Buk_XqPT.js                     24.51 kB
+dist/assets/PropertiesInspector-COb-r-2x.js              26.67 kB
+dist/assets/ThemeMarketplace-pdzrApf2.js                 41.26 kB
+dist/assets/MarkdownHelp-Czheu9d5.js                     41.97 kB
+dist/assets/AgentPanel-BrJCRKpd.js                       99.48 kB
+dist/assets/sv-ApiblUn0.js                              103.93 kB
+dist/assets/nl-B-4TkCv6.js                              106.43 kB
+dist/assets/it-BI041j0D.js                              107.33 kB
+dist/assets/pt-C7jLeBtx.js                              107.54 kB
+dist/assets/pl-DiinuK-R.js                              108.01 kB
+dist/assets/es-mUp6c1-U.js                              108.21 kB
+dist/assets/de-DiVZjsyq.js                              109.82 kB
+dist/assets/tr-f_7--Eip.js                              109.89 kB
+dist/assets/zh-CVKYgdkd.js                              109.97 kB
+dist/assets/en-sq4M07je.js                              110.63 kB
+dist/assets/ko-D9oPQWdh.js                              111.22 kB
+dist/assets/fr-Dv7TE-MT.js                              112.90 kB
+dist/assets/reveal-94QaobnW.js                          117.13 kB
+dist/assets/ja-BPzJHwyV.js                              127.15 kB
+dist/assets/index-h7-GTiFC.js                           135.55 kB
+dist/assets/uk-DebBvmDO.js                              159.56 kB
+dist/assets/highlight-DQgNmM_h.js                       163.18 kB
+dist/assets/fullscreen-C0W7oIdX.js                      200.18 kB
+dist/assets/prettier-COGHOmR7.js                        228.33 kB
+dist/assets/SettingsPanel-Gp7Ap911.js                   271.59 kB
+dist/assets/pinyin-B8K1wIU0.js                          311.25 kB
+dist/assets/docx-DwwX75YX.js                            366.77 kB
+dist/assets/katex-s35l4O2a.js                           555.19 kB
+dist/assets/App-BzGQSMDv.js                             757.05 kB
+dist/assets/codemirror-C8LwGlmm.js                    1,033.26 kB
+dist/assets/opencc-IpR1Lmkt.js                        1,112.41 kB
+dist/assets/html2pdf-BPGvOpEE.js                      1,189.83 kB
+dist/assets/tldraw-DrCINZb2.js                        1,909.79 kB
+dist/assets/mermaid-CIGWTtwZ.js                       2,724.56 kB
+✓ built in 17.76s

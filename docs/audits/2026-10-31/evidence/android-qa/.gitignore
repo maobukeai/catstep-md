@@ -1,0 +1,4 @@
+# Rebuild local QA launchers from the archived Rust sources and provenance.
+/launch-qa-emulator*.exe
+/launch-qa-emulator*.pdb
+/launch-qa-emulator.lnk

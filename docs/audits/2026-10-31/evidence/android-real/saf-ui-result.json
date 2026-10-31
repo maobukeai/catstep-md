@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-31",
+  "operator": "root via CUA native Windows emulator window only",
+  "environment": {
+    "avd": "catstep_qa_d11_20261031_isolated",
+    "serial": "emulator-5580",
+    "android": 14,
+    "api": 34,
+    "abi": "x86_64",
+    "source": "official Android SDK AOSP image",
+    "freshIsolatedUserdata": true,
+    "existingAvdUsed": false,
+    "accountsAdded": false
+  },
+  "apk": {
+    "frontendTests": 654,
+    "path": "TEMP/catstep-android-d11-qa-20261031/artifacts/654/CatstepMD-654-x86_64-debug.apk",
+    "sha256": "22549a7f8d907577a10affb03f3a089e9ec59d9a91ad009774868d73c9b1271d",
+    "package": "app.catstepmd",
+    "version": "1.0.12",
+    "debug": true,
+    "installedSuccessfully": true
+  },
+  "workspace": "/sdcard/Documents/CatstepQA",
+  "fixture": "SAF-QA.md",
+  "checks": {
+    "initialPickerCancelAndReopen": true,
+    "systemTreeGrantOwnEmptySubdirectory": true,
+    "createFromProductFileTree": true,
+    "update650To654RestoredUnsavedDraft": true,
+    "touchSaveButtonVisibleAndEnglishLocalized": true,
+    "firstTouchSaveExactUtf8": true,
+    "existingWorkspacePickerCanceledToApp": true,
+    "unsavedDraftPreservedAcrossPickerReturn": true,
+    "diskUnchangedOnCancel": true,
+    "secondSaveExactUtf8": true,
+    "fullDeviceColdBootNoSnapshots": true,
+    "coldBootRetainedTreeAndListing": true,
+    "coldBootCloseTabReopenReadsProvider": true,
+    "coldBootWriteViaTouchSaveExactUtf8": true,
+    "cleanIndicatorAfterEachSuccessfulSave": true
+  },
+  "diskCopies": [
+    {
+      "path": "SAF-QA-first-save.md",
+      "bytes": 122
+    },
+    {
+      "path": "SAF-QA-after-picker-cancel.md",
+      "bytes": 122
+    },
+    {
+      "path": "SAF-QA-after-cancel-save.md",
+      "bytes": 150
+    },
+    {
+      "path": "SAF-QA-cold-boot-save.md",
+      "bytes": 172
+    }
+  ],
+  "coldBootProcessEvidence": {
+    "oldQemu": 28856,
+    "oldEmulator": 48732,
+    "oldEmulatorExit": 0,
+    "newQemu": 5940,
+    "newEmulator": 51080,
+    "arguments": "same isolated AVD; -no-snapshot -no-metrics -port 5580 -datadir dedicatedQA"
+  },
+  "methods": {
+    "ui": "CUA screenshots and native mouse/keyboard only",
+    "adb": "explicit emulator-5580 package install, boot/device diagnostics, own-fixture mkdir and pull; no input/screencap/UI injection",
+    "provider": "actual Android DocumentsProvider; no mock",
+    "byteComparison": "pulled UTF-8 file compared with complete intended source including Chinese, emoji, whitespace and line breaks"
+  },
+  "beforeFix": {
+    "issue": "D13: no direct touch Save action in mobile sheet; note remained dirty and disk empty; close-tab Save was an indirect existing path",
+    "physicalCtrlS": "did not save in Qt emulator; not attributed to product shortcut without isolating Qt capture"
+  },
+  "boundaries": [
+    "One fresh API34 AOSP x86_64 emulator, not a physical device or OEM/cloud DocumentsProvider matrix",
+    "Debug single ABI package, not a full multi ABI release or store install",
+    "SAF product path is UTF-8 only; no desktop Rust encoding/BOM/CAS/atomic save guarantee claimed",
+    "No provider quota/permission revocation/mid-write failure test, no SAF rename/delete UI acceptance",
+    "Direct CUA spawned emulator had DLL search failure; the same verified launcher opened through Explorer worked; cause remains undetermined",
+    "Original AVD/user data and SDK files unchanged; QA uses common host SDK/ADB and is not an OS security sandbox"
+  ],
+  "passed": true
+}

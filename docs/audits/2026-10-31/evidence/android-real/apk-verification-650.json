@@ -1,0 +1,72 @@
+[
+  {
+    "apk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-arm64-v8a-debug.apk",
+    "sizeBytes": 7535235,
+    "sha256": "674a1cd35fd52db9944189112318704c6f565df843f4ffef455d5086db14b245",
+    "identityExpected": true,
+    "sdkExpected": true,
+    "nativeAbis": [],
+    "nativeLibraries": [],
+    "zipCrcVerified": true,
+    "signatureVerified": true,
+    "safBridgeNamesPresentInDex": true,
+    "eligibleForQaX8664": false
+  },
+  {
+    "apk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-armeabi-v7a-debug.apk",
+    "sizeBytes": 7535235,
+    "sha256": "674a1cd35fd52db9944189112318704c6f565df843f4ffef455d5086db14b245",
+    "identityExpected": true,
+    "sdkExpected": true,
+    "nativeAbis": [],
+    "nativeLibraries": [],
+    "zipCrcVerified": true,
+    "signatureVerified": true,
+    "safBridgeNamesPresentInDex": true,
+    "eligibleForQaX8664": false
+  },
+  {
+    "apk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-universal-debug.apk",
+    "sizeBytes": 319257329,
+    "sha256": "e2771e71704b45a84808edd3d8475261d9542b2dcc91599d2b60f9d360e3d502",
+    "identityExpected": true,
+    "sdkExpected": true,
+    "nativeAbis": [
+      "x86_64"
+    ],
+    "nativeLibraries": [
+      {
+        "name": "lib/x86_64/libapp_lib.so",
+        "elfMagic": true,
+        "class": 2,
+        "machine": 62
+      }
+    ],
+    "zipCrcVerified": true,
+    "signatureVerified": true,
+    "safBridgeNamesPresentInDex": true,
+    "eligibleForQaX8664": true
+  },
+  {
+    "apk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-x86_64-debug.apk",
+    "sizeBytes": 319257329,
+    "sha256": "e2771e71704b45a84808edd3d8475261d9542b2dcc91599d2b60f9d360e3d502",
+    "identityExpected": true,
+    "sdkExpected": true,
+    "nativeAbis": [
+      "x86_64"
+    ],
+    "nativeLibraries": [
+      {
+        "name": "lib/x86_64/libapp_lib.so",
+        "elfMagic": true,
+        "class": 2,
+        "machine": 62
+      }
+    ],
+    "zipCrcVerified": true,
+    "signatureVerified": true,
+    "safBridgeNamesPresentInDex": true,
+    "eligibleForQaX8664": true
+  }
+]

@@ -1,0 +1,2 @@
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 16.53s

@@ -1,0 +1,14 @@
+{
+  "source_fingerprints_verified": 68,
+  "implementation_issue_rows": 30,
+  "unique_issue_rows": 30,
+  "local_document_links_missing": 0,
+  "user_preexisting_pdf_hash_unchanged": true,
+  "user_preexisting_bat_deletion_preserved": true,
+  "SAF_scoped_acceptance_passed": true,
+  "product_source_changes_after_final_frontend_gates": false,
+  "artifact_only_responsive_css_fix_verified": true,
+  "original_audit_markdown_and_screenshots_unchanged": true,
+  "original_audit_html_rerendered_with_responsive_wrap_only": true,
+  "all_platforms_signed_off": false
+}

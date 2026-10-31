@@ -1,0 +1,13 @@
+{
+  "frontend": 650,
+  "table": {
+    "afterAdd": 3,
+    "afterUndo": 2,
+    "afterCtrlShiftZRedo": 3
+  },
+  "sourceUndoRemovedMarker": true,
+  "sourceRedoRestoredMarker": true,
+  "timerVisible": false,
+  "dom": "- button \"切换文件树 (Ctrl+Shift+L)\":\n- button \"关于 猫步 MD\":\n- navigation:\n  - button \"文件\"\n  - button \"编辑\"\n  - button \"段落\"\n  - button \"格式\"\n  - button \"视图\"\n  - button \"主题\"\n  - button \"工具\"\n  - button \"帮助\"\n- button \"编辑\":\n  - generic: 编辑\n- button \"阅读\":\n  - generic: 阅读\n- button \"源码\":\n  - generic: 源码\n- generic \"Untitled.md\"\n- generic \"Unsaved changes\": ●\n- button \"猫步 AI\":\n  - generic: 猫步 AI\n- button \"快捷键\":\n  - generic: 快捷键\n- button \"浅色模式\":\n  - generic: 浅色模式\n- button \"设置\":\n  - generic: 设置\n- button \"文件\":\n  - generic: 文件\n- button \"大纲\":\n  - generic: 大纲\n- complementary:\n  - generic: 资源管理器\n  - button \"新建文件\" [disabled]:\n  - button \"刷新\" [disabled]:\n  - button \"打开文件夹…\":\n  - button \"打开文件夹…\"\n- generic \"欢迎.md\":\n  - generic: 欢迎\n  - button \"Close tab\":\n- generic \"Markdown 语法.md\":\n  - generic: Markdown 语法\n  - button \"Close tab\":\n- generic \"实时编辑.md\":\n  - generic: 实时编辑\n  - button \"Close tab\":\n- generic \"演讲模式.md\":\n  - generic: 演讲模式\n  - button \"Close tab\":\n- generic \"快捷键.md\":\n  - generic: 快捷键\n  - button \"Close tab\":\n- generic \"Untitled.md (未保存)\":\n  - generic: Untitled\n  - button \"Close tab\":\n- button \"New tab\":\n- generic: \"1\"\n- generic: \"2\"\n- generic: \"3\"\n- generic: \"4\"\n- generic: \"5\"\n- generic: \"6\"\n- generic: \"7\"\n- textbox [active]:\n  - generic: Prefix\n  - generic: \"| A | | B |\"\n  - generic: \"| --- | --- | --- |\"\n  - generic: \"| x | | y |\"\n  - generic: Tail FINAL REDO\n- button \"</> 源码\":\n  - generic: </>\n  - generic: 源码\n- generic: \"|\"\n- generic \"当前光标行列位置\": 行 7，列 16\n- generic: ·\n- button \"6 词 ▾\":\n  - generic: 6 词\n  - generic: ▾\n- button \"⌨️ 打字机模式\"\n- button \"猫步专注\":\n  - generic: 猫步专注\n- generic: UTF-8\n- generic: ·\n- generic: Markdown\n- status",
+  "passed": true
+}

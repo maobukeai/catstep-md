@@ -1,0 +1,9 @@
+{
+  "command": "cargo clippy --locked --offline -j2 --all-targets -- -D warnings",
+  "started_utc": "2026-10-31T03:22:57.7733751Z",
+  "finished_utc": "2026-10-31T03:22:58.4357153Z",
+  "exit_code": 0,
+  "tauri_config_absent_in_clippy_child": true,
+  "tauri_config_was_removed_from_child": false,
+  "system_or_parent_environment_modified": false
+}

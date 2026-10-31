@@ -1,0 +1,23 @@
+{
+  "manifest": {
+    "path": "app/src-tauri/gen/android/app/src/main/AndroidManifest.xml",
+    "before_sha256": "c1fa31405d0e8c97b8a8a13cf35cad3b2e4480316cc7b9723c9b2b171700adae",
+    "after_sha256": "fa16a84bcb8aad89dbbff146b60851fbe0df5b7d2d4968f9ac6bab0a5bbe885f",
+    "normalized_equals_HEAD": true,
+    "only_line_endings_normalized": true,
+    "working_tree_line_endings": "consistent CRLF, matching repository core.autocrlf=true"
+  },
+  "generated_files_retained_and_exactly_ignored": [
+    {
+      "path": "app/src-tauri/gen/android/app/proguard-tauri.pro",
+      "sha256": "b11f00ebf23e9c7dcc2cd31db93aead7d89f93fe180d899a2f9fe0def9b524bf"
+    },
+    {
+      "path": "app/src-tauri/gen/android/app/tauri.properties",
+      "sha256": "c9f23e4892ab5d10a6be3d6316a9f3fb27896f3b89157b13e04e5fbded40e2be"
+    }
+  ],
+  "directories_deleted": false,
+  "SDK_or_original_AVD_modified": false,
+  "local_launcher_binaries_retained_but_ignored": true
+}

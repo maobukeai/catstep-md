@@ -1,0 +1,32 @@
+{
+  "source_dir": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\fixtures\\源 目录 中文",
+  "extra_resource_dir": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\fixtures\\共享 资源 中文",
+  "output_dir": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-pandoc-real-audit-20261031\\outputs",
+  "files": [
+    {
+      "path": "fixtures\\源 目录 中文\\正文 样本.md",
+      "bytes": 364,
+      "sha256": "3bc1115e294192af327c261eda93a992a8f144851f5732dcd59410ca79f50505"
+    },
+    {
+      "path": "fixtures\\源 目录 中文\\图片 资料\\像素 示例.png",
+      "bytes": 107,
+      "sha256": "b90af47fc69b42d8a6f45ef9905ae271fad1868d9b241799ecb5aa23564a7824"
+    },
+    {
+      "path": "fixtures\\源 目录 中文\\文献 资料\\审计 参考.bib",
+      "bytes": 141,
+      "sha256": "f12b44135a87501d6795ac99c1cb662b731fef0a2f940c4fb2f651650e3cabf9"
+    },
+    {
+      "path": "fixtures\\源 目录 中文\\文献 资料\\审计 样式.csl",
+      "bytes": 655,
+      "sha256": "31b569854cf3e7bf254e6897cc5a03cc67cfe474ec78528cb93efa58194ee870"
+    },
+    {
+      "path": "fixtures\\共享 资源 中文\\额外 素材\\extra.png",
+      "bytes": 107,
+      "sha256": "b2484f5d72f2d7a27f00491e28fd09b80c9d5513008f324116907e63c1e03b1d"
+    }
+  ]
+}

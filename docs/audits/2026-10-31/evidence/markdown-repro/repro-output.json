@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-31",
+  "totalProbes": 12,
+  "results": [
+    {
+      "probe": "ordinary_code_fence_contains_live_table",
+      "confirmed": true,
+      "actual": [
+        "TableWidget"
+      ]
+    },
+    {
+      "probe": "preview_live_table_parity_noOuterPipes",
+      "confirmed": true,
+      "previewTable": true,
+      "liveWidgets": 0
+    },
+    {
+      "probe": "preview_live_table_parity_headerOnly",
+      "confirmed": true,
+      "previewTable": true,
+      "liveWidgets": 0
+    },
+    {
+      "probe": "preview_live_table_parity_shortDelimiter",
+      "confirmed": true,
+      "previewTable": true,
+      "liveWidgets": 0
+    },
+    {
+      "probe": "preview_live_table_parity_blockquote",
+      "confirmed": true,
+      "previewTable": true,
+      "liveWidgets": 0
+    },
+    {
+      "probe": "mismatched_table_delimiter",
+      "confirmed": true,
+      "previewHeaderColumns": 2,
+      "liveHeaderColumns": 3
+    },
+    {
+      "probe": "blockquote_prefix_lost_insert",
+      "confirmed": true,
+      "actual": "|     | A   | B   |\n| --- | --- | --- |\n|     | x   | y   |"
+    },
+    {
+      "probe": "blockquote_prefix_lost_delete",
+      "confirmed": true,
+      "actual": "| B   |\n| --- |\n| y   |"
+    },
+    {
+      "probe": "blockquote_prefix_lost_move",
+      "confirmed": true,
+      "actual": "| B   | A   |\n| --- | --- |\n| y   | x   |"
+    },
+    {
+      "probe": "indented_code_html_modified",
+      "confirmed": true,
+      "source": "  ```html\n    <div>literal</div>\n  ```",
+      "actual": "  ```html\n\n\n<div>literal</div>\n\n\n  ```"
+    },
+    {
+      "probe": "table_handlers_retain_old_offsets_after_prepend",
+      "confirmed": true,
+      "harness": "real CM StateField and widget handlers; fake DOM",
+      "actual": "INSERTED| A      | B   |\n| ------ | --- |\n| EDITED | y   || x | y |\n\nTail"
+    },
+    {
+      "probe": "toolbar_uses_stale_focus_snapshot_after_typing",
+      "confirmed": true,
+      "harness": "real CM StateField, widget handlers and useEditorTable; fake DOM",
+      "before": "Prefix\n\n| A          | B   |\n| ---------- | --- |\n| EDITEDLONG | y   |\n\nTail",
+      "actual": "Prefix\n\n|  A  | B   |\n| :-: | --- |\n|  x  | y   | | --- |\n| EDITEDLONG | y   |\n\nTail"
+    }
+  ]
+}

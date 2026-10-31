@@ -1,0 +1,12 @@
+{
+  "fixtureRoot": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\fixtures\\中文 空格 QA",
+  "files": [
+    {
+      "name": "原始 笔记.md",
+      "length": 232,
+      "sha256": "BA389614075D03C47C3DD2F61CB371F0C6428A10FE8B3DB8F4F3A26F43E40D24"
+    }
+  ],
+  "copiedToDevice": false,
+  "providerExercised": false
+}

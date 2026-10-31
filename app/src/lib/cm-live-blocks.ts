@@ -20,8 +20,10 @@
 
 import { RangeSetBuilder, StateField, StateEffect, Prec, EditorSelection, Transaction, EditorState } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
+import { isolateHistory, redo, undo } from '@codemirror/commands';
+import { CodeBlockWidget, renderedCodeBlocks } from './cm-code-block';
 import { isDragging, isDragEndTransaction } from './cm-drag-aware';
-import { frozenFieldDuringComposition, isImeSafeFlushTransaction } from './cm-ime-guard';
+import { frozenFieldDuringComposition, isImeSafeFlushTransaction, prepareImeSafeReveal } from './cm-ime-guard';
 import {
   Decoration,
   DecorationSet,
@@ -44,11 +46,13 @@ import {
   rewriteImageUrls,
 } from './image-resolve';
 import { renderMarkdown, renderInlineMarkdown, extractImageRoot } from './markdown';
+import { markdownCodeBlocks } from './markdown-structure';
 import { openExternalUrl } from './open-external';
 import { findHtmlBlockEnd } from './html-live-render';
 import { caretTouchesInline } from './cm-live-render';
 import {
   parseTable,
+  findMarkdownTables,
   serializeTable,
   insertRow,
   setCell,
@@ -113,28 +117,6 @@ async function ensureMermaidRendered(source: string): Promise<void> {
 
 // Whole-line image with optional title, bracketed path, and spaces in path.
 export const IMAGE_LINE_RE = /^\s*!\[([^\]]*)\]\(\s*<?([^>)]+?)>?(?:\s+["'][^"']*["'])?\s*\)\s*$/;
-
-// Pipe table heuristic: a header line, a separator (`---` / `:---:`), then
-// at least one body row. We don't try to parse the GFM grammar ourselves —
-// markdown-it does that — we only need a cheap detector to decide which
-// line ranges to swap with widgets.
-function isPipeRow(line: string): boolean {
-  const trimmed = line.trim();
-  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2;
-}
-function isSeparatorRow(line: string): boolean {
-  const trimmed = line.trim();
-  // `| --- | :---: |` etc. Only `:`, `-`, ` `, `|` characters allowed,
-  // and at least one `-` per cell.
-  return (
-    isPipeRow(line) &&
-    // `-` must be last in the class so it's a literal, not the range `:`..`|`
-    // (which excludes `-` at 0x2D and made every real separator row fail —
-    // tables never collapsed to a widget in live-edit).
-    /^\|[\s:|-]+\|$/.test(trimmed) &&
-    /-{3,}/.test(trimmed)
-  );
-}
 
 // Images report their real height only after they load, and CM6 does not
 // re-measure widget heights on its own — until something else triggers a
@@ -225,6 +207,15 @@ class ImageWidget extends WidgetType {
   }
 }
 
+interface TableController {
+  model: TableModel;
+  from: number;
+  to: number;
+  source: string;
+  activeCell: { cell: HTMLTableCellElement; row: number; col: number } | null;
+  announce: () => void;
+}
+
 class TableWidget extends WidgetType {
   readonly parsedModel: TableModel | null;
 
@@ -284,16 +275,95 @@ class TableWidget extends WidgetType {
   ) {
     table.innerHTML = '';
 
-    let currentModel = model;
-    let currentBlockFrom = this.blockFrom;
-    let currentBlockTo = this.blockTo;
-    let currentSource = this.source;
+    const current: TableController = {
+      model, from: this.blockFrom, to: this.blockTo, source: this.source,
+      activeCell: null, announce: () => {},
+    };
+    (wrap as any).__tableController = current;
+    const resolveCurrent = () => {
+      // During the IME/input quiet period the StateField maps its ranges
+      // without creating new widget values. CM may also reuse an equal value
+      // without calling updateDOM. Read the live decoration range, rather
+      // than relying on either widget's stored offsets in those cases.
+      const widget = (wrap as any).__tableWidget as TableWidget;
+      let range: { from: number; to: number } | null = null;
+      for (const decorations of view.state.facet(EditorView.decorations)) {
+        if (typeof decorations === 'function') continue;
+        decorations.between(0, view.state.doc.length, (from, to, decoration) => {
+          const candidate = decoration.spec.widget;
+          if (candidate === widget || (candidate instanceof TableWidget && widget.eq(candidate))) {
+            range = { from, to };
+            return false;
+          }
+        });
+        if (range) break;
+      }
+      if (!range) return null;
+      const { from, to } = range as { from: number; to: number };
+      const source = view.state.doc.sliceString(from, to);
+      if (source !== current.source) {
+        // A toolbar operation/undo may also land during the quiet period.
+        // Preserve its latest values when the unchanged cell grid is reused.
+        const model = parseTable(source);
+        if (!model || model.header.length !== current.model.header.length ||
+            model.rows.length !== current.model.rows.length) return null;
+        current.model = model;
+        current.source = source;
+      }
+      current.from = from;
+      current.to = to;
+      return { blockFrom: from, blockTo: to, source: current.source };
+    };
+    // All handlers and updateDOM share this object. A document edit before the
+    // table changes its offsets without replacing its cell DOM.
+    const commit = (update: (model: TableModel) => TableModel): boolean => {
+      if (!resolveCurrent()) return false;
+      const next = update(current.model);
+      const source = serializeTable(next);
+      if (source === current.source) return true;
+      const structural = next.header.length !== current.model.header.length ||
+        next.rows.length !== current.model.rows.length;
+      // A changed grid must be mounted in this transaction so navigation can
+      // target its new cells. Only end the quiet period, never a composition.
+      const reveal = structural ? prepareImeSafeReveal(view) : undefined;
+      if (reveal === null) return false;
+      const { from, to } = current;
+      current.model = next;
+      current.source = source;
+      current.to = from + source.length;
+      view.dispatch({
+        changes: { from, to, insert: source }, effects: reveal ? [reveal] : [],
+        userEvent: 'input.table', annotations: structural ? [isolateHistory.of('full')] : [],
+      });
+      current.announce();
+      return true;
+    };
+    current.announce = () => {
+      const active = current.activeCell;
+      if (!active || !resolveCurrent()) return;
+      const rect = wrap.getBoundingClientRect();
+      window.dispatchEvent(new CustomEvent('solomd:table-toolbar-show', {
+        detail: {
+          view,
+          top: rect.top - 42 > 45 ? rect.top - 42 : rect.bottom + 8,
+          left: Math.max(12, Math.min(window.innerWidth - 440, rect.left + 16)),
+          align: current.model.aligns[active.col] ?? null,
+          canDeleteRow: active.row >= 0 && current.model.rows.length > 0,
+          canDeleteCol: current.model.header.length > 1,
+          blockFrom: current.from, blockTo: current.to,
+          row: active.row, col: active.col, source: current.source,
+          resolve: resolveCurrent,
+        },
+      }));
+    };
 
-    const colCount = currentModel.header.length;
-    const rowCount = currentModel.rows.length;
+    const colCount = current.model.header.length;
+    const rowCount = current.model.rows.length;
 
-    const focusCell = (targetRow: number, targetCol: number) => {
-      const el = wrap.querySelector(
+    const focusCell = (targetRow: number, targetCol: number, blockFrom = current.from, allowOldWrap = true) => {
+      const mounted = Array.from(view.dom?.querySelectorAll('.cm-live-block--table') ?? [])
+        .find((el) => (el as any).__tableWidget?.blockFrom === blockFrom) ?? (allowOldWrap ? wrap : null);
+      const el = mounted?.querySelector(
         `[data-row="${targetRow}"][data-col="${targetCol}"]`
       ) as HTMLElement | null;
       if (el) {
@@ -308,24 +378,14 @@ class TableWidget extends WidgetType {
             sel.addRange(range);
           }
         } catch {}
+        return true;
       }
+      return false;
     };
 
     const appendRowAndFocus = (atRow: number, targetCol = 0) => {
-      currentModel = insertRow(currentModel, atRow);
-      const newSource = serializeTable(currentModel);
-      view.dispatch({
-        changes: {
-          from: currentBlockFrom,
-          to: currentBlockTo,
-          insert: newSource,
-        },
-      });
-      currentBlockTo = currentBlockFrom + newSource.length;
-      currentSource = newSource;
-      setTimeout(() => {
-        focusCell(atRow, targetCol);
-      }, 25);
+      if (!commit((model) => insertRow(model, atRow))) return;
+      focusCell(atRow, targetCol);
     };
 
     const decorateCellLinks = (el: HTMLElement) => {
@@ -346,7 +406,7 @@ class TableWidget extends WidgetType {
       cell.dataset.row = String(r);
       cell.dataset.col = String(c);
       cell.dataset.raw = rawVal;
-      cell.style.textAlign = currentModel.aligns[c] || 'left';
+      cell.style.textAlign = current.model.aligns[c] || 'left';
       cell.innerHTML = renderInlineMarkdown(rawVal) || '<br>';
       decorateCellLinks(cell);
 
@@ -385,19 +445,7 @@ class TableWidget extends WidgetType {
       const onCellInput = () => {
         const val = cell.textContent || '';
         cell.dataset.raw = val;
-        currentModel = setCell(currentModel, r, c, val);
-        const newSource = serializeTable(currentModel);
-        if (newSource !== currentSource) {
-          view.dispatch({
-            changes: {
-              from: currentBlockFrom,
-              to: currentBlockTo,
-              insert: newSource,
-            },
-          });
-          currentBlockTo = currentBlockFrom + newSource.length;
-          currentSource = newSource;
-        }
+        commit((model) => setCell(model, r, c, val));
       };
 
       cell.addEventListener('input', () => {
@@ -418,29 +466,13 @@ class TableWidget extends WidgetType {
         if (cell.textContent !== raw) {
           cell.textContent = raw;
         }
-        const rect = wrap.getBoundingClientRect();
-        const toolbarTop = rect.top - 42 > 45 ? rect.top - 42 : rect.bottom + 8;
-        const toolbarLeft = Math.max(12, Math.min(window.innerWidth - 440, rect.left + 16));
-        window.dispatchEvent(
-          new CustomEvent('solomd:table-toolbar-show', {
-            detail: {
-              top: toolbarTop,
-              left: toolbarLeft,
-              align: currentModel.aligns[c] ?? null,
-              canDeleteRow: r >= 0 && currentModel.rows.length > 0,
-              canDeleteCol: currentModel.header.length > 1,
-              blockFrom: currentBlockFrom,
-              blockTo: currentBlockTo,
-              row: r,
-              col: c,
-              source: currentSource,
-            },
-          })
-        );
+        current.activeCell = { cell, row: r, col: c };
+        current.announce();
       });
 
       cell.addEventListener('blur', () => {
         cell.classList.remove('is-editing');
+        if (current.activeCell?.cell === cell) current.activeCell = null;
         const text = cell.textContent || '';
         cell.dataset.raw = text;
         cell.innerHTML = renderInlineMarkdown(text) || '<br>';
@@ -449,7 +481,37 @@ class TableWidget extends WidgetType {
       });
 
       cell.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'Tab') {
+        if (isComposing || e.isComposing || e.keyCode === 229) return;
+        const key = e.key.toLowerCase();
+        const historyShortcut = !e.altKey && (
+          ((e.ctrlKey || e.metaKey) && key === 'z') ||
+          (e.ctrlKey && !e.metaKey && !e.shiftKey && key === 'y')
+        );
+        if (historyShortcut) {
+          const reveal = prepareImeSafeReveal(view);
+          if (!reveal) return;
+          // The nested contenteditable has a separate native history, which
+          // cannot restore recreated grids. Always consume and use CM's stack.
+          e.preventDefault();
+          e.stopPropagation();
+          const range = resolveCurrent();
+          if (!range) { view.focus(); return; }
+          view.dispatch({ effects: reveal });
+          let from = range.blockFrom, to = range.blockTo;
+          const command = key === 'y' || e.shiftKey ? redo : undo;
+          const applied = command({ state: view.state, dispatch: (tr) => {
+            from = tr.changes.mapPos(from, -1);
+            to = tr.changes.mapPos(to, 1);
+            view.dispatch(tr);
+          } });
+          if (!applied) return;
+          const mounted = to > from && Array.from(view.dom.querySelectorAll('.cm-live-block--table'))
+            .find((el) => (el as any).__tableWidget?.blockFrom === from);
+          const model = mounted && ((mounted as any).__tableWidget as TableWidget).parsedModel;
+          if (model && focusCell(Math.min(r, model.rows.length - 1), Math.min(c, model.header.length - 1), from, false)) return;
+          window.dispatchEvent(new CustomEvent('solomd:table-toolbar-hide'));
+          view.focus();
+        } else if (e.key === 'Tab') {
           e.preventDefault();
           e.stopPropagation();
           if (e.shiftKey) {
@@ -516,7 +578,7 @@ class TableWidget extends WidgetType {
     const trHead = document.createElement('tr');
     for (let c = 0; c < colCount; c++) {
       const th = document.createElement('th');
-      setupCell(th, -1, c, currentModel.header[c] || '');
+      setupCell(th, -1, c, current.model.header[c] || '');
       trHead.appendChild(th);
     }
     thead.appendChild(trHead);
@@ -528,7 +590,7 @@ class TableWidget extends WidgetType {
       const tr = document.createElement('tr');
       for (let c = 0; c < colCount; c++) {
         const td = document.createElement('td');
-        setupCell(td, r, c, currentModel.rows[r]?.[c] || '');
+        setupCell(td, r, c, current.model.rows[r]?.[c] || '');
         tr.appendChild(td);
       }
       tbody.appendChild(tr);
@@ -539,8 +601,6 @@ class TableWidget extends WidgetType {
   updateDOM(dom: HTMLElement, view: EditorView): boolean {
     const wrap = dom;
     const oldWidget = (wrap as any).__tableWidget as TableWidget | undefined;
-    (wrap as any).__tableWidget = this;
-    (wrap as any).__cmView = view;
 
     if (!this.parsedModel || !oldWidget || !oldWidget.parsedModel) {
       return false;
@@ -560,6 +620,17 @@ class TableWidget extends WidgetType {
     const table = wrap.querySelector('table');
     if (!table) return false;
 
+    const current = (wrap as any).__tableController as TableController | undefined;
+    if (!current) return false;
+    // TileCache may retry a rejected candidate. Publish identity only after
+    // all compatibility checks so a failed grid probe cannot poison a retry.
+    (wrap as any).__tableWidget = this;
+    (wrap as any).__cmView = view;
+    current.model = newModel;
+    current.from = this.blockFrom;
+    current.to = this.blockTo;
+    current.source = this.source;
+
     const activeEl = document.activeElement;
 
     // Header
@@ -567,11 +638,10 @@ class TableWidget extends WidgetType {
     ths.forEach((thEl, c) => {
       const el = thEl as HTMLElement;
       el.style.textAlign = newModel.aligns[c] || 'left';
-      if (el !== activeEl) {
-        const val = newModel.header[c] || '';
-        el.dataset.raw = val;
-        el.innerHTML = renderInlineMarkdown(val) || '<br>';
-      }
+      const val = newModel.header[c] || '';
+      el.dataset.raw = val;
+      if (el !== activeEl) el.innerHTML = renderInlineMarkdown(val) || '<br>';
+      else if (el.textContent !== val) el.textContent = val;
     });
 
     // Body
@@ -581,14 +651,14 @@ class TableWidget extends WidgetType {
       tds.forEach((tdEl, c) => {
         const el = tdEl as HTMLElement;
         el.style.textAlign = newModel.aligns[c] || 'left';
-        if (el !== activeEl) {
-          const val = newModel.rows[r]?.[c] || '';
-          el.dataset.raw = val;
-          el.innerHTML = renderInlineMarkdown(val) || '<br>';
-        }
+        const val = newModel.rows[r]?.[c] || '';
+        el.dataset.raw = val;
+        if (el !== activeEl) el.innerHTML = renderInlineMarkdown(val) || '<br>';
+        else if (el.textContent !== val) el.textContent = val;
       });
     });
 
+    current.announce();
     return true;
   }
 
@@ -1008,6 +1078,8 @@ class TldrawWidget extends WidgetType {
 }
 
 interface BlockOptions {
+  renderCodeBlocks?: boolean;
+  getCodeLabel?: () => string;
   /** Workspace context for resolving relative image paths. */
   getImageRoot?: () => string | null;
   /** Active note's filesystem path so relative paths resolve to its dir. */
@@ -1031,6 +1103,12 @@ interface BlockOptions {
   getPlantuml?: () => { enabled: boolean; server: string };
 }
 
+const blockStructures = new WeakMap<EditorState['doc'], {
+  lines: string[];
+  code: Map<number, ReturnType<typeof markdownCodeBlocks>[number]>;
+  tables: Map<number, ReturnType<typeof findMarkdownTables>[number]>;
+}>();
+
 function buildBlockDecorations(state: EditorState, opts: BlockOptions): DecorationSet {
         const builder = new RangeSetBuilder<Decoration>();
         const sel = state.selection.main;
@@ -1047,13 +1125,52 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
         // visible slice anyway, so this stays cheap.)
         const doc = state.doc;
         const lastLine = doc.lines;
-        const sourceLines = Array.from(
-          { length: lastLine },
-          (_, index) => doc.line(index + 1).text,
-        );
+        // Cursor-only transactions reuse the immutable document's parse. A
+        // note with many tables must not reparse all blocks for every arrow.
+        let structure = blockStructures.get(doc);
+        if (!structure) {
+          const source = doc.toString();
+          structure = {
+            lines: Array.from({ length: lastLine }, (_, index) => doc.line(index + 1).text),
+            code: new Map(markdownCodeBlocks(source).map((token) => [token.map![0] + 1, token])),
+            tables: new Map(findMarkdownTables(source).map((span) => [span.startLine + 1, span])),
+          };
+          blockStructures.set(doc, structure);
+        }
+        const sourceLines = structure.lines;
+        const codeBlocks = structure.code;
+        const tables = structure.tables;
         let i = 1;
         while (i <= lastLine) {
           const line = doc.line(i);
+          const code = codeBlocks.get(i);
+          if (code) {
+            // Only explicitly supported diagram fences may replace code. All
+            // other code, including nested and unterminated fences, is inert.
+            const specialized = code.type === 'fence' && (
+              /^\s*(`{3,})\s*tldraw\b[^\n]*$/i.test(line.text) ||
+              /^\s*```\s*mermaid\s*$/i.test(line.text) ||
+              (opts.getPlantuml?.()?.enabled && /^\s*```\s*(plantuml|puml)\s*$/i.test(line.text))
+            );
+            if (!specialized) {
+              const endI = Math.min(lastLine, code.map![1]);
+              const from = line.from;
+              const to = doc.line(endI).to;
+              const selectionInside = state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+              if (opts.renderCodeBlocks && !selectionInside) {
+                const editLine = code.type === 'fence' ? Math.min(i + 1, endI) : i;
+                builder.add(from, to, Decoration.replace({
+                  widget: new CodeBlockWidget(
+                    doc.sliceString(from, to), from, to, doc.line(editLine).from,
+                    opts.getCodeLabel?.() ?? 'Copy',
+                  ),
+                  block: true,
+                }));
+              }
+              i = code.map![1] + 1;
+              continue;
+            }
+          }
 
           // Raw block HTML (`<div>…</div>`, `<details>`, HTML tables, etc.).
           // Preview.vue has always rendered this through markdown-it, but live
@@ -1282,34 +1399,25 @@ function buildBlockDecorations(state: EditorState, opts: BlockOptions): Decorati
             }
           }
 
-          // Table block — header + separator + ≥1 body row.
-          if (isPipeRow(line.text) && i + 1 <= lastLine) {
-            const sepLine = doc.line(i + 1);
-            if (isSeparatorRow(sepLine.text) && i + 2 <= lastLine) {
-              // Walk forward as long as we keep seeing pipe rows.
-              let endI = i + 2;
-              while (endI <= lastLine) {
-                const next = doc.line(endI);
-                if (!isPipeRow(next.text)) break;
-                endI += 1;
-              }
-              const tableEnd = endI - 1; // last pipe row
-              if (tableEnd >= i + 2) {
-                const blockFrom = doc.line(i).from;
-                const blockTo = doc.line(tableEnd).to;
-                const source = doc.sliceString(blockFrom, blockTo);
-                builder.add(
-                  blockFrom,
-                  blockTo,
-                  Decoration.replace({
-                    widget: new TableWidget(source, blockFrom, blockTo, opts),
-                    block: true,
-                  }),
-                );
-                i = tableEnd + 1;
-                continue;
-              }
-            }
+          // An incomplete/unsupported diagram remains code too. Do not fall
+          // through and reinterpret its body as images, math or tables.
+          if (code) {
+            i = code.map![1] + 1;
+            continue;
+          }
+
+          // Ranges come from the renderer's block grammar and shared delimiter
+          // repair: optional outer pipes, empty tables and quote containers agree.
+          const tableSpan = tables.get(i);
+          if (tableSpan) {
+            const blockFrom = line.from;
+            const blockTo = doc.line(tableSpan.endLine + 1).to;
+            const source = doc.sliceString(blockFrom, blockTo);
+            builder.add(blockFrom, blockTo, Decoration.replace({
+              widget: new TableWidget(source, blockFrom, blockTo, opts), block: true,
+            }));
+            i = tableSpan.endLine + 2;
+            continue;
           }
 
           // v4.5.5 — inline math `$…$` on an otherwise-plain line. Render each
@@ -1482,7 +1590,7 @@ export function liveBlocksExtension(opts: BlockOptions = {}) {
     return [tr, { selection: EditorSelection.cursor(retarget), scrollIntoView: true, sequential: true }];
   });
 
-  return [field, relayout, blockArrowKeymap, vimBlockHop];
+  return [field, relayout, blockArrowKeymap, vimBlockHop, renderedCodeBlocks.of(opts.renderCodeBlocks ?? false)];
 }
 
 /** Suggested CSS — pulled out so the editor's theme owns the rule set. */

@@ -21,6 +21,8 @@
  * silent `(?)` would hide the typo; the raw text is a visible one.
  */
 
+import { markdownCodeLines } from './markdown-structure';
+
 export interface EquationRef {
   label: string;
   /** What a reference renders as — usually a number, or the author's `\tag`. */
@@ -38,15 +40,11 @@ interface MathBlock {
 
 function findMathBlocks(lines: string[]): MathBlock[] {
   const out: MathBlock[] = [];
-  let inFence = false;
+  const codeLines = markdownCodeLines(lines.join('\n'));
   let mathStart = -1;
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim();
-    if (mathStart < 0 && (t.startsWith('```') || t.startsWith('~~~'))) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue;
+    if (codeLines.has(i)) continue;
 
     if (mathStart < 0) {
       if (!t.startsWith('$$')) continue;
@@ -132,15 +130,10 @@ export function numberEquations(source: string): { text: string; refs: EquationR
 function replaceReferences(text: string, byLabel: Map<string, string>): string {
   if (byLabel.size === 0) return text;
   const lines = text.split('\n');
-  let inFence = false;
+  const codeLines = markdownCodeLines(text);
   return lines
-    .map((line) => {
-      const t = line.trim();
-      if (t.startsWith('```') || t.startsWith('~~~')) {
-        inFence = !inFence;
-        return line;
-      }
-      if (inFence) return line;
+    .map((line, index) => {
+      if (codeLines.has(index)) return line;
       return line.replace(
         /\\(eqref|ref)\s*\{([^}]+)\}/g,
         (whole, kind: string, name: string) => {

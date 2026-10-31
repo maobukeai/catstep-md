@@ -30,7 +30,10 @@ const MobileActionSheet = defineAsyncComponent(() => import('./MobileActionSheet
 
 const { t } = useI18n();
 
+defineProps<{ mobileSaving?: boolean }>();
+
 const emit = defineEmits<{
+  (e: 'save'): void;
   (e: 'open-palette'): void;
   (e: 'open-settings', section?: string): void;
   (e: 'open-help'): void;
@@ -1219,6 +1222,8 @@ onBeforeUnmount(() => {
     <!-- Mobile More Action Sheet -->
     <MobileActionSheet
       :open="isNarrow && phoneMoreOpen"
+      :saving="mobileSaving"
+      @save="emit('save')"
       @close="phoneMoreOpen = false"
       @export="onMobileExport"
       @clean-ai="onCleanAI"

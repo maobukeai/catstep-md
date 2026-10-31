@@ -1,0 +1,244 @@
+{
+  "date": "2026-10-31",
+  "reviewed_utc": "2026-10-31T04:35:44.189676+00:00",
+  "scope": "Actual root CUA Android654 SAF acceptance, offline evidence and byte review only",
+  "scoped_passed": true,
+  "all_platforms_signed_off": false,
+  "reviewer_started_gui_or_emulator": false,
+  "result_record": "saf-ui-result.json",
+  "report": "SAF实际验收.md",
+  "version_scope": {
+    "Android_frontend": 654,
+    "Windows_native_markdown_separate": 650
+  },
+  "raw_document_checks": [
+    {
+      "path": "SAF-QA-first-save.md",
+      "bytes": 122,
+      "sha256": "a96b0f09a257ff6d44a206be9c02cdd1e82184f12ad94cbfb194d6f02aa1bbca",
+      "strict_UTF8": true,
+      "BOM": false,
+      "full_intended_source_byte_exact": true
+    },
+    {
+      "path": "SAF-QA-after-picker-cancel.md",
+      "bytes": 122,
+      "sha256": "a96b0f09a257ff6d44a206be9c02cdd1e82184f12ad94cbfb194d6f02aa1bbca",
+      "strict_UTF8": true,
+      "BOM": false,
+      "full_intended_source_byte_exact": true
+    },
+    {
+      "path": "SAF-QA-after-cancel-save.md",
+      "bytes": 150,
+      "sha256": "c4119bd51850696bd8a3c80823e6a3d2d56862049a4bb4b0cd9640a60a475aac",
+      "strict_UTF8": true,
+      "BOM": false,
+      "full_intended_source_byte_exact": true
+    },
+    {
+      "path": "SAF-QA-cold-boot-save.md",
+      "bytes": 172,
+      "sha256": "840f40b7eee341fe3e2fe127852037662b0b3b23c994ac4b354a9b4cd341f81a",
+      "strict_UTF8": true,
+      "BOM": false,
+      "full_intended_source_byte_exact": true
+    }
+  ],
+  "independent_comparisons": {
+    "first_matches_entire_documented_fixture": true,
+    "picker_cancel_disk_byte_identical_to_first": true,
+    "second_save_equals_entire_first_plus_documented_chinese_draft": true,
+    "cold_save_equals_entire_second_plus_cold_boot_marker": true,
+    "not_marker_only_comparison": true
+  },
+  "expected_first_source": "# SAF QA\n\n中文保存：你好😀\n\n| A | B |\n| --- | --- |\n| 中文 | saved |\n\n```text\n  keep whitespace\n\nnext line\n```\n",
+  "append_after_picker_cancel": "\nCANCEL RESUME DRAFT 你好\n",
+  "append_after_cold_boot": "\nCOLD BOOT WRITE PASS\n",
+  "retained_apk_rechecked": {
+    "path": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\artifacts\\654\\CatstepMD-654-x86_64-debug.apk",
+    "bytes": 319257329,
+    "sha256": "22549a7f8d907577a10affb03f3a089e9ec59d9a91ad009774868d73c9b1271d",
+    "matches_ui_and_verification_records": true
+  },
+  "key_boundaries": [
+    "One fresh API34 AOSP x86_64 emulator, not a physical device or OEM/cloud DocumentsProvider matrix",
+    "Debug single ABI package, not a full multi ABI release or store install",
+    "SAF product path is UTF-8 only; no desktop Rust encoding/BOM/CAS/atomic save guarantee claimed",
+    "No provider quota/permission revocation/mid-write failure test, no SAF rename/delete UI acceptance",
+    "Direct CUA spawned emulator had DLL search failure; the same verified launcher opened through Explorer worked; cause remains undetermined",
+    "Original AVD/user data and SDK files unchanged; QA uses common host SDK/ADB and is not an OS security sandbox"
+  ],
+  "historical_records_interpretation": {
+    "fixture-manifest.json": "Earlier passive 232-byte original-note fixture, not the later product-created SAF-QA.md; providerExercised=false belongs to that phase.",
+    "build-result-654.json": "Build-only actor did not launch/install; later root install and CUA results record subsequent actions.",
+    "beforeFix": "650 empty disk was observed before explicit Save invocation; Qt CtrlS interception is not attributed to product."
+  },
+  "files": [
+    {
+      "path": "../after-fixes/android-qa-first-boot.png",
+      "bytes": 40447,
+      "sha256": "8210a3f45ed7a05647066c9eb10fcfbbb33235b8bc93ef3c68dad0e83407f29a"
+    },
+    {
+      "path": "../after-fixes/android-saf-after-cancel-save-654.png",
+      "bytes": 41520,
+      "sha256": "1fb7a402ac56e5089a8350b40d7403553591f5d4f065c0473d354d646cec3c98"
+    },
+    {
+      "path": "../after-fixes/android-saf-cancel-return.png",
+      "bytes": 27208,
+      "sha256": "918fc0c8413b5bb274bc98e955ae956b479adad07c162be32bff02e348d1fc2e"
+    },
+    {
+      "path": "../after-fixes/android-saf-cold-boot-reopened-read-654.png",
+      "bytes": 27294,
+      "sha256": "f44904e06ac89f576788f144ecf60b5efd355143ffdd8e105d480432b354bf74"
+    },
+    {
+      "path": "../after-fixes/android-saf-cold-boot-restored-654.png",
+      "bytes": 27497,
+      "sha256": "32dee89fa167faf813883cb81b1794222ab6b106f7b17c328434571c871f4e3e"
+    },
+    {
+      "path": "../after-fixes/android-saf-cold-boot-save-654.png",
+      "bytes": 41812,
+      "sha256": "11c6ed91ff60b77666acf0bd7ddd0f101b8e61ea3e75c490f6a1faae465f30bd"
+    },
+    {
+      "path": "../after-fixes/android-saf-cold-boot-tree-654.png",
+      "bytes": 26924,
+      "sha256": "4f0975848c35d7cd290fc432e4ddedc2ef68765ed1f50d7b4d1cd4dc8df3ad77"
+    },
+    {
+      "path": "../after-fixes/android-saf-dirty-after-cancel-654.png",
+      "bytes": 27437,
+      "sha256": "8e579b0d4d7e33ebb41d67fe023bf7f9505d7119479559c1e99fcd6f95f27367"
+    },
+    {
+      "path": "../after-fixes/android-saf-dirty-before-picker-654.png",
+      "bytes": 37665,
+      "sha256": "61bb9b4381e2945ad8da1f0a0506ff08759936d66f7ac37af58c93beb4fcdde4"
+    },
+    {
+      "path": "../after-fixes/android-saf-edited-draft.png",
+      "bytes": 34962,
+      "sha256": "7329c5cf3b2f48d086d9738802422252f0f9fbf19ecd0ca6bc8378e4a1d6b1ad"
+    },
+    {
+      "path": "../after-fixes/android-saf-existing-workspace-picker-654.png",
+      "bytes": 27143,
+      "sha256": "32945346480de1e4404f552072c3f81b107ed687b9d76c40e4fee0df177b4aa9"
+    },
+    {
+      "path": "../after-fixes/android-saf-first-picker.png",
+      "bytes": 42456,
+      "sha256": "a6994ae193ac2cd1eeaac06936187c89efe43439b1030e042c3833779929d985"
+    },
+    {
+      "path": "../after-fixes/android-saf-grant-scope.png",
+      "bytes": 30758,
+      "sha256": "864c8d30f5b10ab19d826fab0db10980fce56e72bf675d55eb58dae716205e6d"
+    },
+    {
+      "path": "../after-fixes/android-saf-granted-return.png",
+      "bytes": 26237,
+      "sha256": "147720d620137b02a9a9380df233ece1984b8a3a74a4a63fa437a0b877a1133e"
+    },
+    {
+      "path": "../after-fixes/android-saf-reopen-after-cancel.png",
+      "bytes": 42432,
+      "sha256": "b04ff79ba7102c6665dbdfa2400c34f85ea2cb79f6fb14ddf39ee210164a9cd8"
+    },
+    {
+      "path": "../after-fixes/android-touch-save-after-654.png",
+      "bytes": 41493,
+      "sha256": "d046a29457ecec9ea0164580782ea189ef40f153853ba7123a7b5b16076645d9"
+    },
+    {
+      "path": "../after-fixes/android-touch-save-before-654.png",
+      "bytes": 41641,
+      "sha256": "bba548e2963cf18534e331de7546b46080a41e71ea400cbf08a13d12f375de26"
+    },
+    {
+      "path": "../after-fixes/android-update-654-draft-restored.png",
+      "bytes": 26429,
+      "sha256": "340824019dea5b9f76e30eb7caa61787cd88a37a28b97ccf4c0df31a0b651785"
+    },
+    {
+      "path": "654-apk-3-badging.txt",
+      "bytes": 5002,
+      "sha256": "681806d36ae68dbf1ff819631ab3b832a6b4eac1a7458c128373e66b70e785d7"
+    },
+    {
+      "path": "654-apk-3-signature.txt",
+      "bytes": 972,
+      "sha256": "0b4bbc78e131c30afa2da81703640d662901401e9c47de164064458dad9a01d8"
+    },
+    {
+      "path": "SAF-QA-after-cancel-save.md",
+      "bytes": 150,
+      "sha256": "c4119bd51850696bd8a3c80823e6a3d2d56862049a4bb4b0cd9640a60a475aac"
+    },
+    {
+      "path": "SAF-QA-after-picker-cancel.md",
+      "bytes": 122,
+      "sha256": "a96b0f09a257ff6d44a206be9c02cdd1e82184f12ad94cbfb194d6f02aa1bbca"
+    },
+    {
+      "path": "SAF-QA-cold-boot-save.md",
+      "bytes": 172,
+      "sha256": "840f40b7eee341fe3e2fe127852037662b0b3b23c994ac4b354a9b4cd341f81a"
+    },
+    {
+      "path": "SAF-QA-first-save.md",
+      "bytes": 122,
+      "sha256": "a96b0f09a257ff6d44a206be9c02cdd1e82184f12ad94cbfb194d6f02aa1bbca"
+    },
+    {
+      "path": "apk-verification-654.json",
+      "bytes": 2504,
+      "sha256": "3a5a90a99c3fbfb34b1a42d618823c26e3c8779461e086b360dc396453d850ac"
+    },
+    {
+      "path": "build-result-654.json",
+      "bytes": 2142,
+      "sha256": "03d305298215d2eb843c76c06abbb5554102d196f918e711f58493dfe3a0239a"
+    },
+    {
+      "path": "fixture-manifest.json",
+      "bytes": 360,
+      "sha256": "6ab70f08fc253860009afbb61f1c4c4f40a9d4cb4450de47abd3b1c711451279"
+    },
+    {
+      "path": "generated-file-hygiene.json",
+      "bytes": 974,
+      "sha256": "a8466795ef82359c0975fd95843f2cae484507ec5c24c221b498bb0aef65e11d"
+    },
+    {
+      "path": "install-654-qa5580.txt",
+      "bytes": 38,
+      "sha256": "c4aa470acafcf8576c15b0f0b5ae7e852d1ec5413372d0e6a9272e788e1306d3"
+    },
+    {
+      "path": "passive-avd-result.json",
+      "bytes": 1504,
+      "sha256": "43b8509de6a03591cb0941db57f25d6bb3e03da37a8fa3a2b1bcac4a91abdc38"
+    },
+    {
+      "path": "qa-avd-config-summary.txt",
+      "bytes": 316,
+      "sha256": "8382554cb28c564884dd196400605cd9380bb621e3fe30ee401b120576d930ab"
+    },
+    {
+      "path": "retained-apk-654.json",
+      "bytes": 333,
+      "sha256": "27b28d7183d1b7f45f94e4a155fb45a0d75bc802606275c95faff68338d403a7"
+    },
+    {
+      "path": "saf-ui-result.json",
+      "bytes": 3455,
+      "sha256": "281835b76f76fbf5bfbe69c32475509be38067e491e912e0fc66830ece0f39d4"
+    }
+  ]
+}

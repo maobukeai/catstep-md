@@ -1,0 +1,17 @@
+{
+  "operation": "Parse RT_MANIFEST #1 with Windows CreateActCtxW only; no ActivateActCtx/LoadLibrary/CreateProcess and no GUI",
+  "results": [
+    {
+      "target": "audit-patched",
+      "binary_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.exe",
+      "CreateActCtxW_success": true,
+      "win32_error": 0
+    },
+    {
+      "target": "standard-bin",
+      "binary_path": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\CatstepMD.exe",
+      "CreateActCtxW_success": true,
+      "win32_error": 0
+    }
+  ]
+}

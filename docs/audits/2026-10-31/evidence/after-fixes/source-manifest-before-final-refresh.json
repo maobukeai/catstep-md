@@ -1,0 +1,288 @@
+{
+  "created_utc": "2026-10-31T02:55:41.1329945Z",
+  "branch": "codex/audit-remediation",
+  "baseline_commit": "4a980caedd5fb1fa5e73069c772ab4b8e51aeeb8",
+  "files": [
+    {
+      "path": "app/scripts/i18n-cjk-allowlist.json",
+      "sha256": "dae295ffc070acc93755f1dc7745eb01372202f1cb5bd297d5ea27bb10d1ef45",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/Cargo.toml",
+      "sha256": "f27e1f6ed44a24b8d76859217c3ad5e64f3a931a16f2c17d0a65ddc95cfdc272",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/agent_tools.rs",
+      "sha256": "c4622bca69de469c11bb7e404da28f6063e18f3522034786f09cd8355596fa64",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/ai_proxy.rs",
+      "sha256": "022def904422452acdb253502b2fcba03add353aa0845b1ba826607392ca55cd",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/commands.rs",
+      "sha256": "3acea2d19649fcf312351850d8be71cbc4e5f277c36136b26e9ab3318f7fd7ff",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/convert.rs",
+      "sha256": "9437f3945999637d90cf3c567dc92028099f3b2cd8b39b03c636a1423ee9c284",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/crypto.rs",
+      "sha256": "db23b54ed7b31ce84c7b5b3679e948b7c95eb925e927ad3eb704abc337f596cb",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/github_sync.rs",
+      "sha256": "6ad2a676aa465e8552233704a24565c57cae4bc0e6b47a8c36ebe06608eef327",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/lib.rs",
+      "sha256": "643be211d6a360d15200ba4f8c8df7e36bf054ac256d9fe1d4abcb297de4eef6",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/mcp_client.rs",
+      "sha256": "64602806afaee3e12bc35380960cf915148df02fddff501edc5250939c83e2f3",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/pandoc.rs",
+      "sha256": "6ead5c0202f46cb19ac877241a691939c2b7d30a70fffae77e2664f03d1eaf5e",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/runner.rs",
+      "sha256": "5a7ac748d410ce47c676bc68901c3b0a459e7c66b442fdbd540b9e3f1fa99503",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/src/watcher.rs",
+      "sha256": "d8cb5dc54275dd775319737fe059699def0294d4eebe57bcfa6bced115622726",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/tests/agent_tool_authorization_test.rs",
+      "sha256": "91f7977308ede487f0f1b44ebceb2e955666b4609ee891a8820461d30048389b",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/tests/encoding_write_test.rs",
+      "sha256": "3dde9727896440726cac869115d48f2c84716983c02be5bce8cf1e0cf2650c90",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/tests/github_sync_e2ee_test.rs",
+      "sha256": "da1edb6ce7a5c0f07301549502759285b6b61e6840c8019cdb8dcf9c3e8ad6f6",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/tests/mcp_client_e2e_test.rs",
+      "sha256": "97a808fe668146d25dcff296d76b8155c2de862ea747b8a84b322c7fade67514",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src-tauri/tests/note_write_conflict_test.rs",
+      "sha256": "aa6feb6ee5f22a3773c4cd79eb0fe51d96f5e734499bbdcd60b4772b76b5a794",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/App.vue",
+      "sha256": "ca972f25f25e642faab78db8b5acee8d64cf1b3763af63aaf4ee5417c69d35f0",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/components/Editor.vue",
+      "sha256": "762f3f7b929debe63ef2ad69131a48eb76331e3c56629c0eda52215569272dd1",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/components/FileTree.vue",
+      "sha256": "848a4ce16d3e558a08e97162b90d897441e1a32d842906fbbfe2a6229a7db3d9",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/components/Preview.vue",
+      "sha256": "ea373ab2811f62a561eb9ab1a9742911b868a28c5a5440f29c3d75ecfeef3b07",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/composables/useEditorTable.ts",
+      "sha256": "91df306d2ade18f7c7eba91d6b9b8f08c4ded41d19400815f3e76ed2c144da3d",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/composables/useFiles.ts",
+      "sha256": "d1b58f962fc36828269c4ee77f77bd99df527ffc9c1651f983066d075b684ada",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/composables/useFileWatcher.ts",
+      "sha256": "0f6160f26cea488ffb043ff2eaa31b21aec69d134bf497e6a9f39e592ff5936b",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/composables/usePandocExport.ts",
+      "sha256": "32a94ccf0d49870f1c63d1c0b128fad7ec83c83efa9c9bb7db38927015f0c0b3",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/composables/useProperties.ts",
+      "sha256": "8191c9021c7c070c5f772f92edd42ebaefc55fdbe03f0ec861799b1a3cde7662",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/composables/useRecovery.ts",
+      "sha256": "832ad76339bc51f6f2313960d721d7995cc521dba7b929c9e914f0e1ac62794f",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/cm-code-block.ts",
+      "sha256": "7a1441c6e92db61aa571f1c69c683c1169ac8291a3464674e2a40ef0d3ce1e46",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/cm-ime-guard.ts",
+      "sha256": "e1cca73b5af4a29173e781e2f54bbfca4e4a0ec8729db2fca773fa22464f9e23",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/cm-layout.ts",
+      "sha256": "d07258d6f5eecc6e5ca6b7c635a90c9a23d40a6790d29791a7e342022ab611b5",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/cm-live-blocks.ts",
+      "sha256": "36b9d3bf3228453be5bc62dd7e0855dac0b8faec7f3cb2db9a6855fd39196826",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/cm-live-render.ts",
+      "sha256": "e217c794e59f8bdd784fcda5f09f6371ce092f474bd031e81c46631f82c8c560",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/code-block-fidelity.test.ts",
+      "sha256": "c4063b9fcd7201cbf2eb4cba3214ca110165218cf13ee7f8159cab7dc04478cb",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/commands.ts",
+      "sha256": "921069298f363bc0f68fce622e0d7558b018eb2fa4d2da6f52d26dfa82e89441",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/editor-composition.test.ts",
+      "sha256": "9f6200f1676145cdf84ee4eb30b680e5177b8787131255c78f376387d3e90e34",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/editor-flush.ts",
+      "sha256": "d0b05700538050d6e32a5cf2c2bb39f251426ec888266e9558468683c5011b82",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/equations.ts",
+      "sha256": "a6c67abaec1c844ff1666c7993f145fb945726328537afa1383b4a44e386e177",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/file-conflicts.ts",
+      "sha256": "5fecc7a96ad3fc963fa0e137826eb4671f711e85202d934f9142ab34554bd51f",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/frontmatter-property.ts",
+      "sha256": "2777fce1a624cd2a9e5cac1e0a27bdf18cf8fe8fb538ec4a24ec5a0ff64518b7",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/markdown-layout.ts",
+      "sha256": "f159465ad192207a5c3dc083f1e4eadcb3ccdaabe3f5baa76ad74a4c086667b4",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/markdown-live-integration.test.ts",
+      "sha256": "85d56d84d8627f52e47d9f92a86594b7f710585d94273bf16bfbe5f189ecb9fc",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/markdown-structure.ts",
+      "sha256": "891fd6677f6ae4e95f10bb63f69df61abba3346fc066ca11018717d5900cfcda",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/markdown-table.ts",
+      "sha256": "664d63a668be2f82f84ccafe8c830e6389a2de43ad60645e663751b70cef3f8f",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/markdown.ts",
+      "sha256": "cb20f80a19b561fc484a78d23c71fa66b1d43e47732279e4026e82759b2830cb",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/note-document.test.ts",
+      "sha256": "394a85beb397f430385fae0432232e350623890139236da09ebefbf0a6a4e086",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/note-document.ts",
+      "sha256": "7a15c71d4057ff83b7aafa3beec9c9fb721395f89e9227ed445a4374ed4deb86",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/note-lifecycle.test.ts",
+      "sha256": "21340a69a1e11565898fb3685632d15fbc92ec04af87e414031bbc404633e0c7",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/note-write-queue.ts",
+      "sha256": "75ce78704c09bc27257e64b95500e35d26d5c153cd44a64e58a8c39380d42946",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/pdf-export.ts",
+      "sha256": "88ef8b549a8e25d9a6b76da22993697305970a4858ee258412ba8d887cad168e",
+      "origin": "user_preexisting_change"
+    },
+    {
+      "path": "app/src/lib/recovery-orchestration.test.ts",
+      "sha256": "bc5bf3cf4d652fd15d1dbf27a34e0d3974b17faf8ff78833812fc958f0737fc9",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/lib/saf-picker-state.ts",
+      "sha256": "730ee233755d5e91a15458d200e7bbf91c6b930925e3388114000e0f45169450",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/main.ts",
+      "sha256": "a7d5b40a4925201c66db143add0d0044436806f22ac6c09b02de1afff3ebedea",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/stores/tabs.ts",
+      "sha256": "f96eea6b78cc9c857ac1df95a06bab089e111767c36e1008ee6e7c0e6ccaeb1d",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/stores/workspace.ts",
+      "sha256": "1999d3b4c601e1d40789503f45b3755b784d199bce4672c0c97216c8a18d31f6",
+      "origin": "audit_remediation"
+    },
+    {
+      "path": "app/src/styles/markdown-layout.css",
+      "sha256": "fe7874c7f62ca3cc4ae33347bd21c900b4c70b3aac301e1e463e2f732e1336ee",
+      "origin": "audit_remediation"
+    }
+  ],
+  "note": "Fingerprints identify the final working files; they do not claim native UI or all-platform acceptance."
+}

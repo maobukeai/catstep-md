@@ -1,0 +1,7 @@
+{
+  "ownSaveObservedAt": 1793417608978,
+  "externalWriteAt": 1793417608979,
+  "delayAfterObservedSaveMs": 1,
+  "expectedMarker": "AFTER_SAVE_EXTERNAL_MARKER",
+  "scope": "Only dedicated QA note"
+}

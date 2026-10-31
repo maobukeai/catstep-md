@@ -1,0 +1,85 @@
+
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 21s
+     Running tests\agent_tool_authorization_test.rs (target\debug\deps\agent_tool_authorization_test-6102169d46ab9477.exe)
+
+running 1 test
+test all_provider_loops_enforce_request_permissions_before_writing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\encoding_write_test.rs (target\debug\deps\encoding_write_test-8fddab97f8a87dfd.exe)
+
+running 4 tests
+test encoding_failure_never_replaces_existing_file ... ok
+test ordinary_save_preserves_utf8_bom_and_supports_explicit_removal ... ok
+test utf16_byte_order_surrogate_pairs_and_bom_roundtrip ... ok
+test utf16_frontmatter_edits_preserve_body_and_encoding ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\mcp_client_e2e_test.rs (target\debug\deps\mcp_client_e2e_test-c62b82a7dfffc8c1.exe)
+
+running 1 test
+test mcp_transports_round_trip_real_servers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.05s
+
+     Running tests\note_write_conflict_test.rs (target\debug\deps\note_write_conflict_test-1a5f2e35fa60f426.exe)
+
+running 6 tests
+test compare_and_save_accepts_legacy_carriage_return_lines ... ok
+test deleted_target_is_a_conflict_instead_of_silent_recreation ... ok
+test compare_and_save_normalizes_crlf_and_decodes_utf16_baselines ... ok
+test expected_missing_never_overwrites_a_newly_created_target ... ok
+test rename_with_assets_keeps_utf16_encoding_without_reentering_tree_lock ... ok
+test simultaneous_windows_cannot_both_save_the_same_old_baseline ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 52.07s
+     Running unittests src\main.rs (target\debug\deps\CatstepMD-1a8f6210ea571ba8.exe)
+
+running 6 tests
+test runner::convert::fidelity_tests::csv_import_keeps_literal_pipes_backslashes_markup_and_newlines ... ok
+test runner::convert::fidelity_tests::word_adjacent_styled_runs_form_one_valid_emphasis_span ... ok
+test runner::convert::fidelity_tests::word_cell_paragraphs_and_empty_cells_keep_the_original_columns ... ok
+test runner::convert::fidelity_tests::real_xlsx_import_keeps_cells_with_pipes_and_newlines ... ok
+test runner::convert::fidelity_tests::word_horizontal_spans_are_padded_without_shifting_later_cells ... ok
+test runner::convert::fidelity_tests::word_run_properties_do_not_leak_and_false_properties_are_respected ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 275 filtered out; finished in 0.03s
+
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.31s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-8975849f92d18118.exe)
+
+running 3 tests
+test pandoc::tests::failed_export_also_cleans_input_and_preserves_failure_message ... ok
+test pandoc::tests::fake_pandoc_receives_source_context_and_resolves_relative_resources ... ok
+test pandoc::tests::relative_citations_need_an_explicit_source_and_relative_directories_are_rejected ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 266 filtered out; finished in 0.08s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.68s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-8975849f92d18118.exe)
+
+running 1 test
+test ai_proxy::tests::execution_policy_checks_permission_and_quota_even_for_an_offered_tool ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 268 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.66s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-8975849f92d18118.exe)
+
+running 6 tests
+test watcher::tests::deleted_file_identity_matches_registered_path ... ok
+test watcher::tests::aliases_in_one_window_can_be_released_separately ... ok
+test watcher::tests::destroyed_window_releases_only_its_subscriptions ... ok
+test watcher::tests::immediate_external_write_is_never_mistaken_for_self_write ... ok
+test watcher::tests::window_subscriptions_are_independent_and_keep_aliases ... ok
+test watcher::tests::directory_watch_survives_atomic_save ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 263 filtered out; finished in 0.09s
+

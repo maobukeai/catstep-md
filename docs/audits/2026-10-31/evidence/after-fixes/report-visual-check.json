@@ -1,0 +1,25 @@
+{
+  "html": "修复实施与验收报告.html",
+  "wide": {
+    "viewport": 1905,
+    "pageWidth": 1905
+  },
+  "narrow": {
+    "viewport": 375,
+    "pageWidth": 375,
+    "tableClientWidth": 307,
+    "tableScrollWidth": 580
+  },
+  "embeddedImagesLoaded": 3,
+  "implementationMatrix": {
+    "dataRows": 30,
+    "columns": 4
+  },
+  "beforeArtifactCssCorrection": {
+    "narrowPageWidth": 612,
+    "reason": "Long commit and APK hashes did not wrap"
+  },
+  "correction": "Report main uses overflow-wrap:anywhere; wide/narrow actual browser recheck passed",
+  "viewportReset": true,
+  "passed": true
+}

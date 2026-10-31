@@ -1,0 +1,7 @@
+{
+  "build": "648-test production build",
+  "committedChineseInOriginalFile": true,
+  "newTabWasBlank": true,
+  "source": "IN_SAVE\n\nAFTER_SECOND_WINDOW_CLOSED\n\nIME TEST: 你好\nUNSAVED_LOCAL_MARKER\n \nIME WAIT: 你好\nIME SWITCH: 你好",
+  "passed": true
+}

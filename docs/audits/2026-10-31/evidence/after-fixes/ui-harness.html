@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>猫步 MD 响应式验收</title>
+<style>
+body{margin:0;background:#edf1f7;color:#203047;font:14px/1.6 system-ui}
+header{padding:10px 20px;display:flex;align-items:center;gap:20px}
+iframe{display:block;height:826px;width:932px;margin:0 20px 20px;border:1px solid #a9b8cc;background:white}
+select{font:inherit;padding:4px 10px}
+</style>
+<header><strong>猫步 MD 本地响应式验收</strong><label>应用宽度
+<select aria-label="应用宽度" onchange="document.querySelector('iframe').style.width=this.value+'px'">
+<option value="680">680px</option><option value="932" selected>932px</option>
+<option value="1109">1109px</option><option value="1440">1440px</option>
+</select></label><span>与本地 Vite 应用使用同一套代码</span></header>
+<iframe title="猫步 MD 验收应用" src="http://127.0.0.1:1420/"></iframe>
+</html>

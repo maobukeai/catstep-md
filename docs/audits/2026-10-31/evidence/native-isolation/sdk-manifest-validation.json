@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/mt.exe",
+    "-nologo",
+    "-manifest",
+    "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\native-isolation\\audit-after.manifest",
+    "-validate_manifest"
+  ],
+  "exit_code": 31,
+  "output": "\r\n\\\\?\\C:\\Users\\20269\\Desktop\\椤圭洰鏂囦欢澶筡md绠＄悊鍣╘docs\\audits\\2026-10-31\\evidence\\native-isolation\\audit-after.manifest : general error 10100ba: The manifest is missing the definition identity.\r\r\n",
+  "standard_control": {
+    "exit_code": 31,
+    "same_missing_identity_error": true,
+    "output": "\r\n\\\\?\\C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\native-isolation\\standard-bin.manifest : general error 10100ba: The manifest is missing the definition identity.\r\r\n"
+  },
+  "interpretation": "Standalone schema validator requires a definition assemblyIdentity; Tauri default executable manifest omits it. Both standard and audit extracted manifests receive the same result; the audit resource matches the standard resource."
+}

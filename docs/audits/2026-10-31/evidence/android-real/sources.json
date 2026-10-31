@@ -1,0 +1,33 @@
+{
+  "checkedOn": "2026-10-31",
+  "officialSources": [
+    {
+      "url": "https://v2.tauri.app/reference/cli/#android-build",
+      "verified": "android build generates APK/AAB; --debug, --apk, --target x86_64, --ci and --config are supported. --open explicitly opens Android Studio. Build and run/dev are distinct commands."
+    },
+    {
+      "url": "https://v2.tauri.app/start/prerequisites/#android",
+      "verified": "Android build requires SDK, JDK, NDK_HOME and installed Rust Android targets. These environment variables are set only within the audit build process."
+    },
+    {
+      "url": "https://developer.android.com/tools/variables",
+      "verified": "ANDROID_USER_HOME and ANDROID_AVD_HOME isolate preferences and AVD files. Deprecated ANDROID_SDK_HOME is omitted to avoid a preferences-path conflict in installed cmdline-tools 12."
+    },
+    {
+      "url": "https://developer.android.com/tools/avdmanager",
+      "verified": "create avd -n -k -p creates a new AVD at an explicit path; --force would overwrite and is never used here. The installed avdmanager remains usable although current documentation marks it deprecated."
+    },
+    {
+      "url": "https://developer.android.com/studio/run/emulator-commandline",
+      "verified": "AVDs may share the SDK read-only system image; writable user-data belongs to each distinct AVD. -list-avds lists definitions without booting a device."
+    },
+    {
+      "url": "https://developer.android.com/training/data-storage/shared/documents-files",
+      "verified": "Real SAF acceptance must use an allowed subtree such as Documents/Catstep QA, not internal-storage or Download root, Android/data, or Android/obb, which are restricted on Android 11+. Persisted URI grants and provider capabilities need actual runtime checks."
+    },
+    {
+      "url": "https://gradle.org/releases/",
+      "verified": "The pinned project's Gradle 8.13 distribution was downloaded from official gradle/gradle-distributions GitHub release v8.13.0 and matched official services.gradle.org/distributions/gradle-8.13-bin.zip.sha256 exactly. See gradle-download-verification.json."
+    }
+  ]
+}

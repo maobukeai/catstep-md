@@ -1,0 +1,230 @@
+[
+  {
+    "path": "build.gradle.kts",
+    "sha256": "60C4B3514C1D1A624EF4A666A7B9ADF18E08C2CE83A13B5C5043AF2AD6DF3EF0"
+  },
+  {
+    "path": "gradle.properties",
+    "sha256": "47F3049328EEAFA35C131295884A20FA1C1C0112CFC4796540FB9D7588AAB77F"
+  },
+  {
+    "path": "gradlew",
+    "sha256": "C15A47B60A4EEEDE9FFEE33433FD990D8B6236607372B9BB1F6DC51B07B78C39"
+  },
+  {
+    "path": "gradlew.bat",
+    "sha256": "AF835F98787E9269AF5A046EDCB821A592FED372139DF7B947B471A63CFC236B"
+  },
+  {
+    "path": "settings.gradle",
+    "sha256": "E3BE4B523F18092A32D6207FF58391FDBF700AF7C12681494DC8C68D3CF96175"
+  },
+  {
+    "path": "tauri.settings.gradle",
+    "sha256": "A19A6C57876BE8E39FBA65130D6EC132A67342AC34EFC0304B92F9746D6FE00B"
+  },
+  {
+    "path": "app\\build.gradle.kts",
+    "sha256": "EEDD2BC85F4625F0F376FC8C10BF83370CD7B6E44C70A2611370A2525344A7B8"
+  },
+  {
+    "path": "app\\proguard-rules.pro",
+    "sha256": "9B27736C75A8DB31393F570055BE5ACC76ACBCD7AAE313206292A52D10338D1C"
+  },
+  {
+    "path": "app\\proguard-tauri.pro",
+    "sha256": "B11F00EBF23E9C7DCC2CD31DB93AEAD7D89F93FE180D899A2F9FE0DEF9B524BF"
+  },
+  {
+    "path": "app\\tauri.build.gradle.kts",
+    "sha256": "0FBC6D56FC8F01E0E265D7A18076AF283CD03A114EFAB5B58141B60D4B049CE3"
+  },
+  {
+    "path": "app\\tauri.properties",
+    "sha256": "C9F23E4892AB5D10A6BE3D6316A9F3FB27896F3B89157B13E04E5FBDED40E2BE"
+  },
+  {
+    "path": "app\\src\\main\\AndroidManifest.xml",
+    "sha256": "C1FA31405D0E8C97B8A8A13CF35CAD3B2E4480316CC7B9723C9B2B171700ADAE"
+  },
+  {
+    "path": "app\\src\\main\\assets\\tauri.conf.json",
+    "sha256": "144C75689F808ADD2729E999D6F43130F12760C5BA68CF492E1A22F36C38FF7E"
+  },
+  {
+    "path": "app\\src\\main\\assets\\icons\\file_icon.ico",
+    "sha256": "AB7791FA4BA348B763A5E1534FDEE455CCD69A0E894D974377D12811E342E7A6"
+  },
+  {
+    "path": "app\\src\\main\\assets\\resources\\dicts\\en_US.aff",
+    "sha256": "6EDBB61FAE84E2515DB94263D018BA1080E2B647CDC34E5DCF36C03BD705E69B"
+  },
+  {
+    "path": "app\\src\\main\\assets\\resources\\dicts\\en_US.dic",
+    "sha256": "9EC9599FAD97C4161BC5C8AB8DA5B9DF42B824114DAF4C9B3FD5DF42FB4E706B"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\MainActivity.kt",
+    "sha256": "C745246F37723082F38DE8D6EC5C0049EF9125C0858406CB31AC46695CBBE076"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\Ipc.kt",
+    "sha256": "A4F2252950F3B7FFCD5307B515B07CD634D5712DCBEF6D4133FB45A4586E6C66"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\Logger.kt",
+    "sha256": "9E8BBB857C57F486ED2D432D6134BE9F5DC581178A7E20F2B0FDD045E0C5E837"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\PermissionHelper.kt",
+    "sha256": "28F62950177EFDB7166EA4DAEB0442EE2F39F4FF23546DCC755601E0FB0F4C01"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\proguard-wry.pro",
+    "sha256": "5DCDC143BB46CF756EB49D24DAAD237A072691BF9F8F50FD2DB31C46F120C2AC"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\RustWebChromeClient.kt",
+    "sha256": "CE3C66A9B64B6A1E8958318F3D139219A49AF863364CC38F5333A04F48441450"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\RustWebView.kt",
+    "sha256": "20ADDB2BA2F1A1663058C329A93C77D1628CC0B6B4A77C324BD19398FDAD5F64"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\RustWebViewClient.kt",
+    "sha256": "74567FD5B9947106E49E714E49F218C464172A1652FA8CD691B980D85FF1550D"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\TauriActivity.kt",
+    "sha256": "46023EC1BEC6A1508182EB0CFD42BA13EC73E305AAB34F1D3D4C6D2C843CB913"
+  },
+  {
+    "path": "app\\src\\main\\java\\app\\catstepmd\\generated\\WryActivity.kt",
+    "sha256": "8E91D93C4749A89811FC6084B484ABAB2935A9F7BDD5338838199C28C19F03ED"
+  },
+  {
+    "path": "app\\src\\main\\jniLibs\\x86_64\\libapp_lib.so",
+    "sha256": "EDABFDE5855458C00FB3AC66E53F72239488FB7F35F4414E056A8B559586DC8A"
+  },
+  {
+    "path": "app\\src\\main\\res\\drawable\\ic_launcher_background.xml",
+    "sha256": "38381D0D0A64770D992C98E5B5E492555690AF40E2FC6EE59E5A1C2A7C0FDCDE"
+  },
+  {
+    "path": "app\\src\\main\\res\\drawable-v24\\ic_launcher_foreground.xml",
+    "sha256": "6E3C1BB64D9BEC079CF0030D867C58B064D2FB19CA6C5A691543C43134F64A2A"
+  },
+  {
+    "path": "app\\src\\main\\res\\layout\\activity_main.xml",
+    "sha256": "856AACC948838DB7484F93B1EA36E36F300E529BCBC35C33F7E88CB6940B149A"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-anydpi-v26\\ic_launcher.xml",
+    "sha256": "7FE18CC0BCAB884B6CD485758B8E5B3665737390FB8A35DABD37149AAE83E1EE"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-hdpi\\ic_launcher_foreground.png",
+    "sha256": "2F81F3BC21291C1DC6E2C474F508CCE204003356D0E6AE598D999BBC50DEAB51"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-hdpi\\ic_launcher_round.png",
+    "sha256": "84DEA635A960F660959802D4F356F62A0AA80D925A223D1953B1982B4CC8F6FE"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-hdpi\\ic_launcher.png",
+    "sha256": "E5DBBD75781F3255AA7CC2536EA14DDB87EF4A9246E276772E867B13BF4E8511"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-mdpi\\ic_launcher_foreground.png",
+    "sha256": "98EEAAB92C169884AFF8342D2A0D8C614D1336023E69F5A8FF5485B553BEA83F"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-mdpi\\ic_launcher_round.png",
+    "sha256": "B2A58AF2D9E805F065D3B0E1D2E919A522CB7A87DAC6A022E7B42BD44DA1CC89"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-mdpi\\ic_launcher.png",
+    "sha256": "72E2AEBB40CE03C13C8DB812773C45A65ECCC20CB7FDBA8C39B06DCDD375E012"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xhdpi\\ic_launcher_foreground.png",
+    "sha256": "E72105D984983DA726C5B76372299DE968F19C8AF4A8C69BB8D97BA9D3B83959"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xhdpi\\ic_launcher_round.png",
+    "sha256": "EF89791563FDC23DAD10BC8E64DDA0A23E4B09C5895B0E4765FB8BCEB040C304"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xhdpi\\ic_launcher.png",
+    "sha256": "AA66BD9D5FCD378E3CED687F2D983A05BD9B8BB3C937274972A98D6DA2F6793A"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xxhdpi\\ic_launcher_foreground.png",
+    "sha256": "6C76DC792F4B49D347F621B722C89E9DCEAB0DB4CB54EF7679E2B0D6A6EC8FF0"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xxhdpi\\ic_launcher_round.png",
+    "sha256": "575C9336230BDD075D76027EDD10694EEE16E8DC3C281834E23FED69964E490C"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xxhdpi\\ic_launcher.png",
+    "sha256": "4F2A373C0F8ABF4A6887E7483D17F03BF729D0BF85EE5F3B69DA03F11C33A8E3"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xxxhdpi\\ic_launcher_foreground.png",
+    "sha256": "867298A3269389E49915255688C212749FFAB367CCA08AAF6D2624A1F38FF315"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xxxhdpi\\ic_launcher_round.png",
+    "sha256": "4ECD4EFEBD3603C3E2238B81EE48228DC13E9AA11E3ADB44EDE21DF84ECE15EE"
+  },
+  {
+    "path": "app\\src\\main\\res\\mipmap-xxxhdpi\\ic_launcher.png",
+    "sha256": "6302C43D1F1C5AC8320FD9E4EC30079D33E8C95A7EF6F368CE209DE1C16E5415"
+  },
+  {
+    "path": "app\\src\\main\\res\\values\\colors.xml",
+    "sha256": "31E0230AB2D96FA128A11705E85E590F3462745DC3C04BC851BC724A445921C1"
+  },
+  {
+    "path": "app\\src\\main\\res\\values\\ic_launcher_background.xml",
+    "sha256": "388946BBBA99E5A1B91750343F8DBDFD11692D51AFB8BA5EA28D7E5AD13B4D79"
+  },
+  {
+    "path": "app\\src\\main\\res\\values\\strings.xml",
+    "sha256": "AE5F92D556FC1BD57B261AB3600DD8A29F5D911E7866F785214A51E76245B3A7"
+  },
+  {
+    "path": "app\\src\\main\\res\\values\\themes.xml",
+    "sha256": "31260C44B568DE54B773CB0B3294BA6191FB95F18EEE9163E44D203317205534"
+  },
+  {
+    "path": "app\\src\\main\\res\\values-night\\themes.xml",
+    "sha256": "31260C44B568DE54B773CB0B3294BA6191FB95F18EEE9163E44D203317205534"
+  },
+  {
+    "path": "app\\src\\main\\res\\xml\\file_paths.xml",
+    "sha256": "1FEB60164E6DB96A7C53984AA372F8C0A490981B69A5F91779F8DA1801DFF91F"
+  },
+  {
+    "path": "buildSrc\\build.gradle.kts",
+    "sha256": "FA985B570DC9B3AAD5A98FD645105C214BD36D72D0A11EAFE8A7B08F34232CB4"
+  },
+  {
+    "path": "buildSrc\\src\\main\\java\\com\\tauri\\dev\\kotlin\\BuildTask.kt",
+    "sha256": "32D6E8E1B06EBC9898981F017BC8F9B3484F444D87F93BF6DF8CCB553AAE6F66"
+  },
+  {
+    "path": "buildSrc\\src\\main\\java\\com\\tauri\\dev\\kotlin\\RustPlugin.kt",
+    "sha256": "B5D694CBC4BFCE214002DB6E547DC442468EC8F83F4B6B3968209E9555E76814"
+  },
+  {
+    "path": "gradle\\wrapper\\gradle-wrapper.jar",
+    "sha256": "E996D452D2645E70C01C11143CA2D3742734A28DA2BF61F25C82BDC288C9E637"
+  },
+  {
+    "path": "gradle\\wrapper\\gradle-wrapper.properties",
+    "sha256": "F2D6AB278AA2F06DD2309898B54AFFBF705E3DA3942D456593BC2A6AFF5354CE"
+  }
+]

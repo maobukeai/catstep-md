@@ -1,0 +1,85 @@
+{
+  "build": "638-test final production build",
+  "beforeUndo": {
+    "col": "2",
+    "header": [
+      "A",
+      "B",
+      ""
+    ],
+    "row": "1",
+    "rows": [
+      [
+        "x",
+        "y",
+        ""
+      ],
+      [
+        "",
+        "NEW ROW",
+        ""
+      ]
+    ]
+  },
+  "afterUndo": {
+    "col": "1",
+    "header": [
+      "A",
+      "B"
+    ],
+    "row": "1",
+    "rows": [
+      [
+        "x",
+        "y"
+      ],
+      [
+        "",
+        "NEW ROW"
+      ]
+    ]
+  },
+  "afterShiftRedo": {
+    "col": "1",
+    "header": [
+      "A",
+      "B",
+      ""
+    ],
+    "row": "1",
+    "rows": [
+      [
+        "x",
+        "y",
+        ""
+      ],
+      [
+        "",
+        "NEW ROW",
+        ""
+      ]
+    ]
+  },
+  "afterYRedo": {
+    "col": "1",
+    "header": [
+      "A",
+      "B",
+      ""
+    ],
+    "row": "1",
+    "rows": [
+      [
+        "x",
+        "y",
+        ""
+      ],
+      [
+        "",
+        "NEW ROW",
+        ""
+      ]
+    ]
+  },
+  "passed": true
+}

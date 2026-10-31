@@ -1,0 +1,71 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running unittests src\main.rs (target\debug\deps\catstep_mcp-21696665d6131198.exe)
+
+running 33 tests
+test tests::build_workspace_list_rejects_empty_list ... ok
+test tests::parse_rejects_missing_directory ... ok
+test tests::parse_treats_path_with_equals_as_path ... ok
+test tools::tests::parse_owner_repo_handles_https_ssh_with_or_without_dot_git ... ok
+test encoding::tests::atomic_write_encoded_rejects_unrepresentable_characters ... ok
+test tests::parse_alias_equals_path_uses_explicit_alias ... ok
+test tests::parse_rejects_empty_alias ... ok
+test tests::parse_bare_path_uses_basename_as_alias ... ok
+test encoding::tests::workspace_read_full_decodes_gbk_note ... ok
+test tools::tests::resolve_workspace_absolute_path_match ... ok
+test tools::tests::resolve_workspace_single_workspace_back_compat ... ok
+test trace_reader::tests::run_id_validation_matches_app_crate ... ok
+test tools::tests::resolve_workspace_unregistered_absolute_path_errors ... ok
+test tools::tests::resolve_workspace_unknown_alias_errors_with_available_list ... ok
+test workspace::task_tests::skips_front_matter_and_fences_and_counts_raw_lines ... ok
+test workspace::task_tests::accepts_every_list_marker_and_ignores_empty_text ... ok
+test encoding::tests::utf8_bom_is_readded_on_write_back ... ok
+test trace_reader::tests::missing_file_returns_empty ... ok
+test encoding::tests::gbk_roundtrip_reencodes_byte_exactly ... ok
+test tests::build_workspace_list_rejects_duplicate_alias ... ok
+test tests::build_workspace_list_preserves_order ... ok
+test encoding::tests::utf8_short_cjk_notes_survive ... ok
+test trace_reader::tests::reads_known_fixture_layout ... ok
+test tools::tests::resolve_workspace_none_returns_default ... ok
+test tools::tests::resolve_workspace_alias_match ... ok
+test tools::tests::share_url_handles_branch_with_slash ... ok
+test tools::tests::share_url_refuses_when_workspace_not_linked ... ok
+test tools::tests::sync_status_happy_path ... ok
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+test tools::tests::sync_status_corrupted_json_fails_closed ... ok
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+test tools::tests::sync_status_no_config_means_unlinked ... ok
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+test tools::tests::autogit_rollback_overwrites_working_tree ... ok
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/bar.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/bar.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/foo.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'notes/bar.md', LF will be replaced by CRLF the next time Git touches it
+test tools::tests::autogit_log_returns_only_commits_touching_path_newest_first ... ok
+test tools::tests::autogit_diff_default_picks_most_recent_commit_touching_path ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.70s
+
+     Running tests\export_test.rs (target\debug\deps\export_test-ea46f2c1539095be.exe)
+
+running 3 tests
+test export_note_rejects_workspace_internal_write_without_flag ... ok
+test export_note_docx_preserves_blockquote_text ... ok
+test export_note_html_preserves_blockquote_text ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running tests\multi_workspace.rs (target\debug\deps\multi_workspace-4170f9d14a5b1970.exe)
+
+running 5 tests
+test back_compat_single_workspace_no_arg ... ok
+test multi_workspace_absolute_path_targets_other ... ok
+test multi_workspace_explicit_alias_targets_other ... ok
+test multi_workspace_default_to_first ... ok
+test multi_workspace_unknown_alias_errors ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+

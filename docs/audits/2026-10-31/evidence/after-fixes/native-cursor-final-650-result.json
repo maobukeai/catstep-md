@@ -1,0 +1,23 @@
+{
+  "frontend": "650",
+  "blank": {
+    "line": 1,
+    "column": 1,
+    "wordCount": 0
+  },
+  "originalBeforeSwitch": {
+    "line": 33,
+    "column": 15
+  },
+  "originalRestored": {
+    "line": 33,
+    "column": 15
+  },
+  "passed": true,
+  "evidence": [
+    "native-cursor-original-final-650.png",
+    "native-cursor-blank-final-650.png",
+    "native-cursor-restored-final-650.png"
+  ],
+  "method": "CUA actual isolated Windows Tauri source tabs; status read visually"
+}

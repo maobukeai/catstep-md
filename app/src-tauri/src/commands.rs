@@ -1,5 +1,5 @@
 use chardetng::{EncodingDetector, Iso2022JpDetection, Utf8Detection};
-use encoding_rs::{Encoding, UTF_8};
+use encoding_rs::Encoding;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -500,8 +500,82 @@ pub fn authorize(path: &str) -> Result<(), String> {
 //     only surfaces paths in its `watched_files` set.
 // ---------------------------------------------------------------------------
 pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    with_note_write_lock(path, || atomic_write_unlocked(path, bytes))
+}
+
+#[cfg(windows)]
+fn note_lock_paths_equal(first: &Path, second: &Path) -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Globalization::{CompareStringOrdinal, CSTR_EQUAL};
+    if first == second {
+        return true;
+    }
+    let first: Vec<u16> = first.as_os_str().encode_wide().collect();
+    let second: Vec<u16> = second.as_os_str().encode_wide().collect();
+    let (Ok(first_len), Ok(second_len)) = (i32::try_from(first.len()), i32::try_from(second.len())) else {
+        return true; // Conservatively share a lock if comparison cannot run.
+    };
+    // Use Windows' own ordinal case table on native UTF-16, rather than
+    // assuming Rust/ASCII lowercase text describes filesystem case aliases.
+    // SAFETY: Both UTF-16 buffers stay alive for the call and their explicit
+    // lengths are checked. BOOL TRUE must be exactly 1 for this API.
+    let result = unsafe {
+        CompareStringOrdinal(first.as_ptr(), first_len, second.as_ptr(), second_len, 1)
+    };
+    result == CSTR_EQUAL || result == 0
+}
+
+#[cfg(not(windows))]
+fn note_lock_paths_equal(first: &Path, second: &Path) -> bool {
+    first == second
+}
+
+/// Serialize compare-and-write across webviews and other in-process writers.
+/// Weak entries do not retain one mutex forever for every exported file.
+fn with_note_write_lock<T>(path: &Path, operation: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    // Renaming a directory must exclude writes to every descendant, not just
+    // a mutex keyed by the directory's own name.
+    let _paths = note_path_changes().read().map_err(|_| "note path lock poisoned".to_string())?;
+    type LockEntry = (PathBuf, Weak<Mutex<()>>);
+    static LOCKS: OnceLock<Mutex<Vec<LockEntry>>> = OnceLock::new();
+    let identity = path.canonicalize().unwrap_or_else(|_| {
+        path.parent().and_then(|parent| parent.canonicalize().ok())
+            .and_then(|parent| path.file_name().map(|name| parent.join(name)))
+            .unwrap_or_else(|| path.to_path_buf())
+    });
+    let lock = {
+        let mut locks = LOCKS.get_or_init(|| Mutex::new(Vec::new())).lock().unwrap();
+        locks.retain(|(_, lock)| lock.strong_count() > 0);
+        let existing = locks.iter().find_map(|(path, lock)| {
+            if note_lock_paths_equal(path, &identity) { lock.upgrade() } else { None }
+        });
+        existing.unwrap_or_else(|| {
+            let lock = Arc::new(Mutex::new(()));
+            locks.push((identity, Arc::downgrade(&lock)));
+            lock
+        })
+    };
+    let _guard = lock.lock().map_err(|_| "note write lock poisoned".to_string())?;
+    operation()
+}
+
+fn note_path_changes() -> &'static std::sync::RwLock<()> {
+    static CHANGES: std::sync::OnceLock<std::sync::RwLock<()>> = std::sync::OnceLock::new();
+    CHANGES.get_or_init(|| std::sync::RwLock::new(()))
+}
+
+fn atomic_write_unlocked(path: &Path, bytes: &[u8]) -> Result<(), String> {
     use std::io::Write;
     use std::sync::atomic::{AtomicU64, Ordering};
+    // Atomic replacement must update the linked file, not replace the symlink
+    // node with a disconnected regular file.
+    let resolved = fs::symlink_metadata(path).ok()
+        .filter(|metadata| metadata.file_type().is_symlink())
+        .map(|_| path.canonicalize().map_err(|error| format!("resolve symlink failed: {error}")))
+        .transpose()?;
+    let path = resolved.as_deref().unwrap_or(path);
 
     static SEQ: AtomicU64 = AtomicU64::new(0);
     let seq = SEQ.fetch_add(1, Ordering::Relaxed);
@@ -551,18 +625,20 @@ pub(crate) fn atomic_write_encoded(
     encoding_label: &str,
     had_bom: bool,
 ) -> Result<(), String> {
-    let enc = Encoding::for_label(encoding_label.as_bytes()).unwrap_or(UTF_8);
-    let (cow, _, had_errors) = enc.encode(content);
-    if had_errors {
-        return Err(format!(
-            "Some characters cannot be represented in {}",
-            enc.name()
-        ));
-    }
-    // `encode()` never emits a BOM; re-add the one the original had.
-    // `had_bom` only ever comes from `sniff_bom`, so the encoding here is
-    // always one of these three; anything else just gets no BOM.
-    let mut bytes = Vec::with_capacity(cow.len() + 3);
+    let bytes = encode_note_text(content, encoding_label, had_bom)?;
+    atomic_write(path, &bytes)
+}
+
+/// encoding_rs deliberately encodes UTF-16 as UTF-8. UTF-16 therefore needs
+/// explicit u16 serialization; otherwise adding its BOM creates a corrupt file.
+pub(crate) fn encode_note_text(
+    content: &str,
+    encoding_label: &str,
+    had_bom: bool,
+) -> Result<Vec<u8>, String> {
+    let enc = Encoding::for_label(encoding_label.as_bytes())
+        .ok_or_else(|| format!("Unsupported text encoding: {encoding_label}"))?;
+    let mut bytes = Vec::with_capacity(content.len() + 3);
     if had_bom {
         match enc.name() {
             "UTF-8" => bytes.extend_from_slice(&[0xEF, 0xBB, 0xBF]),
@@ -571,8 +647,26 @@ pub(crate) fn atomic_write_encoded(
             _ => {}
         }
     }
-    bytes.extend_from_slice(cow.as_ref());
-    atomic_write(path, &bytes)
+    if enc.name() == "UTF-16LE" || enc.name() == "UTF-16BE" {
+        for unit in content.encode_utf16() {
+            let pair = if enc.name() == "UTF-16LE" {
+                unit.to_le_bytes()
+            } else {
+                unit.to_be_bytes()
+            };
+            bytes.extend_from_slice(&pair);
+        }
+    } else {
+        let (cow, output_encoding, had_errors) = enc.encode(content);
+        if had_errors || output_encoding != enc {
+            return Err(format!(
+                "Some characters cannot be represented in {}",
+                enc.name()
+            ));
+        }
+        bytes.extend_from_slice(cow.as_ref());
+    }
+    Ok(bytes)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -762,12 +856,17 @@ pub fn read_text_detected(path: &Path) -> Result<DetectedText, String> {
 /// (this keeps callers that save scratch files outside any workspace
 /// from accidentally triggering recipes against the wrong vault).
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // Named Tauri IPC fields remain backward compatible.
 pub async fn write_file(
     app: tauri::AppHandle,
+    window: tauri::Window,
     path: String,
     content: String,
     encoding: String,
     workspace: Option<String>,
+    had_bom: Option<bool>,
+    expected_content: Option<String>,
+    expect_missing: Option<bool>,
 ) -> Result<(), String> {
     authorize(&path)?;
     let path_for_dispatch = path.clone();
@@ -775,10 +874,20 @@ pub async fn write_file(
     tauri::async_runtime::spawn_blocking({
         let path = path.clone();
         let content = content.clone();
-        move || write_file_inner(path, content, encoding)
+        move || if expected_content.is_some() || expect_missing.unwrap_or(false) {
+            write_file_checked_inner(path, content, encoding, had_bom, expected_content, expect_missing.unwrap_or(false))
+        } else {
+            match had_bom {
+                Some(had_bom) => write_file_with_options_inner(path, content, encoding, Some(had_bom)),
+                None => write_file_inner(path, content, encoding),
+            }
+        }
     })
     .await
     .map_err(|e| format!("join: {e}"))??;
+
+    // OS event de-duplication must not hide this save from sibling windows.
+    super::watcher::notify_internal_save(&app, &path, Some(window.label()));
 
     // After a successful save, fire the on-save / on-tag-add triggers
     // for the active workspace. We re-extract tags from the *content*
@@ -853,19 +962,67 @@ fn extract_tags_for_dispatch(body: &str) -> Vec<String> {
 }
 
 pub fn write_file_inner(path: String, content: String, encoding: String) -> Result<(), String> {
-    let enc = Encoding::for_label(encoding.as_bytes()).unwrap_or(UTF_8);
-    let (cow, _, had_errors) = enc.encode(&content);
-    if had_errors {
-        return Err(format!(
-            "Some characters cannot be represented in {}",
-            enc.name()
-        ));
+    write_file_with_options_inner(path, content, encoding, None)
+}
+
+/// Preserve the existing BOM when an older caller omits the option. New
+/// UTF-16 files default to a BOM so readers can determine their byte order.
+pub fn write_file_with_options_inner(
+    path: String,
+    content: String,
+    encoding: String,
+    had_bom: Option<bool>,
+) -> Result<(), String> {
+    write_file_checked_inner(path, content, encoding, had_bom, None, false)
+}
+
+/// Save only the version accepted by the caller, under the same path lock as
+/// every atomic write. A concurrent window cannot pass the same old baseline.
+pub fn write_file_checked_inner(
+    path: String,
+    content: String,
+    encoding: String,
+    had_bom: Option<bool>,
+    expected_content: Option<String>,
+    expect_missing: bool,
+) -> Result<(), String> {
+    with_note_write_lock(Path::new(&path), || {
+    if expect_missing || expected_content.is_some() {
+        match fs::read(&path) {
+            Ok(bytes) => {
+                if expect_missing {
+                    return Err("NOTE_CONFLICT: target was created by another writer".into());
+                }
+                let disk = decode_text_detected(&bytes);
+                if disk.had_errors || Some(disk.content.replace("\r\n", "\n").replace('\r', "\n")) != expected_content {
+                    return Err("NOTE_CONFLICT: file changed after it was read".into());
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                if !expect_missing {
+                    return Err("NOTE_CONFLICT: target was deleted or moved".into());
+                }
+            }
+            Err(error) => return Err(format!("read before save failed: {error}")),
+        }
     }
-    atomic_write(Path::new(&path), cow.as_ref())?;
-
-    super::watcher::mark_self_write(&path);
-
+    let had_bom = had_bom.unwrap_or_else(|| {
+        use std::io::Read;
+        match fs::File::open(&path) {
+            Ok(mut file) => {
+                let mut prefix = [0u8; 3];
+                let count = file.read(&mut prefix).unwrap_or(0);
+                sniff_bom(&prefix[..count]).is_some()
+            }
+            Err(_) => Encoding::for_label(encoding.as_bytes())
+                .is_some_and(|enc| enc.name().starts_with("UTF-16")),
+        }
+    });
+    let bytes = encode_note_text(&content, &encoding, had_bom)?;
+    atomic_write_unlocked(Path::new(&path), &bytes)?;
+    super::watcher::mark_self_write(&path, &bytes);
     Ok(())
+    })
 }
 
 /// Read raw bytes from disk. v3.5: counterpart to `write_binary_file` —
@@ -887,11 +1044,19 @@ pub async fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
 
 /// Write raw bytes to disk. Used for binary export targets like DOCX/PDF.
 #[tauri::command]
-pub async fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+pub async fn write_binary_file(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    path: String,
+    data: Vec<u8>,
+) -> Result<(), String> {
     authorize(&path)?;
+    let written_path = path.clone();
     tauri::async_runtime::spawn_blocking(move || write_binary_file_inner(path, data))
         .await
-        .map_err(|e| format!("join: {e}"))?
+        .map_err(|e| format!("join: {e}"))??;
+    super::watcher::notify_internal_save(&app, &written_path, Some(window.label()));
+    Ok(())
 }
 
 pub fn write_binary_file_inner(path: String, data: Vec<u8>) -> Result<(), String> {
@@ -905,7 +1070,7 @@ pub fn write_binary_file_inner(path: String, data: Vec<u8>) -> Result<(), String
     // #148 follow-up — binary writes (content:// imports, pasted images) are
     // our own writes too; without the mark, a late watcher event for them
     // pops the "File Changed on Disk" dialog on the file the user just opened.
-    super::watcher::mark_self_write(&path);
+    super::watcher::mark_self_write(&path, &data);
     Ok(())
 }
 
@@ -996,6 +1161,7 @@ pub fn fs_create_dir(path: String) -> Result<(), String> {
 /// that promise and leave the user believing a gone file is recoverable.
 #[tauri::command]
 pub fn fs_delete(path: String) -> Result<bool, String> {
+    let _paths = note_path_changes().write().map_err(|_| "note path lock poisoned".to_string())?;
     authorize(&path)?;
     let p = Path::new(&path);
     if !p.exists() {
@@ -1052,6 +1218,11 @@ pub fn fs_path_exists(path: String) -> bool {
 
 #[tauri::command]
 pub fn fs_rename(from: String, to: String) -> Result<(), String> {
+    let _paths = note_path_changes().write().map_err(|_| "note path lock poisoned".to_string())?;
+    fs_rename_unlocked(from, to)
+}
+
+fn fs_rename_unlocked(from: String, to: String) -> Result<(), String> {
     authorize(&from)?;
     authorize(&to)?;
     let from_p = Path::new(&from);
@@ -1121,10 +1292,8 @@ fn is_markdown_path(p: &Path) -> bool {
 }
 
 /// Rewrite `<old_stem>.assets/` references inside the file body to
-/// `<new_stem>.assets/`. Reads as UTF-8 (which markdown effectively is for
-/// our purposes — link paths are always ASCII-safe), does a literal
-/// substring replace, and writes back. Best-effort: if the file isn't
-/// readable as UTF-8 or has no matches, the original bytes are preserved.
+/// the renamed sibling assets folder, preserving the file's encoding and BOM.
+/// The caller holds the exclusive path-change barrier.
 fn rewrite_assets_refs(file: &Path, old_assets: &Path, new_assets: &Path) -> Result<(), String> {
     let old_name = old_assets
         .file_name()
@@ -1134,11 +1303,11 @@ fn rewrite_assets_refs(file: &Path, old_assets: &Path, new_assets: &Path) -> Res
         .file_name()
         .and_then(|s| s.to_str())
         .ok_or_else(|| "new assets name missing".to_string())?;
-    let bytes = fs::read(file).map_err(|e| format!("read for rewrite: {e}"))?;
-    let body = match std::str::from_utf8(&bytes) {
-        Ok(s) => s,
-        Err(_) => return Ok(()), // non-UTF-8 body, skip rewrite
-    };
+    let original = read_text_detected(file)?;
+    if original.had_errors {
+        return Err("cannot rewrite malformed encoded note".into());
+    }
+    let body = &original.content;
     // Match the assets folder followed by `/` so we don't accidentally
     // rewrite occurrences inside prose (`foo.assets` mentioned in text).
     let old_pat = format!("{old_name}/");
@@ -1147,7 +1316,9 @@ fn rewrite_assets_refs(file: &Path, old_assets: &Path, new_assets: &Path) -> Res
         return Ok(());
     }
     let rewritten = body.replace(&old_pat, &new_pat);
-    atomic_write(file, rewritten.as_bytes())
+    let bytes = encode_note_text(&rewritten, &original.encoding, original.had_bom)?;
+    // Re-entering atomic_write would recursively acquire the tree barrier.
+    atomic_write_unlocked(file, &bytes)
 }
 
 fn sniff_bom(bytes: &[u8]) -> Option<(&'static Encoding, usize)> {

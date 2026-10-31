@@ -1,0 +1,13 @@
+{
+  "environment": "production Vite preview",
+  "source": "INSERTED\nPrefix\n\n| A      | B   |\n| ------ | --- |\n| EDITED | y   |\n\nTail",
+  "checks": {
+    "prefixPreserved": true,
+    "cellPreserved": true,
+    "oldCellGone": true,
+    "tailPreserved": true,
+    "oneTableHeader": true
+  },
+  "passed": true,
+  "toolbarDelayedBlurDefect": "Being fixed separately"
+}

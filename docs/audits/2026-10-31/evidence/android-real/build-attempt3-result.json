@@ -1,0 +1,16 @@
+{
+  "completedAt": "2026-10-31T11:54:07.3058884+08:00",
+  "command": "pnpm exec tauri android build --debug --apk --target x86_64 --ci --config <evidence/android-real/build-override.json>",
+  "buildExitCode": 1,
+  "distIndexSHA256Before": "81AC5A0BD20F076E87086715BCDD9E3D0B49796C533A2A360B0951583D650E60",
+  "distIndexSHA256After": "2F83244FD16DC43B70CFDD0774D6636B3B6D3CAFFBA349B7C9265FB72D5F7799",
+  "frontendBuildHooksDisabled": true,
+  "devicesStarted": false,
+  "apkInstalled": false,
+  "sdkRoot": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk",
+  "ndkRoot": "C:\\Users\\20269\\AppData\\Local\\Android\\Sdk\\ndk\\26.3.11579264",
+  "javaHome": "C:\\Users\\20269\\.jdks\\jdk-21",
+  "androidUserHome": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\android-user",
+  "cargoTargetDir": "C:\\Users\\20269\\AppData\\Local\\Temp\\catstep-android-d11-qa-20261031\\rust-target-ascii",
+  "artifacts": []
+}

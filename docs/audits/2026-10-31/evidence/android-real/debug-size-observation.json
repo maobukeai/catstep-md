@@ -1,0 +1,30 @@
+[
+  {
+    "gate": 648,
+    "apkSize": 163391585,
+    "centralEntryCount": 926,
+    "centralCompressedBytes": 163223254,
+    "nativeLibraries": [
+      {
+        "name": "lib/x86_64/libapp_lib.so",
+        "size": 155850864,
+        "compressedSize": 155850864,
+        "crc32": "6142e635"
+      }
+    ]
+  },
+  {
+    "gate": 650,
+    "apkSize": 319257329,
+    "centralEntryCount": 926,
+    "centralCompressedBytes": 163223254,
+    "nativeLibraries": [
+      {
+        "name": "lib/x86_64/libapp_lib.so",
+        "size": 155850864,
+        "compressedSize": 155850864,
+        "crc32": "72adb884"
+      }
+    ]
+  }
+]

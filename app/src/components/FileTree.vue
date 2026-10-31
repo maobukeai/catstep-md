@@ -29,6 +29,10 @@ import { isMobile, isMacOS } from '../lib/platform';
 import { usePendingDeletes, isDeletePending, UNDO_WINDOW_MS } from '../composables/usePendingDeletes';
 import { isSafPath, fromSafPath, toSafPath, safList, safCreate, safDelete, safRename, safMove } from '../lib/saf-fs';
 import { pickFolder } from '../lib/user-pick';
+import { applyNoteRead, migratedNotePath, noteVersion } from '../lib/note-document';
+import { queueNotePaths } from '../lib/note-write-queue';
+import { purgeRecoverySnapshot } from '../composables/useRecovery';
+import { waitForNoteEditors } from '../lib/editor-flush';
 
 interface Entry {
   name: string;
@@ -707,10 +711,12 @@ async function commitEdit() {
       // providers may REISSUE the documentId on rename — repoint tabs to the
       // RETURNED id, not a re-joined path.
       if (isSafPath(e.original) && workspace.safTreeUri) {
-        const newDocId = await safRename(workspace.safTreeUri, fromSafPath(e.original), name);
+        const original = e.original;
+        const treeUri = workspace.safTreeUri;
+        const newPath = await moveSafPath(original, target, async () =>
+          toSafPath(await safRename(treeUri, fromSafPath(original), name)));
         scheduleRefresh();
-        await repointOpenTabs(e.original, toSafPath(newDocId));
-        migrateRecentPaths(e.original, toSafPath(newDocId));
+        migrateRecentPaths(original, newPath);
         return;
       }
       // C19 — same localized clash guard as performMove: an inline rename
@@ -722,9 +728,8 @@ async function commitEdit() {
         toasts.warning(t('explorer.moveNameConflict', { name }));
         return;
       }
-      await renamePath(e.original, target);
+      await moveLocalPath(e.original, target);
       scheduleRefresh();
-      await repointOpenTabs(e.original, target);
       migrateRecentPaths(e.original, target);
     }
   } catch (err) {
@@ -851,31 +856,60 @@ async function deleteNode(node: Node) {
  *  MRU slot and the MFU edit count from the old path onto the new one, so the
  *  quick switcher keeps tracking the file instead of offering a dead path. */
 function migrateRecentPaths(from: string, to: string) {
-  workspace.migrateRecent(from, to);
-  recentEdits.migratePath(from, to);
+  const paths = new Set([...workspace.recentFiles, ...Object.keys(recentEdits.counts)]);
+  for (const path of paths) {
+    const target = migratedNotePath(path, from, to);
+    if (!target) continue;
+    workspace.migrateRecent(path, target);
+    recentEdits.migratePath(path, target);
+  }
 }
 
 async function repointOpenTabs(original: string, target: string) {
-  try {
-    const tab = tabs.tabs.find((t: { filePath?: string }) => t.filePath === original);
-    if (!tab) return;
-    const wasClean = tab.savedContent === tab.content;
+  await waitForNoteEditors();
+  for (const tab of [...tabs.tabs]) {
+    const oldPath = tab.filePath;
+    const nextPath = oldPath && migratedNotePath(oldPath, original, target);
+    if (!oldPath || !nextPath) continue;
+    const wasClean = tab.content === tab.savedContent;
+    void purgeRecoverySnapshot(oldPath);
+    tabs.renamePath(tab.id, nextPath);
     if (wasClean) {
-      // Clean tab: safe to repoint + reload from disk (picks up any per-file
-      // `.assets/` link rewrite the rename triggered).
-      tabs.markSaved(tab.id, target);
-      const fr = await readNote(target);
-      tabs.setContent(tab.id, fr.content);
-      tabs.markSaved(tab.id, target);
-    } else {
-      // Dirty tab: repoint to the new path but KEEP the unsaved edits AND the
-      // dirty flag. markSaved() here would clear savedContent and silently
-      // lose the edits when the tab is later closed (#91).
-      tabs.renamePath(tab.id, target);
+      const version = noteVersion(tab);
+      try {
+        const read = isSafPath(nextPath) && workspace.safTreeUri
+          ? await import('../lib/saf-fs').then(({ safRead }) => safRead(workspace.safTreeUri!, fromSafPath(nextPath)))
+          : await readNote(nextPath);
+        await waitForNoteEditors(tab.id);
+        applyNoteRead(tabs.tabs.find((item) => item.id === tab.id), version, read);
+      } catch (error) { console.warn('[FileTree.move] tab refresh failed', error); }
     }
-  } catch (err) {
-    console.warn('[FileTree.move] tab refresh failed', err);
   }
+}
+
+async function moveLocalPath(original: string, target: string) {
+  await waitForNoteEditors();
+  const affected = tabs.tabs.flatMap((tab) => {
+    const next = tab.filePath && migratedNotePath(tab.filePath, original, target);
+    return next ? [tab.filePath!, next] : [];
+  });
+  await queueNotePaths([original, target, ...affected], async () => {
+    await renamePath(original, target);
+    await repointOpenTabs(original, target);
+  });
+}
+
+async function moveSafPath(original: string, target: string, move: () => Promise<string>): Promise<string> {
+  await waitForNoteEditors();
+  const affected = tabs.tabs.flatMap((tab) => {
+    const next = tab.filePath && migratedNotePath(tab.filePath, original, target);
+    return next ? [tab.filePath!, next] : [];
+  });
+  return queueNotePaths([original, target, ...affected], async () => {
+    const nextPath = await move();
+    await repointOpenTabs(original, nextPath);
+    return nextPath;
+  });
 }
 
 /** Would moving `node` into `targetDir` be a no-op or an illegal self-move?
@@ -919,15 +953,12 @@ async function performMove(node: Node, targetDir: string) {
         return;
       }
       const parent = node.path.replace(/[\\/][^\\/]+$/, '');
-      const newDocId = await safMove(
-        workspace.safTreeUri,
-        fromSafPath(node.path),
-        fromSafPath(parent),
-        fromSafPath(targetDir),
-      );
+      const treeUri = workspace.safTreeUri;
+      const newPath = await moveSafPath(node.path, target, async () => toSafPath(await safMove(
+        treeUri, fromSafPath(node.path), fromSafPath(parent), fromSafPath(targetDir),
+      )));
       scheduleRefresh();
-      await repointOpenTabs(node.path, toSafPath(newDocId));
-      migrateRecentPaths(node.path, toSafPath(newDocId));
+      migrateRecentPaths(node.path, newPath);
       toasts.success(t('explorer.moved', { name: node.name }));
       return;
     }
@@ -940,9 +971,8 @@ async function performMove(node: Node, targetDir: string) {
       toasts.warning(t('explorer.moveNameConflict', { name: node.name }));
       return;
     }
-    await renamePath(node.path, target);
+    await moveLocalPath(node.path, target);
     scheduleRefresh();
-    await repointOpenTabs(node.path, target);
     migrateRecentPaths(node.path, target);
     toasts.success(t('explorer.moved', { name: node.name }));
   } catch (err) {

@@ -4,8 +4,9 @@ import { useSettingsStore } from './settings';
 import { useTilesStore } from './tiles';
 import { useWritingSessionStore } from './writingSession';
 import { AUX_LABEL_PREFIX } from './windows';
-import { stampGoalSetAtIfMissing } from '../composables/useWritingGoals';
 import { readPersistedSettings } from '../lib/settings-storage';
+import { normalizeNoteContent, notePathKey } from '../lib/note-document';
+import { flushNoteEditors, waitForNoteEditors } from '../lib/editor-flush';
 
 // Legacy / global key (used when per-workspace tabs is OFF, and as the
 // migration source on first upgrade).
@@ -218,8 +219,17 @@ export const useTabsStore = defineStore('tabs', {
       hadBom: boolean;
     }) {
       // If already open, just focus.
-      const existing = this.tabs.find((t) => t.filePath === payload.filePath);
+      const existing = this.tabs.find((t) => t.filePath && notePathKey(t.filePath) === notePathKey(payload.filePath));
       if (existing) {
+        // Reopening a clean restored tab must use the fresh disk read, not
+        // its possibly days-old localStorage copy. Dirty buffers stay intact.
+        if (existing.content === existing.savedContent) {
+          existing.content = normalizeNoteContent(payload.content);
+          existing.savedContent = existing.content;
+          existing.encoding = payload.encoding;
+          existing.hadBom = payload.hadBom;
+          existing.lineEnding = payload.content.includes('\r\n') ? 'crlf' : 'lf';
+        }
         this.activeId = existing.id;
         return existing;
       }
@@ -234,8 +244,7 @@ export const useTabsStore = defineStore('tabs', {
       const lineEnding: 'lf' | 'crlf' = payload.content.includes('\r\n')
         ? 'crlf'
         : 'lf';
-      const normalized =
-        lineEnding === 'crlf' ? payload.content.replace(/\r\n/g, '\n') : payload.content;
+      const normalized = normalizeNoteContent(payload.content);
       const tab: Tab = {
         id: newId(),
         filePath: payload.filePath,
@@ -282,7 +291,7 @@ export const useTabsStore = defineStore('tabs', {
       t.fileName = filePath.split(/[\\/]/).pop() ?? t.fileName;
       t.language = inferLanguage(t.fileName);
     },
-    markSaved(id: string, filePath: string) {
+    markSaved(id: string, filePath: string, writtenContent?: string) {
       const t = this.tabs.find((x) => x.id === id);
       if (!t) return;
       t.filePath = filePath;
@@ -299,15 +308,10 @@ export const useTabsStore = defineStore('tabs', {
       } else {
         t.fileName = filePath.split(/[\\/]/).pop() ?? t.fileName;
       }
-      // v2.5 — auto-stamp `goal_set_at: <today>` on the first save of any
-      // doc that declares a `goal:`. This is the anchor the streak counter
-      // uses. Idempotent — no-op when the field already exists or there's
-      // no goal declared.
-      const stamped = stampGoalSetAtIfMissing(t.content);
-      if (stamped !== t.content) {
-        t.content = stamped;
-      }
-      t.savedContent = t.content;
+      // Only acknowledge bytes from the completed write. Editing may have
+      // continued while the IPC was pending; that newer text remains dirty.
+      // Content transforms (e.g. goal stamping) belong before the write.
+      t.savedContent = normalizeNoteContent(writtenContent ?? t.content);
       t.language = inferLanguage(t.fileName);
       // v2.5 — push a "saved" anchor into the writing-session store so the
       // popover can show "since last save" instead of "since open".
@@ -438,6 +442,12 @@ export const useTabsStore = defineStore('tabs', {
     onWorkspaceSwitched(prevFolder: string | null, newFolder: string | null) {
       const settings = useSettingsStore();
       if (!settings.perWorkspaceTabs) return;
+      // Capture the last editor keystroke before deciding which buffers are
+      // dirty enough to carry into the next workspace.
+      if (!flushNoteEditors()) {
+        void waitForNoteEditors().then(() => this.onWorkspaceSwitched(prevFolder, newFolder));
+        return;
+      }
       // Remember what was open in the workspace we're leaving.
       this.persistToFolder(prevFolder);
       // Tabs that must follow the user regardless of workspace: anything

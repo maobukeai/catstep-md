@@ -13,6 +13,8 @@ dist_release/
 **/src-tauri/gen/android/app/build/
 **/src-tauri/gen/android/tauri.settings.gradle
 **/src-tauri/gen/android/app/tauri.build.gradle.kts
+**/src-tauri/gen/android/app/proguard-tauri.pro
+**/src-tauri/gen/android/app/tauri.properties
 **/src-tauri/gen/android/app/src/main/jniLibs/
 **/src-tauri/gen/android/app/src/main/assets/
 **/src-tauri/gen/android/app/src/main/java/app/catstepmd/generated/

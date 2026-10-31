@@ -1,0 +1,49 @@
+{
+  "scope": "Read-only replay of release.yml:554-560 directory classifier against actual debug output metadata; no release build/upload executed.",
+  "actualVariant": "universalDebug",
+  "rows": [
+    {
+      "actualDebugApk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-universal-debug.apk",
+      "metadataAbiFilters": [],
+      "workflowDirectoryClassifier": "universal",
+      "workflowTargetName": "CatstepMD_1.0.12_universal.apk"
+    },
+    {
+      "actualDebugApk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-armeabi-v7a-debug.apk",
+      "metadataAbiFilters": [
+        {
+          "filterType": "ABI",
+          "value": "armeabi-v7a"
+        }
+      ],
+      "workflowDirectoryClassifier": "universal",
+      "workflowTargetName": "CatstepMD_1.0.12_universal.apk"
+    },
+    {
+      "actualDebugApk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-x86_64-debug.apk",
+      "metadataAbiFilters": [
+        {
+          "filterType": "ABI",
+          "value": "x86_64"
+        }
+      ],
+      "workflowDirectoryClassifier": "universal",
+      "workflowTargetName": "CatstepMD_1.0.12_universal.apk"
+    },
+    {
+      "actualDebugApk": "C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\gen\\android\\app\\build\\outputs\\apk\\universal\\debug\\app-universal-arm64-v8a-debug.apk",
+      "metadataAbiFilters": [
+        {
+          "filterType": "ABI",
+          "value": "arm64-v8a"
+        }
+      ],
+      "workflowDirectoryClassifier": "universal",
+      "workflowTargetName": "CatstepMD_1.0.12_universal.apk"
+    }
+  ],
+  "distinctWorkflowTargetNames": [
+    "CatstepMD_1.0.12_universal.apk"
+  ],
+  "releaseRiskInference": "The tracked Gradle universal product flavor also exists in release; if release outputs use the same directory scheme, distinct split files are all classified universal and overwritten by --clobber. Actual release CI execution not performed."
+}

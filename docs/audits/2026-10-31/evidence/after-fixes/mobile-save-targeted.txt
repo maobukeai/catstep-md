@@ -1,0 +1,12 @@
+✔ dirty mobile Save runs through actual sheet/Toolbar/App wiring immediately and exposes pending state (229.5013ms)
+✔ clean active notes can still flush an editor; no-active and pending states disable touch Save (116.1883ms)
+✔ mobile Save keeps its initially requested tab while awaiting the existing save service (42.9142ms)
+✔ mobile Help/About and Save use existing English and Chinese translation keys (65.8862ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 985.413

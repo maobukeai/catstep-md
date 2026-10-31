@@ -1,0 +1,15 @@
+Compile only; no execution.
+Command argv:
+["rustc", "--edition=2021", "--crate-name", "catstep_android_qa_launcher", "--target", "x86_64-pc-windows-msvc", "-C", "opt-level=2", "-C", "debuginfo=0", "-o", "docs/audits/2026-10-31/evidence/android-qa/launch-qa-emulator.exe", "docs/audits/2026-10-31/evidence/android-qa/launch_qa_emulator.rs"]
+
+Compiler:
+rustc 1.95.0 (59807616e 2026-04-14)
+binary: rustc
+commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860
+commit-date: 2026-04-14
+host: x86_64-pc-windows-msvc
+release: 1.95.0
+LLVM version: 22.1.2
+
+Observed exit code: 0
+Compiler stdout/stderr: empty

@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-31",
+  "branch": "codex/audit-remediation",
+  "baseline_commit": "4a980caedd5fb1fa5e73069c772ab4b8e51aeeb8",
+  "frontend": {
+    "tests": {
+      "passed": 654,
+      "failed": 0,
+      "skipped": 0,
+      "log": "test-final.txt"
+    },
+    "test_types": {
+      "passed": true,
+      "log": "test-type-final.txt"
+    },
+    "i18n": {
+      "passed": true,
+      "log": "i18n-check-final.txt"
+    },
+    "toast_confirm_literals": {
+      "passed": true,
+      "log": "i18n-toast-final.txt"
+    },
+    "production_build": {
+      "passed": true,
+      "seconds": 17.76,
+      "log": "build-final.txt",
+      "whole_pnpm_seconds": 24.238
+    },
+    "diff_check": {
+      "passed": true,
+      "log": "diff-check-final.txt"
+    },
+    "gate_results": "gate-results-final.json",
+    "previous_650_logs": "frontend-650/"
+  },
+  "backend_summary": "../backend-repro/validation-summary.json",
+  "working_source_fingerprints": "source-manifest.json",
+  "final_ui_signoff": true,
+  "ui_status": "ui-validation-status.json",
+  "all_platforms_signed_off": false,
+  "committed": false,
+  "user_preexisting_changes_preserved": [
+    "app/src/lib/pdf-export.ts",
+    "一键启动.bat deletion"
+  ],
+  "real_ai_or_cloud_sync_called": false,
+  "original_audit_evidence_preserved": true,
+  "keyring_followup": {
+    "prior_error8_resolved_for_current_final_test_run": true,
+    "cause_evidence": "Native same-shape A/B writes respond to available credential capacity",
+    "approved_current_goal_exact_fixture_targets": 14,
+    "deleted": 11,
+    "already_absent": 3,
+    "cleanup_failures": 0,
+    "final_full_rust_run_passed": 699,
+    "final_full_rust_run_failed": 0,
+    "final_full_rust_run_existing_ignored": 4,
+    "own_new_keys_verified_absent_after_raii": 6,
+    "credential_enumeration": false,
+    "credential_password_read": false,
+    "before_goal_or_real_user_credentials_deleted": false,
+    "production_storage_format_changed": false,
+    "historical_failures_preserved": true,
+    "evidence": "../backend-repro/keyring-investigation/conclusion.md"
+  },
+  "real_pandoc": {
+    "official_portable_version": "3.13",
+    "product_core_driver_cases_passed": 5,
+    "epub_odt_resource_package_checks_passed": true,
+    "windows_legacy_stderr_chinese_path_fix_verified": true,
+    "native_ui_and_reader_page_visual_signoff": false,
+    "evidence": "../pandoc-real/README.md"
+  },
+  "native_tauri_scoped_acceptance": {
+    "passed": true,
+    "frontend_versions": [
+      648,
+      650
+    ],
+    "evidence": "../native-isolation/acceptance-summary.md",
+    "final_cursor": "native-cursor-final-650-result.json",
+    "final_table_code": "native-markdown-layout-final-650-result.json",
+    "credentials_mock": true
+  },
+  "android": {
+    "frontend_tests": 654,
+    "x86_64_debug_built_verified_installed": true,
+    "apk_sha256": "22549a7f8d907577a10affb03f3a089e9ec59d9a91ad009774868d73c9b1271d",
+    "qa_serial": "emulator-5580",
+    "api": 34,
+    "scoped_real_provider_ui_acceptance_passed": true,
+    "picker_cancel_reopen_grant_create_passed": true,
+    "touch_save_exact_utf8_passed": true,
+    "dirty_picker_cancel_preserves_draft_and_prior_disk": true,
+    "full_device_cold_boot_grant_listing_reopen_read_write_passed": true,
+    "physical_device": false,
+    "full_multi_abi_release": false,
+    "evidence": "../android-real/saf-ui-result.json",
+    "environment_closed": "../android-real/environment-closeout.json"
+  },
+  "release_artifact_helper": {
+    "offline_tests_passed": 19,
+    "independent_tests_passed": 19,
+    "real_release_build": false,
+    "published": false,
+    "evidence": "../android-real/release-helper-root-peer-review.json"
+  },
+  "ui_signoff_scope": "Defined browser, selected Windows native and one fresh API34 Android DocumentsProvider acceptance passed; this is not a full platform, provider, credential or failure-injection matrix",
+  "issue_mapping": {
+    "original_audit": 27,
+    "additional": [
+      "B08",
+      "B09",
+      "D13"
+    ],
+    "total": 30,
+    "implemented": 30,
+    "scope": "Confirmed issues and stated bounded acceptance; unsupported capabilities and untested scenarios remain explicit in the report"
+  },
+  "final_review": "../final-cross-review.md"
+}

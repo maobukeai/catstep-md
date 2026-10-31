@@ -1,0 +1,6 @@
+{
+  "command": "cargo test --locked --offline -j2 --bin CatstepMD runner::crypto::tests::workspace_round_trip -- --exact --nocapture --test-threads=1",
+  "started_utc": "2026-10-31T03:17:24.6770901Z",
+  "finished_utc": "2026-10-31T03:17:40.9644500Z",
+  "exit_code": 0
+}

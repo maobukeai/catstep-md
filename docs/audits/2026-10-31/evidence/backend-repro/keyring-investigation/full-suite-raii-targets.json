@@ -1,0 +1,232 @@
+{
+  "scope": "Only random workspaces generated within the final normal-config full Cargo test runtime",
+  "credential_api_calls": false,
+  "crypto_source_sha256": "db23b54ed7b31ce84c7b5b3679e948b7c95eb925e927ad3eb704abc337f596cb",
+  "e2ee_test_source_sha256": "da1edb6ce7a5c0f07301549502759285b6b61e6840c8019cdb8dcf9c3e8ad6f6",
+  "guard_fixtures_verified_empty_and_excluded_from_credential_actions": [
+    "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-guard-1793416912179415800",
+    "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-guard-1793416947356990000"
+  ],
+  "targets": [
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416912136004500",
+      "label": "crypto-ws-pp",
+      "embedded_unix_nanoseconds": 1793416912136004500,
+      "creation_time_utc": "2026-10-31T03:21:52.136983+00:00",
+      "exact_target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416912136004500.solomd-encryption-key",
+      "type": 1,
+      "current_source_fixed_samples_verified": [
+        {
+          "relative_path": ".solomd-encrypted/.solomd-vault.json",
+          "size": 128,
+          "sha256": "a0cd154acae9dd7768d687cf777a62a9d2d1094a3939239885b8c4ec96b76180"
+        },
+        {
+          "relative_path": ".solomd/encryption.json",
+          "size": 195,
+          "sha256": "ac71393cadd44ee32f93380e12752db645b86093aeb788da168e6cf8526ad10e"
+        },
+        {
+          "relative_path": ".solomd/encryption.key-set",
+          "size": 1,
+          "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        {
+          "relative_path": ".solomd/encryption.probe.enc",
+          "size": 64,
+          "sha256": "20f924b9d94637b02ad0b3821e4a82f929beb6af487a23e3ad5aa0295b115976"
+        }
+      ]
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416912180122600",
+      "label": "crypto-ws",
+      "embedded_unix_nanoseconds": 1793416912180122600,
+      "creation_time_utc": "2026-10-31T03:21:52.180193+00:00",
+      "exact_target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416912180122600.solomd-encryption-key",
+      "type": 1,
+      "current_source_fixed_samples_verified": [
+        {
+          "relative_path": ".solomd-encrypted/.solomd-vault.json",
+          "size": 128,
+          "sha256": "8e3dae59e589070e25fee2170081568c61831b0c3dbe38141c4e879cd5ceaf08"
+        },
+        {
+          "relative_path": ".solomd-encrypted/assets/img.png",
+          "size": 9,
+          "sha256": "075f8e3f22fcb592f1c27b086375ceeaacc767bd43a4583cffd38685d3a1d9bb"
+        },
+        {
+          "relative_path": ".solomd-encrypted/notes/a.md.enc",
+          "size": 52,
+          "sha256": "624a6bb9a7f23cafaab9890adacbbb3bb98d2dc1d984654f066dfa17fc62b259"
+        },
+        {
+          "relative_path": ".solomd-vault.json",
+          "size": 128,
+          "sha256": "8e3dae59e589070e25fee2170081568c61831b0c3dbe38141c4e879cd5ceaf08"
+        },
+        {
+          "relative_path": ".solomd/encryption.json",
+          "size": 195,
+          "sha256": "c27d808add67dec92bd9505c81ef29c8361d8a245136f92302c9b5c00cb61e67"
+        },
+        {
+          "relative_path": ".solomd/encryption.key-set",
+          "size": 1,
+          "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        {
+          "relative_path": ".solomd/encryption.probe.enc",
+          "size": 64,
+          "sha256": "b584e7af49ba174c5cb686352235cda707f720b45c57fd4fc9be755a2682f4c8"
+        },
+        {
+          "relative_path": ".solomd/sync.json",
+          "size": 2,
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "relative_path": "assets/img.png",
+          "size": 9,
+          "sha256": "075f8e3f22fcb592f1c27b086375ceeaacc767bd43a4583cffd38685d3a1d9bb"
+        },
+        {
+          "relative_path": "notes/a.md",
+          "size": 7,
+          "sha256": "01c8de44e04d2f7a304f50963545a2aff58c33e9c44a1f33fdcb978fb224cb74"
+        }
+      ]
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416947315827900",
+      "label": "crypto-ws-pp",
+      "embedded_unix_nanoseconds": 1793416947315827900,
+      "creation_time_utc": "2026-10-31T03:22:27.315958+00:00",
+      "exact_target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-pp-1793416947315827900.solomd-encryption-key",
+      "type": 1,
+      "current_source_fixed_samples_verified": [
+        {
+          "relative_path": ".solomd-encrypted/.solomd-vault.json",
+          "size": 128,
+          "sha256": "ae2820b5a712f1adb65791d3f15a8859b85f2140644bfd2129155af4506d5aea"
+        },
+        {
+          "relative_path": ".solomd/encryption.json",
+          "size": 195,
+          "sha256": "add0f3fd41a2338d9c1a42c3ad73d628a50a09b608b205a3c6ee124ce873d331"
+        },
+        {
+          "relative_path": ".solomd/encryption.key-set",
+          "size": 1,
+          "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        {
+          "relative_path": ".solomd/encryption.probe.enc",
+          "size": 64,
+          "sha256": "bc4f324c9076a82787d9f228b876a2e0e9805586b49c62e857fcd03183a4c095"
+        }
+      ]
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416947357738200",
+      "label": "crypto-ws",
+      "embedded_unix_nanoseconds": 1793416947357738200,
+      "creation_time_utc": "2026-10-31T03:22:27.357415+00:00",
+      "exact_target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-crypto-ws-1793416947357738200.solomd-encryption-key",
+      "type": 1,
+      "current_source_fixed_samples_verified": [
+        {
+          "relative_path": ".solomd-encrypted/.solomd-vault.json",
+          "size": 128,
+          "sha256": "a4e9224b718825790365d1eeae5dac37d6b46a8f4570708d3df8c2c1ed0d9dca"
+        },
+        {
+          "relative_path": ".solomd-encrypted/assets/img.png",
+          "size": 9,
+          "sha256": "075f8e3f22fcb592f1c27b086375ceeaacc767bd43a4583cffd38685d3a1d9bb"
+        },
+        {
+          "relative_path": ".solomd-encrypted/notes/a.md.enc",
+          "size": 52,
+          "sha256": "bb43c42cebacbc3c514e20a67983df973c9291802b0517f4a376e81827d92f6d"
+        },
+        {
+          "relative_path": ".solomd-vault.json",
+          "size": 128,
+          "sha256": "a4e9224b718825790365d1eeae5dac37d6b46a8f4570708d3df8c2c1ed0d9dca"
+        },
+        {
+          "relative_path": ".solomd/encryption.json",
+          "size": 195,
+          "sha256": "bd218f63b037430a6c1d03a6d3d08a60cd0faf4d901be4b95ec4c8ef55a9cb4e"
+        },
+        {
+          "relative_path": ".solomd/encryption.key-set",
+          "size": 1,
+          "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+        },
+        {
+          "relative_path": ".solomd/encryption.probe.enc",
+          "size": 64,
+          "sha256": "5c1ff5adb566004464ae042b30accf3741e892a6ba6027afb1835eedaf8dcad2"
+        },
+        {
+          "relative_path": ".solomd/sync.json",
+          "size": 2,
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+        },
+        {
+          "relative_path": "assets/img.png",
+          "size": 9,
+          "sha256": "075f8e3f22fcb592f1c27b086375ceeaacc767bd43a4583cffd38685d3a1d9bb"
+        },
+        {
+          "relative_path": "notes/a.md",
+          "size": 7,
+          "sha256": "01c8de44e04d2f7a304f50963545a2aff58c33e9c44a1f33fdcb978fb224cb74"
+        }
+      ]
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devA-1793416968392918000",
+      "label": "e2ee-devA",
+      "embedded_unix_nanoseconds": 1793416968392918000,
+      "creation_time_utc": "2026-10-31T03:22:48.392123+00:00",
+      "exact_target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devA-1793416968392918000.solomd-encryption-key",
+      "type": 1,
+      "current_source_fixed_samples_verified": [
+        {
+          "relative_path": "note.md",
+          "size": 28,
+          "sha256": "a30e6fd64a2f4bd20b5f0412224055864443bee463b6dbcfb9f2b27453756c4e"
+        },
+        {
+          "relative_path": "assets/img.png",
+          "size": 15,
+          "sha256": "707b55b97725e5ddc58dbea8eaff61602906f61d4d33b34a91b37b5b98d515e6"
+        }
+      ]
+    },
+    {
+      "workspace": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devB-1793416968467399600",
+      "label": "e2ee-devB",
+      "embedded_unix_nanoseconds": 1793416968467399600,
+      "creation_time_utc": "2026-10-31T03:22:48.467056+00:00",
+      "exact_target": "C:\\Users\\20269\\AppData\\Local\\Temp\\solomd-e2ee-devB-1793416968467399600.solomd-encryption-key",
+      "type": 1,
+      "current_source_fixed_samples_verified": [
+        {
+          "relative_path": "note.md",
+          "size": 28,
+          "sha256": "a30e6fd64a2f4bd20b5f0412224055864443bee463b6dbcfb9f2b27453756c4e"
+        },
+        {
+          "relative_path": "assets/img.png",
+          "size": 15,
+          "sha256": "707b55b97725e5ddc58dbea8eaff61602906f61d4d33b34a91b37b5b98d515e6"
+        }
+      ]
+    }
+  ]
+}

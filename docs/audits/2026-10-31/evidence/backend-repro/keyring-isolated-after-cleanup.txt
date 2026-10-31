@@ -1,0 +1,22 @@
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.72s
+     Running unittests src\main.rs (target\debug\deps\CatstepMD-1a8f6210ea571ba8.exe)
+
+running 1 test
+test runner::crypto::tests::workspace_round_trip ... FAILED
+
+failures:
+
+---- runner::crypto::tests::workspace_round_trip stdout ----
+
+thread 'runner::crypto::tests::workspace_round_trip' (41168) panicked at src\crypto.rs:727:71:
+called `Result::unwrap()` on an `Err` value: "Platform secure storage failure: Windows error code 8"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runner::crypto::tests::workspace_round_trip
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 280 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--bin CatstepMD`

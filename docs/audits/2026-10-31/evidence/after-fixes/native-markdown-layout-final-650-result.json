@@ -1,0 +1,32 @@
+{
+  "frontend": 650,
+  "environment": "Actual isolated Windows Tauri/WebView2 via CUA",
+  "liveTableLocalHorizontalScrollAndLastColumnVisible": true,
+  "codeMarkdownHtmlRemainLiteral": true,
+  "tableStructure": {
+    "before": 3,
+    "afterInsertRight": 4,
+    "afterCtrlZ": 3,
+    "afterCtrlShiftZ": 4,
+    "afterFinalCtrlZ": 3,
+    "timerStarted": false
+  },
+  "secondJsClick": {
+    "line": 19,
+    "column": 1
+  },
+  "enterThenUndoSavedExactFixture": true,
+  "savedFile": "TEMP/catstep-native-audit-r20261031n1/workspace/layout-native.md",
+  "screenshots": [
+    "native-markdown-live-650.png",
+    "native-table-local-scroll-650.png",
+    "native-table-column-add-650.png",
+    "native-table-column-undo-650.png",
+    "native-table-column-redo-650.png",
+    "native-code-click-650.png"
+  ],
+  "boundaries": [
+    "1200x800 Windows desktop window; no native narrow resize or four-setting matrix in this observation",
+    "Ordinary widget code opened in same CodeMirror and Enter/undo restored source byte-for-byte after UTF-8 save"
+  ]
+}

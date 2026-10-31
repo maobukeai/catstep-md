@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { redo, undo, undoDepth, redoDepth } from '@codemirror/commands';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 
 import {
@@ -100,6 +101,29 @@ function makeDeps(overrides: Partial<CmExtensionDeps> = {}) {
 test('buildCmExtensions: plain Windows editor path assembles nothing', () => {
   const { deps } = makeDeps({ plainWindowsEditor: true });
   assert.deepEqual(buildCmExtensions(deps), []);
+});
+
+test('buildCmExtensions: Shift+Z redo alias uses the same existing grouped document history on every platform', () => {
+  const { deps } = makeDeps({ language: 'plaintext' });
+  let state = EditorState.create({ doc: '', extensions: buildCmExtensions(deps) });
+  const alias = state.facet(keymap).flat().find((binding) => binding.key === 'Mod-Shift-z');
+  assert.ok(alias);
+  assert.equal(alias.run, redo);
+  assert.equal(alias.preventDefault, true, 'empty redo is still consumed as an editor command');
+  for (const text of ['a', 'b']) {
+    state = state.update({ changes: { from: state.doc.length, insert: text },
+      selection: { anchor: state.doc.length + 1 },
+      annotations: Transaction.userEvent.of('input.type') }).state;
+  }
+  assert.equal(undoDepth(state), 1, 'typing retains its original grouping');
+  const target = { get state() { return state; }, dispatch(tr: Transaction) { state = tr.state; } };
+  assert.equal(undo(target), true);
+  assert.equal(state.doc.toString(), '');
+  assert.equal(redoDepth(state), 1);
+  assert.equal(alias.run!(target as unknown as EditorView), true);
+  assert.equal(state.doc.toString(), 'ab');
+  assert.equal(undoDepth(state), 1);
+  assert.equal(redoDepth(state), 0);
 });
 
 test('buildCmExtensions: markdown tab installs markdown/rich/slash/aiKey/fold and per-setting compartments', () => {

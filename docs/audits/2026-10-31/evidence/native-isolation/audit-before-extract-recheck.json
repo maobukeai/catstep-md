@@ -1,0 +1,12 @@
+{
+  "operation": "recheck original bytes using preserved pre-manifest backup",
+  "argv": [
+    "C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/mt.exe",
+    "-nologo",
+    "-inputresource:C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\app\\src-tauri\\target\\debug\\examples\\native_audit.pre-manifest.exe;#1",
+    "-out:C:\\Users\\20269\\Desktop\\项目文件夹\\md管理器\\docs\\audits\\2026-10-31\\evidence\\native-isolation\\audit-before.manifest"
+  ],
+  "exit_code": 31,
+  "windows_ansi_codepage": 936,
+  "output": "\r\nC:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/mt.exe : general error c101008c: Failed to read the manifest from the resource of file \"\\\\?\\C:\\Users\\20269\\Desktop\\椤圭洰鏂囦欢澶筡md绠＄悊鍣╘app\\src-tauri\\target\\debug\\examples\\native_audit.pre-manifest.exe\". 鎸囧畾鐨勬槧鍍忔枃浠朵笉鍖呭惈璧勬簮鍖哄煙銆�\r\r\n"
+}

@@ -1,0 +1,9 @@
+{
+  "command": "python -m unittest discover -s scripts/lib -p test_prepare_android_release.py -v",
+  "started_utc": "2026-10-31T04:09:31.4618832Z",
+  "finished_utc": "2026-10-31T04:09:31.9066440Z",
+  "exit_code": 0,
+  "offline": true,
+  "gh_or_publish_called": false,
+  "product_or_ci_modified": false
+}

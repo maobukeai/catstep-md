@@ -1,0 +1,7 @@
+{
+  "build": {
+    "beforeBuildCommand": null,
+    "beforeDevCommand": null,
+    "beforeBundleCommand": null
+  }
+}

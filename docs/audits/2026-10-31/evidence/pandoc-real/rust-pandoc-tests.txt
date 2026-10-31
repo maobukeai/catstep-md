@@ -1,0 +1,26 @@
+   Compiling catstep-md v1.0.12 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.91s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-8975849f92d18118.exe)
+
+running 6 tests
+test pandoc::tests::utf8_diagnostics_are_preserved_before_any_system_code_page_fallback ... ok
+test pandoc::tests::windows_diagnostics_support_cp936_gb18030_and_other_active_code_pages ... ok
+test pandoc::tests::relative_citations_need_an_explicit_source_and_relative_directories_are_rejected ... ok
+test pandoc::tests::failed_export_also_cleans_input_and_preserves_failure_message ... ok
+test pandoc::tests::legacy_stderr_paths_remain_readable_and_failed_exports_clean_the_input ... ok
+test pandoc::tests::fake_pandoc_receives_source_context_and_resolves_relative_resources ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 266 filtered out; finished in 0.06s
+
+     Running unittests src\main.rs (target\debug\deps\CatstepMD-1a8f6210ea571ba8.exe)
+
+running 6 tests
+test runner::pandoc::tests::utf8_diagnostics_are_preserved_before_any_system_code_page_fallback ... ok
+test runner::pandoc::tests::windows_diagnostics_support_cp936_gb18030_and_other_active_code_pages ... ok
+test runner::pandoc::tests::relative_citations_need_an_explicit_source_and_relative_directories_are_rejected ... ok
+test runner::pandoc::tests::legacy_stderr_paths_remain_readable_and_failed_exports_clean_the_input ... ok
+test runner::pandoc::tests::failed_export_also_cleans_input_and_preserves_failure_message ... ok
+test runner::pandoc::tests::fake_pandoc_receives_source_context_and_resolves_relative_resources ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 278 filtered out; finished in 0.07s
+

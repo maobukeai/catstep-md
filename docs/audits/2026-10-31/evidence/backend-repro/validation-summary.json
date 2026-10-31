@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-31",
+  "platform": "Windows",
+  "fixed_report_ids": [
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B06",
+    "B07",
+    "B08"
+  ],
+  "targeted": {
+    "passed": 28,
+    "failed": 0,
+    "ignored": 0,
+    "stage": "before final Unicode CAS follow-up",
+    "log": "final-targeted-tests.txt"
+  },
+  "unicode_cas_final": {
+    "fixed": true,
+    "passed": 7,
+    "failed": 0,
+    "ignored": 0,
+    "windows_comparison": "CompareStringOrdinal over native UTF-16, ignoreCase=1; no Rust or ASCII lowercase transform",
+    "filesystem_probes": {
+      "Ä/ä": "alias=true; exactly one concurrent new-file save succeeds",
+      "I/ı": "alias=false on this volume; both distinct files are preserved"
+    },
+    "log": "cas-unicode-final.txt"
+  },
+  "all_integrations_final": {
+    "targets": 24,
+    "passed": 143,
+    "failed": 0,
+    "ignored": 4,
+    "stage": "Included in final normal-config full suite after Pandoc diagnostic and goal-fixture cleanup",
+    "fail_fast_disabled": true,
+    "log": "app-rust-tests-final-normal-config.txt"
+  },
+  "mcp_crate": {
+    "passed": 41,
+    "failed": 0,
+    "log": "mcp-tests-after-fixes.txt"
+  },
+  "clippy_all_targets_deny_warnings": {
+    "passed": true,
+    "normal_configuration": true,
+    "log": "app-clippy-final-normal-config.txt",
+    "result": "app-clippy-final-normal-config-result.json"
+  },
+  "latest_full_app": {
+    "stage": "Final normal configuration, after Unicode CAS/Pandoc diagnostics/goal-bounded secure-storage recovery",
+    "passed": true,
+    "total_passed": 699,
+    "total_failed": 0,
+    "total_ignored": 4,
+    "lib_passed": 272,
+    "bin_passed": 284,
+    "integration_targets": 24,
+    "integration_passed": 143,
+    "doc_passed": 0,
+    "lib_and_bin_include_duplicate_module_tests": true,
+    "tauri_config_absent_in_test_child": true,
+    "system_or_parent_environment_modified": false,
+    "no_fail_fast": true,
+    "test_threads": 2,
+    "jobs": 2,
+    "started_utc": "2026-10-31T03:21:39.6483369Z",
+    "finished_utc": "2026-10-31T03:22:53.5819017Z",
+    "log": "app-rust-tests-final-normal-config.txt",
+    "per_target_counts": "app-rust-tests-final-normal-config-counts.json",
+    "normal_environment_evidence": "app-rust-tests-final-normal-config-result.json",
+    "own_new_crypto_keys_verified_already_absent_after_raii": 6,
+    "raii_evidence": "keyring-investigation/full-suite-raii-verification.json"
+  },
+  "keyring_isolated_after_cleanup": {
+    "passed": false,
+    "same_native_error": true,
+    "stage": "historical; after RAII code fix but before goal-bounded residue cleanup",
+    "log": "keyring-isolated-after-cleanup.txt"
+  },
+  "keyring_capacity_followup": {
+    "cause_evidence": "Identical fresh A/B native writes: B error8 while A held, same B succeeds after only own A deletion; available credential capacity affects write",
+    "internal_quota_or_existing_credentials_enumerated": false,
+    "approved_goal_fixture_targets": 14,
+    "deleted_goal_fixture_keys": 11,
+    "already_absent_goal_fixture_keys": 3,
+    "cleanup_failures": 0,
+    "after_cleanup_same_shape_A_and_B_both_fit": true,
+    "failed_crypto_roundtrip_isolated_rerun": {
+      "passed": 1,
+      "failed": 0,
+      "log": "keyring-investigation/crypto-roundtrip-after-fixture-cleanup.txt"
+    },
+    "failed_github_e2ee_isolated_rerun": {
+      "passed": 1,
+      "failed": 0,
+      "log": "keyring-investigation/github-e2ee-after-fixture-cleanup.txt"
+    },
+    "new_isolated_test_fixture_keys_verified_absent_after_raii": 3,
+    "credential_content_read_during_cleanup_or_raii_verification": false,
+    "directories_deleted": false,
+    "production_storage_or_key_identity_changed": false,
+    "full_suite_rerun_after_cleanup": true,
+    "conclusion": "keyring-investigation/conclusion.md",
+    "cleanup_summary": "keyring-investigation/fixture-credential-cleanup-summary.json",
+    "raii_verification": "keyring-investigation/isolated-raii-verification.json",
+    "full_suite_result": "699 passed / 0 failed / 4 existing ignored",
+    "full_suite_own_fixture_keys_verified_absent_after_raii": 6,
+    "full_suite_raii_verification": "keyring-investigation/full-suite-raii-verification.json"
+  },
+  "real_pandoc_rendering_executed": true,
+  "real_pandoc_followup": {
+    "product_core_driver_cases_passed": 5,
+    "epub_odt_resource_package_checks_passed": true,
+    "native_ui_or_page_visual_check": false,
+    "pandoc_lib_tests_passed": 6,
+    "pandoc_bin_tests_passed": 6,
+    "all_targets_clippy_passed": true,
+    "evidence": "../pandoc-real/README.md"
+  },
+  "real_ai_or_cloud_sync_called": false,
+  "historical_or_real_credentials_deleted": false,
+  "historical_full_app_before_unicode": {
+    "stage": "before final Unicode CAS follow-up; not a full-unit rerun of the final source",
+    "passed": false,
+    "lib_passed": 269,
+    "bin_passed": 280,
+    "bin_failed": 1,
+    "stopped_before_integrations": true,
+    "failing_test": "runner::crypto::tests::workspace_round_trip",
+    "error": "Platform secure storage failure: Windows error code 8",
+    "log": "app-rust-tests-keyring-failure.txt"
+  },
+  "historical_integrations_before_goal_fixture_cleanup": {
+    "targets": 24,
+    "passed": 142,
+    "failed": 1,
+    "ignored": 4,
+    "fail_fast_disabled": true,
+    "failing_target": "github_sync_e2ee_test",
+    "failing_test": "e2ee_full_round_trip_two_devices",
+    "error": "Platform secure storage failure: Windows error code 8",
+    "log": "all-integrations-final.txt"
+  },
+  "historical_clippy_after_unicode": {
+    "passed": true,
+    "log": "app-clippy-after-fixes.txt"
+  }
+}

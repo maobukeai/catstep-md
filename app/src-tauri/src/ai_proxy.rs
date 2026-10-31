@@ -17,7 +17,7 @@
 //! checked on every parsed chunk; setting it makes the streaming task exit on
 //! the next iteration and emit `solomd://ai-error` with `"cancelled"`.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -37,6 +37,17 @@ use super::agent_tools;
 use super::ai_keystore;
 use super::ollama as ollama_addr;
 use super::pricing;
+
+/// Event transport is independent of the model/tool engine, so headless tests
+/// exercise the same provider loops and real filesystem without a WebView.
+pub trait AiEventSink: Send + Sync {
+    fn emit_ai<S: Serialize + Clone>(&self, event: &str, payload: S) -> Result<(), String>;
+}
+impl<R: tauri::Runtime> AiEventSink for AppHandle<R> {
+    fn emit_ai<S: Serialize + Clone>(&self, event: &str, payload: S) -> Result<(), String> {
+        Emitter::emit(self, event, payload).map_err(|e| e.to_string())
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Provider aliases
@@ -335,7 +346,9 @@ pub fn normalize_openai_base(raw: &str) -> Option<String> {
     };
     // Does anything follow the host? If not, the server is expecting the
     // version prefix we'd otherwise skip.
-    let path = with_scheme.split_once("://").map(|x| x.1)
+    let path = with_scheme
+        .split_once("://")
+        .map(|x| x.1)
         .and_then(|rest| rest.split_once('/'))
         .map(|(_, p)| p.trim_matches('/').to_string())
         .unwrap_or_default();
@@ -708,7 +721,9 @@ async fn openai_chat_ping(
         .map_err(|e| format!("network: {e}"))?;
     let status = res.status();
     if status.is_success() {
-        Ok(format!("OK · {model} responded (endpoint has no /models list)"))
+        Ok(format!(
+            "OK · {model} responded (endpoint has no /models list)"
+        ))
     } else {
         let txt = res.text().await.unwrap_or_default();
         Err(format!("chat ping HTTP {status}: {}", truncate(&txt, 200)))
@@ -947,15 +962,19 @@ fn extract_models_from_json(json: &serde_json::Value) -> Vec<String> {
 
     let mut models = Vec::new();
     for m in arr {
-        if let Some(methods) = m.get("supportedGenerationMethods").and_then(|v| v.as_array()) {
-            let can_generate = methods.iter().any(|method| {
-                method.as_str() == Some("generateContent")
-            });
+        if let Some(methods) = m
+            .get("supportedGenerationMethods")
+            .and_then(|v| v.as_array())
+        {
+            let can_generate = methods
+                .iter()
+                .any(|method| method.as_str() == Some("generateContent"));
             if !can_generate {
                 continue;
             }
         }
-        let raw_id = m.get("id")
+        let raw_id = m
+            .get("id")
             .and_then(|v| v.as_str())
             .or_else(|| m.get("name").and_then(|v| v.as_str()))
             .or_else(|| m.get("model").and_then(|v| v.as_str()))
@@ -1014,9 +1033,10 @@ pub async fn ai_list_models(
         ModelListStrategy::Anthropic => anthropic_v1_root(supplied.or(default_base)),
         ModelListStrategy::Google => google_v1beta_root(supplied.or(default_base)),
         ModelListStrategy::OpenAi => {
-            let raw = supplied.or(default_base).unwrap_or("https://api.openai.com/v1");
-            normalize_openai_base(raw)
-                .unwrap_or_else(|| raw.trim_end_matches('/').to_string())
+            let raw = supplied
+                .or(default_base)
+                .unwrap_or("https://api.openai.com/v1");
+            normalize_openai_base(raw).unwrap_or_else(|| raw.trim_end_matches('/').to_string())
         }
         ModelListStrategy::None => unreachable!("handled above"),
     };
@@ -1047,7 +1067,10 @@ pub async fn ai_list_models(
         }
     };
 
-    let resp = match apply_auth(client.get(&url), caps.auth, &key_str).send().await {
+    let resp = match apply_auth(client.get(&url), caps.auth, &key_str)
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             return ModelProbe {
@@ -1358,7 +1381,11 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
             }
             Err(err) => {
                 if let Some(rh) = &run_handle {
-                    let status = if err == "cancelled" { "cancelled" } else { "error" };
+                    let status = if err == "cancelled" {
+                        "cancelled"
+                    } else {
+                        "error"
+                    };
                     // We don't have per-turn totals on the error path —
                     // the runner returned early. Persist 0/0 + 0 cost and
                     // let the user see the "error" status; partial token
@@ -1380,7 +1407,6 @@ pub async fn ai_chat(app: AppHandle, request: ChatRequest) -> Result<String, Str
         // lifecycle.
         drop_cancel_flag(&id_for_task);
     });
-
 
     Ok(request_id)
 }
@@ -1554,11 +1580,11 @@ fn stream_stalled(provider: &str, cancel: &AtomicBool) -> String {
     )
 }
 
-fn emit_chunk<R: tauri::Runtime>(app: &tauri::AppHandle<R>, request_id: &str, chunk: &str) {
+fn emit_chunk(app: &impl AiEventSink, request_id: &str, chunk: &str) {
     if chunk.is_empty() {
         return;
     }
-    let _ = app.emit(
+    let _ = app.emit_ai(
         "solomd://ai-chunk",
         ChunkEvent {
             request_id: request_id.to_string(),
@@ -1567,11 +1593,11 @@ fn emit_chunk<R: tauri::Runtime>(app: &tauri::AppHandle<R>, request_id: &str, ch
     );
 }
 
-fn emit_thought(app: &AppHandle, request_id: &str, chunk: &str) {
+fn emit_thought(app: &impl AiEventSink, request_id: &str, chunk: &str) {
     if chunk.is_empty() {
         return;
     }
-    let _ = app.emit(
+    let _ = app.emit_ai(
         "solomd://ai-thought",
         ChunkEvent {
             request_id: request_id.to_string(),
@@ -1985,8 +2011,7 @@ pub(crate) fn normalize_anthropic_messages(messages: &[ChatMessage]) -> Vec<Valu
                 if let Some(last_content) = last.get_mut("content") {
                     match (&*last_content, &content_val) {
                         (Value::String(last_str), Value::String(new)) => {
-                            *last_content =
-                                Value::String(format!("{last_str}\n\n{new}"));
+                            *last_content = Value::String(format!("{last_str}\n\n{new}"));
                             continue;
                         }
                         _ => {
@@ -1998,8 +2023,9 @@ pub(crate) fn normalize_anthropic_messages(messages: &[ChatMessage]) -> Vec<Valu
                                 other => vec![other.clone()],
                             };
                             match &content_val {
-                                Value::String(s) => parts
-                                    .push(serde_json::json!({"type": "text", "text": s})),
+                                Value::String(s) => {
+                                    parts.push(serde_json::json!({"type": "text", "text": s}))
+                                }
                                 Value::Array(a) => parts.extend(a.iter().cloned()),
                                 other => parts.push(other.clone()),
                             }
@@ -2257,8 +2283,8 @@ async fn run_ollama(
     Ok(full)
 }
 
-pub async fn run_chat_ollama<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
+pub async fn run_chat_ollama(
+    app: &impl AiEventSink,
     request_id: &str,
     req: &ChatRequest,
     cancel: Arc<AtomicBool>,
@@ -2294,12 +2320,14 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
     // /api/chat; the arguments come back as a complete JSON object per
     // tool_call, not fragmented deltas.
     let mut tools = build_openai_tools(req);
-    merge_mcp_tools(&mut tools, req, false).await;
+    merge_mcp_tools(&mut tools, req, false, &cancel).await?;
+    let tool_policy = RequestToolPolicy::new(req, &tools);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
     let mut write_tools_exhausted = false;
     let mut successful_writes_total: usize = 0;
-    let mut file_write_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut file_write_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     // Anti-loop trackers — parity with the OpenAI/Anthropic loops.
@@ -2362,7 +2390,11 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
             .tool_uses
             .iter()
             .map(|(_, name, args)| {
-                format!("{}:{}", name, serde_json::to_string(args).unwrap_or_default())
+                format!(
+                    "{}:{}",
+                    name,
+                    serde_json::to_string(args).unwrap_or_default()
+                )
             })
             .collect::<Vec<_>>()
             .join(";");
@@ -2402,7 +2434,7 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
             if cancel.load(Ordering::SeqCst) {
                 return Err(cancelled());
             }
-            let _ = app.emit(
+            let _ = app.emit_ai(
                 "solomd://ai-tool-call",
                 ToolCallEvent {
                     request_id: request_id.to_string(),
@@ -2430,35 +2462,18 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
                 ));
             }
 
-            let (result_value, error_str) = if super::mcp_client::is_mcp_name(name) {
-                match super::mcp_client::dispatch(name, args.clone()).await {
-                    Ok(v) => (v, None),
-                    Err(e) => (Value::String(e.clone()), Some(e)),
-                }
-            } else {
-                match &workspace {
-                    Some(ws) => {
-                        let ws = ws.to_path_buf();
-                        let tool = name.clone();
-                        let call_args = enrich_call_args(args, req);
-                        match tauri::async_runtime::spawn_blocking(move || {
-                            agent_tools::dispatch_tool_inner(&ws, &tool, call_args)
-                        })
-                        .await
-                        {
-                            Ok(Ok(v)) => (v, None),
-                            Ok(Err(e)) => (Value::String(e.clone()), Some(e)),
-                            Err(e) => (
-                                Value::String(format!("dispatch join: {e}")),
-                                Some(format!("dispatch join: {e}")),
-                            ),
-                        }
-                    }
-                    None => {
-                        let err = "no workspace provided".to_string();
-                        (Value::String(err.clone()), Some(err))
-                    }
-                }
+            let (result_value, error_str) = match dispatch_authorized_tool(
+                req,
+                &tool_policy,
+                workspace.as_deref(),
+                (name, args),
+                write_tools_exhausted,
+                &cancel,
+            )
+            .await
+            {
+                Ok(value) => (value, None),
+                Err(error) => (Value::String(error.clone()), Some(error)),
             };
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
@@ -2478,7 +2493,9 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
                         *entry += 1;
                         *entry
                     };
-                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN || count_for_file >= MAX_SAME_FILE_WRITES {
+                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN
+                        || count_for_file >= MAX_SAME_FILE_WRITES
+                    {
                         write_tools_exhausted = true;
                     }
                 } else {
@@ -2505,7 +2522,7 @@ pub async fn run_chat_ollama<R: tauri::Runtime>(
             if consecutive_duplicate_count == 1 {
                 preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
             }
-            let _ = app.emit(
+            let _ = app.emit_ai(
                 "solomd://ai-tool-result",
                 ToolResultEvent {
                     request_id: request_id.to_string(),
@@ -2605,8 +2622,8 @@ fn absorb_ollama_chunk(
 /// One streamed /api/chat turn. Tool calls arrive whole inside a chunk's
 /// `message.tool_calls` (no OpenAI-style argument deltas), so a small
 /// collector suffices.
-async fn ollama_one_turn<R: tauri::Runtime>(
-    app: &tauri::AppHandle<R>,
+async fn ollama_one_turn(
+    app: &impl AiEventSink,
     request_id: &str,
     req: &ChatRequest,
     history: &[Value],
@@ -2688,7 +2705,6 @@ async fn ollama_one_turn<R: tauri::Runtime>(
     Ok(outcome)
 }
 
-
 // ---------------------------------------------------------------------------
 // v4.0 — tool-call loops (Anthropic + OpenAI)
 // ---------------------------------------------------------------------------
@@ -2736,8 +2752,14 @@ fn build_anthropic_tools(req: &ChatRequest) -> Value {
     // worked there and only there.
     let names: Vec<String> = match &req.tools {
         Some(v) => v.clone(),
-        None if allow_write => agent_tools::all_tools().iter().map(|s| s.to_string()).collect(),
-        None => agent_tools::READ_TOOLS.iter().map(|s| s.to_string()).collect(),
+        None if allow_write => agent_tools::all_tools()
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
+        None => agent_tools::READ_TOOLS
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     };
     let arr: Vec<Value> = names
         .iter()
@@ -2773,8 +2795,14 @@ fn build_openai_tools(req: &ChatRequest) -> Value {
     // worked there and only there.
     let names: Vec<String> = match &req.tools {
         Some(v) => v.clone(),
-        None if allow_write => agent_tools::all_tools().iter().map(|s| s.to_string()).collect(),
-        None => agent_tools::READ_TOOLS.iter().map(|s| s.to_string()).collect(),
+        None if allow_write => agent_tools::all_tools()
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
+        None => agent_tools::READ_TOOLS
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
     };
     let arr: Vec<Value> = names
         .iter()
@@ -2798,12 +2826,20 @@ fn build_openai_tools(req: &ChatRequest) -> Value {
 /// Fetch tool definitions from the request's MCP servers and merge them
 /// into the list offered to the model. Per-server failures are logged and
 /// skipped — one dead server must not take down the whole tool surface.
-async fn merge_mcp_tools(tools: &mut Value, req: &ChatRequest, anthropic_shape: bool) {
+async fn merge_mcp_tools(
+    tools: &mut Value,
+    req: &ChatRequest,
+    anthropic_shape: bool,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
     let Some(servers) = req.mcp_servers.as_ref() else {
-        return;
+        return Ok(());
     };
     for cfg in servers.iter().filter(|s| s.enabled) {
-        match super::mcp_client::list_server_tools(cfg).await {
+        if cancel.load(Ordering::SeqCst) {
+            return Err(cancelled());
+        }
+        match super::mcp_client::list_server_tools_with_cancel(cfg, Some(cancel)).await {
             Ok(defs) => {
                 if let Some(arr) = tools.as_array_mut() {
                     for (model_name, def) in defs {
@@ -2827,9 +2863,90 @@ async fn merge_mcp_tools(tools: &mut Value, req: &ChatRequest, anthropic_shape: 
                 }
             }
             Err(e) => {
+                if e == "cancelled" {
+                    return Err(e);
+                }
                 eprintln!("[mcp] server `{}` unavailable, skipped: {e}", cfg.id);
             }
         }
+    }
+    Ok(())
+}
+
+/// Snapshot exactly the tools offered for THIS model request. Model output is
+/// untrusted even when the provider accepted a tools schema.
+struct RequestToolPolicy {
+    names: HashSet<String>,
+    allow_write: bool,
+}
+impl RequestToolPolicy {
+    fn new(req: &ChatRequest, tools: &Value) -> Self {
+        let names = tools
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|tool| {
+                tool.get("function")
+                    .unwrap_or(tool)
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .collect();
+        Self {
+            names,
+            allow_write: req.allow_write.unwrap_or(false)
+                || req
+                    .active_selection
+                    .as_ref()
+                    .is_some_and(|s| !s.trim().is_empty()),
+        }
+    }
+
+    fn authorize(&self, tool: &str, writes_exhausted: bool) -> Result<(), String> {
+        if !self.names.contains(tool) {
+            return Err(format!("tool `{tool}` was not offered for this request"));
+        }
+        // All three loops advertise an empty tool list once the quota is
+        // exhausted. Do not let a noncompliant model keep dispatching MCP or
+        // read calls from a stale schema either.
+        if writes_exhausted {
+            return Err("no tools are offered after the request tool quota is exhausted".into());
+        }
+        if agent_tools::is_write_tool(tool) && !self.allow_write {
+            return Err(format!(
+                "write tool `{tool}` is not authorized for this request"
+            ));
+        }
+        Ok(())
+    }
+}
+
+async fn dispatch_authorized_tool(
+    req: &ChatRequest,
+    policy: &RequestToolPolicy,
+    workspace: Option<&std::path::Path>,
+    call: (&str, &Value),
+    writes_exhausted: bool,
+    cancel: &AtomicBool,
+) -> Result<Value, String> {
+    let (name, args) = call;
+    policy.authorize(name, writes_exhausted)?;
+    if cancel.load(Ordering::SeqCst) {
+        return Err(cancelled());
+    }
+    if super::mcp_client::is_mcp_name(name) {
+        super::mcp_client::dispatch_with_cancel(name, args.clone(), Some(cancel)).await
+    } else {
+        let workspace = workspace.ok_or("no workspace provided")?;
+        let workspace = workspace.to_path_buf();
+        let name = name.to_owned();
+        let args = enrich_call_args(args, req);
+        tauri::async_runtime::spawn_blocking(move || {
+            agent_tools::dispatch_tool_inner(&workspace, &name, args)
+        })
+        .await
+        .map_err(|e| format!("dispatch join: {e}"))?
     }
 }
 
@@ -2861,7 +2978,10 @@ fn enrich_call_args(args: &Value, req: &ChatRequest) -> Value {
     let mut call_args = args.clone();
     if let Some(obj) = call_args.as_object_mut() {
         if let Some(active) = &req.active_note_path {
-            obj.insert("_active_note_path".to_string(), Value::String(active.clone()));
+            obj.insert(
+                "_active_note_path".to_string(),
+                Value::String(active.clone()),
+            );
         }
         if let Some(notes) = &req.open_notes {
             obj.insert(
@@ -2912,7 +3032,7 @@ fn cap_for_history(preview: &str) -> String {
 // ---- Anthropic tool-call loop --------------------------------------------
 
 pub async fn run_chat_anthropic_loop(
-    app: &AppHandle,
+    app: &impl AiEventSink,
     request_id: &str,
     req: &ChatRequest,
     api_key: &str,
@@ -2937,12 +3057,14 @@ pub async fn run_chat_anthropic_loop(
     let mut history: Vec<Value> = normalize_anthropic_messages(&req.messages);
 
     let mut tools = build_anthropic_tools(req);
-    merge_mcp_tools(&mut tools, req, true).await;
+    merge_mcp_tools(&mut tools, req, true, &cancel).await?;
+    let tool_policy = RequestToolPolicy::new(req, &tools);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
     let mut write_tools_exhausted = false;
     let mut successful_writes_total: usize = 0;
-    let mut file_write_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut file_write_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     // Anti-loop trackers — parity with the OpenAI loop, which had them from
@@ -3016,7 +3138,13 @@ pub async fn run_chat_anthropic_loop(
         let current_sig: String = outcome
             .tool_uses
             .iter()
-            .map(|(_, name, args)| format!("{}:{}", name, serde_json::to_string(args).unwrap_or_default()))
+            .map(|(_, name, args)| {
+                format!(
+                    "{}:{}",
+                    name,
+                    serde_json::to_string(args).unwrap_or_default()
+                )
+            })
             .collect::<Vec<_>>()
             .join(";");
 
@@ -3061,7 +3189,7 @@ pub async fn run_chat_anthropic_loop(
                 return Err(cancelled());
             }
             // Emit tool-call event.
-            let _ = app.emit(
+            let _ = app.emit_ai(
                 "solomd://ai-tool-call",
                 ToolCallEvent {
                     request_id: request_id.to_string(),
@@ -3089,23 +3217,18 @@ pub async fn run_chat_anthropic_loop(
                 ));
             }
 
-            let (result_value, error_str) = if super::mcp_client::is_mcp_name(name) {
-                // Third-party MCP tool — route to its server process.
-                match super::mcp_client::dispatch(name, args.clone()).await {
-                    Ok(v) => (v, None),
-                    Err(e) => (Value::String(e.clone()), Some(e)),
-                }
-            } else {
-                match &workspace {
-                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, enrich_call_args(args, req)).await {
-                        Ok(v) => (v, None),
-                        Err(e) => (Value::String(e.clone()), Some(e)),
-                    },
-                    None => {
-                        let err = "no workspace provided".to_string();
-                        (Value::String(err.clone()), Some(err))
-                    }
-                }
+            let (result_value, error_str) = match dispatch_authorized_tool(
+                req,
+                &tool_policy,
+                workspace.as_deref(),
+                (name, args),
+                write_tools_exhausted,
+                &cancel,
+            )
+            .await
+            {
+                Ok(value) => (value, None),
+                Err(error) => (Value::String(error.clone()), Some(error)),
             };
             if name == "patch_note" || name == "write_note" || name == "append_to_note" {
                 if error_str.is_none() {
@@ -3125,7 +3248,9 @@ pub async fn run_chat_anthropic_loop(
                         *entry += 1;
                         *entry
                     };
-                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN || count_for_file >= MAX_SAME_FILE_WRITES {
+                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN
+                        || count_for_file >= MAX_SAME_FILE_WRITES
+                    {
                         write_tools_exhausted = true;
                     }
                 } else {
@@ -3153,7 +3278,7 @@ pub async fn run_chat_anthropic_loop(
                 preview.push_str("\n\n[SYSTEM DIRECTIVE: You already called this tool with the exact same parameters in the previous turn. Results have already been provided above. Do NOT call this tool again with identical arguments. Please synthesize your response or use a targeted search query.]");
             }
             // Emit tool-result event.
-            let _ = app.emit(
+            let _ = app.emit_ai(
                 "solomd://ai-tool-result",
                 ToolResultEvent {
                     request_id: request_id.to_string(),
@@ -3193,7 +3318,7 @@ pub async fn run_chat_anthropic_loop(
 
 #[allow(clippy::too_many_arguments)] // mirrors openai_one_turn's parameter set
 async fn anthropic_one_turn(
-    app: &AppHandle,
+    app: &impl AiEventSink,
     request_id: &str,
     req: &ChatRequest,
     api_key: &str,
@@ -3247,7 +3372,10 @@ async fn anthropic_one_turn(
                     .await;
                 match res {
                     Ok(resp) => return Ok(resp),
-                    Err(e) if attempts <= 2 && (e.is_connect() || e.is_timeout() || e.is_request()) => {
+                    Err(e)
+                        if attempts <= 2
+                            && (e.is_connect() || e.is_timeout() || e.is_request()) =>
+                    {
                         tokio::time::sleep(std::time::Duration::from_millis(600)).await;
                         continue;
                     }
@@ -3291,7 +3419,7 @@ async fn anthropic_one_turn(
     use std::collections::BTreeMap;
     #[derive(Default)]
     struct Block {
-        kind: String,         // "text" or "tool_use"
+        kind: String, // "text" or "tool_use"
         text: String,
         tool_id: String,
         tool_name: String,
@@ -3410,9 +3538,7 @@ async fn anthropic_one_turn(
                         let dtype = delta.get("type").and_then(|t| t.as_str()).unwrap_or("");
                         let entry = blocks.entry(i).or_default();
                         if dtype == "text_delta" {
-                            if let Some(t) =
-                                delta.get("text").and_then(|s| s.as_str())
-                            {
+                            if let Some(t) = delta.get("text").and_then(|s| s.as_str()) {
                                 if !t.is_empty() {
                                     entry.text.push_str(t);
                                     emit_chunk(app, request_id, t);
@@ -3425,9 +3551,7 @@ async fn anthropic_one_turn(
                                 }
                             }
                         } else if dtype == "input_json_delta" {
-                            if let Some(p) =
-                                delta.get("partial_json").and_then(|s| s.as_str())
-                            {
+                            if let Some(p) = delta.get("partial_json").and_then(|s| s.as_str()) {
                                 entry.partial_json.push_str(p);
                             }
                         }
@@ -3506,7 +3630,7 @@ async fn anthropic_one_turn(
 // ---- OpenAI tool-call loop -----------------------------------------------
 
 pub async fn run_chat_openai_loop(
-    app: &AppHandle,
+    app: &impl AiEventSink,
     request_id: &str,
     req: &ChatRequest,
     api_key: &str,
@@ -3541,12 +3665,14 @@ pub async fn run_chat_openai_loop(
         .collect();
 
     let mut tools = build_openai_tools(req);
-    merge_mcp_tools(&mut tools, req, false).await;
+    merge_mcp_tools(&mut tools, req, false, &cancel).await?;
+    let tool_policy = RequestToolPolicy::new(req, &tools);
     let tools_n = tools.as_array().map(|a| a.len() as u64).unwrap_or(0);
     let empty_tools = serde_json::json!([]);
     let mut write_tools_exhausted = false;
     let mut successful_writes_total: usize = 0;
-    let mut file_write_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut file_write_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut write_fail_count: u32 = 0;
     let mut last_text = String::new();
     let mut last_tool_sig: Option<String> = None;
@@ -3610,7 +3736,13 @@ pub async fn run_chat_openai_loop(
         let current_sig: String = outcome
             .tool_uses
             .iter()
-            .map(|(_, name, args)| format!("{}:{}", name, serde_json::to_string(args).unwrap_or_default()))
+            .map(|(_, name, args)| {
+                format!(
+                    "{}:{}",
+                    name,
+                    serde_json::to_string(args).unwrap_or_default()
+                )
+            })
             .collect::<Vec<_>>()
             .join(";");
 
@@ -3670,7 +3802,7 @@ pub async fn run_chat_openai_loop(
             if cancel.load(Ordering::SeqCst) {
                 return Err(cancelled());
             }
-            let _ = app.emit(
+            let _ = app.emit_ai(
                 "solomd://ai-tool-call",
                 ToolCallEvent {
                     request_id: request_id.to_string(),
@@ -3698,23 +3830,18 @@ pub async fn run_chat_openai_loop(
                 ));
             }
 
-            let (result_value, error_str) = if super::mcp_client::is_mcp_name(name) {
-                // Third-party MCP tool — route to its server process.
-                match super::mcp_client::dispatch(name, args.clone()).await {
-                    Ok(v) => (v, None),
-                    Err(e) => (Value::String(e.clone()), Some(e)),
-                }
-            } else {
-                match &workspace {
-                    Some(ws) => match agent_tools::dispatch_tool(app, ws, name, enrich_call_args(args, req)).await {
-                        Ok(v) => (v, None),
-                        Err(e) => (Value::String(e.clone()), Some(e)),
-                    },
-                    None => {
-                        let err = "no workspace provided".to_string();
-                        (Value::String(err.clone()), Some(err))
-                    }
-                }
+            let (result_value, error_str) = match dispatch_authorized_tool(
+                req,
+                &tool_policy,
+                workspace.as_deref(),
+                (name, args),
+                write_tools_exhausted,
+                &cancel,
+            )
+            .await
+            {
+                Ok(value) => (value, None),
+                Err(error) => (Value::String(error.clone()), Some(error)),
             };
             // Cap the payload BEFORE the system directives are appended so
             // the directives always survive truncation.
@@ -3737,7 +3864,9 @@ pub async fn run_chat_openai_loop(
                         *entry += 1;
                         *entry
                     };
-                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN || count_for_file >= MAX_SAME_FILE_WRITES {
+                    if successful_writes_total >= MAX_NOTE_WRITES_PER_RUN
+                        || count_for_file >= MAX_SAME_FILE_WRITES
+                    {
                         write_tools_exhausted = true;
                     }
                 } else {
@@ -3764,7 +3893,7 @@ pub async fn run_chat_openai_loop(
                     preview.push_str("\n\n[SYSTEM DIRECTIVE: File modification failed multiple times. Do NOT call any more tools. Please directly explain the issue and present your suggested modifications to the user.]");
                 }
             }
-            let _ = app.emit(
+            let _ = app.emit_ai(
                 "solomd://ai-tool-result",
                 ToolResultEvent {
                     request_id: request_id.to_string(),
@@ -3800,7 +3929,7 @@ pub async fn run_chat_openai_loop(
 }
 
 async fn openai_one_turn(
-    app: &AppHandle,
+    app: &impl AiEventSink,
     request_id: &str,
     req: &ChatRequest,
     api_key: &str,
@@ -3853,7 +3982,10 @@ async fn openai_one_turn(
                     .await;
                 match res {
                     Ok(resp) => return Ok(resp),
-                    Err(e) if attempts <= 2 && (e.is_connect() || e.is_timeout() || e.is_request()) => {
+                    Err(e)
+                        if attempts <= 2
+                            && (e.is_connect() || e.is_timeout() || e.is_request()) =>
+                    {
                         tokio::time::sleep(std::time::Duration::from_millis(600)).await;
                         continue;
                     }
@@ -3872,7 +4004,8 @@ async fn openai_one_turn(
             let lower = txt.to_lowercase();
             if (lower.contains("stream_options")
                 || lower.contains("include_usage")
-                || lower.contains("unknown")) && include_stream_options
+                || lower.contains("unknown"))
+                && include_stream_options
             {
                 mark_stream_options_unsupported(&cache_key);
                 resp = send_once(build_body(false)).await?;
@@ -3881,7 +4014,9 @@ async fn openai_one_turn(
                     let t = resp.text().await.unwrap_or_default();
                     return Err(format!("openai {s}: {t}"));
                 }
-            } else if (lower.contains("tools") || lower.contains("tool_calls") || lower.contains("functions"))
+            } else if (lower.contains("tools")
+                || lower.contains("tool_calls")
+                || lower.contains("functions"))
                 && tools.as_array().map(|a| !a.is_empty()).unwrap_or(false)
             {
                 // Fallback for models/endpoints that reject the tools parameter
@@ -4086,7 +4221,10 @@ pub(crate) struct OpenAiToolAccum {
 
 /// Absorb one streamed `delta` object's `tool_calls` array into the
 /// per-index accumulators.
-fn absorb_openai_tool_deltas(delta: &Value, tools_acc: &mut std::collections::BTreeMap<u64, OpenAiToolAccum>) {
+fn absorb_openai_tool_deltas(
+    delta: &Value,
+    tools_acc: &mut std::collections::BTreeMap<u64, OpenAiToolAccum>,
+) {
     if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
         for tc in tcs {
             let i = tc.get("index").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -4151,6 +4289,23 @@ fn assemble_openai_tool_uses(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn execution_policy_checks_permission_and_quota_even_for_an_offered_tool() {
+        let mut req = req_with(Some(true), None);
+        let tools = super::build_openai_tools(&req);
+        let policy = super::RequestToolPolicy::new(&req, &tools);
+        assert!(policy.authorize("write_note", false).is_ok());
+        assert!(policy.authorize("write_note", true).is_err());
+        assert!(policy.authorize("read_note", true).is_err());
+        assert!(policy.authorize("read_note", false).is_ok());
+        assert!(policy.authorize("WRITE_NOTE", false).is_err());
+        req.allow_write = Some(false);
+        // Even a stale/incorrect schema cannot override request permission.
+        assert!(super::RequestToolPolicy::new(&req, &tools)
+            .authorize("write_note", false)
+            .is_err());
+    }
+
     /// #247 — the Agent panel sends `tools: null` and relies on `allow_write`
     /// to decide the default set. It used to always start from READ_TOOLS,
     /// and the filter can only remove, so the write tools were unreachable
@@ -4207,7 +4362,10 @@ mod tests {
     fn openai_wire_content_expands_user_images_into_parts() {
         let m = user_msg(
             "look at this",
-            Some(vec!["data:image/png;base64,QUJD", "data:image/webp;base64,WFla"]),
+            Some(vec![
+                "data:image/png;base64,QUJD",
+                "data:image/webp;base64,WFla",
+            ]),
         );
         let v = super::openai_wire_content(&m);
         let parts = v.as_array().expect("multipart content");
@@ -4225,7 +4383,10 @@ mod tests {
         // Images on non-user roles are ignored (assistant echoes stay strings).
         let mut assistant = user_msg("reply", Some(vec!["data:image/png;base64,QUJD"]));
         assistant.role = "assistant".into();
-        assert_eq!(super::openai_wire_content(&assistant), serde_json::json!("reply"));
+        assert_eq!(
+            super::openai_wire_content(&assistant),
+            serde_json::json!("reply")
+        );
     }
 
     #[test]
@@ -4251,7 +4412,10 @@ mod tests {
         let msgs = vec![
             user_msg(
                 "two images",
-                Some(vec!["data:image/png;base64,QUJD", "data:image/png;base64,WFla"]),
+                Some(vec![
+                    "data:image/png;base64,QUJD",
+                    "data:image/png;base64,WFla",
+                ]),
             ),
             // Consecutive user message (frontend normalizes, but the backend
             // must not emit same-role adjacency with multipart content).
@@ -4281,10 +4445,7 @@ mod tests {
 
     #[test]
     fn normalize_anthropic_string_merge_unchanged_without_images() {
-        let msgs = vec![
-            user_msg("part one", None),
-            user_msg("part two", None),
-        ];
+        let msgs = vec![user_msg("part one", None), user_msg("part two", None)];
         let out = super::normalize_anthropic_messages(&msgs);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0]["content"], serde_json::json!("part one\n\npart two"));
@@ -4331,10 +4492,8 @@ mod tests {
             Some("https://api.example.com/api/v3"),
         );
         assert_eq!(
-            super::normalize_openai_base(
-                "https://generativelanguage.googleapis.com/v1beta/openai"
-            )
-            .as_deref(),
+            super::normalize_openai_base("https://generativelanguage.googleapis.com/v1beta/openai")
+                .as_deref(),
             Some("https://generativelanguage.googleapis.com/v1beta/openai"),
         );
         // A bare public hostname is https; a bare host:port / IP is http.
@@ -4398,7 +4557,9 @@ mod tests {
         for build in [super::build_openai_tools, super::build_anthropic_tools] {
             let names = tool_names(&build(&req_with(Some(false), None)));
             assert!(
-                !names.iter().any(|n| n == "write_note" || n == "append_to_note"),
+                !names
+                    .iter()
+                    .any(|n| n == "write_note" || n == "append_to_note"),
                 "no write tool may leak when allow_write is false, got {names:?}"
             );
             assert!(!names.is_empty(), "read tools must still be offered");
@@ -4435,7 +4596,11 @@ mod tests {
     #[test]
     fn other_providers_pass_through_unchanged() {
         for id in ["openai", "anthropic", "ollama", "deepseek", "qwen"] {
-            assert_eq!(resolve_provider(id), id, "provider {id} should not be rewritten");
+            assert_eq!(
+                resolve_provider(id),
+                id,
+                "provider {id} should not be rewritten"
+            );
         }
     }
 
@@ -4541,7 +4706,10 @@ mod tests {
         addr
     }
 
-    async fn verify_against(addr: std::net::SocketAddr, model: Option<&str>) -> Result<String, String> {
+    async fn verify_against(
+        addr: std::net::SocketAddr,
+        model: Option<&str>,
+    ) -> Result<String, String> {
         super::ai_verify_key(
             "openai-compat".into(),
             Some("k".into()),
@@ -4556,21 +4724,27 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn models_list_is_used_when_the_endpoint_serves_one() {
         let addr = serve_openai_ish(200, 200).await;
-        let out = verify_against(addr, Some("m1")).await.expect("should verify");
+        let out = verify_against(addr, Some("m1"))
+            .await
+            .expect("should verify");
         assert!(out.contains("2 models"), "got {out}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn missing_models_endpoint_falls_back_to_a_chat_ping() {
         let addr = serve_openai_ish(404, 200).await;
-        let out = verify_against(addr, Some("my-model")).await.expect("should verify via ping");
+        let out = verify_against(addr, Some("my-model"))
+            .await
+            .expect("should verify via ping");
         assert!(out.contains("my-model"), "got {out}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn bad_key_is_still_a_failure_and_skips_the_ping() {
         let addr = serve_openai_ish(401, 200).await;
-        let err = verify_against(addr, Some("m1")).await.expect_err("401 must fail");
+        let err = verify_against(addr, Some("m1"))
+            .await
+            .expect_err("401 must fail");
         assert!(err.contains("401"), "got {err}");
         // The ping would have succeeded here; a 401 must not be masked by it.
         assert!(!err.contains("responded"), "got {err}");
@@ -4579,7 +4753,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn both_failing_reports_both_errors() {
         let addr = serve_openai_ish(404, 400).await;
-        let err = verify_against(addr, Some("m1")).await.expect_err("should fail");
+        let err = verify_against(addr, Some("m1"))
+            .await
+            .expect_err("should fail");
         assert!(err.contains("404") && err.contains("400"), "got {err}");
     }
 
@@ -4594,9 +4770,24 @@ mod tests {
     fn test_normalize_anthropic_messages_merges_consecutive_user() {
         use super::ChatMessage;
         let msgs = vec![
-            ChatMessage { role: "system".into(), content: "sys".into(), tool_call_id: None, images: None },
-            ChatMessage { role: "user".into(), content: "hello".into(), tool_call_id: None, images: None },
-            ChatMessage { role: "user".into(), content: "world".into(), tool_call_id: None, images: None },
+            ChatMessage {
+                role: "system".into(),
+                content: "sys".into(),
+                tool_call_id: None,
+                images: None,
+            },
+            ChatMessage {
+                role: "user".into(),
+                content: "hello".into(),
+                tool_call_id: None,
+                images: None,
+            },
+            ChatMessage {
+                role: "user".into(),
+                content: "world".into(),
+                tool_call_id: None,
+                images: None,
+            },
         ];
         let norm = super::normalize_anthropic_messages(&msgs);
         assert_eq!(norm.len(), 1);
@@ -4608,8 +4799,18 @@ mod tests {
     fn test_normalize_anthropic_messages_prepends_user_if_starts_with_assistant() {
         use super::ChatMessage;
         let msgs = vec![
-            ChatMessage { role: "assistant".into(), content: "I am ready".into(), tool_call_id: None, images: None },
-            ChatMessage { role: "user".into(), content: "hi".into(), tool_call_id: None, images: None },
+            ChatMessage {
+                role: "assistant".into(),
+                content: "I am ready".into(),
+                tool_call_id: None,
+                images: None,
+            },
+            ChatMessage {
+                role: "user".into(),
+                content: "hi".into(),
+                tool_call_id: None,
+                images: None,
+            },
         ];
         let norm = super::normalize_anthropic_messages(&msgs);
         assert_eq!(norm.len(), 3);
@@ -4642,9 +4843,18 @@ mod tests {
 
         // Aliases resolve first, and unknown ids land on the plain OpenAI
         // dialect — which is exactly what a self-hosted compatible server is.
-        assert_eq!(super::provider_caps("lmstudio").models, super::ModelListStrategy::OpenAi);
-        assert_eq!(super::provider_caps("local").models, super::ModelListStrategy::Ollama);
-        assert_eq!(super::provider_caps("brand-new-vendor").auth, super::AuthStrategy::Bearer);
+        assert_eq!(
+            super::provider_caps("lmstudio").models,
+            super::ModelListStrategy::OpenAi
+        );
+        assert_eq!(
+            super::provider_caps("local").models,
+            super::ModelListStrategy::Ollama
+        );
+        assert_eq!(
+            super::provider_caps("brand-new-vendor").auth,
+            super::AuthStrategy::Bearer
+        );
     }
 
     #[test]
@@ -4658,7 +4868,10 @@ mod tests {
         // that was actually broken: its compat endpoint
         // (`…/v1beta/openai/models`) answers `x-goog-api-key` with
         // `400 Missing Authorization header`.
-        assert_eq!(super::provider_caps("gemini").auth, super::AuthStrategy::Google);
+        assert_eq!(
+            super::provider_caps("gemini").auth,
+            super::AuthStrategy::Google
+        );
         assert_ne!(
             super::compat_surface_auth(),
             super::provider_caps("gemini").auth,
@@ -4668,7 +4881,10 @@ mod tests {
         // Its native surface — the one `ai_list_models` derives from
         // `ModelListStrategy::Google` — does want the Google header, and does
         // have to be reached by stripping `/openai` off the chat base.
-        assert_eq!(super::provider_caps("gemini").models, super::ModelListStrategy::Google);
+        assert_eq!(
+            super::provider_caps("gemini").models,
+            super::ModelListStrategy::Google
+        );
         assert_eq!(
             super::google_v1beta_root(Some(
                 "https://generativelanguage.googleapis.com/v1beta/openai"
@@ -4796,7 +5012,10 @@ mod tests {
 
     #[test]
     fn key_slot_prefers_the_profile_id_and_falls_back_to_the_provider() {
-        assert_eq!(super::key_slot(Some("profile-1712-ab12"), "deepseek"), "profile-1712-ab12");
+        assert_eq!(
+            super::key_slot(Some("profile-1712-ab12"), "deepseek"),
+            "profile-1712-ab12"
+        );
         assert_eq!(super::key_slot(None, "deepseek"), "deepseek");
         // Blank counts as "not supplied", matching the rule the request-id
         // selector and the frontend both use.
@@ -4863,13 +5082,19 @@ mod tests {
     #[test]
     fn a_stream_cut_before_its_completion_marker_is_an_error_not_a_result() {
         let msg = super::stream_ended_early("openai");
-        assert!(msg.contains("openai"), "should name the provider, got {msg}");
+        assert!(
+            msg.contains("openai"),
+            "should name the provider, got {msg}"
+        );
         assert!(
             msg.contains("completion marker"),
             "should say what was missing, got {msg}"
         );
         // It must be actionable, not just a code.
-        assert!(msg.contains("retry"), "should tell the user what to do, got {msg}");
+        assert!(
+            msg.contains("retry"),
+            "should tell the user what to do, got {msg}"
+        );
     }
 
     // --- SSE framing & tool-call delta reassembly ----------------------------
@@ -4879,10 +5104,18 @@ mod tests {
         use super::find_event_boundary as fb;
         assert_eq!(fb(""), None);
         assert_eq!(fb("data: half an event"), None, "no blank line yet");
-        assert_eq!(fb("data: half\ndata: still one event\n"), None, "single newline is not a separator");
+        assert_eq!(
+            fb("data: half\ndata: still one event\n"),
+            None,
+            "single newline is not a separator"
+        );
         assert_eq!(fb("data: a\n\n"), Some(7), "LF-LF");
         assert_eq!(fb("data: a\r\n\r\n"), Some(7), "CRLF-CRLF");
-        assert_eq!(fb("\r\n\r\ndata: a"), Some(0), "empty event at buffer start");
+        assert_eq!(
+            fb("\r\n\r\ndata: a"),
+            Some(0),
+            "empty event at buffer start"
+        );
         // Mixed separators: whichever terminates an event FIRST wins, or a
         // CRLF event followed by an LF one parses as one giant event.
         assert_eq!(fb("data: a\r\n\r\ndata: b\n\ndata: c"), Some(7));
@@ -4990,11 +5223,17 @@ mod tests {
 
         let (id2, _, args2) = &outcome.tool_uses[1];
         assert_eq!(args2, &Value::Object(Default::default()));
-        assert!(id2.starts_with("call_2_"), "synthetic id encodes the index, got {id2}");
+        assert!(
+            id2.starts_with("call_2_"),
+            "synthetic id encodes the index, got {id2}"
+        );
 
         let (id3, _, args3) = &outcome.tool_uses[2];
         assert_eq!(id3, "call_d");
-        assert_eq!(args3, &Value::String("the model streamed prose here".into()));
+        assert_eq!(
+            args3,
+            &Value::String("the model streamed prose here".into())
+        );
     }
 
     // --- Ollama wire format --------------------------------------------------

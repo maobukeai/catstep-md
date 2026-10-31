@@ -1,0 +1,24 @@
+test_aab_missing_native_architecture_is_rejected (test_prepare_android_release.AndroidReleaseTests.test_aab_missing_native_architecture_is_rejected) ... ok
+test_debug_metadata_is_not_published (test_prepare_android_release.AndroidReleaseTests.test_debug_metadata_is_not_published) ... ok
+test_duplicate_native_zip_entry_is_rejected (test_prepare_android_release.AndroidReleaseTests.test_duplicate_native_zip_entry_is_rejected) ... ok
+test_duplicate_public_target_is_rejected (test_prepare_android_release.AndroidReleaseTests.test_duplicate_public_target_is_rejected) ... ok
+test_elf_machine_must_match_zip_abi (test_prepare_android_release.AndroidReleaseTests.test_elf_machine_must_match_zip_abi) ... ok
+test_empty_native_split_is_rejected_before_copy (test_prepare_android_release.AndroidReleaseTests.test_empty_native_split_is_rejected_before_copy) ... ok
+test_existing_prepared_directory_is_preserved (test_prepare_android_release.AndroidReleaseTests.test_existing_prepared_directory_is_preserved) ... ok
+test_malformed_metadata_is_rejected_before_copy (test_prepare_android_release.AndroidReleaseTests.test_malformed_metadata_is_rejected_before_copy) ... ok
+test_manifest_verifies_all_files_before_returning_upload_list (test_prepare_android_release.AndroidReleaseTests.test_manifest_verifies_all_files_before_returning_upload_list) ... ok
+test_metadata_path_traversal_and_absolute_paths_are_rejected (test_prepare_android_release.AndroidReleaseTests.test_metadata_path_traversal_and_absolute_paths_are_rejected) ... ok
+test_missing_aab_is_rejected_before_copy (test_prepare_android_release.AndroidReleaseTests.test_missing_aab_is_rejected_before_copy) ... ok
+test_missing_aab_or_apk_variant_is_rejected (test_prepare_android_release.AndroidReleaseTests.test_missing_aab_or_apk_variant_is_rejected) ... ok
+test_multiple_aab_outputs_cannot_clobber_public_name (test_prepare_android_release.AndroidReleaseTests.test_multiple_aab_outputs_cannot_clobber_public_name) ... ok
+test_native_abi_must_match_metadata_filter (test_prepare_android_release.AndroidReleaseTests.test_native_abi_must_match_metadata_filter) ... ok
+test_offline_cli_supports_unicode_space_paths_and_explicit_manifest (test_prepare_android_release.AndroidReleaseTests.test_offline_cli_supports_unicode_space_paths_and_explicit_manifest) ... ok
+test_package_or_version_metadata_mismatch (test_prepare_android_release.AndroidReleaseTests.test_package_or_version_metadata_mismatch) ... ok
+test_real_universal_directory_layout_prepares_five_unique_public_names (test_prepare_android_release.AndroidReleaseTests.test_real_universal_directory_layout_prepares_five_unique_public_names) ... ok
+test_symlink_output_cannot_escape_outputs_directory (test_prepare_android_release.AndroidReleaseTests.test_symlink_output_cannot_escape_outputs_directory) ... ok
+test_universal_must_contain_all_required_abis (test_prepare_android_release.AndroidReleaseTests.test_universal_must_contain_all_required_abis) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.250s
+
+OK
