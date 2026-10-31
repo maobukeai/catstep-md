@@ -1,0 +1,16 @@
+   Compiling catstep-md v1.0.13 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 04s
+     Running tests\windows_updater_process_test.rs (target\debug\deps\windows_updater_process_test-4cfd015c8bb58694.exe)
+
+running 5 tests
+test preflight_rejects_unverified_bytes_or_unsupported_installer_without_launch ... ok
+[updater] Update handoff integrity check failed; nothing was executed
+test real_product_entry_rejects_job_digest_tampering_before_deserialization ... ok
+real helper: installer exit 23, persisted failure, no restart
+test installer_failure_is_recorded_without_restart_or_false_success ... ok
+real helper: parent exit -> installer completion -> restart, literal 中文 & %...% !^() path passed
+test real_product_helper_waits_installs_and_restarts_with_shell_metacharacter_paths ... ok
+real helper: Windows refused payload write/delete/rename (32), original verified payload installed
+test staged_installer_cannot_be_written_deleted_or_replaced_while_handoff_waits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.82s

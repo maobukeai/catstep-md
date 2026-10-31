@@ -1,0 +1,5 @@
+old_script=start "" /B /wait "C:\Users\20269\AppData\Local\Temp\catstep-updater-quote-31164 中文 space & percent%\harmless fixture.exe" --fixture "C:\Users\20269\AppData\Local\Temp\catstep-updater-quote-31164 中文 space & percent%\old.marker"
+old_cmd_exit=Some(1); fixture_executed=false
+stderr_bytes=[65, 99, 99, 101, 115, 115, 32, 105, 115, 32, 100, 101, 110, 105, 101, 100, 46, 13, 10]
+direct_exit=Some(0); fixture_executed=true
+fixture_directory=C:\Users\20269\AppData\Local\Temp\catstep-updater-quote-31164 中文 space & percent%

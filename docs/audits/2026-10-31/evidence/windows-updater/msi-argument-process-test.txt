@@ -1,0 +1,8 @@
+   Compiling catstep-md v1.0.13 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.39s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-2ec4a3b860eda13b.exe)
+
+running 1 test
+test windows_update_helper::tests::msi_arguments_reach_a_real_process_without_shell_expansion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 276 filtered out; finished in 0.25s

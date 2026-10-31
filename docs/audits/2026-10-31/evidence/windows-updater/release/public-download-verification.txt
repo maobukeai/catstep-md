@@ -1,0 +1,6 @@
+PUBLIC SHA256 ce9b95b492a7f52f5fe153a0a5af5e31e5820160ce486ee2ef546999b260c623  CatstepMD_1.0.13_x64_en-US.msi
+PUBLIC SHA256 b35bafb8b251dacf99c0dd375e184e400ada00709d38038646ab69152f92852e  CatstepMD_1.0.13_x64-portable.zip
+PUBLIC SHA256 96a956709bbe09219a5eedc425f1919c00a8509e081fcf9fdddeb20cd22b9708  CatstepMD_1.0.13_arm64_en-US.msi
+PUBLIC SHA256 571fe9144116b6245b1626f6316c8f4cddde3c27f4228dd30e8a9667d6fb050e  CatstepMD_1.0.13_arm64-portable.zip
+PUBLIC SHA256 2c8dd78670710b32ad9579ec4b5ebab7a91272463ea08b697e0afbba8e9f1d74  SHA256SUMS.txt
+PASS: all 5 canonical public downloads match candidates; all 24 checksum entries match GitHub API digests; 20 unrelated assets retain original IDs, sizes and digests.

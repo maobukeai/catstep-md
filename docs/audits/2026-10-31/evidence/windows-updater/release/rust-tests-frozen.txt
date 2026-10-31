@@ -1,0 +1,904 @@
+   Compiling catstep-md v1.0.13 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 11s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-166654faeb8e8dce.exe)
+
+running 284 tests
+test agent_run::tests::finalize_recreates_a_run_dir_removed_by_a_checkout ... ok
+test agent_run::tests::append_trace_truncates_large_result ... ok
+test agent_run::tests::run_id_format_matches_contract ... ok
+test agent_run::tests::finish_persists_tokens_and_cost_into_meta_and_trace ... ok
+test agent_run::tests::start_creates_files_and_finish_updates_meta ... ok
+test agent_tools::tests::descriptors_cover_every_tool ... ok
+test agent_tools::tests::get_outline_parses_headings ... ok
+test agent_tools::tests::list_notes_finds_seed_files ... ok
+test agent_tools::tests::list_tags_aggregates ... ok
+test agent_tools::tests::move_note_and_create_folder_work ... ok
+test agent_tools::tests::patch_note_exact_and_crlf_and_multiline ... ok
+test agent_tools::tests::patch_note_dom_rendered_selection_and_ellipsis_and_active_selection_fallback ... ok
+test agent_tools::tests::read_note_parses_frontmatter_and_links ... ok
+test agent_tools::tests::patch_note_fuzzy_unicode_and_heading_mismatch ... ok
+test agent_tools::tests::resolve_in_workspace_allows_in_workspace_absolute_path ... ok
+test agent_tools::tests::resolve_in_workspace_allows_nested_nonexistent_create ... ok
+test agent_tools::tests::resolve_in_workspace_rejects_absolute_path ... ok
+test agent_tools::tests::resolve_aliases_wikilinks_quotes_and_patch_fallback ... ok
+test agent_tools::tests::resolve_in_workspace_rejects_dotdot_with_nonexistent_parent ... ok
+test agent_tools::tests::search_finds_match ... ok
+test agent_tools::tests::semantic_search_falls_back_when_not_indexed ... ok
+test agent_tools::tests::standalone_active_note_outside_workspace_allowed_and_arbitrary_rejected ... ok
+test agent_tools::tests::validate_run_id_accepts_canonical_shape ... ok
+test agent_tools::tests::validate_run_id_rejects_traversal ... ok
+test agent_tools::tests::workspace_escape_blocked ... ok
+test agent_tools::tests::write_then_read_roundtrips ... ok
+test agent_trace::tests::replay_inputs_default_when_no_run_started ... ok
+test agent_trace::tests::run_id_validation_rejects_traversal ... ok
+test agent_trace::tests::unix_to_utc_known_dates ... ok
+test ai_keystore::tests::file_fallback_persists_across_reload ... ok
+test ai_keystore::tests::file_fallback_round_trips ... ok
+test ai_keystore::tests::file_store_is_encrypted_at_rest ... ok
+test ai_proxy::tests::a_stream_cut_before_its_completion_marker_is_an_error_not_a_result ... ok
+test ai_proxy::tests::absorb_ollama_chunk_handles_text_tools_and_usage ... ok
+test ai_proxy::tests::an_explicit_tool_list_is_still_filtered_by_allow_write ... ok
+test ai_proxy::tests::anthropic_endpoint_honours_the_configured_base_without_doubling_v1 ... ok
+test ai_proxy::tests::anthropic_wire_content_sends_base64_sources ... ok
+test ai_proxy::tests::assemble_maps_accums_to_tool_uses_with_fallbacks ... ok
+test ai_proxy::tests::bad_key_is_still_a_failure_and_skips_the_ping ... ok
+test ai_proxy::tests::both_failing_reports_both_errors ... ok
+test ai_proxy::tests::cap_for_history_passes_short_results_through ... ok
+test ai_proxy::tests::cap_for_history_truncates_with_an_explicit_marker ... ok
+test ai_proxy::tests::capabilities_are_declared_per_provider_instead_of_probed ... ok
+test ai_proxy::tests::execution_policy_checks_permission_and_quota_even_for_an_offered_tool ... ok
+test ai_proxy::tests::find_event_boundary_handles_both_separator_styles ... ok
+test ai_proxy::tests::google_model_list_does_not_staple_v1beta_onto_the_openai_base ... ok
+test ai_proxy::tests::key_slot_prefers_the_profile_id_and_falls_back_to_the_provider ... ok
+test ai_proxy::tests::local_aliases_to_ollama ... ok
+test ai_proxy::tests::missing_models_endpoint_falls_back_to_a_chat_ping ... ok
+test ai_proxy::tests::models_list_is_used_when_the_endpoint_serves_one ... ok
+test ai_proxy::tests::no_model_configured_reports_why_it_could_not_ping ... ok
+test ai_proxy::tests::normalize_anthropic_keeps_image_parts_and_merges_same_role_safely ... ok
+test ai_proxy::tests::normalize_anthropic_string_merge_unchanged_without_images ... ok
+test ai_proxy::tests::normalize_openai_base_appends_the_version_path_only_when_missing ... ok
+test ai_proxy::tests::openai_compat_is_keyless_and_speaks_the_openai_wire_format ... ok
+test ai_proxy::tests::openai_wire_content_expands_user_images_into_parts ... ok
+test ai_proxy::tests::other_providers_pass_through_unchanged ... ok
+test ai_proxy::tests::rewrite_request_uses_caller_provided_request_id ... ok
+test ai_proxy::tests::split_data_url_parses_mime_and_payload ... ok
+test ai_proxy::tests::stream_options_cache_marks_and_reads_back ... ok
+test ai_proxy::tests::test_normalize_anthropic_messages_merges_consecutive_user ... ok
+test ai_proxy::tests::test_normalize_anthropic_messages_prepends_user_if_starts_with_assistant ... ok
+test ai_proxy::tests::the_frontend_provider_table_and_the_rust_capability_table_agree ... ok
+test ai_proxy::tests::the_openai_compat_surface_takes_a_bearer_not_the_vendor_auth ... ok
+test ai_proxy::tests::tool_deltas_keep_indices_apart_and_capture_extras ... ok
+test ai_proxy::tests::tool_deltas_reassemble_arguments_split_across_chunks ... ok
+test ai_proxy::tests::write_tools_are_offered_when_allow_write_is_on ... ok
+test ai_proxy::tests::write_tools_offered_when_active_selection_present_even_if_allow_write_is_false ... ok
+test ai_proxy::tests::write_tools_stay_hidden_when_allow_write_is_off ... ok
+test capture_endpoint::tests::first_h1_extraction ... ok
+test capture_endpoint::tests::front_matter_is_stripped_when_present ... ok
+test capture_endpoint::tests::render_note_emits_required_fields ... ok
+test capture_endpoint::tests::slug_basic ... ok
+test capture_endpoint::tests::slug_keeps_cjk ... ok
+test capture_endpoint::tests::token_is_32_hex ... ok
+test capture_endpoint::tests::yaml_scalar_quotes_when_needed ... ok
+test cjk_proofread::tests::empty_input_no_issues ... ok
+test cjk_proofread::tests::is_han_basic ... ok
+test cjk_proofread::tests::line_index_basic ... ok
+test cjk_proofread::tests::pure_ascii_no_issues ... ok
+test cloud_folder::tests::dropbox_path_detected ... ok
+test cloud_folder::tests::google_drive_path_detected ... ok
+test cloud_folder::tests::icloud_path_detected ... ok
+test cloud_folder::tests::onedrive_path_detected ... ok
+test cloud_folder::tests::plain_path_is_none ... ok
+test cloud_folder::tests::random_uuid_format ... ok
+test cloud_folder::tests::session_round_trip ... ok
+test commands::atomic_write_tests::consecutive_writes_to_the_same_file_all_land ... ok
+test commands::atomic_write_tests::creates_file_when_target_missing ... ok
+test commands::atomic_write_tests::non_ascii_file_name_is_preserved ... ok
+test commands::atomic_write_tests::overwrite_replaces_content_and_leaves_no_temp_files ... ok
+test cookbook::tests::every_bundled_recipe_parses ... ok
+test cookbook::tests::install_writes_to_workspace_agents_dir ... ok
+test cookbook::tests::list_returns_at_least_ten_entries ... ok
+test cost_meter::tests::corrupt_file_yields_default ... ok
+test cost_meter::tests::record_aggregates_per_provider_when_enabled ... ok
+test cost_meter::tests::record_noops_when_disabled ... ok
+test cost_meter::tests::reset_clears_providers_but_keeps_enabled ... ok
+test crypto::tests::aad_path_swap_fails ... ok
+test agent_tools::tests::semantic_search_with_rag_index ... ok
+test crypto::tests::legacy_slmd_ciphertext_decrypts_fine ... ok
+test crypto::tests::round_trip_short ... ok
+test crypto::tests::round_trip_unicode_and_long ... ok
+test crypto::tests::argon2_derives_deterministically ... ok
+test crypto::tests::set_passphrase_rejects_path_outside_roots ... ok
+test crypto::tests::tampered_ciphertext_fails ... ok
+test crypto::tests::workspace_round_trip ... ok
+test crypto::tests::wrong_key_fails ... ok
+test crypto::tests::second_set_passphrase_with_wrong_word_fails ... ok
+test dev_bridge::tests::finds_double_crlf ... ok
+test dev_bridge::tests::random_token_is_32_hex ... ok
+test dev_bridge::tests::wrap_script_round_trips_id_and_port ... ok
+test github_sync::url_owner_tests::extracts_the_account_segment ... ok
+test dev_bridge::tests::random_token_does_not_repeat ... ok
+test github_sync::url_owner_tests::rejects_urls_without_an_owner ... ok
+test integrations::tests::detect_falls_back_to_substring_on_unparseable_config ... ok
+test integrations::tests::detect_ignores_solomd_mentions_outside_the_server_map ... ok
+test integrations::tests::detect_reads_the_right_key_per_client ... ok
+test integrations::tests::splice_antigravity_into_empty ... ok
+test integrations::tests::splice_claude_desktop_into_empty ... ok
+test integrations::tests::splice_claude_desktop_preserves_other_servers ... ok
+test integrations::tests::splice_continue_replaces_existing_solomd ... ok
+test integrations::tests::splice_zed_uses_nested_command_object ... ok
+test integrations::tests::strip_ansi_drops_csi ... ok
+test mcp_client::tests::mcp_names_are_recognized_by_prefix ... ok
+test mcp_client::tests::parse_tools_list_reads_and_defaults ... ok
+test mcp_client::tests::sanitize_produces_openai_safe_names ... ok
+test mcp_client::tests::sse_response_picks_the_matching_id ... ok
+test mcp_client::tests::tool_results_become_text_and_errors ... ok
+test mcp_profiles::tests::render_claude_config_appends_allow_write_when_set ... ok
+test mcp_profiles::tests::render_claude_config_falls_back_to_placeholder_when_path_missing ... ok
+test mcp_profiles::tests::render_claude_config_shape_matches_contract ... ok
+test mcp_profiles::tests::validate_profile_rejects_bad_alias_chars ... ok
+test mcp_profiles::tests::validate_profile_rejects_bad_name_chars ... ok
+test mcp_profiles::tests::validate_profile_rejects_dup_alias ... ok
+test mcp_profiles::tests::validate_profile_rejects_empty_entries ... ok
+test ollama::tests::base_url_env_var_beats_the_override ... ok
+test ollama::tests::base_url_uses_the_override_then_the_default ... ok
+test ollama::tests::detect_connection_refused_is_not_ok ... ok
+test ollama::tests::detect_empty_models_still_ok ... ok
+test ollama::tests::detect_happy_path_returns_models ... ok
+test ollama::tests::detect_honours_the_configured_base_url ... ok
+test ollama::tests::detect_http_error_is_not_ok ... ok
+test ollama::tests::detect_malformed_json_is_not_ok ... ok
+test ollama::tests::is_local_only_matches_this_machine ... ok
+test ollama::tests::normalize_base_url_fills_in_the_missing_bits ... ok
+test pandoc::tests::failed_export_also_cleans_input_and_preserves_failure_message ... ok
+test pandoc::tests::fake_pandoc_receives_source_context_and_resolves_relative_resources ... ok
+test pandoc::tests::legacy_stderr_paths_remain_readable_and_failed_exports_clean_the_input ... ok
+test pandoc::tests::relative_citations_need_an_explicit_source_and_relative_directories_are_rejected ... ok
+test pandoc::tests::utf8_diagnostics_are_preserved_before_any_system_code_page_fallback ... ok
+test pandoc::tests::windows_diagnostics_support_cp936_gb18030_and_other_active_code_pages ... ok
+test pricing::tests::case_insensitive_model_match ... ok
+test pricing::tests::estimate_cost_basic_arithmetic ... ok
+test pricing::tests::estimate_cost_unknown_returns_zero ... ok
+test pricing::tests::exact_match_returns_published_rate ... ok
+test pricing::tests::mini_prefix_does_not_swallow_full_4o ... ok
+test pricing::tests::prefix_match_picks_up_dated_variant ... ok
+test pricing::tests::unknown_model_for_known_provider_returns_zero ... ok
+test pricing::tests::unknown_provider_returns_zero ... ok
+test quick_capture::tests::actual_capture_open_path_cannot_create_or_show_during_install ... ok
+test quick_capture::tests::reentrant_install_during_capture_build_is_rejected_without_waiting ... ok
+test rag::tests::chunk_strips_front_matter ... ok
+test rag::tests::combined_score_blends_in_lexical_tiebreak ... ok
+test rag::tests::cosine_self_is_one ... ok
+test rag::tests::embedder_config_ids_and_serde_roundtrip ... ok
+test rag::tests::embedder_config_persists_through_meta_table ... ok
+test rag::tests::lexical_overlap_is_fraction_of_present_tokens ... ok
+test rag::tests::parse_ollama_embeddings_normalizes_rows ... ok
+test rag::tests::parse_single_embedding_shape ... ok
+test rag::tests::query_tokens_cover_words_and_cjk_pairs ... ok
+test rag::tests::similar_text_scores_higher_than_unrelated ... ok
+test recipe_runner::tests::provider_for_passes_through_other ... ok
+test recipe_runner::tests::provider_for_resolves_local_alias ... ok
+test recipes::tests::glob_match ... ok
+test recipes::tests::load_recipes_from_dir ... ok
+test recipes::tests::mint_run_id_format ... ok
+test recipes::tests::newly_added_tags_diff ... ok
+test recipes::tests::next_fire_after_for_cron ... ok
+test recipes::tests::parse_caps_write_cap_at_50 ... ok
+test recipes::tests::parse_minimal_schedule ... ok
+test recipes::tests::parse_on_save_requires_match ... ok
+test recipes::tests::parse_on_save_validates_glob ... ok
+test recipes::tests::parse_on_tag_add_requires_tag ... ok
+test recipes::tests::parse_rejects_bad_cron ... ok
+test recipes::tests::parse_rejects_unknown_tool ... ok
+test recipes::tests::parse_rejects_write_tool_without_allow_write ... ok
+test recipes::tests::slugify_basic ... ok
+test recipes::tests::slugify_cjk_distinct ... ok
+test recipes::tests::variables_resolve_dates ... ok
+test recipes::tests::variables_resolve_iso_week ... ok
+test recipes::tests::variables_resolve_trigger_path_and_sha ... ok
+test recipes::tests::variables_resolve_unknown_passes_through ... ok
+test recipes::tests::yaml_roundtrip_preserves_fields ... ok
+test rest_api::tests::banner_no_auth_required ... ok
+test rest_api::tests::list_tools_returns_full_registry ... ok
+test rest_api::tests::missing_token_rejected ... ok
+test rest_api::tests::read_tool_round_trips_via_http ... ok
+test rest_api::tests::unknown_tool_returns_404 ... ok
+test rest_api::tests::write_tool_403_when_allow_write_false ... ok
+test search::matcher_tests::case_sensitive_toggle ... ok
+test search::matcher_tests::default_mode_agrees_with_lowercase_contains ... ok
+test search::matcher_tests::eol_style_is_preserved_per_line ... ok
+test search::matcher_tests::invalid_regex_is_reported ... ok
+test search::matcher_tests::literal_dollars_are_not_expanded ... ok
+test search::matcher_tests::literal_is_case_insensitive_by_default ... ok
+test search::matcher_tests::path_filter_substring_and_glob ... ok
+test search::matcher_tests::regex_mode_matches_alternation ... ok
+test search::matcher_tests::regex_replacement_expands_captures ... ok
+test search::matcher_tests::whole_word_rejects_substring ... ok
+test search::matcher_tests::whole_word_wraps_alternation ... ok
+test spellcheck::user_dict_tests::a_dropped_in_dictionary_parses_and_checks_words ... ok
+test themes::tests::id_validation_accepts_slugs ... ok
+test themes::tests::id_validation_rejects_traversal ... ok
+test themes::tests::test_clean_raw_github_url ... ok
+test themes::tests::test_color_and_var_parsing ... ok
+test themes::tests::test_github_repo_spec_parsing ... ok
+test themes::tests::test_rewrite_relative_css_urls ... ok
+test ollama::tests::detect_timeout_within_two_seconds ... ok
+test themes::tests::test_sniff_phycat ... ok
+test trace::tests::concurrent_appends_do_not_interleave ... ok
+test trace::tests::malformed_lines_are_skipped_not_fatal ... ok
+test trace::tests::parses_fixture_under_tests_dir ... ok
+test trace::tests::payload_cannot_override_reserved_fields ... ok
+test trace::tests::reopen_resumes_seq_from_existing_count ... ok
+test trace::tests::replay_prefix_returns_lines_strictly_before_seq ... ok
+test trace::tests::round_trip_basic_kinds ... ok
+test trace::tests::tool_result_no_truncation_when_under_limit ... ok
+test trace::tests::tool_result_truncation_at_2048_chars ... ok
+test trace::tests::tool_result_truncation_is_utf8_safe_on_cjk ... ok
+test updater::tests::cancellation_interrupts_stalled_actual_http_headers_and_body ... ok
+test updater::tests::candidate_download_urls_generates_direct_and_mirrors ... ok
+test updater::tests::candidate_manifest_urls_respects_preferred_prefix ... ok
+test updater::tests::checksum_chunked_body_cannot_bypass_size_bound ... ok
+test updater::tests::checksum_manifest_accepts_actual_http_body_and_refuses_oversized_length ... ok
+test updater::tests::committed_install_keeps_capture_gate_and_other_editor_windows_still_block ... ok
+test updater::tests::download_name_keeps_only_the_basename ... ok
+test updater::tests::download_reservation_rejects_overlap_and_releases_after_error ... ok
+test updater::tests::empty_or_degenerate_download_names_are_refused ... ok
+test updater::tests::extract_mirror_prefix_detects_proxy_domain ... ok
+test updater::tests::file_sha256_hex_matches_the_abc_vector ... ok
+test updater::tests::install_reserves_before_visibility_and_releases_on_capture_rejection ... ok
+test updater::tests::lookalike_or_untrusted_download_urls_are_refused ... ok
+test updater::tests::manifest_lookup_finds_the_asset_and_ignores_bad_lines ... ok
+test updater::tests::mirror_release_urls_are_trusted_and_canonicalized ... ok
+test updater::tests::official_release_urls_derive_the_manifest_location ... ok
+test updater::tests::traversal_in_a_download_name_is_stripped_not_honoured ... ok
+test updater::tests::untrusted_mirror_or_untrusted_repo_is_rejected ... ok
+test user_pick::tests::pick_filter_shape ... ok
+test user_pick::tests::pick_kind_deserializes_lowercase ... ok
+test watcher::tests::aliases_in_one_window_can_be_released_separately ... ok
+test watcher::tests::deleted_file_identity_matches_registered_path ... ok
+test watcher::tests::destroyed_window_releases_only_its_subscriptions ... ok
+test watcher::tests::directory_watch_survives_atomic_save ... ok
+test watcher::tests::immediate_external_write_is_never_mistaken_for_self_write ... ok
+test watcher::tests::window_subscriptions_are_independent_and_keep_aliases ... ok
+test windows_update_helper::tests::locked_native_msi_database_resolves_short_long_exe_and_component_identity ... ok
+test windows_update_helper::tests::msi_arguments_reach_a_real_process_without_shell_expansion ... ok
+test windows_update_helper::tests::msi_metadata_rejects_ambiguous_exe_and_non_file_component_key_path ... ok
+test windows_update_helper::tests::msi_restart_uses_installed_target_and_never_falls_back_to_old_portable ... ok
+test workspace_index::task_scan_tests::a_bare_checkbox_with_no_text_is_not_a_task ... ok
+test workspace_index::task_scan_tests::finds_open_and_done_items_with_file_line_numbers ... ok
+test workspace_index::task_scan_tests::ignores_front_matter_and_accepts_every_bullet_marker ... ok
+test workspace_index::task_scan_tests::ignores_task_shaped_lines_inside_fenced_code ... ok
+test workspace_index::task_scan_tests::keeps_priority_and_due_tokens_for_the_frontend_to_parse ... ok
+test workspace_index::tests::hex_colors_in_table_not_tags ... ok
+test workspace_index::tests::hex_colors_not_tags ... ok
+test workspace_index::tests::is_reserved_key_matches_ts_set ... ok
+test workspace_index::tests::parse_ref_target_strips_brackets ... ok
+test workspace_index::tests::referenced_by_resolves_inverse_with_self_exclusion ... ok
+test workspace_index::tests::relationships_alias_heading_collapse ... ok
+test workspace_index::tests::relationships_arbitrary_custom_key ... ok
+test workspace_index::tests::relationships_non_wikilink_ignored ... ok
+test workspace_index::tests::relationships_reserved_keys_excluded ... ok
+test workspace_index::tests::relationships_scalar_and_array ... ok
+test workspace_index::tests::relationships_underscore_prefixed_excluded ... ok
+test workspace_index::tests::table_numeric_not_tags ... ok
+test workspace_index::tests::test_body_tags_skip_inline_code ... ok
+test workspace_index::tests::test_body_tags_skip_table_inline_code ... ok
+test workspace_index::tests::test_link_anchor_not_tag ... ok
+test workspace_index::tests::test_strip_inline_code_basic ... ok
+test workspace_index::tests::test_table_backtick_hex_colors ... ok
+test workspace_index::tests::test_table_no_backtick_hex_colors ... ok
+test themes::tests::test_sniff_latex has been running for over 60 seconds
+test themes::tests::test_sniff_latex ... ok
+
+test result: ok. 284 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 105.67s
+
+     Running unittests src\main.rs (target\debug\deps\CatstepMD-06bd1e3ccc8e66cb.exe)
+
+running 296 tests
+test linux_a11y::tests::dead_address_is_a_unix_socket_path_that_cannot_exist ... ok
+test linux_a11y::tests::disable_set_covers_gtk_atspi_and_webkit ... ok
+test linux_a11y::tests::probes_when_nothing_is_pinned ... ok
+test linux_a11y::tests::probe_budget_is_far_below_the_timeouts_it_replaces ... ok
+test linux_a11y::tests::respects_every_user_owned_variable ... ok
+test runner::agent_run::tests::finalize_recreates_a_run_dir_removed_by_a_checkout ... ok
+test runner::agent_run::tests::append_trace_truncates_large_result ... ok
+test runner::agent_run::tests::run_id_format_matches_contract ... ok
+test runner::agent_run::tests::finish_persists_tokens_and_cost_into_meta_and_trace ... ok
+test runner::agent_tools::tests::descriptors_cover_every_tool ... ok
+test runner::agent_run::tests::start_creates_files_and_finish_updates_meta ... ok
+test runner::agent_tools::tests::get_outline_parses_headings ... ok
+test runner::agent_tools::tests::list_notes_finds_seed_files ... ok
+test runner::agent_tools::tests::list_tags_aggregates ... ok
+test runner::agent_tools::tests::move_note_and_create_folder_work ... ok
+test runner::agent_tools::tests::patch_note_exact_and_crlf_and_multiline ... ok
+test runner::agent_tools::tests::patch_note_dom_rendered_selection_and_ellipsis_and_active_selection_fallback ... ok
+test runner::agent_tools::tests::read_note_parses_frontmatter_and_links ... ok
+test runner::agent_tools::tests::patch_note_fuzzy_unicode_and_heading_mismatch ... ok
+test runner::agent_tools::tests::resolve_in_workspace_allows_in_workspace_absolute_path ... ok
+test runner::agent_tools::tests::resolve_in_workspace_allows_nested_nonexistent_create ... ok
+test runner::agent_tools::tests::resolve_in_workspace_rejects_absolute_path ... ok
+test runner::agent_tools::tests::resolve_aliases_wikilinks_quotes_and_patch_fallback ... ok
+test runner::agent_tools::tests::resolve_in_workspace_rejects_dotdot_with_nonexistent_parent ... ok
+test runner::agent_tools::tests::search_finds_match ... ok
+test runner::agent_tools::tests::semantic_search_falls_back_when_not_indexed ... ok
+test runner::agent_tools::tests::standalone_active_note_outside_workspace_allowed_and_arbitrary_rejected ... ok
+test runner::agent_tools::tests::validate_run_id_accepts_canonical_shape ... ok
+test runner::agent_tools::tests::validate_run_id_rejects_traversal ... ok
+test runner::agent_tools::tests::workspace_escape_blocked ... ok
+test runner::agent_tools::tests::write_then_read_roundtrips ... ok
+test runner::agent_trace::tests::replay_inputs_default_when_no_run_started ... ok
+test runner::agent_trace::tests::run_id_validation_rejects_traversal ... ok
+test runner::agent_trace::tests::unix_to_utc_known_dates ... ok
+test runner::ai_keystore::tests::file_fallback_persists_across_reload ... ok
+test runner::ai_keystore::tests::file_fallback_round_trips ... ok
+test runner::ai_keystore::tests::file_store_is_encrypted_at_rest ... ok
+test runner::ai_proxy::tests::a_stream_cut_before_its_completion_marker_is_an_error_not_a_result ... ok
+test runner::ai_proxy::tests::absorb_ollama_chunk_handles_text_tools_and_usage ... ok
+test runner::ai_proxy::tests::an_explicit_tool_list_is_still_filtered_by_allow_write ... ok
+test runner::ai_proxy::tests::anthropic_endpoint_honours_the_configured_base_without_doubling_v1 ... ok
+test runner::ai_proxy::tests::anthropic_wire_content_sends_base64_sources ... ok
+test runner::ai_proxy::tests::assemble_maps_accums_to_tool_uses_with_fallbacks ... ok
+test runner::ai_proxy::tests::bad_key_is_still_a_failure_and_skips_the_ping ... ok
+test runner::ai_proxy::tests::both_failing_reports_both_errors ... ok
+test runner::ai_proxy::tests::cap_for_history_passes_short_results_through ... ok
+test runner::ai_proxy::tests::cap_for_history_truncates_with_an_explicit_marker ... ok
+test runner::ai_proxy::tests::capabilities_are_declared_per_provider_instead_of_probed ... ok
+test runner::ai_proxy::tests::execution_policy_checks_permission_and_quota_even_for_an_offered_tool ... ok
+test runner::ai_proxy::tests::find_event_boundary_handles_both_separator_styles ... ok
+test runner::ai_proxy::tests::google_model_list_does_not_staple_v1beta_onto_the_openai_base ... ok
+test runner::ai_proxy::tests::key_slot_prefers_the_profile_id_and_falls_back_to_the_provider ... ok
+test runner::ai_proxy::tests::local_aliases_to_ollama ... ok
+test runner::ai_proxy::tests::missing_models_endpoint_falls_back_to_a_chat_ping ... ok
+test runner::ai_proxy::tests::models_list_is_used_when_the_endpoint_serves_one ... ok
+test runner::ai_proxy::tests::no_model_configured_reports_why_it_could_not_ping ... ok
+test runner::ai_proxy::tests::normalize_anthropic_keeps_image_parts_and_merges_same_role_safely ... ok
+test runner::ai_proxy::tests::normalize_anthropic_string_merge_unchanged_without_images ... ok
+test runner::ai_proxy::tests::normalize_openai_base_appends_the_version_path_only_when_missing ... ok
+test runner::ai_proxy::tests::openai_compat_is_keyless_and_speaks_the_openai_wire_format ... ok
+test runner::ai_proxy::tests::openai_wire_content_expands_user_images_into_parts ... ok
+test runner::ai_proxy::tests::other_providers_pass_through_unchanged ... ok
+test runner::ai_proxy::tests::rewrite_request_uses_caller_provided_request_id ... ok
+test runner::ai_proxy::tests::split_data_url_parses_mime_and_payload ... ok
+test runner::ai_proxy::tests::stream_options_cache_marks_and_reads_back ... ok
+test runner::ai_proxy::tests::test_normalize_anthropic_messages_merges_consecutive_user ... ok
+test runner::ai_proxy::tests::test_normalize_anthropic_messages_prepends_user_if_starts_with_assistant ... ok
+test runner::ai_proxy::tests::the_frontend_provider_table_and_the_rust_capability_table_agree ... ok
+test runner::ai_proxy::tests::the_openai_compat_surface_takes_a_bearer_not_the_vendor_auth ... ok
+test runner::ai_proxy::tests::tool_deltas_keep_indices_apart_and_capture_extras ... ok
+test runner::ai_proxy::tests::tool_deltas_reassemble_arguments_split_across_chunks ... ok
+test runner::ai_proxy::tests::write_tools_are_offered_when_allow_write_is_on ... ok
+test runner::ai_proxy::tests::write_tools_offered_when_active_selection_present_even_if_allow_write_is_false ... ok
+test runner::ai_proxy::tests::write_tools_stay_hidden_when_allow_write_is_off ... ok
+test runner::capture_endpoint::tests::first_h1_extraction ... ok
+test runner::capture_endpoint::tests::front_matter_is_stripped_when_present ... ok
+test runner::capture_endpoint::tests::render_note_emits_required_fields ... ok
+test runner::capture_endpoint::tests::slug_basic ... ok
+test runner::capture_endpoint::tests::slug_keeps_cjk ... ok
+test runner::capture_endpoint::tests::token_is_32_hex ... ok
+test runner::capture_endpoint::tests::yaml_scalar_quotes_when_needed ... ok
+test runner::cjk_proofread::tests::empty_input_no_issues ... ok
+test runner::cjk_proofread::tests::is_han_basic ... ok
+test runner::cjk_proofread::tests::line_index_basic ... ok
+test runner::cjk_proofread::tests::pure_ascii_no_issues ... ok
+test runner::cloud_folder::tests::dropbox_path_detected ... ok
+test runner::cloud_folder::tests::google_drive_path_detected ... ok
+test runner::cloud_folder::tests::icloud_path_detected ... ok
+test runner::cloud_folder::tests::onedrive_path_detected ... ok
+test runner::cloud_folder::tests::plain_path_is_none ... ok
+test runner::cloud_folder::tests::random_uuid_format ... ok
+test runner::cloud_folder::tests::session_round_trip ... ok
+test runner::commands::atomic_write_tests::consecutive_writes_to_the_same_file_all_land ... ok
+test runner::commands::atomic_write_tests::creates_file_when_target_missing ... ok
+test runner::commands::atomic_write_tests::non_ascii_file_name_is_preserved ... ok
+test runner::commands::atomic_write_tests::overwrite_replaces_content_and_leaves_no_temp_files ... ok
+test runner::convert::fidelity_tests::csv_import_keeps_literal_pipes_backslashes_markup_and_newlines ... ok
+test runner::convert::fidelity_tests::real_xlsx_import_keeps_cells_with_pipes_and_newlines ... ok
+test runner::convert::fidelity_tests::word_adjacent_styled_runs_form_one_valid_emphasis_span ... ok
+test runner::convert::fidelity_tests::word_cell_paragraphs_and_empty_cells_keep_the_original_columns ... ok
+test runner::convert::fidelity_tests::word_horizontal_spans_are_padded_without_shifting_later_cells ... ok
+test runner::convert::fidelity_tests::word_run_properties_do_not_leak_and_false_properties_are_respected ... ok
+test runner::cookbook::tests::every_bundled_recipe_parses ... ok
+test runner::cookbook::tests::install_writes_to_workspace_agents_dir ... ok
+test runner::cookbook::tests::list_returns_at_least_ten_entries ... ok
+test runner::cost_meter::tests::corrupt_file_yields_default ... ok
+test runner::cost_meter::tests::record_aggregates_per_provider_when_enabled ... ok
+test runner::cost_meter::tests::record_noops_when_disabled ... ok
+test runner::cost_meter::tests::reset_clears_providers_but_keeps_enabled ... ok
+test runner::crypto::tests::aad_path_swap_fails ... ok
+test runner::agent_tools::tests::semantic_search_with_rag_index ... ok
+test runner::crypto::tests::legacy_slmd_ciphertext_decrypts_fine ... ok
+test runner::crypto::tests::round_trip_short ... ok
+test runner::crypto::tests::round_trip_unicode_and_long ... ok
+test runner::crypto::tests::argon2_derives_deterministically ... ok
+test runner::crypto::tests::set_passphrase_rejects_path_outside_roots ... ok
+test runner::crypto::tests::tampered_ciphertext_fails ... ok
+test runner::crypto::tests::second_set_passphrase_with_wrong_word_fails ... ok
+test runner::crypto::tests::wrong_key_fails ... ok
+test runner::dev_bridge::tests::finds_double_crlf ... ok
+test runner::dev_bridge::tests::random_token_does_not_repeat ... ok
+test runner::dev_bridge::tests::random_token_is_32_hex ... ok
+test runner::dev_bridge::tests::wrap_script_round_trips_id_and_port ... ok
+test runner::github_sync::url_owner_tests::extracts_the_account_segment ... ok
+test runner::github_sync::url_owner_tests::rejects_urls_without_an_owner ... ok
+test runner::integrations::tests::detect_falls_back_to_substring_on_unparseable_config ... ok
+test runner::integrations::tests::detect_ignores_solomd_mentions_outside_the_server_map ... ok
+test runner::integrations::tests::detect_reads_the_right_key_per_client ... ok
+test runner::integrations::tests::splice_antigravity_into_empty ... ok
+test runner::integrations::tests::splice_claude_desktop_into_empty ... ok
+test runner::integrations::tests::splice_claude_desktop_preserves_other_servers ... ok
+test runner::integrations::tests::splice_continue_replaces_existing_solomd ... ok
+test runner::integrations::tests::splice_zed_uses_nested_command_object ... ok
+test runner::integrations::tests::strip_ansi_drops_csi ... ok
+test runner::mcp_client::tests::mcp_names_are_recognized_by_prefix ... ok
+test runner::mcp_client::tests::parse_tools_list_reads_and_defaults ... ok
+test runner::mcp_client::tests::sanitize_produces_openai_safe_names ... ok
+test runner::mcp_client::tests::sse_response_picks_the_matching_id ... ok
+test runner::mcp_client::tests::tool_results_become_text_and_errors ... ok
+test runner::mcp_profiles::tests::render_claude_config_appends_allow_write_when_set ... ok
+test runner::mcp_profiles::tests::render_claude_config_falls_back_to_placeholder_when_path_missing ... ok
+test runner::mcp_profiles::tests::render_claude_config_shape_matches_contract ... ok
+test runner::mcp_profiles::tests::validate_profile_rejects_bad_alias_chars ... ok
+test runner::mcp_profiles::tests::validate_profile_rejects_bad_name_chars ... ok
+test runner::mcp_profiles::tests::validate_profile_rejects_dup_alias ... ok
+test runner::mcp_profiles::tests::validate_profile_rejects_empty_entries ... ok
+test runner::ollama::tests::base_url_env_var_beats_the_override ... ok
+test runner::ollama::tests::base_url_uses_the_override_then_the_default ... ok
+test runner::crypto::tests::workspace_round_trip ... ok
+test runner::ollama::tests::detect_connection_refused_is_not_ok ... ok
+test runner::ollama::tests::detect_empty_models_still_ok ... ok
+test runner::ollama::tests::detect_happy_path_returns_models ... ok
+test runner::ollama::tests::detect_honours_the_configured_base_url ... ok
+test runner::ollama::tests::detect_http_error_is_not_ok ... ok
+test runner::ollama::tests::detect_malformed_json_is_not_ok ... ok
+test runner::ollama::tests::is_local_only_matches_this_machine ... ok
+test runner::ollama::tests::normalize_base_url_fills_in_the_missing_bits ... ok
+test runner::pandoc::tests::failed_export_also_cleans_input_and_preserves_failure_message ... ok
+test runner::pandoc::tests::fake_pandoc_receives_source_context_and_resolves_relative_resources ... ok
+test runner::pandoc::tests::legacy_stderr_paths_remain_readable_and_failed_exports_clean_the_input ... ok
+test runner::pandoc::tests::relative_citations_need_an_explicit_source_and_relative_directories_are_rejected ... ok
+test runner::pandoc::tests::utf8_diagnostics_are_preserved_before_any_system_code_page_fallback ... ok
+test runner::pandoc::tests::windows_diagnostics_support_cp936_gb18030_and_other_active_code_pages ... ok
+test runner::pricing::tests::case_insensitive_model_match ... ok
+test runner::pricing::tests::estimate_cost_basic_arithmetic ... ok
+test runner::pricing::tests::estimate_cost_unknown_returns_zero ... ok
+test runner::pricing::tests::exact_match_returns_published_rate ... ok
+test runner::pricing::tests::mini_prefix_does_not_swallow_full_4o ... ok
+test runner::pricing::tests::prefix_match_picks_up_dated_variant ... ok
+test runner::pricing::tests::unknown_model_for_known_provider_returns_zero ... ok
+test runner::pricing::tests::unknown_provider_returns_zero ... ok
+test runner::quick_capture::tests::actual_capture_open_path_cannot_create_or_show_during_install ... ok
+test runner::quick_capture::tests::reentrant_install_during_capture_build_is_rejected_without_waiting ... ok
+test runner::rag::tests::chunk_strips_front_matter ... ok
+test runner::rag::tests::combined_score_blends_in_lexical_tiebreak ... ok
+test runner::rag::tests::cosine_self_is_one ... ok
+test runner::rag::tests::embedder_config_ids_and_serde_roundtrip ... ok
+test runner::rag::tests::embedder_config_persists_through_meta_table ... ok
+test runner::rag::tests::lexical_overlap_is_fraction_of_present_tokens ... ok
+test runner::rag::tests::parse_ollama_embeddings_normalizes_rows ... ok
+test runner::rag::tests::parse_single_embedding_shape ... ok
+test runner::rag::tests::query_tokens_cover_words_and_cjk_pairs ... ok
+test runner::rag::tests::similar_text_scores_higher_than_unrelated ... ok
+test runner::recipe_runner::tests::provider_for_passes_through_other ... ok
+test runner::recipe_runner::tests::provider_for_resolves_local_alias ... ok
+test runner::recipes::tests::glob_match ... ok
+test runner::recipes::tests::load_recipes_from_dir ... ok
+test runner::recipes::tests::mint_run_id_format ... ok
+test runner::recipes::tests::newly_added_tags_diff ... ok
+test runner::recipes::tests::next_fire_after_for_cron ... ok
+test runner::recipes::tests::parse_caps_write_cap_at_50 ... ok
+test runner::recipes::tests::parse_minimal_schedule ... ok
+test runner::recipes::tests::parse_on_save_requires_match ... ok
+test runner::recipes::tests::parse_on_save_validates_glob ... ok
+test runner::recipes::tests::parse_on_tag_add_requires_tag ... ok
+test runner::recipes::tests::parse_rejects_bad_cron ... ok
+test runner::recipes::tests::parse_rejects_unknown_tool ... ok
+test runner::recipes::tests::parse_rejects_write_tool_without_allow_write ... ok
+test runner::recipes::tests::slugify_basic ... ok
+test runner::recipes::tests::slugify_cjk_distinct ... ok
+test runner::recipes::tests::variables_resolve_dates ... ok
+test runner::recipes::tests::variables_resolve_iso_week ... ok
+test runner::recipes::tests::variables_resolve_trigger_path_and_sha ... ok
+test runner::recipes::tests::variables_resolve_unknown_passes_through ... ok
+test runner::recipes::tests::yaml_roundtrip_preserves_fields ... ok
+test runner::rest_api::tests::banner_no_auth_required ... ok
+test runner::rest_api::tests::list_tools_returns_full_registry ... ok
+test runner::rest_api::tests::missing_token_rejected ... ok
+test runner::rest_api::tests::read_tool_round_trips_via_http ... ok
+test runner::rest_api::tests::unknown_tool_returns_404 ... ok
+test runner::rest_api::tests::write_tool_403_when_allow_write_false ... ok
+test runner::search::matcher_tests::case_sensitive_toggle ... ok
+test runner::search::matcher_tests::default_mode_agrees_with_lowercase_contains ... ok
+test runner::search::matcher_tests::eol_style_is_preserved_per_line ... ok
+test runner::search::matcher_tests::invalid_regex_is_reported ... ok
+test runner::search::matcher_tests::literal_dollars_are_not_expanded ... ok
+test runner::search::matcher_tests::literal_is_case_insensitive_by_default ... ok
+test runner::search::matcher_tests::path_filter_substring_and_glob ... ok
+test runner::search::matcher_tests::regex_mode_matches_alternation ... ok
+test runner::search::matcher_tests::regex_replacement_expands_captures ... ok
+test runner::search::matcher_tests::whole_word_rejects_substring ... ok
+test runner::search::matcher_tests::whole_word_wraps_alternation ... ok
+test runner::spellcheck::user_dict_tests::a_dropped_in_dictionary_parses_and_checks_words ... ok
+test runner::themes::tests::id_validation_accepts_slugs ... ok
+test runner::themes::tests::id_validation_rejects_traversal ... ok
+test runner::themes::tests::test_clean_raw_github_url ... ok
+test runner::themes::tests::test_color_and_var_parsing ... ok
+test runner::themes::tests::test_github_repo_spec_parsing ... ok
+test runner::themes::tests::test_rewrite_relative_css_urls ... ok
+test runner::ollama::tests::detect_timeout_within_two_seconds ... ok
+test runner::themes::tests::test_sniff_phycat ... ok
+test runner::trace::tests::concurrent_appends_do_not_interleave ... ok
+test runner::trace::tests::malformed_lines_are_skipped_not_fatal ... ok
+test runner::trace::tests::parses_fixture_under_tests_dir ... ok
+test runner::trace::tests::payload_cannot_override_reserved_fields ... ok
+test runner::trace::tests::reopen_resumes_seq_from_existing_count ... ok
+test runner::trace::tests::replay_prefix_returns_lines_strictly_before_seq ... ok
+test runner::trace::tests::round_trip_basic_kinds ... ok
+test runner::trace::tests::tool_result_no_truncation_when_under_limit ... ok
+test runner::trace::tests::tool_result_truncation_at_2048_chars ... ok
+test runner::trace::tests::tool_result_truncation_is_utf8_safe_on_cjk ... ok
+test runner::updater::tests::cancellation_interrupts_stalled_actual_http_headers_and_body ... ok
+test runner::updater::tests::candidate_download_urls_generates_direct_and_mirrors ... ok
+test runner::updater::tests::candidate_manifest_urls_respects_preferred_prefix ... ok
+test runner::updater::tests::checksum_chunked_body_cannot_bypass_size_bound ... ok
+test runner::updater::tests::checksum_manifest_accepts_actual_http_body_and_refuses_oversized_length ... ok
+test runner::updater::tests::committed_install_keeps_capture_gate_and_other_editor_windows_still_block ... ok
+test runner::updater::tests::download_name_keeps_only_the_basename ... ok
+test runner::updater::tests::download_reservation_rejects_overlap_and_releases_after_error ... ok
+test runner::updater::tests::empty_or_degenerate_download_names_are_refused ... ok
+test runner::updater::tests::extract_mirror_prefix_detects_proxy_domain ... ok
+test runner::updater::tests::file_sha256_hex_matches_the_abc_vector ... ok
+test runner::updater::tests::install_reserves_before_visibility_and_releases_on_capture_rejection ... ok
+test runner::updater::tests::lookalike_or_untrusted_download_urls_are_refused ... ok
+test runner::updater::tests::manifest_lookup_finds_the_asset_and_ignores_bad_lines ... ok
+test runner::updater::tests::mirror_release_urls_are_trusted_and_canonicalized ... ok
+test runner::updater::tests::official_release_urls_derive_the_manifest_location ... ok
+test runner::updater::tests::traversal_in_a_download_name_is_stripped_not_honoured ... ok
+test runner::updater::tests::untrusted_mirror_or_untrusted_repo_is_rejected ... ok
+test runner::user_pick::tests::pick_filter_shape ... ok
+test runner::user_pick::tests::pick_kind_deserializes_lowercase ... ok
+test runner::watcher::tests::aliases_in_one_window_can_be_released_separately ... ok
+test runner::watcher::tests::deleted_file_identity_matches_registered_path ... ok
+test runner::watcher::tests::destroyed_window_releases_only_its_subscriptions ... ok
+test runner::watcher::tests::directory_watch_survives_atomic_save ... ok
+test runner::watcher::tests::immediate_external_write_is_never_mistaken_for_self_write ... ok
+test runner::watcher::tests::window_subscriptions_are_independent_and_keep_aliases ... ok
+test runner::workspace_index::task_scan_tests::a_bare_checkbox_with_no_text_is_not_a_task ... ok
+test runner::workspace_index::task_scan_tests::finds_open_and_done_items_with_file_line_numbers ... ok
+test runner::workspace_index::task_scan_tests::ignores_front_matter_and_accepts_every_bullet_marker ... ok
+test runner::workspace_index::task_scan_tests::ignores_task_shaped_lines_inside_fenced_code ... ok
+test runner::workspace_index::task_scan_tests::keeps_priority_and_due_tokens_for_the_frontend_to_parse ... ok
+test runner::workspace_index::tests::hex_colors_in_table_not_tags ... ok
+test runner::workspace_index::tests::hex_colors_not_tags ... ok
+test runner::workspace_index::tests::is_reserved_key_matches_ts_set ... ok
+test runner::workspace_index::tests::parse_ref_target_strips_brackets ... ok
+test runner::workspace_index::tests::referenced_by_resolves_inverse_with_self_exclusion ... ok
+test runner::workspace_index::tests::relationships_alias_heading_collapse ... ok
+test runner::workspace_index::tests::relationships_arbitrary_custom_key ... ok
+test runner::workspace_index::tests::relationships_non_wikilink_ignored ... ok
+test runner::workspace_index::tests::relationships_reserved_keys_excluded ... ok
+test runner::workspace_index::tests::relationships_scalar_and_array ... ok
+test runner::workspace_index::tests::relationships_underscore_prefixed_excluded ... ok
+test runner::workspace_index::tests::table_numeric_not_tags ... ok
+test runner::workspace_index::tests::test_body_tags_skip_inline_code ... ok
+test runner::workspace_index::tests::test_body_tags_skip_table_inline_code ... ok
+test runner::workspace_index::tests::test_link_anchor_not_tag ... ok
+test runner::workspace_index::tests::test_strip_inline_code_basic ... ok
+test runner::workspace_index::tests::test_table_backtick_hex_colors ... ok
+test runner::workspace_index::tests::test_table_no_backtick_hex_colors ... ok
+test tests::windows_app_id_matches_tauri_bundle_identifier ... ok
+test windows_update_helper::tests::locked_native_msi_database_resolves_short_long_exe_and_component_identity ... ok
+test windows_update_helper::tests::msi_arguments_reach_a_real_process_without_shell_expansion ... ok
+test windows_update_helper::tests::msi_metadata_rejects_ambiguous_exe_and_non_file_component_key_path ... ok
+test windows_update_helper::tests::msi_restart_uses_installed_target_and_never_falls_back_to_old_portable ... ok
+test runner::themes::tests::test_sniff_latex has been running for over 60 seconds
+test runner::themes::tests::test_sniff_latex ... ok
+
+test result: ok. 296 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 105.47s
+
+     Running tests\agent_tool_authorization_test.rs (target\debug\deps\agent_tool_authorization_test-084e70f7a2999063.exe)
+
+running 1 test
+test all_provider_loops_enforce_request_permissions_before_writing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\agent_tools_e2e_test.rs (target\debug\deps\agent_tools_e2e_test-7599dd6a6d50f17c.exe)
+
+running 21 tests
+test append_to_note_missing_file_created_as_utf8 ... ok
+test append_to_note_extends_existing_file ... ok
+test append_to_note_preserves_utf8_bom ... ok
+test append_to_note_preserves_gbk_encoding ... ok
+test get_backlinks_finds_referencing_notes ... ok
+test append_to_note_refuses_undecodable_file ... ok
+test get_outline_returns_heading_tree ... ok
+test list_notes_returns_seed_files ... ok
+test list_tags_aggregates_counts ... ok
+test list_notes_scoped_by_folder ... ok
+test read_note_round_trips_frontmatter_and_links ... ok
+test search_finds_literal_match ... ok
+test read_agent_trace_parses_stored_steps ... ok
+test unknown_tool_errors ... ok
+test workspace_traversal_blocked ... ok
+test write_note_creates_file_and_refuses_clobber ... ok
+test write_note_default_encoding_stays_utf8 ... ok
+test write_note_gbk_encoding_roundtrips_byte_exactly ... ok
+test write_note_gbk_rejects_unrepresentable_characters ... ok
+test write_note_rejects_unknown_encoding_label ... ok
+test semantic_search_e2e_fallback_and_indexed ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\agent_trace_e2e_test.rs (target\debug\deps\agent_trace_e2e_test-a51cb55c4b80b075.exe)
+
+running 2 tests
+test end_to_end_truncates_giant_tool_result ... ok
+test end_to_end_panel_chat_run ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\capture_e2e_test.rs (target\debug\deps\capture_e2e_test-318a0df8b7005885.exe)
+
+running 9 tests
+test append_creates_file_and_prepends_newline ... ok
+test append_path_rejects_traversal_and_absolute_paths ... ok
+test full_capture_flow ... ok
+test handle_capture_with_append_path ... ok
+test iso8601_format_is_well_formed ... ok
+test live_http_append_round_trip ... ok
+test live_http_round_trip ... ok
+test test_shortcut_parsing ... ok
+test pure_write_works_without_globals ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests\cjk_proofread_test.rs (target\debug\deps\cjk_proofread_test-e8b5b8539ed0c73c.exe)
+
+running 10 tests
+test cjk_then_latin_flagged_with_thin_space ... ok
+test digit_unit_then_han_flagged ... ok
+test doubled_de_flagged_low ... ok
+test empty_input_yields_no_issues ... ok
+test feichang_de_followed_by_han_flagged_as_di ... ok
+test halfwidth_comma_after_han_flagged ... ok
+test halfwidth_question_after_han_flagged ... ok
+test latin_double_quotes_wrapping_han_flagged ... ok
+test pure_ascii_yields_no_issues ... ok
+test smoke_mixed_quality_doc ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\command_registration_test.rs (target\debug\deps\command_registration_test-dd12648dbf1a07aa.exe)
+
+running 1 test
+test every_command_is_registered_in_both_compile_roots ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\copy_file_test.rs (target\debug\deps\copy_file_test-47d4a97553015b08.exe)
+
+running 4 tests
+test copy_missing_source_errors ... ok
+test copy_overwrites_existing ... ok
+test copy_creates_parent_dirs ... ok
+test write_binary_creates_parent_dirs ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\encoding_detection_test.rs (target\debug\deps\encoding_detection_test-d0777a578cc5cbdd.exe)
+
+running 8 tests
+test frontmatter_delete_preserves_gbk_encoding ... ok
+test frontmatter_update_preserves_gbk_encoding ... ok
+test medium_gbk_note ... ok
+test other_cjk_legacy_encodings ... ok
+test frontmatter_update_preserves_utf8_bom ... ok
+test short_gbk_note ... ok
+test utf8_without_bom_survives_at_any_length ... ok
+test read_text_detected_gbk_roundtrips_byte_exactly ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\encoding_write_test.rs (target\debug\deps\encoding_write_test-c3d665452716ce13.exe)
+
+running 4 tests
+test encoding_failure_never_replaces_existing_file ... ok
+test ordinary_save_preserves_utf8_bom_and_supports_explicit_removal ... ok
+test utf16_byte_order_surrogate_pairs_and_bom_roundtrip ... ok
+test utf16_frontmatter_edits_preserve_body_and_encoding ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\frontmatter_edit_test.rs (target\debug\deps\frontmatter_edit_test-6151ee7e50645085.exe)
+
+running 24 tests
+test appending_new_key_does_not_reflow_existing_inline_array ... ok
+test appends_new_key_at_end ... ok
+test body_with_internal_hr_is_preserved_byte_for_byte ... ok
+test boolean_and_number_types_are_bare ... ok
+test cjk_key_edit_preserves_other_cjk_keys_verbatim ... ok
+test crlf_block_round_trips_with_crlf ... ok
+test cjk_key_round_trips ... ok
+test deleting_block_style_array_removes_all_its_lines ... ok
+test deleting_last_key_drops_block_leaving_body ... ok
+test deleting_missing_key_is_noop_for_values ... ok
+test deleting_one_of_many_preserves_order_and_body ... ok
+test editing_a_block_style_array_replaces_only_its_lines ... ok
+test editing_one_key_preserves_comments ... ok
+test editing_one_key_preserves_inline_array_neighbor_verbatim ... ok
+test editing_preserves_block_style_array_neighbor ... ok
+test editing_preserves_single_quoted_neighbor_style ... ok
+test empty_string_value_round_trips ... ok
+test inline_array_value_round_trips ... ok
+test no_frontmatter_synthesis_has_no_blank_line_before_h1 ... ok
+test quoted_key_with_colon_round_trips_in_place ... ok
+test quoted_scalar_with_special_chars_round_trips ... ok
+test synthesizes_block_for_empty_file ... ok
+test synthesizes_block_for_note_without_frontmatter ... ok
+test updates_value_in_place_preserving_order_and_body ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\git_history_e2e_test.rs (target\debug\deps\git_history_e2e_test-68472ce12d1ce648.exe)
+
+running 4 tests
+test autogit_history_for_file_outside_workspace_errors_cleanly ... ok
+test autogit_no_op_commit_returns_none ... ok
+test autogit_status_on_uninitialized_folder_is_safe ... ok
+test autogit_full_flow_init_commit_history_diff_rollback ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.33s
+
+     Running tests\gitea_selfhosted_e2e_test.rs (target\debug\deps\gitea_selfhosted_e2e_test-b7b95347302d28f2.exe)
+
+running 2 tests
+test gitea_push_fails_with_bad_token ... ignored, needs a live Gitea/Forgejo instance; see module docs
+test gitea_push_pull_roundtrip_over_http ... ignored, needs a live Gitea/Forgejo instance; see module docs
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\gitee_auth_e2e_test.rs (target\debug\deps\gitee_auth_e2e_test-ebf2d440fb7d2b9f.exe)
+
+running 1 test
+test push_to_gitee_authenticates ... ignored
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\github_sync_branch_test.rs (target\debug\deps\github_sync_branch_test-16ada583444c73f6.exe)
+
+running 2 tests
+test pull_falls_back_to_remote_master_for_legacy_repos ... ok
+test pull_normalizes_local_master_when_remote_has_main ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests\github_sync_e2e_test.rs (target\debug\deps\github_sync_e2e_test-bf3dc919072c796e.exe)
+
+running 4 tests
+test github_sync_corrupted_config_fails_closed ... ok
+test github_sync_push_pull_roundtrip ... ok
+test github_pull_preserves_uncommitted_local_edits ... ok
+test github_sync_surfaces_conflicts_on_concurrent_edit ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests\github_sync_e2ee_test.rs (target\debug\deps\github_sync_e2ee_test-77cdab47092abf53.exe)
+
+running 1 test
+test e2ee_full_round_trip_two_devices ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests\mcp_client_e2e_test.rs (target\debug\deps\mcp_client_e2e_test-ac596c76516471a8.exe)
+
+running 1 test
+test mcp_transports_round_trip_real_servers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.47s
+
+     Running tests\note_write_conflict_test.rs (target\debug\deps\note_write_conflict_test-f6d0a14e74a694b8.exe)
+
+running 7 tests
+test compare_and_save_accepts_legacy_carriage_return_lines ... ok
+test deleted_target_is_a_conflict_instead_of_silent_recreation ... ok
+test compare_and_save_normalizes_crlf_and_decodes_utf16_baselines ... ok
+test expected_missing_never_overwrites_a_newly_created_target ... ok
+test rename_with_assets_keeps_utf16_encoding_without_reentering_tree_lock ... ok
+test simultaneous_windows_cannot_both_save_the_same_old_baseline ... ok
+test expected_missing_windows_unicode_case_aliases_cannot_both_create_the_file ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\ollama_tools_e2e_test.rs (target\debug\deps\ollama_tools_e2e_test-609226018c332dc5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\path_guard_test.rs (target\debug\deps\path_guard_test-150b375bf1d42b6a.exe)
+
+running 18 tests
+test a_forbidden_root_is_rejected_both_ways_round ... ok
+test allows_paths_inside_registered_process_roots ... ok
+test allows_paths_inside_the_registered_workspace ... ok
+test approvals_survive_a_store_round_trip ... ok
+test approve_root_refuses_to_grant_a_forbidden_path ... ok
+test approve_root_rejects_a_non_directory ... ok
+test approved_root_authorizes_paths_inside_it ... ok
+test dropping_a_file_authorizes_its_directory ... ok
+test early_in_memory_approvals_survive_load_approved_roots ... ok
+test path_within_is_component_wise_not_string_prefix ... ok
+test os_opened_file_with_cjk_characters_and_spaces_is_authorized ... ok
+test rejects_dotdot_escapes ... ok
+test rejects_paths_outside_every_root ... ok
+test rejects_symlinks_that_point_outside_the_root ... ok
+test switching_workspace_replaces_the_previous_root ... ok
+test windows_path_comparison_is_case_insensitive ... ok
+test the_one_shot_bootstrap_is_only_open_while_the_store_is_missing ... ok
+test with_no_workspace_and_no_process_roots_everything_is_rejected ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\rag_e2e_test.rs (target\debug\deps\rag_e2e_test-6cd4c67983fa3c42.exe)
+
+running 4 tests
+test rag_disabled_by_default_no_overhead ... ok
+test rag_full_flow_index_then_search_ranks_relevant_first ... ok
+test rag_search_on_empty_query_returns_empty ... ok
+test rag_incremental_update_picks_up_new_file ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests\read_file_test.rs (target\debug\deps\read_file_test-a259e799760cb317.exe)
+
+running 7 tests
+test read_gbk_chinese ... ok
+test detect_language_from_extension ... ok
+test read_utf16_le_bom ... ok
+test read_utf8_no_bom ... ok
+test read_utf8_with_bom ... ok
+test write_gbk_roundtrip ... ok
+test write_then_read_utf8_roundtrip ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\recipes_e2e_test.rs (target\debug\deps\recipes_e2e_test-4281e6082380a034.exe)
+
+running 6 tests
+test ollama_smoke ... ignored
+test loader_skips_example_files ... ok
+test recipe_aborts_on_dirty_workspace ... ok
+test validate_run_id_accepts_canonical_shape ... ok
+test validate_run_id_rejects_traversal ... ok
+test recipe_run_creates_branch_and_trace ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\search_test.rs (target\debug\deps\search_test-2a53d930128476c3.exe)
+
+running 6 tests
+test empty_query_returns_empty ... ok
+test case_insensitive ... ok
+test finds_needle_across_files ... ok
+test respects_max_results ... ok
+test truncated_flag_clear_below_cap ... ok
+test truncated_flag_set_when_cap_binds ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\windows_updater_process_test.rs (target\debug\deps\windows_updater_process_test-68d3fdf4d6fcc9bd.exe)
+
+running 5 tests
+test preflight_rejects_unverified_bytes_or_unsupported_installer_without_launch ... ok
+[updater] Update handoff integrity check failed; nothing was executed
+test real_product_entry_rejects_job_digest_tampering_before_deserialization ... ok
+test installer_failure_is_recorded_without_restart_or_false_success ... ok
+test real_product_helper_waits_installs_and_restarts_with_shell_metacharacter_paths ... ok
+test staged_installer_cannot_be_written_deleted_or_replaced_while_handoff_waits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.77s
+
+   Doc-tests app_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

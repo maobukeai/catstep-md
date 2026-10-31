@@ -1,0 +1,17 @@
+warning: in the working copy of 'app/src-tauri/src/updater.rs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/components/UpdateModal.vue', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/de.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/en.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/es.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/fr.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/it.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/ja.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/ko.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/nl.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/pl.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/pt.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/sv.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/tr.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/uk.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/i18n/zh.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/src/lib/check-update.test.ts', LF will be replaced by CRLF the next time Git touches it

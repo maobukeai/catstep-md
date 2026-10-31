@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.96s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-166654faeb8e8dce.exe)
+
+running 4 tests
+test windows_update_helper::tests::locked_native_msi_database_resolves_short_long_exe_and_component_identity ... ok
+test windows_update_helper::tests::msi_metadata_rejects_ambiguous_exe_and_non_file_component_key_path ... ok
+test windows_update_helper::tests::msi_restart_uses_installed_target_and_never_falls_back_to_old_portable ... ok
+test windows_update_helper::tests::msi_arguments_reach_a_real_process_without_shell_expansion ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 280 filtered out; finished in 0.28s

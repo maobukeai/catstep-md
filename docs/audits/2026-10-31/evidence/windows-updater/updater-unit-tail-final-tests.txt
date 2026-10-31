@@ -1,0 +1,25 @@
+    Blocking waiting for file lock on artifact directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.05s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-166654faeb8e8dce.exe)
+
+running 18 tests
+test updater::tests::candidate_download_urls_generates_direct_and_mirrors ... ok
+test updater::tests::candidate_manifest_urls_respects_preferred_prefix ... ok
+test updater::tests::checksum_chunked_body_cannot_bypass_size_bound ... ok
+test updater::tests::checksum_manifest_accepts_actual_http_body_and_refuses_oversized_length ... ok
+test updater::tests::committed_install_keeps_capture_gate_and_other_editor_windows_still_block ... ok
+test updater::tests::download_name_keeps_only_the_basename ... ok
+test updater::tests::download_reservation_rejects_overlap_and_releases_after_error ... ok
+test updater::tests::empty_or_degenerate_download_names_are_refused ... ok
+test updater::tests::extract_mirror_prefix_detects_proxy_domain ... ok
+test updater::tests::file_sha256_hex_matches_the_abc_vector ... ok
+test updater::tests::install_reserves_before_visibility_and_releases_on_capture_rejection ... ok
+test updater::tests::lookalike_or_untrusted_download_urls_are_refused ... ok
+test updater::tests::manifest_lookup_finds_the_asset_and_ignores_bad_lines ... ok
+test updater::tests::mirror_release_urls_are_trusted_and_canonicalized ... ok
+test updater::tests::official_release_urls_derive_the_manifest_location ... ok
+test updater::tests::traversal_in_a_download_name_is_stripped_not_honoured ... ok
+test updater::tests::untrusted_mirror_or_untrusted_repo_is_rejected ... ok
+test updater::tests::cancellation_interrupts_stalled_actual_http_headers_and_body ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 266 filtered out; finished in 0.25s

@@ -1,0 +1,147 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>猫步 MD Windows自动更新修复报告</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:#203047;background:#f3f5f8;font:16px/1.85 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+.shell{display:grid;grid-template-columns:240px minmax(0,960px);gap:36px;max-width:1280px;margin:0 auto;padding:36px 24px 80px}
+aside{position:sticky;top:28px;align-self:start;font-size:13px}aside strong{display:block;margin-bottom:14px;color:#52647d}aside a{display:block;border-left:2px solid #d5deea;padding:7px 12px;text-decoration:none;color:#435774}aside a:hover{border-color:#1f63bd;color:#1f63bd;background:#e5edf8}
+main{min-width:0;overflow-wrap:anywhere;background:white;padding:40px 46px;border:1px solid #e0e5ed;border-radius:12px;box-shadow:0 5px 20px #18315508}
+h1{font-size:30px;line-height:1.45;margin:0 0 24px;color:#142b4d}h2{font-size:23px;margin:48px 0 18px;padding-bottom:9px;border-bottom:2px solid #e3ebf5;scroll-margin-top:20px;color:#183e73}h3{font-size:18px;margin:30px 0 12px;color:#223e62}
+p{margin:14px 0}a{color:#1f63bd;text-underline-offset:3px}strong{color:#182f4f}li{margin:8px 0}ul,ol{padding-left:24px}img{display:block;max-width:100%;height:auto;margin:24px auto;border:1px solid #d8e0eb;border-radius:7px}
+.table-scroll{max-width:100%;overflow-x:auto;margin:20px 0;border:1px solid #dbe3ee;border-radius:7px}table{width:100%;border-collapse:collapse;font-size:13px;line-height:1.7;min-width:580px}th,td{padding:10px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#eaf0f8;color:#264a7c;font-weight:650}tbody tr:nth-child(even){background:#f8fafc}tr:last-child td{border-bottom:0}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f2f5f9;border:1px solid #e0e6ef;border-radius:6px;padding:18px;font:13px/1.8 Consolas,monospace}code{font-family:Consolas,monospace}.meta{font-size:12px;color:#6b7e98;letter-spacing:1px;margin-bottom:16px}.download{display:inline-block;font-size:13px;margin-top:15px;padding:5px 12px;background:#edf3fc;border-radius:5px;text-decoration:none}
+@media(max-width:900px){.shell{display:block;padding:18px 12px}aside{position:static;margin-bottom:24px}aside nav{display:flex;flex-wrap:wrap;gap:4px}aside a{padding:5px 10px;border:1px solid #d5deea;border-radius:5px}main{padding:28px 20px}h1{font-size:25px}}
+@media print{body{background:white;font-size:10pt}.shell{display:block;padding:0}aside,.download{display:none}main{padding:0;border:0;box-shadow:none}h2,h3{break-after:avoid}img{max-height:23cm;object-fit:contain;break-inside:avoid}.table-scroll{overflow:visible}table{min-width:0;font-size:8pt}tr{break-inside:avoid}pre{font-size:8pt}a{color:inherit}}</style></head><body><div class="shell"><aside><strong>猫步 MD · 2026 年 10 月 31 日</strong><nav><a href="#section-1">结论与根因</a><a href="#section-2">修改内容</a><a href="#section-3">已完成的验证</a><a href="#section-4">发布验收</a><a href="#section-5">安装说明与验收边界</a></nav><a class="download" href="Windows%E8%87%AA%E5%8A%A8%E6%9B%B4%E6%96%B0%E4%BF%AE%E5%A4%8D%E6%8A%A5%E5%91%8A.md">查看 Markdown 原稿</a></aside><main><div class="meta">CATSTEP MD / 项目深度审计</div><h1>Windows 自动更新修复报告</h1>
+<p>检查日期：2026 年 10 月 31 日。范围：Windows 更新下载、校验、安装进程交接、重启、编辑状态保护及发布包。对应用户反馈：下载进度停在约 93%，随后 Windows 提示无法找到文件。</p>
+<h2 id="section-1">结论与根因</h2>
+<p>原实现把安装包路径拼进 <code>cmd.exe /C</code> 和 <code>START</code> 命令。Rust 的 Windows 参数编码与 cmd 的命令解析规则不同，路径经过两层解释，存在空格、中文和特殊符号时可以启动失败。自有无害程序实测：旧启动方式返回 1 且未执行安装器，同一路径直接作为进程参数则正常。测试环境显示的具体错误文字不同，不能据此声称已逐字复现用户截图。</p>
+<p>进度停在 93% 还有独立的显示原因：下载进度是采样事件，下载完成后仍需获取校验清单并计算摘要，旧界面没有显示该阶段。93% 本身不足以判断网络下载失败。</p>
+<p>原流程还使用固定延时猜测主程序已关闭，无论安装成功与否都继续重启；前端存在两套自动安装计时器，可能重复发起安装。上述问题均已纳入修复。</p>
+<h2 id="section-2">修改内容</h2>
+<div class="table-scroll" tabindex="0"><table><thead>
+<tr>
+<th>范围</th>
+<th>修改后的行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows 启动链</td>
+<td>使用独立 helper 和 Windows 进程 API，安装包路径作为参数传递；等待真实父进程退出，再等待安装进程结束并判断退出码。</td>
+</tr>
+<tr>
+<td>安装可信度</td>
+<td>保留官方 SHA-256 清单校验；helper、交接数据及安装包均校验，安装期间禁止写入、删除或替换已锁定的包。</td>
+</tr>
+<tr>
+<td>安装结果</td>
+<td>MSI 仅接受规定的成功码；失败保留日志并明确报错，不重启冒充成功。正常保留 Windows 管理员授权流程。</td>
+</tr>
+<tr>
+<td>下载状态</td>
+<td>明确显示校验阶段；网络及清单读取可取消、有超时和大小限制，取消后不会再进入正常完成分支。</td>
+</tr>
+<tr>
+<td>并发与取消</td>
+<td>共享唯一下载、安装任务及自动安装计时器；取消自动安装后不被另一计时器再次触发。</td>
+</tr>
+<tr>
+<td>版本和架构</td>
+<td>从真实 GitHub Release 选择资产；不凭主分支版本号构造不存在的链接；x64 不选择 ARM64 包。</td>
+</tr>
+<tr>
+<td>编辑内容保护</td>
+<td>输入法组合期间自动更新延期，手动安装等待组合结束；未保存内容或会话持久化失败时拒绝安装，准备完成后冻结编辑交互。</td>
+</tr>
+<tr>
+<td>便携版安装后重启</td>
+<td>在持锁的已验证 MSI 内读取 ProductCode 和主程序 ComponentGuid，安装成功后查询实际安装路径；定位失败时明确报错，不回退重启旧便携副本。</td>
+</tr>
+<tr>
+<td>快速收集草稿</td>
+<td>可见或正在创建的快速收集窗口会阻止安装；安装预约期间拒绝全局快捷键打开窗口，失败释放预约。隐藏驻留窗口不阻塞。</td>
+</tr>
+<tr>
+<td>便携包</td>
+<td>补齐图标和英文拼写词典；只捆绑对应架构、本次构建的 MCP 程序。</td>
+</tr>
+</tbody>
+</table></div><p>Windows Installer API 从系统目录按需加载，资源句柄有明确生命周期；不修改注册表，不绕过管理员授权。快速收集创建与安装预检通过 UI 队列和无阻塞预约协调，覆盖窗口创建期间的重入情况。</p>
+<h2 id="section-3">已完成的验证</h2>
+<p>最终冻结源码的验证结果：</p>
+<div class="table-scroll" tabindex="0"><table><thead>
+<tr>
+<th>门禁</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>前端完整测试</td>
+<td>666 通过，0 失败，0 忽略</td>
+</tr>
+<tr>
+<td>前端类型、国际化、提示文案、生产构建</td>
+<td>全部通过</td>
+</tr>
+<tr>
+<td>Rust 完整回归</td>
+<td>28 个目标，728 通过，0 失败，4 项既有忽略</td>
+</tr>
+<tr>
+<td>Rust 所有目标 Clippy</td>
+<td><code>-D warnings</code> 通过</td>
+</tr>
+<tr>
+<td>Windows x64 原生构建</td>
+<td>MSI、便携包构建成功；29 项更新专题测试通过</td>
+</tr>
+<tr>
+<td>Windows ARM64 原生构建</td>
+<td>MSI、便携包构建成功；29 项更新专题测试通过</td>
+</tr>
+<tr>
+<td>MSI 与 ZIP 静态核验</td>
+<td>架构、版本、来源、完整资源及升级元数据均通过</td>
+</tr>
+<tr>
+<td>GitHub 公开下载回验</td>
+<td>4 个新包及校验清单的完整 SHA-256 均匹配；24 条清单与 API 摘要一致</td>
+</tr>
+</tbody>
+</table></div><p>真实 Windows 进程回归使用产品的 helper 入口及自有无害安装器，验证特殊路径参数、父进程退出顺序、安装失败不重启、文件锁和交接摘要。没有运行真实 MSI 安装，没有改动本机已有安装或用户笔记。</p>
+<p>详细证据：<a href="evidence/windows-updater/backend-remediation.md">后端实现与验证</a>、<a href="evidence/windows-updater/release/frontend-tests.txt">完整前端测试</a>、<a href="evidence/windows-updater/release/rust-tests-frozen.txt">最终 Rust 完整回归</a>、<a href="evidence/windows-updater/release/artifact-verification.md">产物核验</a>、<a href="evidence/windows-updater/release/public-download-verification.txt">公开下载回验</a>。</p>
+<h2 id="section-4">发布验收</h2>
+<p>已完成 v1.0.13 的 Windows x64 / ARM64 MSI、便携包共四项资产替换，并在包上传结束后替换完整 <code>SHA256SUMS.txt</code>。重新从无鉴权的 GitHub 标准下载 URL 下载五个文件，完整 SHA-256 均与候选产物一致。其余 20 项资产的 ID、大小与摘要均保持原值。</p>
+<p>源码提交：<a href="https://github.com/maobukeai/catstep-md/commit/e4a6a1285e272da62737e6df5ed33f49de242a49">e4a6a1285e272da62737e6df5ed33f49de242a49</a>。原生构建与测试：<a href="https://github.com/maobukeai/catstep-md/actions/runs/41192825074">GitHub Actions 41192825074</a>。原发布标签保留；Windows 资产对应以上热修复提交，发布说明已标明来源。</p>
+<div class="table-scroll" tabindex="0"><table><thead>
+<tr>
+<th>发布资产</th>
+<th>字节数</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x64 MSI</td>
+<td>16879616</td>
+<td><code>ce9b95b492a7f52f5fe153a0a5af5e31e5820160ce486ee2ef546999b260c623</code></td>
+</tr>
+<tr>
+<td>x64 便携包</td>
+<td>16368374</td>
+<td><code>b35bafb8b251dacf99c0dd375e184e400ada00709d38038646ab69152f92852e</code></td>
+</tr>
+<tr>
+<td>ARM64 MSI</td>
+<td>16371712</td>
+<td><code>96a956709bbe09219a5eedc425f1919c00a8509e081fcf9fdddeb20cd22b9708</code></td>
+</tr>
+<tr>
+<td>ARM64 便携包</td>
+<td>15898476</td>
+<td><code>571fe9144116b6245b1626f6316c8f4cddde3c27f4228dd30e8a9667d6fb050e</code></td>
+</tr>
+</tbody>
+</table></div><p>两架构新 MSI 的 ProductCode、PackageCode 均与旧包不同，UpgradeCode 相同，实际升级表包含当前的 1.0.13，具备同版本覆盖安装条件。MSI 与便携包中的主程序只有 Tauri 标准 <code>UNK</code> / <code>MSI</code> 打包标记的三字节差异，其他字节一致；资源与 MCP 摘要一致，未改动实际发布产物以消除差异。</p>
+<p>下载：<a href="https://github.com/maobukeai/catstep-md/releases/download/v1.0.13/CatstepMD_1.0.13_x64_en-US.msi">Windows x64 安装包</a>、<a href="https://github.com/maobukeai/catstep-md/releases/tag/v1.0.13">全部平台发布页</a>。</p>
+<h2 id="section-5">安装说明与验收边界</h2>
+<p>本次按用户要求替换 v1.0.13 的 Windows 安装包和便携包。已经安装 v1.0.13 的客户端不会将同版本替换识别为更高版本，因此需要重新下载修复包并覆盖安装一次。旧版本启动器自身的错误也需要通过这次手动安装修复。</p>
+<p>进程测试不等同于在所有 Windows 环境完成实际安装。管理员授权、Windows Installer 服务和第三方软件干预，需要在用户安装时实际确认；本次保留安装日志供失败时定位。用户自行安装，未代为关闭或替换其正在运行的应用。</p>
+</main></div></body></html>

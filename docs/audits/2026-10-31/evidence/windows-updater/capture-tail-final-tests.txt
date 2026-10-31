@@ -1,0 +1,9 @@
+   Compiling catstep-md v1.0.13 (C:\Users\20269\Desktop\项目文件夹\md管理器\app\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.29s
+     Running unittests src\lib.rs (target\debug\deps\app_lib-166654faeb8e8dce.exe)
+
+running 2 tests
+test quick_capture::tests::reentrant_install_during_capture_build_is_rejected_without_waiting ... ok
+test quick_capture::tests::actual_capture_open_path_cannot_create_or_show_during_install ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 282 filtered out; finished in 0.00s

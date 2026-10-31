@@ -1,0 +1,32 @@
+[
+  {
+    "command": "pnpm test",
+    "exit_code": 0,
+    "seconds": 3.803,
+    "log": "frontend-tests.txt"
+  },
+  {
+    "command": "pnpm test:type",
+    "exit_code": 0,
+    "seconds": 4.063,
+    "log": "frontend-types.txt"
+  },
+  {
+    "command": "pnpm i18n:check",
+    "exit_code": 0,
+    "seconds": 0.599,
+    "log": "frontend-i18n.txt"
+  },
+  {
+    "command": "pnpm i18n:toast",
+    "exit_code": 0,
+    "seconds": 0.448,
+    "log": "frontend-i18n-toast.txt"
+  },
+  {
+    "command": "pnpm build",
+    "exit_code": 0,
+    "seconds": 37.917,
+    "log": "frontend-build.txt"
+  }
+]
