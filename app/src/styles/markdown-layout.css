@@ -74,7 +74,9 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.cm-host .cm-editor .cm-live-block--table table,
+/* Structural layout outranks normal imported-theme table/cell/code rules.
+   Theme colors, typography and alignment remain independent. */
+.cm-host .cm-editor .cm-live-block--table .md-table-scroll > table,
 .preview-content .md-table-scroll > table,
 :root #write.preview-content .md-table-scroll > table,
 .plain-block__render .md-table-scroll > table {
@@ -85,8 +87,8 @@
   table-layout: auto;
   overflow: visible;
 }
-.cm-host .cm-editor .cm-live-block--table th,
-.cm-host .cm-editor .cm-live-block--table td,
+.cm-host .cm-editor .cm-live-block--table .md-table-scroll th,
+.cm-host .cm-editor .cm-live-block--table .md-table-scroll td,
 .preview-content .md-table-scroll th,
 .preview-content .md-table-scroll td,
 :root #write.preview-content .md-table-scroll :is(th, td),
@@ -99,8 +101,9 @@
   overflow-wrap: anywhere;
   word-break: normal;
 }
-.cm-host .cm-editor .cm-live-block--table code,
+.cm-host .cm-editor .cm-live-block--table .md-table-scroll code,
 .preview-content .md-table-scroll code,
+:root #write.preview-content .md-table-scroll code,
 .plain-block__render .md-table-scroll code {
   white-space: normal;
   overflow-wrap: anywhere;
@@ -200,15 +203,15 @@
     contain: none;
     overflow: visible;
   }
-  .cm-host .cm-editor .cm-live-block--table table,
+  .cm-host .cm-editor .cm-live-block--table .md-table-scroll > table,
   :root #write.preview-content .md-table-scroll > table,
   .preview-content .md-table-scroll > table,
   .plain-block__render .md-table-scroll > table {
     width: 100%;
     table-layout: fixed;
   }
-  .cm-host .cm-editor .cm-live-block--table th,
-  .cm-host .cm-editor .cm-live-block--table td,
+  .cm-host .cm-editor .cm-live-block--table .md-table-scroll th,
+  .cm-host .cm-editor .cm-live-block--table .md-table-scroll td,
   .preview-content .md-table-scroll th,
   .preview-content .md-table-scroll td,
   :root #write.preview-content .md-table-scroll :is(th, td),
