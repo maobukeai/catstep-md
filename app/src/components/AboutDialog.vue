@@ -92,7 +92,8 @@ async function copyVersion() {
 }
 
 async function manualCheckUpdate() {
-  if (sharedUpdaterState.isDownloading) {
+  if (sharedUpdaterState.isDownloading || sharedUpdaterState.isInstalling || sharedUpdaterState.status === 'completed') {
+    foundUpdate.value = sharedUpdaterState.updateInfo;
     showUpdateModal.value = true;
     return;
   }

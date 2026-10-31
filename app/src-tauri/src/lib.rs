@@ -107,6 +107,8 @@ pub mod recipe_runner;
 // list / preview / install into <workspace>/.solomd/agents/.
 pub mod cookbook;
 pub mod updater;
+#[cfg(target_os = "windows")]
+pub mod windows_update_helper;
 
 // v2.3 dev WebDriver bridge — debug builds only.
 #[cfg(debug_assertions)]

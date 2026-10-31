@@ -412,14 +412,14 @@ export const useTabsStore = defineStore('tabs', {
       }
       if (value) useSettingsStore().ensureRightSidebarVisible();
     },
-    persist() {
+    persist(strict = false) {
       try {
         localStorage.setItem(
           bucketKey(currentWorkspaceFolder()),
           JSON.stringify({ tabs: this.tabs, activeId: this.activeId }),
         );
       } catch (err: any) {
-        if (err?.name === 'QuotaExceededError' || err?.code === 22) {
+        if (strict || err?.name === 'QuotaExceededError' || err?.code === 22) {
           throw err;
         }
       }

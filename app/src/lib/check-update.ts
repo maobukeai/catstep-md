@@ -6,7 +6,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
 import { isAndroid, isIOS, isMacOS } from './platform';
 
 /**
@@ -25,10 +25,6 @@ const REPO_NAME = 'catstep-md';
 const RELEASES_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases`;
 const LATEST_RELEASE_PAGE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
 const GITHUB_API_URL = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`;
-const JSDELIVR_MIRROR_URL = `https://fastly.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@main/app/package.json`;
-const JSDELIVR_CDN_URL = `https://cdn.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}@main/app/package.json`;
-const GHFAST_RAW_URL = `https://ghfast.top/https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/app/package.json`;
-const GITHUB_RAW_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/app/package.json`;
 
 export interface ReleaseAsset {
   name: string;
@@ -57,7 +53,7 @@ export interface PlatformInfo {
 }
 
 export interface UpdateProgressPayload {
-  status: 'started' | 'downloading' | 'completed' | 'error' | 'cancelled';
+  status: 'started' | 'downloading' | 'verifying' | 'completed' | 'error' | 'cancelled';
   downloaded: number;
   total: number | null;
   percent: number;
@@ -68,7 +64,8 @@ export interface UpdateProgressPayload {
 
 export interface UpdaterSharedState {
   isDownloading: boolean;
-  status: 'idle' | 'started' | 'downloading' | 'completed' | 'error' | 'cancelled';
+  status: 'idle' | UpdateProgressPayload['status'] | 'preparing' | 'installing';
+  isInstalling: boolean;
   downloaded: number;
   total: number | null;
   percent: number;
@@ -77,12 +74,17 @@ export interface UpdaterSharedState {
   error: string | null;
   targetVersion: string | null;
   matchedAsset: ReleaseAsset | null;
+  updateInfo: UpdateResult | null;
+  installError: string | null;
+  autoInstallCountdown: number | null;
+  autoInstallDeferred: boolean;
 }
 
 /** Global reactive updater state shared across components */
 export const sharedUpdaterState = reactive<UpdaterSharedState>({
   isDownloading: false,
   status: 'idle',
+  isInstalling: false,
   downloaded: 0,
   total: null,
   percent: 0,
@@ -91,17 +93,32 @@ export const sharedUpdaterState = reactive<UpdaterSharedState>({
   error: null,
   targetVersion: null,
   matchedAsset: null,
+  updateInfo: null,
+  installError: null,
+  autoInstallCountdown: null,
+  autoInstallDeferred: false,
 });
 
 let unlistenProgress: UnlistenFn | null = null;
+let listenerPromise: Promise<void> | null = null;
+let downloadPromise: Promise<string> | null = null;
+let installPromise: Promise<boolean> | null = null;
+let downloadCancelled = false;
 
 /** Setup listener for native updater events */
-export async function initUpdaterEventListener(): Promise<void> {
-  if (unlistenProgress) return;
-  try {
-    unlistenProgress = await listen<UpdateProgressPayload>('updater-progress', (event) => {
+export function initUpdaterEventListener(): Promise<void> {
+  if (unlistenProgress) return Promise.resolve();
+  if (listenerPromise) return listenerPromise;
+  listenerPromise = listen<UpdateProgressPayload>('updater-progress', (event) => {
+      // Rust directs progress to the downloading window. Keep late terminal
+      // events from changing a later install or a completed cancellation.
+      if (!downloadPromise || sharedUpdaterState.isInstalling) return;
       const p = event.payload;
-      sharedUpdaterState.status = p.status;
+      if (downloadCancelled && p.status !== 'cancelled') return;
+      if (p.status === 'cancelled') downloadCancelled = true;
+      // Completion is actionable only after the owning IPC has returned its
+      // verified path. Until then keep the UI in the non-installable phase.
+      sharedUpdaterState.status = p.status === 'completed' ? 'verifying' : p.status;
       sharedUpdaterState.downloaded = p.downloaded;
       sharedUpdaterState.total = p.total;
       sharedUpdaterState.percent = p.percent;
@@ -109,28 +126,45 @@ export async function initUpdaterEventListener(): Promise<void> {
       sharedUpdaterState.filePath = p.file_path;
       sharedUpdaterState.error = p.error;
 
-      if (p.status === 'started' || p.status === 'downloading') {
+      if (p.status === 'started' || p.status === 'downloading' || p.status === 'verifying' || p.status === 'completed') {
         sharedUpdaterState.isDownloading = true;
       } else {
         sharedUpdaterState.isDownloading = false;
       }
-    });
-  } catch (e) {
-    console.warn('Failed to listen to updater-progress event:', e);
-  }
+    }).then((unlisten) => { unlistenProgress = unlisten; })
+    .finally(() => { listenerPromise = null; });
+  return listenerPromise;
 }
 
 /** Returns semver comparison: 1 if a > b, -1 if a < b, 0 if equal */
 export function compareSemver(a: string, b: string): number {
-  const clean = (s: string) => s.replace(/^v/, '').split('-')[0].trim();
-  const pa = clean(a).split('.').map(n => parseInt(n, 10) || 0);
-  const pb = clean(b).split('.').map(n => parseInt(n, 10) || 0);
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
+  const parse = (value: string) => value.trim().replace(/^[vV]/, '').match(
+    /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/,
+  );
+  const pa = parse(a);
+  const pb = parse(b);
+  // An invalid/unavailable version must never manufacture an upgrade.
+  if (!pa || !pb) return 0;
+  const compareNumeric = (left: string, right: string) => {
+    const l = left.replace(/^0+(?=\d)/, '');
+    const r = right.replace(/^0+(?=\d)/, '');
+    return l.length !== r.length ? Math.sign(l.length - r.length) : l === r ? 0 : l > r ? 1 : -1;
+  };
+  for (let i = 1; i <= 3; i++) {
+    const result = compareNumeric(pa[i], pb[i]);
+    if (result) return result;
+  }
+  if (!pa[4] || !pb[4]) return pa[4] === pb[4] ? 0 : pa[4] ? -1 : 1;
+  const left = pa[4].split('.');
+  const right = pb[4].split('.');
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    if (left[i] === undefined) return -1;
+    if (right[i] === undefined) return 1;
+    const ln = /^\d+$/.test(left[i]);
+    const rn = /^\d+$/.test(right[i]);
+    const result = ln && rn ? compareNumeric(left[i], right[i])
+      : ln !== rn ? ln ? -1 : 1 : left[i] === right[i] ? 0 : left[i] > right[i] ? 1 : -1;
+    if (result) return result;
   }
   return 0;
 }
@@ -194,8 +228,8 @@ export async function getPlatformInfo(): Promise<PlatformInfo> {
 
 /**
  * Synthesizes standard release asset metadata for Catstep MD official GitHub releases.
- * When GitHub API is rate-limited or update check falls back to Git repo mirrors / web redirect,
- * this provides deterministic assets corresponding to the CI release workflow.
+ * Naming templates for CI metadata/tests only. Update resolution deliberately
+ * never uses these templates as evidence that a downloadable asset exists.
  */
 export function synthesizeReleaseAssets(tag: string): ReleaseAsset[] {
   const cleanTag = tag.replace(/^v/, '').trim();
@@ -234,7 +268,8 @@ export function synthesizeReleaseAssets(tag: string): ReleaseAsset[] {
 /**
  * Resolves the best matching asset for current or specified platform,
  * using updateInfo.matchedAsset if present, or picking from updateInfo.assets,
- * or synthesizing CI release assets for updateInfo.latest.
+ * Assets must come from a published release. A version number alone does not
+ * prove that a compatible installer was built or uploaded.
  */
 export function resolveMatchedAsset(
   updateInfo: UpdateResult | null,
@@ -246,10 +281,6 @@ export function resolveMatchedAsset(
   if (updateInfo.assets && updateInfo.assets.length > 0) {
     const match = pickBestAsset(updateInfo.assets, plat);
     if (match) return match;
-  }
-  if (updateInfo.latest) {
-    const synth = synthesizeReleaseAssets(updateInfo.latest);
-    return pickBestAsset(synth, plat);
   }
   return null;
 }
@@ -267,7 +298,7 @@ export function pickBestAsset(assets: ReleaseAsset[], platform: PlatformInfo): R
     const msiArm = assets.find(a => a.name.toLowerCase().endsWith('.msi') && (a.name.toLowerCase().includes('arm64') || a.name.toLowerCase().includes('arm')));
     const msiX64 = assets.find(a => a.name.toLowerCase().endsWith('.msi') && (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('x86_64') || a.name.toLowerCase().includes('amd64')));
     const exeArm = assets.find(a => a.name.toLowerCase().endsWith('.exe') && (a.name.toLowerCase().includes('arm64') || a.name.toLowerCase().includes('arm')));
-    const exeX64 = assets.find(a => a.name.toLowerCase().endsWith('.exe') && (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('setup') || a.name.toLowerCase().includes('x86_64')));
+    const exeX64 = assets.find(a => a.name.toLowerCase().endsWith('.exe') && !/arm|aarch64/i.test(a.name) && (a.name.toLowerCase().includes('x64') || a.name.toLowerCase().includes('setup') || a.name.toLowerCase().includes('x86_64') || a.name.toLowerCase().includes('amd64')));
 
     if (isArm && (msiArm || exeArm)) return msiArm || exeArm || null;
     if (!isArm && msiX64) return msiX64;
@@ -341,6 +372,8 @@ interface GitHubReleaseJson {
   body?: string;
   published_at?: string;
   html_url?: string;
+  draft?: boolean;
+  prerelease?: boolean;
   assets?: Array<{
     name: string;
     browser_download_url: string;
@@ -364,28 +397,17 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
     if (!res.ok) return null;
     const data = (await res.json()) as GitHubReleaseJson;
     const tag = (data.tag_name || '').replace(/^v/, '').trim();
-    if (!tag) return null;
+    if (!tag || data.draft || data.prerelease) return null;
 
-    let assets: ReleaseAsset[] = (data.assets || []).map(a => ({
+    const assets: ReleaseAsset[] = (data.assets || []).map(a => ({
       name: a.name,
       browser_download_url: a.browser_download_url,
       size: a.size,
       content_type: a.content_type,
     }));
 
-    if (assets.length === 0) {
-      assets = synthesizeReleaseAssets(tag);
-    }
-
     const platform = await getPlatformInfo();
-    let matchedAsset = pickBestAsset(assets, platform);
-    if (!matchedAsset) {
-      const synth = synthesizeReleaseAssets(tag);
-      matchedAsset = pickBestAsset(synth, platform);
-      if (matchedAsset && !assets.some(a => a.name === matchedAsset!.name)) {
-        assets.push(matchedAsset);
-      }
-    }
+    const matchedAsset = pickBestAsset(assets, platform);
 
     const hasUpdate = compareSemver(tag, current) > 0;
 
@@ -420,9 +442,10 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
     if (tagMatch && tagMatch[1]) {
       const tag = tagMatch[1].replace(/^v/, '').trim();
       const hasUpdate = compareSemver(tag, current) > 0;
-      const platform = await getPlatformInfo();
-      const assets = synthesizeReleaseAssets(tag);
-      const matchedAsset = pickBestAsset(assets, platform);
+      // A real release redirect proves the version exists, but not which
+      // architectures finished building. Without API asset metadata, offer
+      // the release page rather than guessing an executable URL.
+      const assets: ReleaseAsset[] = [];
       return {
         current,
         latest: tag,
@@ -432,7 +455,7 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
         releaseTitle: `v${tag}`,
         releaseNotes: '',
         assets,
-        matchedAsset,
+        matchedAsset: null,
       };
     }
     return null;
@@ -441,53 +464,14 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   }
 }
 
-/** Fetch repository latest package version from GitHub Raw / jsDelivr / proxy mirror (fallback) */
-async function fetchFromRepoMirror(): Promise<UpdateResult | null> {
-  const current = await getVersion().catch(() => '1.0.13');
-  // Prioritize jsDelivr & proxy CDN over raw GitHub (which is blocked by GFW in mainland China)
-  for (const url of [JSDELIVR_MIRROR_URL, JSDELIVR_CDN_URL, GHFAST_RAW_URL, GITHUB_RAW_URL]) {
-    try {
-      const res = await fetch(url, {
-        cache: 'no-store',
-        signal: AbortSignal.timeout(3500),
-      });
-      if (res.ok) {
-        const pkg = (await res.json()) as { version?: string };
-        if (pkg.version) {
-          const tag = pkg.version.replace(/^v/, '').trim();
-          const hasUpdate = compareSemver(tag, current) > 0;
-          const platform = await getPlatformInfo();
-          const assets = synthesizeReleaseAssets(tag);
-          const matchedAsset = pickBestAsset(assets, platform);
-          return {
-            current,
-            latest: tag,
-            hasUpdate,
-            url: LATEST_RELEASE_PAGE,
-            error: false,
-            releaseTitle: `v${tag}`,
-            releaseNotes: '',
-            assets,
-            matchedAsset,
-          };
-        }
-      }
-    } catch {
-      // Continue to next mirror
-    }
-  }
-  return null;
-}
-
 export async function checkForUpdate(): Promise<UpdateResult> {
   const current = await getVersion().catch(() => '1.0.13');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }
 
-  // Multi-tier check: GitHub API (full assets + notes) -> Fast Repo Mirror (instant) -> Web Redirect
+  // The repository's main branch is not a published release channel.
   let info = await fetchFromGitHubApi();
-  if (!info) info = await fetchFromRepoMirror();
   if (!info) info = await fetchFromGitHubWebRedirect();
 
   if (!info) {
@@ -500,83 +484,227 @@ export async function checkForUpdate(): Promise<UpdateResult> {
     };
   }
 
-  if (info.latest) {
-    const platform = await getPlatformInfo();
-    if (!info.assets || info.assets.length === 0) {
-      info.assets = synthesizeReleaseAssets(info.latest);
-    }
-    if (!info.matchedAsset) {
-      info.matchedAsset = pickBestAsset(info.assets, platform);
-      if (!info.matchedAsset) {
-        const synth = synthesizeReleaseAssets(info.latest);
-        info.matchedAsset = pickBestAsset(synth, platform);
-        if (info.matchedAsset && !info.assets.some(a => a.name === info.matchedAsset!.name)) {
-          info.assets.push(info.matchedAsset);
-        }
-      }
-    }
-  }
-
   return info;
 }
 
-/** Start downloading update package with real-time progress */
-export async function startUpdateDownload(asset: ReleaseAsset, version: string): Promise<string> {
-  await initUpdaterEventListener();
+export interface UpdateInstallContext { automatic: boolean }
+type PrepareInstall = (context: UpdateInstallContext) => boolean | Promise<boolean>;
+interface AutoInstallPolicy {
+  enabled: () => boolean;
+  onError?: (error: unknown) => void;
+  onStarting?: () => void;
+}
+let prepareInstall: PrepareInstall | null = null;
+let autoPolicy: AutoInstallPolicy | null = null;
+let stopAutoPolicy: (() => void) | null = null;
+let autoTimer: ReturnType<typeof setTimeout> | null = null;
+let autoGeneration = 0;
+let downloadSequence = 0;
+let cancelledAutoTarget: string | null = null;
 
+function targetKey(): string {
+  return `${downloadSequence}:${sharedUpdaterState.targetVersion}:${sharedUpdaterState.matchedAsset?.browser_download_url}`;
+}
+
+function clearAutoTimer() {
+  if (autoTimer !== null) clearTimeout(autoTimer);
+  autoTimer = null;
+  sharedUpdaterState.autoInstallCountdown = null;
+  sharedUpdaterState.autoInstallDeferred = false;
+  autoGeneration += 1;
+}
+
+/** Shared by every modal and the background updater; cancellation survives
+ * closing/reopening a modal until a new download or an explicit setting change. */
+export function cancelAutoInstall(): void {
+  cancelledAutoTarget = targetKey();
+  clearAutoTimer();
+}
+
+function canAutoInstall(key: string, preparing = false): boolean {
+  return key === targetKey() && cancelledAutoTarget !== key && !!autoPolicy?.enabled()
+    && !!sharedUpdaterState.filePath && !downloadPromise
+    && (sharedUpdaterState.status === 'completed' || (preparing && sharedUpdaterState.status === 'preparing'));
+}
+
+function scheduleAutoInstall() {
+  const key = targetKey();
+  if (autoTimer !== null || installPromise || !canAutoInstall(key)) return;
+  const generation = autoGeneration;
+  const attempt = async () => {
+    if (generation !== autoGeneration || !canAutoInstall(key)) return;
+    sharedUpdaterState.autoInstallCountdown = null;
+    try {
+      const installed = await installUpdateAndRestart(undefined, true, { automatic: true });
+      if (!installed && generation === autoGeneration && canAutoInstall(key)) {
+        // A dirty buffer or active composition postpones automatic updates.
+        // Poll the guard; never save or discard the note to make it pass.
+        sharedUpdaterState.autoInstallDeferred = true;
+        autoTimer = setTimeout(() => { autoTimer = null; void attempt(); }, 5000);
+      }
+    } catch (error) {
+      if (generation === autoGeneration) autoPolicy?.onError?.(error);
+    }
+  };
+  const tick = (seconds: number) => {
+    if (generation !== autoGeneration || !canAutoInstall(key)) return;
+    sharedUpdaterState.autoInstallCountdown = seconds;
+    autoTimer = setTimeout(() => {
+      autoTimer = null;
+      if (seconds > 1) tick(seconds - 1);
+      else void attempt();
+    }, 1000);
+  };
+  tick(3);
+}
+
+/** App owns the editor/session guard. No install IPC is allowed without it. */
+export function registerUpdateInstallPreparation(prepare: PrepareInstall): () => void {
+  prepareInstall = prepare;
+  return () => { if (prepareInstall === prepare) prepareInstall = null; };
+}
+
+/** One scheduler per webview. Only the main editor enables background updates. */
+export function configureAutoInstall(policy: AutoInstallPolicy): () => void {
+  stopAutoPolicy?.();
+  clearAutoTimer();
+  autoPolicy = policy;
+  stopAutoPolicy = watch(policy.enabled, (enabled) => {
+    clearAutoTimer();
+    if (enabled) {
+      cancelledAutoTarget = null;
+      scheduleAutoInstall();
+    }
+  }, { immediate: true, flush: 'sync' });
+  return () => {
+    if (autoPolicy !== policy) return;
+    stopAutoPolicy?.();
+    stopAutoPolicy = null;
+    autoPolicy = null;
+    clearAutoTimer();
+  };
+}
+
+/** Start one download, coalescing all modal/background requests until it settles. */
+export function startUpdateDownload(asset: ReleaseAsset, version: string, updateInfo?: UpdateResult): Promise<string> {
+  if (downloadPromise) return downloadPromise;
+  if (sharedUpdaterState.isInstalling) return Promise.reject(new Error('Update installation is already in progress'));
+  clearAutoTimer();
+  cancelledAutoTarget = null;
+  downloadSequence += 1;
+  downloadCancelled = false;
   sharedUpdaterState.targetVersion = version;
   sharedUpdaterState.matchedAsset = asset;
+  sharedUpdaterState.updateInfo = updateInfo || {
+    current: '', latest: version, hasUpdate: true, error: false,
+    url: LATEST_RELEASE_PAGE, matchedAsset: asset, assets: [asset],
+  };
   sharedUpdaterState.isDownloading = true;
   sharedUpdaterState.status = 'started';
   sharedUpdaterState.error = null;
+  sharedUpdaterState.installError = null;
+  sharedUpdaterState.filePath = null;
   sharedUpdaterState.downloaded = 0;
   sharedUpdaterState.total = asset.size || null;
   sharedUpdaterState.percent = 0;
+  sharedUpdaterState.speedBps = 0;
 
-  try {
-    const downloadedPath = await invoke<string>('updater_start_download', {
-      url: asset.browser_download_url,
-      filename: asset.name,
-    });
-    sharedUpdaterState.filePath = downloadedPath;
-    sharedUpdaterState.status = 'completed';
-    sharedUpdaterState.percent = 100;
-    sharedUpdaterState.isDownloading = false;
-    return downloadedPath;
-  } catch (e) {
-    sharedUpdaterState.isDownloading = false;
-    sharedUpdaterState.status = 'error';
-    const errStr = String(e);
-    if (errStr.includes('updater_start_download not found') || errStr.includes('Command updater_start_download not found')) {
-      sharedUpdaterState.error = '当前安装的客户端底层版本过低，暂不支持应用内直连下载。请点击“浏览器下载”直接下载安装包覆盖安装。';
-    } else {
-      sharedUpdaterState.error = errStr;
+  downloadPromise = (async () => {
+    try {
+      await initUpdaterEventListener();
+      if (downloadCancelled) throw new Error('Download cancelled by user');
+      const downloadedPath = await invoke<string>('updater_start_download', {
+        url: asset.browser_download_url,
+        filename: asset.name,
+      });
+      if (downloadCancelled) throw new Error('Download cancelled by user');
+      sharedUpdaterState.filePath = downloadedPath;
+      sharedUpdaterState.status = 'completed';
+      sharedUpdaterState.percent = 100;
+      return downloadedPath;
+    } catch (e) {
+      sharedUpdaterState.filePath = null;
+      if (downloadCancelled || /download cancelled by user/i.test(String(e))) {
+        sharedUpdaterState.status = 'cancelled';
+        sharedUpdaterState.error = null;
+      } else {
+        sharedUpdaterState.status = 'error';
+        sharedUpdaterState.error = String(e);
+      }
+      throw e;
+    } finally {
+      sharedUpdaterState.isDownloading = false;
+      sharedUpdaterState.speedBps = 0;
+      downloadPromise = null;
+      if (sharedUpdaterState.status === 'completed') scheduleAutoInstall();
     }
-    throw e;
-  }
+  })();
+  return downloadPromise;
 }
 
 /** Cancel ongoing download */
 export async function cancelUpdateDownload(): Promise<void> {
+  if (!downloadPromise) return;
+  cancelAutoInstall();
+  downloadCancelled = true;
   try {
     await invoke('updater_cancel_download');
     sharedUpdaterState.isDownloading = false;
     sharedUpdaterState.status = 'cancelled';
+    sharedUpdaterState.filePath = null;
+    sharedUpdaterState.error = null;
   } catch (e) {
-    console.error('Failed to cancel update download:', e);
+    downloadCancelled = false;
+    throw e;
   }
 }
 
-/** Execute installer and gracefully restart app */
-export async function installUpdateAndRestart(filePath?: string, silent: boolean = false): Promise<void> {
+/** Persist/flush first, then launch at most one installer. Successful launch
+ * stays installing until native shutdown; repeat clicks cannot spawn again. */
+export function installUpdateAndRestart(
+  filePath?: string,
+  silent: boolean = false,
+  context: UpdateInstallContext = { automatic: false },
+): Promise<boolean> {
+  if (installPromise) return installPromise;
+  if (sharedUpdaterState.status === 'installing') return Promise.resolve(true);
   const path = filePath || sharedUpdaterState.filePath;
-  if (!path) {
-    throw new Error('No downloaded installer file available');
+  if (!path || path !== sharedUpdaterState.filePath || sharedUpdaterState.status !== 'completed' || downloadPromise) {
+    return Promise.reject(new Error('No completed, verified update is ready to install'));
   }
-  await invoke('updater_install_and_restart', {
-    filePath: path,
-    silent,
-  });
+  const key = targetKey();
+  if (!context.automatic) cancelAutoInstall();
+  const generation = autoGeneration;
+  sharedUpdaterState.isInstalling = true;
+  sharedUpdaterState.status = 'preparing';
+  sharedUpdaterState.installError = null;
+  installPromise = (async () => {
+    try {
+      // Publish the single-flight promise before invoking user/editor code.
+      await Promise.resolve();
+      if (!prepareInstall) throw new Error('The editor is not ready to prepare an update');
+      const ready = await prepareInstall(context);
+      if (!ready || (context.automatic && (generation !== autoGeneration || !canAutoInstall(key, true)))) {
+        sharedUpdaterState.status = 'completed';
+        sharedUpdaterState.isInstalling = false;
+        return false;
+      }
+      if (key !== targetKey() || path !== sharedUpdaterState.filePath) throw new Error('The update target changed before installation');
+      sharedUpdaterState.status = 'installing';
+      sharedUpdaterState.autoInstallDeferred = false;
+      if (context.automatic) autoPolicy?.onStarting?.();
+      await invoke('updater_install_and_restart', { filePath: path, silent });
+      return true;
+    } catch (error) {
+      sharedUpdaterState.isInstalling = false;
+      sharedUpdaterState.status = 'completed';
+      sharedUpdaterState.installError = String(error);
+      throw error;
+    } finally {
+      installPromise = null;
+    }
+  })();
+  return installPromise;
 }
 
 /** Format bytes into human-readable size */

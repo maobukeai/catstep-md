@@ -4,6 +4,8 @@
 mod linux_a11y;
 mod runner;
 mod windows_install_migration;
+#[cfg(target_os = "windows")]
+mod windows_update_helper;
 
 #[cfg(any(target_os = "windows", test))]
 const WINDOWS_APP_USER_MODEL_ID: &str = "app.catstepmd";
@@ -30,6 +32,10 @@ fn set_windows_app_user_model_id() {
 fn set_windows_app_user_model_id() {}
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    if let Some(code) = windows_update_helper::dispatch_requested() {
+        std::process::exit(code);
+    }
     // v4.11.7: the MSI in Program Files is now the only installed Windows
     // channel. If this user still has the retired per-user NSIS build, let its
     // own uninstaller remove only that legacy installation before any UI opens.

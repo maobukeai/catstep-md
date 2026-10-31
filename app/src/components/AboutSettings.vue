@@ -71,7 +71,8 @@ async function copyVersion() {
 }
 
 async function manualCheckUpdate() {
-  if (sharedUpdaterState.isDownloading) {
+  if (sharedUpdaterState.isDownloading || sharedUpdaterState.isInstalling || sharedUpdaterState.status === 'completed') {
+    foundUpdate.value = sharedUpdaterState.updateInfo;
     showUpdateModal.value = true;
     return;
   }
@@ -222,7 +223,7 @@ async function manualCheckUpdate() {
               @click="manualCheckUpdate"
             >
               <svg
-                v-if="checkingUpdate || sharedUpdaterState.isDownloading"
+                v-if="checkingUpdate || sharedUpdaterState.isDownloading || sharedUpdaterState.isInstalling"
                 class="is-spinning"
                 width="13"
                 height="13"
@@ -239,10 +240,14 @@ async function manualCheckUpdate() {
                 {{
                   checkingUpdate
                     ? t('settings.checkingUpdate')
+                    : sharedUpdaterState.isInstalling
+                      ? (sharedUpdaterState.status === 'preparing' ? t('settings.updatePreparing') : t('settings.updateInstalling'))
+                    : sharedUpdaterState.status === 'verifying'
+                      ? t('settings.updateVerifying')
                     : sharedUpdaterState.isDownloading
-                      ? `下载中 ${Math.round(sharedUpdaterState.percent)}%`
+                      ? `${t('settings.downloading')} ${Math.round(sharedUpdaterState.percent)}%`
                       : sharedUpdaterState.status === 'completed'
-                        ? '更新就绪'
+                        ? t('settings.downloadComplete')
                         : t('settings.btnCheckUpdate')
                 }}
               </span>

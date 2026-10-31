@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { computed } from 'vue';
 import { DsModal } from '../ui';
 import {
   type UpdateResult,
@@ -7,13 +7,11 @@ import {
   sharedUpdaterState,
   startUpdateDownload,
   cancelUpdateDownload,
+  cancelAutoInstall,
   installUpdateAndRestart,
   formatBytes,
   openReleaseUrl,
   resolveMatchedAsset,
-  getPlatformInfo,
-  synthesizeReleaseAssets,
-  pickBestAsset,
 } from '../lib/check-update';
 import { useSettingsStore } from '../stores/settings';
 import { useToastsStore } from '../stores/toasts';
@@ -38,27 +36,17 @@ const settings = useSettingsStore();
 const toasts = useToastsStore();
 const { isNarrow } = useViewport();
 
-const autoInstallCountdown = ref<number | null>(null);
-let countdownTimer: ReturnType<typeof setInterval> | null = null;
-
-function clearCountdown() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
-  }
-  autoInstallCountdown.value = null;
-}
-
-onBeforeUnmount(() => {
-  clearCountdown();
+const activeUpdateInfo = computed(() => {
+  const active = sharedUpdaterState.isDownloading || sharedUpdaterState.isInstalling || sharedUpdaterState.status === 'completed';
+  return (active ? sharedUpdaterState.updateInfo : null) || props.updateInfo || sharedUpdaterState.updateInfo;
 });
-
-const latestVersion = computed(() => props.updateInfo?.latest || '');
-const currentVersion = computed(() => props.updateInfo?.current || '1.0.0');
-const releaseNotes = computed(() => props.updateInfo?.releaseNotes?.trim() || '');
-const releaseTitle = computed(() => props.updateInfo?.releaseTitle || `v${latestVersion.value}`);
+const autoInstallCountdown = computed(() => sharedUpdaterState.autoInstallCountdown);
+const latestVersion = computed(() => activeUpdateInfo.value?.latest || sharedUpdaterState.targetVersion || '');
+const currentVersion = computed(() => activeUpdateInfo.value?.current || '—');
+const releaseNotes = computed(() => activeUpdateInfo.value?.releaseNotes?.trim() || '');
+const releaseTitle = computed(() => activeUpdateInfo.value?.releaseTitle || `v${latestVersion.value}`);
 const matchedAsset = computed<ReleaseAsset | null>(() => {
-  return props.updateInfo?.matchedAsset || (props.updateInfo ? resolveMatchedAsset(props.updateInfo) : null);
+  return resolveMatchedAsset(activeUpdateInfo.value);
 });
 
 /** Render markdown for release notes so headings, lists and tags look great. */
@@ -86,93 +74,54 @@ const platformType = computed<'windows' | 'macos' | 'android' | 'linux' | 'packa
   return 'package';
 });
 
-// Watch download completion, modal visibility, and auto-install setting to trigger countdown
-watch(
-  [() => sharedUpdaterState.status, () => props.modelValue, () => settings.autoInstallUpdate],
-  ([status, open, autoInstall]) => {
-    if (status === 'completed' && autoInstall && open) {
-      if (autoInstallCountdown.value === null) {
-        startAutoRestartCountdown();
-      }
-    } else if (status !== 'completed' || !open || !autoInstall) {
-      clearCountdown();
-    }
-  },
-  { immediate: true },
-);
-
-function startAutoRestartCountdown() {
-  clearCountdown();
-  autoInstallCountdown.value = 3;
-  countdownTimer = setInterval(() => {
-    if (autoInstallCountdown.value !== null && autoInstallCountdown.value > 1) {
-      autoInstallCountdown.value -= 1;
-    } else {
-      clearCountdown();
-      handleInstall();
-    }
-  }, 1000);
-}
-
-function handleClose() {
-  clearCountdown();
+function closeModal() {
   emit('update:modelValue', false);
   emit('closed');
 }
 
+function handleClose() {
+  cancelAutoInstall();
+  closeModal();
+}
+
 async function handleStartDownload() {
-  clearCountdown();
   if (isIOS()) {
-    await openReleaseUrl(props.updateInfo?.url);
+    await openReleaseUrl(activeUpdateInfo.value?.url);
     handleClose();
     return;
   }
-  let asset = matchedAsset.value;
-  if (!asset && props.updateInfo) {
-    const platform = await getPlatformInfo();
-    asset = resolveMatchedAsset(props.updateInfo, platform);
-  }
-  if (!asset && latestVersion.value) {
-    const platform = await getPlatformInfo();
-    const synth = synthesizeReleaseAssets(latestVersion.value);
-    asset = pickBestAsset(synth, platform);
-  }
+  const asset = matchedAsset.value;
   if (!asset) {
     // Fallback to browser release page if no matching asset found for this OS/arch
-    await openReleaseUrl(props.updateInfo?.url);
+    await openReleaseUrl(activeUpdateInfo.value?.url);
     handleClose();
     return;
   }
-  if (props.updateInfo && !props.updateInfo.matchedAsset) {
-    props.updateInfo.matchedAsset = asset;
-  }
-
   try {
-    await startUpdateDownload(asset, latestVersion.value);
+    await startUpdateDownload(asset, latestVersion.value, activeUpdateInfo.value || undefined);
   } catch (e) {
+    if (sharedUpdaterState.status === 'cancelled') return;
     console.error('Update download error:', e);
     toasts.error(String(e));
   }
 }
 
 async function handlePrimaryAction() {
-  clearCountdown();
   if (isIOS()) {
-    await openReleaseUrl(props.updateInfo?.url);
+    await openReleaseUrl(activeUpdateInfo.value?.url);
     handleClose();
     return;
   }
   if (isAndroid()) {
     const asset =
       matchedAsset.value ||
-      (props.updateInfo?.assets && props.updateInfo.assets.find((a) => a.name.endsWith('.apk'))) ||
-      (props.updateInfo ? resolveMatchedAsset(props.updateInfo) : null);
+      (activeUpdateInfo.value?.assets && activeUpdateInfo.value.assets.find((a) => a.name.endsWith('.apk')));
     if (asset?.browser_download_url) {
       toasts.info(t('settings.apkDownloadStarting'));
       await openReleaseUrl(asset.browser_download_url);
       handleClose();
     } else {
-      await openReleaseUrl(props.updateInfo?.url);
+      await openReleaseUrl(activeUpdateInfo.value?.url);
       handleClose();
     }
     return;
@@ -181,43 +130,39 @@ async function handlePrimaryAction() {
 }
 
 async function handleCancelDownload() {
-  clearCountdown();
-  await cancelUpdateDownload();
+  try { await cancelUpdateDownload(); }
+  catch (error) { toasts.error(String(error)); }
 }
 
 async function handleInstall() {
-  clearCountdown();
   if (isIOS()) {
-    await openReleaseUrl(props.updateInfo?.url);
+    await openReleaseUrl(activeUpdateInfo.value?.url);
     handleClose();
     return;
   }
   if (isAndroid()) {
     const asset =
       matchedAsset.value ||
-      (props.updateInfo?.assets && props.updateInfo.assets.find((a) => a.name.endsWith('.apk'))) ||
-      (props.updateInfo ? resolveMatchedAsset(props.updateInfo) : null);
+      (activeUpdateInfo.value?.assets && activeUpdateInfo.value.assets.find((a) => a.name.endsWith('.apk')));
     toasts.info(t('settings.openingApkInstaller'));
-    await openReleaseUrl(asset?.browser_download_url || props.updateInfo?.url);
+    await openReleaseUrl(asset?.browser_download_url || activeUpdateInfo.value?.url);
     handleClose();
     return;
   }
   try {
-    toasts.info(t('settings.updateInstalling'));
-    await installUpdateAndRestart(undefined, true);
+    if (await installUpdateAndRestart(undefined, true)) toasts.info(t('settings.updateInstalling'));
   } catch (e) {
     toasts.error(t('settings.installUpdateFailed', { error: String(e) }));
   }
 }
 
 function handleDismissToBackground() {
-  clearCountdown();
   toasts.info(t('settings.updateDownloadingBackground'));
-  handleClose();
+  closeModal();
 }
 
 function handleOpenBrowser() {
-  openReleaseUrl(props.updateInfo?.url);
+  openReleaseUrl(activeUpdateInfo.value?.url);
 }
 
 function handleNotesClick(e: MouseEvent) {
@@ -302,7 +247,7 @@ function handleNotesClick(e: MouseEvent) {
             </div>
 
             <button
-              v-if="updateInfo?.url"
+              v-if="activeUpdateInfo?.url"
               type="button"
               class="update-modal__notes-link"
               :title="t('settings.viewReleaseNotesHint')"
@@ -365,12 +310,20 @@ function handleNotesClick(e: MouseEvent) {
 
         <!-- Download & Progress Section -->
         <div
-          v-if="sharedUpdaterState.isDownloading || sharedUpdaterState.status === 'completed' || sharedUpdaterState.status === 'error'"
+          v-if="sharedUpdaterState.isDownloading || sharedUpdaterState.isInstalling || sharedUpdaterState.status === 'completed' || sharedUpdaterState.status === 'error'"
           class="update-modal__progress-box"
         >
           <div class="update-modal__progress-info">
             <div class="update-modal__progress-status">
-              <span v-if="sharedUpdaterState.status === 'downloading'" class="is-downloading">
+              <span v-if="sharedUpdaterState.isInstalling" class="is-downloading">
+                <span class="update-modal__spin-dot"></span>
+                {{ sharedUpdaterState.status === 'preparing' ? t('settings.updatePreparing') : t('settings.updateInstalling') }}
+              </span>
+              <span v-else-if="sharedUpdaterState.status === 'verifying'" class="is-downloading">
+                <span class="update-modal__spin-dot"></span>
+                {{ t('settings.updateVerifying') }}
+              </span>
+              <span v-else-if="sharedUpdaterState.isDownloading" class="is-downloading">
                 <span class="update-modal__spin-dot"></span>
                 {{ t('settings.downloading') || '正在下载更新…' }}
               </span>
@@ -421,10 +374,19 @@ function handleNotesClick(e: MouseEvent) {
               <span class="update-modal__countdown-badge">{{ autoInstallCountdown }}s</span>
               {{ t('settings.autoRestartNotice') }}
             </span>
-            <button type="button" class="update-modal__countdown-cancel" @click="clearCountdown">
+            <button type="button" class="update-modal__countdown-cancel" @click="cancelAutoInstall">
               {{ t('settings.cancelAutoRestart') }}
             </button>
           </div>
+          <div v-else-if="sharedUpdaterState.autoInstallDeferred" class="update-modal__countdown-box">
+            <span class="update-modal__countdown-text">{{ t('settings.updateInstallDeferred') }}</span>
+            <button type="button" class="update-modal__countdown-cancel" @click="cancelAutoInstall">
+              {{ t('settings.cancelAutoRestart') }}
+            </button>
+          </div>
+          <p v-if="sharedUpdaterState.installError" class="is-error">
+            {{ t('settings.installUpdateFailed', { error: sharedUpdaterState.installError }) }}
+          </p>
         </div>
 
         <!-- Automation Settings Toggles (Custom Styled Checkboxes) -->
@@ -487,7 +449,12 @@ function handleNotesClick(e: MouseEvent) {
 
         <div class="update-modal__footer-right">
           <!-- When downloading -->
-          <template v-if="sharedUpdaterState.isDownloading">
+          <template v-if="sharedUpdaterState.isInstalling">
+            <button type="button" class="update-btn update-btn--primary" disabled>
+              {{ sharedUpdaterState.status === 'preparing' ? t('settings.updatePreparing') : t('settings.updateInstalling') }}
+            </button>
+          </template>
+          <template v-else-if="sharedUpdaterState.isDownloading">
             <button
               type="button"
               class="update-btn update-btn--secondary"
@@ -564,7 +531,7 @@ function handleNotesClick(e: MouseEvent) {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>{{ isIOS() ? (t('settings.openAppStore') || '前往 App Store 更新') : isAndroid() ? (t('settings.downloadApk') || '下载最新 APK') : (t('settings.updateNow') || '立即一键升级') }}</span>
+              <span>{{ isIOS() ? (t('settings.openAppStore') || '前往 App Store 更新') : isAndroid() ? (t('settings.downloadApk') || '下载最新 APK') : !matchedAsset ? t('settings.openReleasePage') : (t('settings.updateNow') || '立即一键升级') }}</span>
             </button>
           </template>
         </div>

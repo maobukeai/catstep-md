@@ -303,15 +303,22 @@ jobs:
             Write-Error "Missing desktop executable in app/src-tauri/target/release/ — Tauri build did not run as expected"
             exit 1
           }
-          # Locate the solomd-mcp.exe / catstep-mcp.exe Tauri's externalBin built before the bundle.
-          $mcpExe = Get-ChildItem -Path "mcp-server/target" -Recurse -Filter "*mcp.exe" |
-                    Where-Object { $_.FullName -match "\\release\\" } |
-                    Select-Object -First 1
+          # Require this matrix target's pre-built sidecar, never a different cached target.
+          $triple = if ($arch -eq 'arm64') { 'aarch64-pc-windows-msvc' } else { 'x86_64-pc-windows-msvc' }
+          $mcpExe = Get-Item -LiteralPath "app/src-tauri/binaries/catstep-mcp-$triple.exe" -ErrorAction Stop
+          $mcpBuilt = Get-Item -LiteralPath "mcp-server/target/$triple/release/catstep-mcp.exe" -ErrorAction Stop
+          if ((Get-FileHash $mcpExe.FullName -Algorithm SHA256).Hash -ne (Get-FileHash $mcpBuilt.FullName -Algorithm SHA256).Hash) {
+            throw "Staged MCP sidecar does not match the just-built $triple binary"
+          }
           $stage = "CatstepMD_${version}_${arch}-portable"
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item $exe -Destination "$stage/CatstepMD.exe"
-          if ($mcpExe) {
-            Copy-Item $mcpExe.FullName -Destination "$stage/catstep-mcp.exe"
+          Copy-Item $mcpExe.FullName -Destination "$stage/catstep-mcp.exe"
+          # Resource paths must match bundle.resources and BaseDirectory::Resource.
+          foreach ($relative in @('icons/file_icon.ico', 'resources/dicts/en_US.aff', 'resources/dicts/en_US.dic')) {
+            $destination = Join-Path $stage $relative
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -LiteralPath (Join-Path 'app/src-tauri' $relative) -Destination $destination -ErrorAction Stop
           }
           # Tiny README the user finds inside the zip.
           @"

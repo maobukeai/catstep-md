@@ -264,10 +264,10 @@ export const useTilesStore = defineStore('tiles', {
       this.dragSplit = null;
     },
 
-    persist() {
+    persist(strict = false) {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({ root: this.root, focusedPaneId: this.focusedPaneId }));
-      } catch {}
+      } catch (error) { if (strict) throw error; }
     },
 
     /** Validate persisted state: ensure all activeTabIds reference existing tabs. */

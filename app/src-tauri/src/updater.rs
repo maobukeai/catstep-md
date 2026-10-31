@@ -64,7 +64,7 @@ pub struct PlatformInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateProgressPayload {
-    pub status: String, // "started" | "downloading" | "completed" | "error" | "cancelled"
+    pub status: String, // "started" | "downloading" | "verifying" | "completed" | "error" | "cancelled"
     pub downloaded: u64,
     pub total: Option<u64>,
     pub percent: f64,
@@ -75,7 +75,9 @@ pub struct UpdateProgressPayload {
 
 pub struct UpdaterState {
     cancel_flag: Arc<AtomicBool>,
-    active_download: Arc<Mutex<bool>>,
+    active_download: Arc<Mutex<()>>,
+    active_install: Arc<AtomicBool>,
+    capture_opening: Arc<AtomicBool>,
     /// Downloaded-file path → the sha256 the release's SHA256SUMS.txt
     /// records for that asset. Written ONLY by `updater_start_download`
     /// after a byte-for-byte match against the manifest fetched from the
@@ -95,10 +97,88 @@ impl UpdaterState {
     pub fn new() -> Self {
         Self {
             cancel_flag: Arc::new(AtomicBool::new(false)),
-            active_download: Arc::new(Mutex::new(false)),
+            active_download: Arc::new(Mutex::new(())),
+            active_install: Arc::new(AtomicBool::new(false)),
+            capture_opening: Arc::new(AtomicBool::new(false)),
             verified_downloads: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
+
+    fn reserve_download(&self) -> Result<tokio::sync::MutexGuard<'_, ()>, String> {
+        self.active_download.try_lock().map_err(|_| "Download already in progress".to_string())
+    }
+
+    pub(super) fn reserve_install(&self, check_windows: impl FnOnce() -> Result<(), String>) -> Result<InstallReservation, String> {
+        self.active_install.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| "Update installation is already in progress".to_string())?;
+        let reservation = InstallReservation { active: self.active_install.clone(), committed: false };
+        if self.capture_opening.load(Ordering::SeqCst) {
+            return Err("Quick capture is opening; finish or dismiss it before installing an update.".into());
+        }
+        check_windows()?;
+        Ok(reservation)
+    }
+
+    #[cfg(desktop)]
+    pub(super) fn allow_capture_open(&self) -> Result<(), String> {
+        if self.active_install.load(Ordering::SeqCst) {
+            Err("Quick capture cannot open while an update is being installed".into())
+        } else { Ok(()) }
+    }
+
+    #[cfg(desktop)]
+    pub(super) fn reserve_capture_open(&self) -> Result<CaptureReservation, String> {
+        self.allow_capture_open()?;
+        self.capture_opening.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| "Quick capture is already opening".to_string())?;
+        let reservation = CaptureReservation(self.capture_opening.clone());
+        // Covers an install reservation interleaving with the first check.
+        self.allow_capture_open()?;
+        Ok(reservation)
+    }
+}
+
+#[cfg(desktop)]
+pub(super) struct CaptureReservation(Arc<AtomicBool>);
+#[cfg(desktop)]
+impl Drop for CaptureReservation {
+    fn drop(&mut self) { self.0.store(false, Ordering::SeqCst); }
+}
+
+pub(super) struct InstallReservation { active: Arc<AtomicBool>, committed: bool }
+impl InstallReservation { fn commit(mut self) { self.committed = true; } }
+impl Drop for InstallReservation {
+    fn drop(&mut self) { if !self.committed { self.active.store(false, Ordering::SeqCst); } }
+}
+
+fn check_install_windows(caller: &str, labels: impl IntoIterator<Item = String>, capture_visible: bool) -> Result<(), String> {
+    if labels.into_iter().any(|label| label != caller && (label == "main" || label.starts_with("solomd-window-"))) {
+        return Err("Close other editor windows before installing an update; save their notes first.".into());
+    }
+    if capture_visible {
+        return Err("Finish or dismiss the visible quick capture before installing an update.".into());
+    }
+    Ok(())
+}
+
+async fn reserve_install_on_ui(app: &AppHandle, caller: String) -> Result<InstallReservation, String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let handle = app.clone();
+    // Both capture opening and this reservation/check run in the same UI
+    // queue. No lock is held while waiting for the UI, including hotkey calls.
+    app.run_on_main_thread(move || {
+        let state = handle.state::<UpdaterState>();
+        let result = state.reserve_install(|| {
+            #[cfg(desktop)]
+            let capture_visible = handle.get_webview_window(super::quick_capture::CAPTURE_LABEL)
+                .map(|window| window.is_visible().map_err(|e| e.to_string())).transpose()?.unwrap_or(false);
+            #[cfg(not(desktop))]
+            let capture_visible = false;
+            check_install_windows(&caller, handle.webview_windows().into_keys(), capture_visible)
+        });
+        let _ = tx.send(result);
+    }).map_err(|e| e.to_string())?;
+    rx.await.map_err(|_| "Update window preflight was interrupted".to_string())?
 }
 
 #[tauri::command]
@@ -142,20 +222,55 @@ pub fn get_update_cache_dir(app: &AppHandle) -> PathBuf {
         .join(UPDATE_DIR_NAME)
 }
 
+async fn wait_for_cancel(flag: &AtomicBool) {
+    while !flag.load(Ordering::SeqCst) {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
+async fn cancellable<F: std::future::Future>(flag: &AtomicBool, future: F) -> Option<F::Output> {
+    tokio::select! {
+        value = future => Some(value),
+        _ = wait_for_cancel(flag) => None,
+    }
+}
+
+fn emit_cancelled(window: &tauri::WebviewWindow, downloaded: u64, total: Option<u64>) -> String {
+    let _ = window.emit("updater-progress", UpdateProgressPayload {
+        status: "cancelled".into(), downloaded, total, percent: 0.0,
+        speed_bps: 0, file_path: None, error: None,
+    });
+    "Download cancelled by user".into()
+}
+
+async fn read_checksum_manifest(response: reqwest::Response) -> Result<String, String> {
+    const MAX_MANIFEST: usize = 1024 * 1024;
+    if response.content_length().is_some_and(|n| n > MAX_MANIFEST as u64) {
+        return Err("checksum manifest exceeds 1 MiB".into());
+    }
+    let mut bytes = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        if bytes.len().saturating_add(chunk.len()) > MAX_MANIFEST {
+            return Err("checksum manifest exceeds 1 MiB".into());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8(bytes).map_err(|e| format!("invalid checksum manifest encoding: {e}"))
+}
+
 #[tauri::command]
 pub async fn updater_start_download(
     app: AppHandle,
+    window: tauri::WebviewWindow,
     url: String,
     filename: String,
 ) -> Result<String, String> {
     let state = app.state::<UpdaterState>();
 
     // Lock to prevent multiple concurrent downloads
-    let mut active = state.active_download.lock().await;
-    if *active {
-        return Err("Download already in progress".to_string());
-    }
-    *active = true;
+    let _active = state.reserve_download()?;
     state.cancel_flag.store(false, Ordering::SeqCst);
     let cancel_flag = Arc::clone(&state.cancel_flag);
 
@@ -168,9 +283,8 @@ pub async fn updater_start_download(
         super::commands::path_guard::add_process_root(&l);
     }
     if let Err(e) = tokio::fs::create_dir_all(&temp_dir).await {
-        *active = false;
         let err_msg = format!("Failed to create temp directory: {e}");
-        let _ = app.emit(
+        let _ = window.emit(
             "updater-progress",
             UpdateProgressPayload {
                 status: "error".to_string(),
@@ -187,6 +301,9 @@ pub async fn updater_start_download(
 
     let target_file_path = temp_dir.join(sanitize_download_filename(&filename)?);
     let target_path_str = target_file_path.to_string_lossy().to_string();
+    // A retry may replace the same filename; no previous digest may authorize
+    // bytes from an interrupted or failed attempt.
+    state.verified_downloads.lock().unwrap_or_else(|e| e.into_inner()).remove(&target_path_str);
 
     let client = match reqwest::Client::builder()
         .user_agent("CatstepMD-Updater")
@@ -196,14 +313,13 @@ pub async fn updater_start_download(
     {
         Ok(c) => c,
         Err(e) => {
-            *active = false;
             let err = format!("Failed to build http client: {e}");
             return Err(err);
         }
     };
 
     // Notify started
-    let _ = app.emit(
+    let _ = window.emit(
         "updater-progress",
         UpdateProgressPayload {
             status: "started".to_string(),
@@ -229,9 +345,8 @@ pub async fn updater_start_download(
 
     for candidate_url in &candidate_urls {
         if cancel_flag.load(Ordering::SeqCst) {
-            *active = false;
             let _ = tokio::fs::remove_file(&target_file_path).await;
-            let _ = app.emit(
+            let _ = window.emit(
                 "updater-progress",
                 UpdateProgressPayload {
                     status: "cancelled".to_string(),
@@ -246,7 +361,14 @@ pub async fn updater_start_download(
             return Err("Download cancelled by user".to_string());
         }
 
-        let res = match client.get(candidate_url).send().await {
+        let response = match cancellable(&cancel_flag, client.get(candidate_url).send()).await {
+            Some(response) => response,
+            None => {
+                let _ = tokio::fs::remove_file(&target_file_path).await;
+                return Err(emit_cancelled(&window, 0, None));
+            }
+        };
+        let res = match response {
             Ok(r) if r.status().is_success() => r,
             Ok(r) => {
                 last_err = format!("HTTP error {} on {}", r.status(), candidate_url);
@@ -264,9 +386,8 @@ pub async fn updater_start_download(
         let mut file = match tokio::fs::File::create(&target_file_path).await {
             Ok(f) => f,
             Err(e) => {
-                *active = false;
                 let err_msg = format!("Failed to create destination file: {e}");
-                let _ = app.emit(
+                let _ = window.emit(
                     "updater-progress",
                     UpdateProgressPayload {
                         status: "error".to_string(),
@@ -289,12 +410,20 @@ pub async fn updater_start_download(
         let mut speed_bps = 0u64;
         let mut stream_interrupted = false;
 
-        while let Some(chunk_result) = stream.next().await {
+        loop {
+            let chunk_result = match cancellable(&cancel_flag, stream.next()).await {
+                Some(chunk) => chunk,
+                None => {
+                    drop(file);
+                    let _ = tokio::fs::remove_file(&target_file_path).await;
+                    return Err(emit_cancelled(&window, downloaded, total_bytes));
+                }
+            };
+            let Some(chunk_result) = chunk_result else { break; };
             if cancel_flag.load(Ordering::SeqCst) {
-                *active = false;
                 drop(file);
                 let _ = tokio::fs::remove_file(&target_file_path).await;
-                let _ = app.emit(
+                let _ = window.emit(
                     "updater-progress",
                     UpdateProgressPayload {
                         status: "cancelled".to_string(),
@@ -336,7 +465,7 @@ pub async fn updater_start_download(
                             } else { 0.0 }
                         } else { 0.0 };
 
-                        let _ = app.emit(
+                        let _ = window.emit(
                             "updater-progress",
                             UpdateProgressPayload {
                                 status: "downloading".to_string(),
@@ -379,10 +508,13 @@ pub async fn updater_start_download(
         break;
     }
 
+    if cancel_flag.load(Ordering::SeqCst) {
+        let _ = tokio::fs::remove_file(&target_file_path).await;
+        return Err(emit_cancelled(&window, final_downloaded, None));
+    }
     if !downloaded_successfully {
-        *active = false;
         let err_msg = format!("Failed to download update from all available sources: {last_err}");
-        let _ = app.emit(
+        let _ = window.emit(
             "updater-progress",
             UpdateProgressPayload {
                 status: "error".to_string(),
@@ -408,6 +540,11 @@ pub async fn updater_start_download(
         _ => None,
     };
 
+    let _ = window.emit("updater-progress", UpdateProgressPayload {
+        status: "verifying".into(), downloaded: final_downloaded,
+        total: Some(final_downloaded), percent: 100.0, speed_bps: 0,
+        file_path: Some(target_path_str.clone()), error: None,
+    });
     match trusted_info {
         None => {
             eprintln!(
@@ -415,7 +552,17 @@ pub async fn updater_start_download(
                  the installer will be refused by the integrity gate"
             );
         }
-        Some(trusted) => match fetch_expected_hash(&client, &trusted, preferred_prefix.as_deref()).await {
+        Some(trusted) => match match cancellable(&cancel_flag,
+            tokio::time::timeout(std::time::Duration::from_secs(45), fetch_expected_hash(&client, &trusted, preferred_prefix.as_deref()))
+        ).await {
+            Some(response) => {
+                response.unwrap_or_else(|_| Err("Checksum verification timed out after 45 seconds".into()))
+            },
+            None => {
+                let _ = tokio::fs::remove_file(&target_file_path).await;
+                return Err(emit_cancelled(&window, final_downloaded, Some(final_downloaded)));
+            }
+        } {
             Ok(expected) => {
                 let actual = file_sha256_hex(&target_file_path)?;
                 if actual.eq_ignore_ascii_case(&expected) {
@@ -426,7 +573,6 @@ pub async fn updater_start_download(
                         .insert(target_path_str.clone(), expected);
                 } else {
                     let _ = tokio::fs::remove_file(&target_file_path).await;
-                    *active = false;
                     let err_msg = format!(
                         "Installer integrity check failed (SHA-256 mismatch, expected {}…, got {}…). \
                          The downloaded file was deleted and nothing was executed — retry the update, \
@@ -434,7 +580,7 @@ pub async fn updater_start_download(
                         &expected[..12.min(expected.len())],
                         &actual[..12.min(actual.len())],
                     );
-                    let _ = app.emit(
+                    let _ = window.emit(
                         "updater-progress",
                         UpdateProgressPayload {
                             status: "error".to_string(),
@@ -451,13 +597,15 @@ pub async fn updater_start_download(
             }
             Err(e) => {
                 let _ = tokio::fs::remove_file(&target_file_path).await;
-                *active = false;
+                if cancel_flag.load(Ordering::SeqCst) {
+                    return Err(emit_cancelled(&window, final_downloaded, Some(final_downloaded)));
+                }
                 let err_msg = format!(
                     "Failed to verify installer integrity: {e}. \
                      The downloaded file was removed for security — please retry the update, \
                      or download manually from the official release page in a browser."
                 );
-                let _ = app.emit(
+                let _ = window.emit(
                     "updater-progress",
                     UpdateProgressPayload {
                         status: "error".to_string(),
@@ -474,8 +622,12 @@ pub async fn updater_start_download(
         },
     }
 
-    *active = false;
-    let _ = app.emit(
+    if cancel_flag.load(Ordering::SeqCst) {
+        state.verified_downloads.lock().unwrap_or_else(|e| e.into_inner()).remove(&target_path_str);
+        let _ = tokio::fs::remove_file(&target_file_path).await;
+        return Err(emit_cancelled(&window, final_downloaded, Some(final_downloaded)));
+    }
+    let _ = window.emit(
         "updater-progress",
         UpdateProgressPayload {
             status: "completed".to_string(),
@@ -712,9 +864,9 @@ async fn fetch_expected_hash(
     let mut last_err = String::new();
 
     for m_url in &candidate_manifests {
-        match client.get(m_url).send().await {
+        match client.get(m_url).timeout(std::time::Duration::from_secs(12)).send().await {
             Ok(res) if res.status().is_success() => {
-                if let Ok(body) = res.text().await {
+                if let Ok(body) = read_checksum_manifest(res).await {
                     if let Some(hash) = expected_hash_from_manifest(&body, &trusted.asset_name) {
                         return Ok(hash);
                     } else {
@@ -764,13 +916,13 @@ fn verify_installer_before_execute(
     app: &AppHandle,
     path: &Path,
     file_path: &str,
-) -> Result<(), String> {
+) -> Result<String, String> {
     // Explicit dev/test bypass — loud on purpose, never a silent default.
     if std::env::var(ENV_ALLOW_UNVERIFIED).ok().as_deref() == Some("1") {
         eprintln!(
             "[updater] {ENV_ALLOW_UNVERIFIED}=1 — integrity gate bypassed for {file_path} (dev/test only)"
         );
-        return Ok(());
+        return file_sha256_hex(path);
     }
     let state = app.state::<UpdaterState>();
     let expected = state
@@ -793,12 +945,13 @@ fn verify_installer_before_execute(
              Nothing was executed."
         ));
     }
-    Ok(())
+    Ok(expected)
 }
 
 #[tauri::command]
-pub fn updater_install_and_restart(
+pub async fn updater_install_and_restart(
     app: AppHandle,
+    window: tauri::WebviewWindow,
     file_path: String,
     silent: bool,
 ) -> Result<(), String> {
@@ -835,84 +988,35 @@ pub fn updater_install_and_restart(
     // gates, the injected-script path of "pick a URL, then pick a file" ends
     // in a refusal unless the payload came off the official release and still
     // matches its manifest entry.
-    verify_installer_before_execute(&app, &path, &file_path)?;
+    let expected_sha256 = verify_installer_before_execute(&app, &path, &file_path)?;
+    let reservation = reserve_install_on_ui(&app, window.label().to_owned()).await?;
+    // Failed handoffs must allow a retry. A successful one keeps the reservation
+    // until this process exits so simultaneous WebViews cannot launch twice.
+    let install_result = install_and_restart(&app, &path, &file_path, silent, expected_sha256);
+    if install_result.is_ok() { reservation.commit(); }
+    install_result
+}
+
+fn install_and_restart(app: &AppHandle, path: &Path, file_path: &str, silent: bool, expected_sha256: String) -> Result<(), String> {
+    let _ = (&expected_sha256, silent, file_path);
 
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        const DETACHED_PROCESS: u32 = 0x00000008;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-
-        let current_exe = std::env::current_exe().ok();
-        let current_exe_str = current_exe.as_ref().and_then(|p| p.to_str()).unwrap_or("");
-
-        if ext == "msi" {
-            // Use msiexec for MSI installers:
-            // /passive: shows a simple progress bar without requiring user clicks
-            // /norestart: prevents unexpected system reboot
-            let mut cmd = std::process::Command::new("cmd.exe");
-            let script = if !current_exe_str.is_empty() {
-                format!(
-                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait msiexec.exe /i \"{}\" /passive /norestart & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
-                    file_path, current_exe_str
-                )
-            } else {
-                format!(
-                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait msiexec.exe /i \"{}\" /passive /norestart",
-                    file_path
-                )
-            };
-            cmd.arg("/C").arg(script);
-            cmd.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW);
-
-            match cmd.spawn() {
-                Ok(_) => {
-                    // Gracefully exit so the installer can update the files
-                    let app_clone = app.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(500));
-                        app_clone.exit(0);
-                    });
-                    Ok(())
-                }
-                Err(e) => Err(format!("Failed to launch MSI installer: {e}")),
-            }
-        } else {
-            // Executable setup (.exe)
-            let silent_flag = if silent { " /S" } else { "" };
-            let mut cmd = std::process::Command::new("cmd.exe");
-            let script = if !current_exe_str.is_empty() {
-                format!(
-                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait \"{}\"{} & ping 127.0.0.1 -n 2 >nul & start \"\" \"{}\"",
-                    file_path, silent_flag, current_exe_str
-                )
-            } else {
-                format!(
-                    "ping 127.0.0.1 -n 3 >nul & start \"\" /wait \"{}\"{}",
-                    file_path, silent_flag
-                )
-            };
-            cmd.arg("/C").arg(script);
-            cmd.creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW);
-
-            match cmd.spawn() {
-                Ok(_) => {
-                    let app_clone = app.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_millis(500));
-                        app_clone.exit(0);
-                    });
-                    Ok(())
-                }
-                Err(e) => Err(format!("Failed to launch installer executable: {e}")),
-            }
-        }
+        let current_exe = std::env::current_exe().map_err(|e| format!("Locate application for restart: {e}"))?;
+        crate::windows_update_helper::launch_handoff(
+            &get_update_cache_dir(app), &current_exe,
+            crate::windows_update_helper::UpdateJob {
+                version: 1, parent_pid: std::process::id(), installer: path.to_path_buf(),
+                restart_exe: current_exe.clone(), expected_sha256, silent,
+                ready_token: format!("{:032x}", rand::random::<u128>()), show_error_dialog: true,
+            },
+        )?;
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            app.exit(0);
+        });
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
@@ -975,11 +1079,117 @@ pub fn updater_install_and_restart(
 
 #[cfg(test)]
 mod tests {
+    use super::{UpdaterState, cancellable, read_checksum_manifest, check_install_windows};
+    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use super::{
         candidate_download_urls, candidate_manifest_urls, expected_hash_from_manifest,
         extract_mirror_prefix, file_sha256_hex, sanitize_download_filename,
         trusted_release_asset,
     };
+
+    #[test]
+    fn download_reservation_rejects_overlap_and_releases_after_error() {
+        let state = UpdaterState::new();
+        let fail = || -> Result<(), String> {
+            let _guard = state.reserve_download()?;
+            assert!(state.reserve_download().is_err());
+            Err("simulated preflight or hashing failure".into())
+        };
+        assert!(fail().is_err());
+        assert!(state.reserve_download().is_ok());
+    }
+
+    #[test]
+    #[cfg(desktop)]
+    fn install_reserves_before_visibility_and_releases_on_capture_rejection() {
+        let state = UpdaterState::new();
+        let result = state.reserve_install(|| {
+            assert!(state.allow_capture_open().is_err(), "capture cannot open in the preflight gap");
+            check_install_windows("main", ["main".into(), "solomd-quick-capture".into()], true)
+        });
+        assert!(result.is_err());
+        assert!(state.allow_capture_open().is_ok(), "rejected updates must release the gate");
+        let reservation = state.reserve_install(|| check_install_windows("main", ["main".into(), "solomd-quick-capture".into(), "solomd-pip-timer".into()], false)).unwrap();
+        assert!(state.allow_capture_open().is_err());
+        assert!(state.reserve_install(|| Ok(())).is_err());
+        drop(reservation); // handoff failure/cancelled IPC also restores capture
+        assert!(state.allow_capture_open().is_ok());
+    }
+
+    #[test]
+    #[cfg(desktop)]
+    fn committed_install_keeps_capture_gate_and_other_editor_windows_still_block() {
+        let state = UpdaterState::new();
+        assert!(state.reserve_install(|| check_install_windows("main", ["main".into(), "solomd-window-3".into()], false)).is_err());
+        assert!(state.allow_capture_open().is_ok());
+        state.reserve_install(|| Ok(())).unwrap().commit();
+        assert!(state.allow_capture_open().is_err());
+        assert!(state.reserve_install(|| Ok(())).is_err());
+    }
+
+    async fn local_response(response: Vec<u8>) -> (reqwest::Response, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0u8; 4096];
+            let _ = socket.read(&mut request).await;
+            let _ = socket.write_all(&response).await;
+        });
+        let response = reqwest::Client::new().get(format!("http://{address}/SHA256SUMS.txt")).send().await.unwrap();
+        (response, task)
+    }
+
+    #[tokio::test]
+    async fn checksum_manifest_accepts_actual_http_body_and_refuses_oversized_length() {
+        let body = format!("{}  installer.msi\n", "a".repeat(64));
+        let bytes = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).into_bytes();
+        let (response, server) = local_response(bytes).await;
+        let actual = read_checksum_manifest(response).await.unwrap();
+        assert_eq!(expected_hash_from_manifest(&actual, "installer.msi"), Some("a".repeat(64)));
+        server.await.unwrap();
+        let (response, server) = local_response(b"HTTP/1.1 200 OK\r\nContent-Length: 1048577\r\nConnection: close\r\n\r\n".to_vec()).await;
+        assert!(read_checksum_manifest(response).await.unwrap_err().contains("1 MiB"));
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn checksum_chunked_body_cannot_bypass_size_bound() {
+        let mut bytes = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n100001\r\n".to_vec();
+        bytes.resize(bytes.len() + 1048577, b'x');
+        bytes.extend_from_slice(b"\r\n0\r\n\r\n");
+        let (response, server) = local_response(bytes).await;
+        assert!(read_checksum_manifest(response).await.unwrap_err().contains("1 MiB"));
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancellation_interrupts_stalled_actual_http_headers_and_body() {
+        for send_headers in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut request = [0u8; 4096];
+                let _ = socket.read(&mut request).await;
+                if send_headers { socket.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n").await.unwrap(); }
+                std::future::pending::<()>().await;
+            });
+            let flag = Arc::new(AtomicBool::new(false));
+            let cancel = flag.clone();
+            let trigger = tokio::spawn(async move { tokio::time::sleep(std::time::Duration::from_millis(100)).await; cancel.store(true, Ordering::SeqCst); });
+            let operation = async {
+                let response = reqwest::Client::new().get(format!("http://{address}/stall")).send().await.unwrap();
+                read_checksum_manifest(response).await
+            };
+            let result = tokio::time::timeout(std::time::Duration::from_secs(2), cancellable(&flag, operation)).await.unwrap();
+            assert!(result.is_none(), "cancellation must interrupt a peer that never sends another byte");
+            trigger.await.unwrap();
+            server.abort();
+            let _ = server.await;
+        }
+    }
 
     #[test]
     fn download_name_keeps_only_the_basename() {

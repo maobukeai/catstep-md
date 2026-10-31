@@ -103,7 +103,8 @@ import { nativeMenuAccelerators } from './lib/keybindings';
 import { useI18n } from './i18n';
 import { quickCaptureError } from './lib/quick-capture-status';
 import { isSafPicking, clearSafPicking } from './lib/saf-picker-state';
-import { waitForNoteEditors } from './lib/editor-flush';
+import { flushNoteEditors, waitForNoteEditors } from './lib/editor-flush';
+import { sharedUpdaterState, type UpdateInstallContext, type UpdateResult } from './lib/check-update';
 import { tableEditor, closeTableEditor } from './lib/table-editor-bus';
 import { formulaEditor, closeFormulaEditor } from './lib/formula-editor-bus';
 import { openWelcomeTour, getWelcomeTourDocs } from './lib/welcome-tour';
@@ -147,7 +148,50 @@ const toasts = useToastsStore();
 // outside our process).
 const androidPickerOpen = ref(false);
 const updateModalOpen = ref(false);
-const startupUpdateResult = ref<any>(null);
+const startupUpdateResult = ref<UpdateResult | null>(null);
+let disposeUpdatePreparation: (() => void) | null = null;
+let disposeAutoInstall: (() => void) | null = null;
+const updateInteractionLocked = ref(false);
+const appContentRef = ref<HTMLElement | null>(null);
+const updateInstallOverlay = ref<HTMLElement | null>(null);
+let updatePreviousFocus: HTMLElement | null = null;
+let updatePreviousInert = false;
+
+function blockUpdateInteraction(event: Event) {
+  if (!updateInteractionLocked.value) return;
+  if (event.cancelable) event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
+// Register before mounted shortcut listeners. The inert editor surface and
+// overlay stop pointer/focus editing; capture also blocks global edit shortcuts.
+const updateBlockedEvents = ['keydown', 'beforeinput', 'paste', 'cut', 'drop', 'pointerdown', 'click', 'contextmenu', 'solomd:menu-action'];
+for (const name of updateBlockedEvents) {
+  window.addEventListener(name, blockUpdateInteraction, { capture: true, passive: false });
+}
+
+async function lockUpdateInteraction() {
+  const content = appContentRef.value;
+  if (!content) throw new Error('The editor surface is unavailable for update preparation');
+  updatePreviousFocus = document.activeElement as HTMLElement | null;
+  updatePreviousInert = content.inert;
+  updateInteractionLocked.value = true;
+  content.inert = true;
+  await nextTick();
+  updateInstallOverlay.value?.focus({ preventScroll: true });
+}
+
+function unlockUpdateInteraction() {
+  if (!updateInteractionLocked.value) return;
+  if (appContentRef.value) appContentRef.value.inert = updatePreviousInert;
+  updateInteractionLocked.value = false;
+  if (updatePreviousFocus?.isConnected) updatePreviousFocus.focus({ preventScroll: true });
+  updatePreviousFocus = null;
+}
+
+watch(() => sharedUpdaterState.isInstalling, (installing) => {
+  if (!installing) unlockUpdateInteraction();
+}, { flush: 'sync' });
 // Shown after an all-files grant that didn't take effect on the running
 // process (see the resume probe in onMounted); the app must restart so shared
 // storage re-mounts.
@@ -554,6 +598,29 @@ function flushPendingPersist() {
       tiles.persist();
     } catch {}
   }
+}
+
+async function prepareUpdateInstall({ automatic }: UpdateInstallContext): Promise<boolean> {
+  if (automatic) {
+    if (!flushNoteEditors() || tabs.tabs.some((tab) => tab.content !== tab.savedContent)) return false;
+  } else {
+    // A single click during composition waits for the real commit. It never
+    // turns the partial IME draft into a persisted, supposedly clean note.
+    await waitForNoteEditors();
+    if (tabs.tabs.some((tab) => tab.content !== tab.savedContent)) {
+      throw new Error(t('settings.updateSaveBeforeInstall'));
+    }
+  }
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = null;
+  // Force a fresh, strict session write even if the debounce already ran and
+  // reported a failure. Updates must not exit after a swallowed storage error.
+  tabs.persist(true);
+  tiles.persist(true);
+  // Native integrity verification/staging may take seconds. Freeze only after
+  // IME commit and successful persistence, then keep the backed-up draft stable.
+  await lockUpdateInteraction();
+  return true;
 }
 
 function debouncedPersistTabs() {
@@ -1046,6 +1113,7 @@ async function openExternalFile() {
 }
 
 function dispatchMenuAction(id: string) {
+  if (updateInteractionLocked.value) return;
   switch (id) {
     case 'file.new':
       files.newFile();
@@ -1625,6 +1693,7 @@ onMounted(async () => {
   if (isTauri()) {
     try {
       await listen('solomd://close-requested', async () => {
+        if (updateInteractionLocked.value) return;
         // S08 — the CodeMirror editor syncs doc→tab.content on a 350ms
         // debounce. Clicking ✕ inside that window used to persist (and, with
         // auto-save off, leave on disk) a stale document — the tail of the
@@ -1732,18 +1801,34 @@ onMounted(async () => {
   // the same action ids through a DOM event — no Tauri round-trip needed.
   window.addEventListener('solomd:menu-action', onDomMenuAction);
 
-  // Auto-check for updates
-  if (isTauri() && !isIOS() && settings.autoCheckUpdate) {
+  // Every desktop window supplies its own editor/session guard. Rust also
+  // refuses installation while another editor window is still open.
+  if (isTauri() && !isIOS()) {
     try {
       const {
         checkForUpdateOnStartup,
         startUpdateDownload,
-        installUpdateAndRestart,
         initUpdaterEventListener,
         resolveMatchedAsset,
+        registerUpdateInstallPreparation,
+        configureAutoInstall,
       } = await import('./lib/check-update');
+      const mainWindow = getCurrentWindow().label === 'main';
+      if (!isMobile()) {
+        disposeUpdatePreparation = registerUpdateInstallPreparation(prepareUpdateInstall);
+        disposeAutoInstall = configureAutoInstall({
+          enabled: () => mainWindow && settings.autoInstallUpdate,
+          onStarting: () => { toasts.info(t('settings.updateInstalling')); },
+          onError: (error) => {
+            toasts.error(t('settings.installUpdateFailed', { error: String(error) }), 8000,
+              () => { updateModalOpen.value = true; });
+          },
+        });
+      }
       await initUpdaterEventListener();
-      const result = await checkForUpdateOnStartup(true);
+      // Auxiliary windows keep manual update controls, but do not each start
+      // their own background download and installation.
+      const result = settings.autoCheckUpdate && mainWindow ? await checkForUpdateOnStartup(true) : null;
       if (result && result.hasUpdate) {
         startupUpdateResult.value = result;
         const toastsStore = (await import('./stores/toasts')).useToastsStore();
@@ -1758,30 +1843,13 @@ onMounted(async () => {
             5000,
             () => { updateModalOpen.value = true; },
           );
-          void startUpdateDownload(asset, result.latest || '').then(() => {
-            if (settings.autoInstallUpdate) {
-              toastsStore.info(
-                tr('settings.updateInstalling'),
-                4000,
-              );
-              setTimeout(() => {
-                void installUpdateAndRestart(undefined, true).catch((err) => {
-                  console.error('Background auto-install failed:', err);
-                  toastsStore.error(
-                    tr('settings.installUpdateFailed', { error: String(err) }),
-                    8000,
-                    () => { updateModalOpen.value = true; },
-                  );
-                });
-              }, 2500);
-            } else {
-              toastsStore.success(
-                tr('settings.downloadComplete'),
-                16000,
-                () => { void installUpdateAndRestart(undefined, true); },
-              );
-            }
+          void startUpdateDownload(asset, result.latest || '', result).then(() => {
+            // The shared scheduler owns automatic installation and its cancel
+            // action. A notification only opens that same stateful modal.
+            toastsStore.success(tr('settings.downloadComplete'), 16000,
+              () => { updateModalOpen.value = true; });
           }).catch((err) => {
+            if (/download cancelled by user/i.test(String(err))) return;
             console.warn('Background auto-update download failed:', err);
             toastsStore.error(
               tr('settings.downloadFailed'),
@@ -1958,6 +2026,10 @@ window.addEventListener(VIEW_CLOSE_EVENT, onCloseView as EventListener);
 window.addEventListener('solomd:open-settings', onOpenSettingsEvent as EventListener);
 
 onBeforeUnmount(() => {
+  disposeAutoInstall?.();
+  disposeUpdatePreparation?.();
+  unlockUpdateInteraction();
+  for (const name of updateBlockedEvents) window.removeEventListener(name, blockUpdateInteraction, true);
   flushPendingPersist();
   window.removeEventListener('beforeunload', flushPendingPersist);
   window.removeEventListener('keydown', onEsc);
@@ -2516,6 +2588,7 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
   <UiPreview v-if="showUiKit" />
   <div
     v-else
+    ref="appContentRef"
     class="app"
     :class="{
       'app--reading': settings.viewMode === 'reading',
@@ -3005,6 +3078,12 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
     />
     <SponsorModal v-model="sponsorOpen" />
     <UpdateModal v-model="updateModalOpen" :update-info="startupUpdateResult" />
+    <Teleport to="body">
+      <div v-if="updateInteractionLocked" ref="updateInstallOverlay" class="update-install-lock"
+        role="alertdialog" aria-modal="true" :aria-label="t('settings.updateInstalling')" tabindex="-1">
+        {{ t('settings.updateInstalling') }}
+      </div>
+    </Teleport>
     <AgentSetupWizard v-if="!IS_APP_STORE_BUILD" :open="wizardOpen" @close="wizardOpen = false" />
     <UnsavedDialog
       :open="unsavedOpen"
@@ -3060,6 +3139,18 @@ watchEffect(() => { void settings.aiEnabled; void settings.aiProvider; void sett
 </template>
 
 <style scoped>
+.update-install-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text);
+  cursor: wait;
+  outline: none;
+}
+
 /* #148 (follow-up) — post-grant restart prompt. */
 .arn-backdrop {
   position: fixed;

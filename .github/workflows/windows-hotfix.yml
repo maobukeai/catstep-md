@@ -1,0 +1,233 @@
+name: Build Windows hotfix artifacts
+
+# Build-only: release assets are reviewed and replaced separately by the maintainer.
+on:
+  push:
+    branches:
+      - codex/fix-windows-updater-20261031
+    paths:
+      - 'app/**'
+      - 'mcp-server/**'
+      - 'scripts/**'
+      - '.cargo/**'
+      - '.github/workflows/windows-hotfix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-hotfix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/codex/fix-windows-updater-20261031'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            arch: x64
+            triple: x86_64-pc-windows-msvc
+          - platform: windows-11-arm
+            arch: arm64
+            triple: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.platform }}
+    env:
+      CARGO_INCREMENTAL: '0'
+      HOTFIX_ARCH: ${{ matrix.arch }}
+      HOTFIX_TRIPLE: ${{ matrix.triple }}
+    steps:
+      - name: Checkout reviewed source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.triple }}
+
+      - name: Cache Cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            app/src-tauri -> target
+            mcp-server -> target
+
+      - name: Install frontend dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Pre-build matching MCP sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+          test "$TRIPLE" = "$HOTFIX_TRIPLE"
+          bash scripts/build-mcp-sidecar.sh "$TRIPLE"
+
+      - name: Build Windows MSI
+        working-directory: app
+        shell: pwsh
+        run: node node_modules/@tauri-apps/cli/tauri.js build --ci --bundles msi -- --locked
+
+      - name: Prepare and verify artifacts
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Lockfiles and source files must still describe the checked-out commit.
+          git diff --exit-code
+          if ($LASTEXITCODE -ne 0) { throw 'Build changed tracked source or lockfiles' }
+          $version = (Get-Content -LiteralPath 'app/package.json' -Raw | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content -LiteralPath 'app/src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json).version
+          $cargoText = Get-Content -LiteralPath 'app/src-tauri/Cargo.toml' -Raw
+          $cargoVersion = [regex]::Match($cargoText, '(?m)^version = "([^"]+)"').Groups[1].Value
+          if ($version -ne $tauriVersion -or $version -ne $cargoVersion) { throw 'Application versions disagree' }
+
+          $arch = $env:HOTFIX_ARCH
+          $triple = $env:HOTFIX_TRIPLE
+          $exe = Get-Item -LiteralPath 'app/src-tauri/target/release/CatstepMD.exe'
+          $mcp = Get-Item -LiteralPath "app/src-tauri/binaries/catstep-mcp-$triple.exe"
+          $mcpBuilt = Get-Item -LiteralPath "mcp-server/target/$triple/release/catstep-mcp.exe"
+          if ((Get-FileHash $mcp.FullName -Algorithm SHA256).Hash -ne (Get-FileHash $mcpBuilt.FullName -Algorithm SHA256).Hash) {
+            throw "Staged sidecar differs from the just-built $triple binary"
+          }
+          if ($exe.VersionInfo.ProductVersion -ne $version) { throw 'Desktop executable version does not match source' }
+          function Get-PeMachine([string] $Path) {
+            $stream = [IO.File]::OpenRead($Path)
+            $reader = [IO.BinaryReader]::new($stream)
+            try {
+              if ($reader.ReadUInt16() -ne 0x5a4d) { throw "Missing MZ header: $Path" }
+              $stream.Position = 0x3c
+              $offset = $reader.ReadInt32()
+              if ($offset -lt 0x40 -or $offset -gt ($stream.Length - 6)) { throw "Invalid PE offset: $Path" }
+              $stream.Position = $offset
+              if ($reader.ReadUInt32() -ne 0x4550) { throw "Missing PE header: $Path" }
+              return $reader.ReadUInt16()
+            } finally { $reader.Dispose() }
+          }
+          $expectedMachine = if ($arch -eq 'arm64') { 0xaa64 } else { 0x8664 }
+          if ((Get-PeMachine $exe.FullName) -ne $expectedMachine -or (Get-PeMachine $mcp.FullName) -ne $expectedMachine) {
+            throw "Desktop/sidecar PE architecture does not match $arch"
+          }
+
+          $work = Join-Path $env:RUNNER_TEMP "catstep-windows-hotfix-$arch"
+          $stage = Join-Path $work 'portable-stage'
+          $output = Join-Path $work 'artifacts'
+          New-Item -ItemType Directory -Force -Path $stage, $output | Out-Null
+          $sourceFiles = [ordered]@{
+            'CatstepMD.exe' = $exe.FullName
+            'catstep-mcp.exe' = $mcp.FullName
+          }
+          foreach ($relative in @('icons/file_icon.ico', 'resources/dicts/en_US.aff', 'resources/dicts/en_US.dic')) {
+            $sourceFiles[$relative] = (Get-Item -LiteralPath (Join-Path 'app/src-tauri' $relative)).FullName
+          }
+          foreach ($relative in $sourceFiles.Keys) {
+            $destination = Join-Path $stage $relative
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+            Copy-Item -LiteralPath $sourceFiles[$relative] -Destination $destination
+          }
+          $readme = Join-Path $stage 'README.txt'
+          @"
+          Catstep MD $version - Windows $arch portable build
+          Run CatstepMD.exe. Keep the icons and resources directories beside it.
+          Settings and recents use %APPDATA%\app.catstepmd.
+          Requires Microsoft Edge WebView2: https://go.microsoft.com/fwlink/p/?LinkID=2124703
+          "@ | Set-Content -LiteralPath $readme -Encoding utf8
+          $sourceFiles['README.txt'] = $readme
+
+          $zipPath = Join-Path $output "CatstepMD_${version}_${arch}-portable.zip"
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zipPath -Force
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = [IO.Compression.ZipFile]::OpenRead($zipPath)
+          try {
+            foreach ($relative in $sourceFiles.Keys) {
+              $entries = @($zip.Entries | Where-Object { $_.FullName.Replace('\', '/') -eq $relative })
+              if ($entries.Count -ne 1) { throw "Portable archive missing or duplicating $relative" }
+              $stream = $entries[0].Open()
+              $sha = [Security.Cryptography.SHA256]::Create()
+              try { $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+              finally { $sha.Dispose(); $stream.Dispose() }
+              if ($hash -ne (Get-FileHash -LiteralPath $sourceFiles[$relative] -Algorithm SHA256).Hash) {
+                throw "Portable archive content differs from $relative"
+              }
+            }
+          } finally { $zip.Dispose() }
+          $msiName = "CatstepMD_${version}_${arch}_en-US.msi"
+          $msi = Get-Item -LiteralPath (Join-Path 'app/src-tauri/target/release/bundle/msi' $msiName)
+          Copy-Item -LiteralPath $msi.FullName -Destination (Join-Path $output $msiName)
+          $assets = @($msiName, (Split-Path -Leaf $zipPath)) | ForEach-Object {
+            $file = Get-Item -LiteralPath (Join-Path $output $_)
+            [ordered]@{ name = $file.Name; size = $file.Length; sha256 = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+          }
+          $assets | ForEach-Object { "$($_.sha256)  $($_.name)" } |
+            Set-Content -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding utf8
+          $inputs = @($sourceFiles.Keys | ForEach-Object {
+            [ordered]@{ path = $_; sha256 = (Get-FileHash -LiteralPath $sourceFiles[$_] -Algorithm SHA256).Hash.ToLowerInvariant() }
+          })
+          $provenance = [ordered]@{
+            schema_version = 1
+            repository = $env:GITHUB_REPOSITORY
+            commit = $env:GITHUB_SHA
+            ref = $env:GITHUB_REF
+            workflow = $env:GITHUB_WORKFLOW
+            run_id = $env:GITHUB_RUN_ID
+            run_attempt = $env:GITHUB_RUN_ATTEMPT
+            generated_utc = [DateTime]::UtcNow.ToString('o')
+            runner_os = $env:RUNNER_OS
+            runner_arch = $env:RUNNER_ARCH
+            architecture = $arch
+            target_triple = $triple
+            version = $version
+            rustc = (& rustc -V)
+            cargo = (& cargo -V)
+            node = (& node --version)
+            pnpm = (& pnpm --version)
+            desktop_pe_machine = ('0x{0:x4}' -f (Get-PeMachine $exe.FullName))
+            sidecar_pe_machine = ('0x{0:x4}' -f (Get-PeMachine $mcp.FullName))
+            desktop_signature_status = (Get-AuthenticodeSignature $exe.FullName).Status.ToString()
+            msi_signature_status = (Get-AuthenticodeSignature $msi.FullName).Status.ToString()
+            portable_inputs = $inputs
+            assets = $assets
+          }
+          $provenance | ConvertTo-Json -Depth 8 |
+            Set-Content -LiteralPath (Join-Path $output 'build-provenance.json') -Encoding utf8
+          "artifact_directory=$output" >> $env:GITHUB_OUTPUT
+          Write-Output ($provenance | ConvertTo-Json -Depth 8)
+
+      - name: Test native Windows updater helpers after packaging
+        working-directory: app/src-tauri
+        shell: pwsh
+        run: |
+          cargo test --release --locked --lib windows_update_helper::tests -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --release --locked --lib updater::tests -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --release --locked --lib quick_capture::tests -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --release --locked --test windows_updater_process_test -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload build-only artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-hotfix-${{ matrix.arch }}-${{ github.sha }}
+          path: ${{ steps.package.outputs.artifact_directory }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

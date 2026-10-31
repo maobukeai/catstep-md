@@ -45,7 +45,7 @@ const MOBILE_UNSUPPORTED: &str = "quick capture is desktop-only";
 /// Deliberately small, undecorated and always-on-top: it is a prompt, not a
 /// window you manage. Esc dismisses it (handled in the webview).
 #[tauri::command]
-pub fn quick_capture_open(app: AppHandle) -> Result<(), String> {
+pub async fn quick_capture_open(app: AppHandle) -> Result<(), String> {
     #[cfg(not(desktop))]
     {
         // `show`/`set_focus` and the window builder's `title` are desktop-only
@@ -57,33 +57,73 @@ pub fn quick_capture_open(app: AppHandle) -> Result<(), String> {
     }
     #[cfg(desktop)]
     {
-        if let Some(win) = app.get_webview_window(CAPTURE_LABEL) {
-            win.show().map_err(|e| e.to_string())?;
-            win.set_focus().map_err(|e| e.to_string())?;
-            // The box remembers nothing between uses; tell the webview to clear.
-            let _ = win.emit("solomd://quick-capture-reset", ());
-            return Ok(());
-        }
-
-        let win = WebviewWindowBuilder::new(
-            &app,
-            CAPTURE_LABEL,
-            WebviewUrl::App("index.html?quickCapture=1".into()),
-        )
-        .title("猫步 MD — 快速收集")
-        .inner_size(560.0, 180.0)
-        .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .center()
-        .skip_taskbar(true)
-        .focused(true)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-        let _ = win.set_focus();
-        Ok(())
+        open_capture_on_ui(app, false).await
     }
+}
+
+#[cfg(desktop)]
+async fn open_capture_on_ui(app: AppHandle, toggle: bool) -> Result<(), String> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let handle = app.clone();
+    app.run_on_main_thread(move || {
+        let result = open_capture_now(&handle, toggle);
+        let _ = tx.send(result);
+    })
+    .map_err(|e| e.to_string())?;
+    rx.await
+        .map_err(|_| "Quick capture window request was interrupted".to_string())?
+}
+
+#[cfg(desktop)]
+pub(super) fn with_capture_permission<T>(
+    state: &super::updater::UpdaterState,
+    show_or_create: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    let _opening = state.reserve_capture_open()?;
+    show_or_create()
+}
+
+#[cfg(desktop)]
+fn open_capture_now(app: &AppHandle, toggle: bool) -> Result<(), String> {
+    // This check and show/build are one UI task, serialized with updater
+    // reservation+visibility preflight. A global shortcut cannot slip in
+    // after the updater checked that the capture window was hidden.
+    with_capture_permission(&app.state::<super::updater::UpdaterState>(), || {
+        open_capture_unchecked(app, toggle)
+    })
+}
+
+#[cfg(desktop)]
+fn open_capture_unchecked(app: &AppHandle, toggle: bool) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window(CAPTURE_LABEL) {
+        if toggle && win.is_visible().map_err(|e| e.to_string())? {
+            return win.hide().map_err(|e| e.to_string());
+        }
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
+        // The box remembers nothing between uses; tell the webview to clear.
+        let _ = win.emit("solomd://quick-capture-reset", ());
+        return Ok(());
+    }
+
+    let win = WebviewWindowBuilder::new(
+        app,
+        CAPTURE_LABEL,
+        WebviewUrl::App("index.html?quickCapture=1".into()),
+    )
+    .title("猫步 MD — 快速收集")
+    .inner_size(560.0, 180.0)
+    .resizable(false)
+    .decorations(false)
+    .always_on_top(true)
+    .center()
+    .skip_taskbar(true)
+    .focused(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    let _ = win.set_focus();
+    Ok(())
 }
 
 /// Hide (never destroy) the box — recreating a webview on every capture is
@@ -121,7 +161,9 @@ pub fn quick_capture_write(
     // A capture is rarely a document with a heading, so the shared writer's
     // "no title → Untitled" would name every note `…-untitled.md` and make the
     // inbox unreadable at a glance. The first line is the title here.
-    let derived = title.filter(|t| !t.trim().is_empty()).or_else(|| first_line_title(trimmed));
+    let derived = title
+        .filter(|t| !t.trim().is_empty())
+        .or_else(|| first_line_title(trimmed));
 
     let path = capture_write_inner(
         &workspace,
@@ -236,18 +278,12 @@ pub fn quick_capture_set_shortcut(
                 if event.state() != ShortcutState::Pressed {
                     return;
                 }
-                // Pressing the chord while the box is already up means "put it
-                // away", same as Esc. Without this the hotkey feels stuck when
-                // it lands on an already-open box.
-                if let Some(win) = handle.get_webview_window(CAPTURE_LABEL) {
-                    if win.is_visible().unwrap_or(false) {
-                        let _ = win.hide();
-                        return;
+                let handle = handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = open_capture_on_ui(handle, true).await {
+                        eprintln!("[quick_capture] open failed: {e}");
                     }
-                }
-                if let Err(e) = quick_capture_open(handle.clone()) {
-                    eprintln!("[quick_capture] open failed: {e}");
-                }
+                });
             })
             .map_err(|e| format!("could not register {accel}: {e}"))?;
         *current = Some(accel);
@@ -257,5 +293,52 @@ pub fn quick_capture_set_shortcut(
     {
         let _ = (app, accelerator);
         Err("global shortcuts are desktop-only".into())
+    }
+}
+
+#[cfg(all(test, desktop))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn actual_capture_open_path_cannot_create_or_show_during_install() {
+        // The exact guard wrapping native show/build; inject only the window
+        // operation boundary so this unit test never links/starts native GUI.
+        let state = super::super::updater::UpdaterState::new();
+        let operations = std::cell::Cell::new(0);
+        let show_or_create = || {
+            operations.set(operations.get() + 1);
+            Ok(())
+        };
+        let reservation = state.reserve_install(|| Ok(())).unwrap();
+        assert!(with_capture_permission(&state, show_or_create)
+            .unwrap_err()
+            .contains("update"));
+        assert_eq!(operations.get(), 0);
+        drop(reservation);
+        with_capture_permission(&state, show_or_create).unwrap();
+        assert_eq!(operations.get(), 1);
+        let reservation = state.reserve_install(|| Ok(())).unwrap();
+        assert!(with_capture_permission(&state, show_or_create).is_err());
+        assert!(with_capture_permission(&state, show_or_create).is_err());
+        assert_eq!(operations.get(), 1);
+        drop(reservation);
+    }
+
+    #[test]
+    fn reentrant_install_during_capture_build_is_rejected_without_waiting() {
+        let state = super::super::updater::UpdaterState::new();
+        with_capture_permission(&state, || {
+            assert!(state
+                .reserve_install(|| panic!("visibility must not run before opening finishes"))
+                .is_err());
+            assert!(with_capture_permission::<()>(&state, || panic!("duplicate window build")).is_err());
+            Ok(())
+        })
+        .unwrap();
+        assert!(
+            state.reserve_install(|| Ok(())).is_ok(),
+            "capture operation must release its opening flag"
+        );
     }
 }
