@@ -62,6 +62,9 @@ class TestElement {
   setAttribute(key: string, value: string) { this.attributes[key] = value; }
   getAttribute(key: string) { return this.attributes[key]; }
   addEventListener(name: string, callback: (event: any) => void) { (this.handlers[name] ??= []).push(callback); }
+  removeEventListener(name: string, callback: (event: any) => void) {
+    this.handlers[name] = (this.handlers[name] || []).filter((listener) => listener !== callback);
+  }
   emit(name: string, event = {}) { for (const callback of this.handlers[name] ?? []) callback(event); }
   descendants(): TestElement[] { return this.children.flatMap((child) => [child, ...child.descendants()]); }
   querySelectorAll(selector: string): TestElement[] {
@@ -100,6 +103,34 @@ function decorated(source: string, options: Parameters<typeof blocks.liveBlocksE
 }
 
 const initial = 'Prefix\n\n| A | B |\n| --- | --- |\n| x | y |\n\nTail';
+test('the real table widget owns its native scroll frame and releases it on destroy', () => {
+  const win = environment();
+  const { state, widgets } = decorated(initial, { getTableLabel: () => 'Editable camera table' });
+  const widget = widgets[0];
+  let measures = 0;
+  const dom = widget.toDOM({ state, requestMeasure: () => { measures++; } });
+  const bar = dom.querySelector('.md-table-scrollbar');
+  const body = dom.querySelector('.md-table-scroll');
+  assert.ok(bar && body);
+  assert.equal(body.attributes['aria-label'], 'Editable camera table');
+  assert.equal(body.querySelectorAll('td').length, 2);
+  Object.assign(bar, { scrollLeft: 0 });
+  Object.assign(body, { scrollLeft: 0, clientWidth: 400, scrollWidth: 1000 });
+  win.dispatchEvent(new Event('resize'));
+  assert.equal(bar.hidden, false);
+  assert.ok(measures > 0);
+  bar.scrollLeft = 200;
+  bar.emit('scroll');
+  assert.equal(body.scrollLeft, 200);
+  widget.destroy(dom);
+  body.scrollWidth = 2000;
+  win.dispatchEvent(new Event('resize'));
+  assert.equal(bar.children[0].style.width, '1000px');
+  bar.scrollLeft = 300;
+  bar.emit('scroll');
+  assert.equal(body.scrollLeft, 200, 'destroy removes the widget scroll listeners');
+});
+
 function mounted(source = initial, options: Parameters<typeof blocks.liveBlocksExtension>[0] = {}) {
   const { state: initialState, field } = decorated(source, options);
   let state: EditorState = initialState;

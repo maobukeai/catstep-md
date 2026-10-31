@@ -5,6 +5,8 @@
   flex-basis: 0;
 }
 .cm-host .cm-editor .cm-live-block.cm-live-block--table,
+.preview-content .md-table-frame,
+.plain-block__render .md-table-frame,
 .preview-content .md-table-scroll,
 .plain-block__render .md-table-scroll {
   box-sizing: border-box;
@@ -12,13 +14,61 @@
   max-width: 100%;
   width: 100%;
   contain: inline-size;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
 }
 .cm-host .cm-editor .cm-live-block.cm-live-block--table {
   width: var(--cm-text-width, 100%);
+}
+.md-table-frame {
+  position: relative;
+}
+/* Keep prose in its readable column, but let a document containing a wide
+   table use the available pane. Restrict this to top-level tables so nested
+   blockquotes/lists retain their own layout boundaries. */
+:root #write.preview-content:has(> .md-table-frame--wide):not(.preview-content--fit) {
+  max-width: none;
+}
+:root #write.preview-content:has(> .md-table-frame--wide):not(.preview-content--fit) > :not(.md-table-frame) {
+  max-width: max(0px, calc(var(--preview-max-width, 760px) - 72px));
+  margin-left: auto;
+  margin-right: auto;
+}
+:root #write.preview-content--reading:has(> .md-table-frame--wide):not(.preview-content--fit) > :not(.md-table-frame) {
+  max-width: max(0px, calc(var(--preview-max-width, 720px) - 64px));
+}
+.md-table-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+}
+/* A long table's bottom scrollbar can be several screens away. Keep the
+   synchronized native scrollbar available while the table is being read. */
+.md-table-scrollbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 14px;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: auto;
+  scrollbar-color: var(--text-muted) var(--bg-hover);
+  background: var(--bg);
+}
+.md-table-scrollbar[hidden] {
+  display: none;
+}
+.md-table-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+.md-table-scrollbar__spacer {
+  height: 1px;
 }
 .md-table-scroll:focus-visible {
   outline: 2px solid var(--accent);
@@ -26,21 +76,24 @@
 }
 .cm-host .cm-editor .cm-live-block--table table,
 .preview-content .md-table-scroll > table,
+:root #write.preview-content .md-table-scroll > table,
 .plain-block__render .md-table-scroll > table {
-  width: max-content;
+  width: 100%;
   max-width: none;
   margin: 0.6em 0;
   border-collapse: collapse;
   table-layout: auto;
+  overflow: visible;
 }
 .cm-host .cm-editor .cm-live-block--table th,
 .cm-host .cm-editor .cm-live-block--table td,
 .preview-content .md-table-scroll th,
 .preview-content .md-table-scroll td,
+:root #write.preview-content .md-table-scroll :is(th, td),
 .plain-block__render .md-table-scroll th,
 .plain-block__render .md-table-scroll td {
-  min-width: 6rem;
-  max-width: 36rem;
+  min-width: 4em;
+  max-width: none;
   vertical-align: top;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -133,17 +186,34 @@
   min-height: 1lh;
 }
 @media print {
+  :root #write.preview-content:has(> .md-table-frame--wide):not(.preview-content--fit) > :not(.md-table-frame),
+  :root #write.preview-content--reading:has(> .md-table-frame--wide):not(.preview-content--fit) > :not(.md-table-frame) {
+    max-width: none;
+  }
+  .md-table-scrollbar {
+    display: none !important;
+  }
+  .md-table-frame,
+  .cm-host .cm-editor .cm-live-block.cm-live-block--table,
   .preview-content .md-table-scroll,
   .plain-block__render .md-table-scroll {
     contain: none;
     overflow: visible;
   }
-  .preview-content .md-table-scroll > table {
+  .cm-host .cm-editor .cm-live-block--table table,
+  :root #write.preview-content .md-table-scroll > table,
+  .preview-content .md-table-scroll > table,
+  .plain-block__render .md-table-scroll > table {
     width: 100%;
     table-layout: fixed;
   }
+  .cm-host .cm-editor .cm-live-block--table th,
+  .cm-host .cm-editor .cm-live-block--table td,
   .preview-content .md-table-scroll th,
-  .preview-content .md-table-scroll td {
+  .preview-content .md-table-scroll td,
+  :root #write.preview-content .md-table-scroll :is(th, td),
+  .plain-block__render .md-table-scroll th,
+  .plain-block__render .md-table-scroll td {
     min-width: 0;
   }
 }

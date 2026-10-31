@@ -3,7 +3,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, lineNumbers, drawSelection } from '@codemirror/view';
 import { editorLayoutExtension } from '../lib/cm-layout';
-import { wrapScrollableTables } from '../lib/markdown-layout';
+import { wrapScrollableTables, cleanupScrollableTables } from '../lib/markdown-layout';
 import { undo, redo } from '@codemirror/commands';
 import { openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
@@ -406,6 +406,7 @@ function setPlainEditor(el: HTMLTextAreaElement | null) {
 }
 
 const plainLiveHost = ref<HTMLDivElement | null>(null);
+let plainTableRoot: HTMLElement | null = null;
 const plainBlockEditors = ref<Record<number, HTMLTextAreaElement | null>>({});
 const plainText = ref(props.tab.content || '');
 const plainActiveBlock = ref(0);
@@ -667,6 +668,9 @@ async function processPlainLiveRenderedBlocks() {
   if (!plainLiveEnabled.value || !plainLiveHost.value) return;
   await nextTick();
   const hostEl = plainLiveHost.value;
+  if (!plainLiveEnabled.value || !hostEl) return;
+  if (plainTableRoot && plainTableRoot !== hostEl) cleanupScrollableTables(plainTableRoot);
+  plainTableRoot = hostEl;
   wrapScrollableTables(hostEl, t('tableEditor.heading'));
   installSvgImageFallbacks(hostEl);
 
@@ -2353,6 +2357,7 @@ function richExtensionsFor(tab: Tab) {
     return liveEditExtension([
       liveBlocksExtension({
         renderCodeBlocks: true,
+        getTableLabel: () => t('tableEditor.heading'),
         getCodeLabel: () => t('toolbar.copy'),
         getImageRoot: imageRootFn,
         getFilePath: filePathFn,
@@ -3337,6 +3342,8 @@ function onGlobalKeyDown(e: KeyboardEvent) {
 
 onBeforeUnmount(() => {
   window.removeEventListener('solomd:flush-content-sync', flushContentSync);
+  if (plainTableRoot) cleanupScrollableTables(plainTableRoot);
+  plainTableRoot = null;
   finishCompositionAtBoundary(renderedTabId);
   cancelCurrentSmoothScroll();
   window.removeEventListener('pointerup', handleGlobalPointerUp);
@@ -3724,6 +3731,8 @@ watch(
 // A stale select-all must not survive leaving live edit (the merged single
 // block would greet the user on re-entry).
 watch(plainLiveEnabled, () => {
+  if (plainTableRoot) cleanupScrollableTables(plainTableRoot);
+  plainTableRoot = null;
   plainSelectAll.value = false;
   plainSelectAllPending = false;
   syncPlainEditorAfterModeSwitch();

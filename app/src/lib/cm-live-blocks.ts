@@ -49,6 +49,8 @@ import { renderMarkdown, renderInlineMarkdown, extractImageRoot } from './markdo
 import { markdownCodeBlocks } from './markdown-structure';
 import { openExternalUrl } from './open-external';
 import { findHtmlBlockEnd } from './html-live-render';
+import { attachTableScrollFrame } from './table-scroll';
+import { wrapScrollableTables, cleanupScrollableTables } from './markdown-layout';
 import { caretTouchesInline } from './cm-live-render';
 import {
   parseTable,
@@ -207,6 +209,8 @@ class ImageWidget extends WidgetType {
   }
 }
 
+const tableScrollDisposers = new WeakMap<HTMLElement, () => void>();
+
 interface TableController {
   model: TableModel;
   from: number;
@@ -223,7 +227,7 @@ class TableWidget extends WidgetType {
     readonly source: string,
     readonly blockFrom: number,
     readonly blockTo: number,
-    _opts?: BlockOptions,
+    private readonly opts?: BlockOptions,
   ) {
     super();
     this.parsedModel = parseTable(source);
@@ -254,15 +258,22 @@ class TableWidget extends WidgetType {
     if (!model) {
       const html = renderMarkdown(this.source);
       wrap.innerHTML = html;
+      wrapScrollableTables(wrap, this.opts?.getTableLabel?.() || '');
+      tableScrollDisposers.set(wrap, () => cleanupScrollableTables(wrap));
       trackImageHeights(wrap);
       return wrap;
     }
 
     const table = document.createElement('table');
     table.className = 'cm-interactive-table';
-    wrap.appendChild(table);
-
     this.renderTableContent(table, model, view, wrap);
+    const frame = document.createElement('div');
+    frame.className = 'md-table-frame';
+    wrap.appendChild(frame);
+    tableScrollDisposers.set(wrap, attachTableScrollFrame(
+      frame, table, this.opts?.getTableLabel?.() || '', () => view.requestMeasure?.(),
+      undefined, () => window.dispatchEvent(new CustomEvent('solomd:table-toolbar-hide')),
+    ));
     trackImageHeights(wrap);
     return wrap;
   }
@@ -662,7 +673,9 @@ class TableWidget extends WidgetType {
     return true;
   }
 
-  destroy(): void {
+  destroy(dom: HTMLElement): void {
+    tableScrollDisposers.get(dom)?.();
+    tableScrollDisposers.delete(dom);
     window.dispatchEvent(new CustomEvent('solomd:table-toolbar-hide'));
   }
 }
@@ -1079,6 +1092,7 @@ class TldrawWidget extends WidgetType {
 
 interface BlockOptions {
   renderCodeBlocks?: boolean;
+  getTableLabel?: () => string;
   getCodeLabel?: () => string;
   /** Workspace context for resolving relative image paths. */
   getImageRoot?: () => string | null;
@@ -1636,8 +1650,9 @@ export const liveBlocksTheme = EditorView.theme({
     borderCollapse: 'collapse',
     margin: '1.2em 0',
     fontSize: '1em',
-    width: 'max-content',
-    maxWidth: '100%',
+    width: '100%',
+    maxWidth: 'none',
+    tableLayout: 'auto',
     borderRadius: '6px',
     boxShadow: '0 0 0 1px var(--border)',
     overflow: 'hidden',

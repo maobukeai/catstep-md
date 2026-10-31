@@ -19,7 +19,7 @@ import { useFiles } from '../composables/useFiles';
 import PreviewSearch from './PreviewSearch.vue';
 import InPlaceTableToolbar from './InPlaceTableToolbar.vue';
 import { attachCodeCopyButtons as attachSharedCodeCopyButtons } from '../lib/code-copy';
-import { wrapScrollableTables } from '../lib/markdown-layout';
+import { wrapScrollableTables, cleanupScrollableTables } from '../lib/markdown-layout';
 import {
   findTableSpan,
   findTableAtCursor,
@@ -450,6 +450,7 @@ watch(
   () => [settings.plantumlEnabled, settings.plantumlServer],
   async () => {
     if (!host.value) return;
+    cleanupScrollableTables(host.value);
     host.value.innerHTML = html.value;
     await nextTick();
     wrapScrollableTables(host.value, t('tableEditor.heading'));
@@ -688,19 +689,23 @@ onMounted(async () => {
   await processWhiteboards();
   attachImageOverlayHandlers();
   attachCodeCopyButtons();
+  if (host.value) wrapScrollableTables(host.value, t('tableEditor.heading'));
   host.value?.addEventListener('click', handleLinkClick);
   host.value?.addEventListener('click', onPreviewTaskClick);
   host.value?.addEventListener('click', onPreviewTableClick);
   host.value?.addEventListener('dblclick', onPreviewDblClick);
   host.value?.parentElement?.addEventListener('scroll', onPreviewScroll, { passive: true });
+  host.value?.addEventListener('scroll', onPreviewScroll, { passive: true, capture: true });
 });
 
 onBeforeUnmount(() => {
+  if (host.value) cleanupScrollableTables(host.value);
   host.value?.removeEventListener('click', handleLinkClick);
   host.value?.removeEventListener('click', onPreviewTaskClick);
   host.value?.removeEventListener('click', onPreviewTableClick);
   host.value?.removeEventListener('dblclick', onPreviewDblClick);
   host.value?.parentElement?.removeEventListener('scroll', onPreviewScroll);
+  host.value?.removeEventListener('scroll', onPreviewScroll, true);
   previewTableState.value.visible = false;
   if (renderTimer) {
     clearTimeout(renderTimer);
