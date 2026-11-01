@@ -502,17 +502,32 @@ fn build_installer_command(
 }
 
 // ShellExecute's lpParameters uses the executable's Windows argv parser, not
-// cmd.exe. Quote every argument and escape quotes/trailing backslashes using
-// the CRT convention. %, &, ! and ^ are literal data here.
+// cmd.exe. A command-line argument only needs quotes if it is empty, or contains
+// whitespace (space or tab) or quotes.
+//
+// Command switches like /i, /passive, /norestart, /L*V, /S MUST NOT be quoted:
+// engines like msiexec.exe treat "/i" as an invalid command-line argument
+// and abort with exit code 1639 (ERROR_INVALID_COMMAND_LINE).
 fn shell_parameters(command: &Command) -> Vec<u16> {
     let mut parameters = Vec::new();
     for argument in command.get_args() {
         if !parameters.is_empty() {
             parameters.push(b' ' as u16);
         }
+        let wide: Vec<u16> = argument.encode_wide().collect();
+        let needs_quotes = wide.is_empty()
+            || wide
+                .iter()
+                .any(|&c| c == b' ' as u16 || c == b'\t' as u16 || c == b'"' as u16);
+
+        if !needs_quotes {
+            parameters.extend_from_slice(&wide);
+            continue;
+        }
+
         parameters.push(b'"' as u16);
         let mut slashes = 0;
-        for ch in argument.encode_wide() {
+        for &ch in &wide {
             if ch == b'\\' as u16 {
                 slashes += 1;
                 continue;
@@ -956,5 +971,24 @@ mod tests {
         );
         let system = system_msiexec().unwrap();
         assert!(system.is_absolute() && system.is_file());
+    }
+
+    #[test]
+    fn shell_parameters_does_not_quote_unspaced_switches() {
+        let mut command = Command::new("msiexec.exe");
+        command
+            .arg("/i")
+            .arg(r"C:\Program Files\installer.msi")
+            .arg("/passive")
+            .arg("/norestart")
+            .arg("/L*V")
+            .arg(r"C:\Users\log.txt")
+            .arg("");
+        let params = shell_parameters(&command);
+        let string = String::from_utf16(&params[..params.len() - 1]).unwrap();
+        assert_eq!(
+            string,
+            r#"/i "C:\Program Files\installer.msi" /passive /norestart /L*V C:\Users\log.txt """#
+        );
     }
 }
