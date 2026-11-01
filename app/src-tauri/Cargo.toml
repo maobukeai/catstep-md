@@ -1,6 +1,6 @@
 [package]
 name = "catstep-md"
-version = "1.0.13"
+version = "1.0.14"
 description = "猫步 MD (Catstep MD) — a lightweight, cross-platform Markdown + plain text editor"
 authors = ["maobukeai"]
 edition = "2021"
@@ -60,6 +60,9 @@ lto = "thin"
 codegen-units = 16
 strip = "symbols"
 incremental = false
+
+[profile.release.build-override]
+opt-level = 0
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary

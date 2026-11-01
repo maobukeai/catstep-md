@@ -385,7 +385,7 @@ interface GitHubReleaseJson {
 /** Fetch latest release info from GitHub official Releases API */
 async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.13');
+    const current = await getVersion().catch(() => '1.0.14');
     const res = await fetch(GITHUB_API_URL, {
       cache: 'no-store',
       signal: AbortSignal.timeout(3500),
@@ -431,7 +431,7 @@ async function fetchFromGitHubApi(): Promise<UpdateResult | null> {
 /** Fetch latest release by following GitHub's web release redirect (fallback) */
 async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
   try {
-    const current = await getVersion().catch(() => '1.0.13');
+    const current = await getVersion().catch(() => '1.0.14');
     const res = await fetch(LATEST_RELEASE_PAGE, {
       cache: 'no-store',
       redirect: 'follow',
@@ -465,7 +465,7 @@ async function fetchFromGitHubWebRedirect(): Promise<UpdateResult | null> {
 }
 
 export async function checkForUpdate(): Promise<UpdateResult> {
-  const current = await getVersion().catch(() => '1.0.13');
+  const current = await getVersion().catch(() => '1.0.14');
   if (MAS_BUILD) {
     return { current, latest: null, hasUpdate: false, url: '', error: false };
   }
