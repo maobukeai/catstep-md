@@ -260,6 +260,15 @@ export const PDF_CSS = `
     page-break-inside: avoid;
     break-inside: avoid;
   }
+  .pdf-page .md-table-scrollbar {
+    display: none !important;
+  }
+  .pdf-page .md-table-scroll {
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: none !important;
+    contain: none !important;
+  }
   .pdf-page table {
     border-collapse: collapse;
     margin: 1.3em 0;
@@ -281,6 +290,8 @@ export const PDF_CSS = `
     text-align: left;
     page-break-inside: avoid;
     break-inside: avoid;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
   .pdf-page thead th {
     background: var(--bg-elev, #f7f4ec);
@@ -458,22 +469,51 @@ export function prepareExportDom(root: HTMLElement): void {
       img.style.objectFit = 'contain';
     });
 
+    // Strip on-screen interactive scrollbars and release scroll container limits
+    const scrollbars = root.querySelectorAll('.md-table-scrollbar');
+    scrollbars.forEach((bar) => {
+      (bar as HTMLElement).style.display = 'none';
+    });
+    const scrollContainers = root.querySelectorAll('.md-table-scroll');
+    scrollContainers.forEach((scroller) => {
+      const el = scroller as HTMLElement;
+      el.style.overflow = 'visible';
+      el.style.width = '100%';
+      el.style.maxWidth = 'none';
+      (el.style as any).contain = 'none';
+    });
+
     // Normalize table structure for seamless multi-page row-by-row rendering
     const tables = root.querySelectorAll('table');
     tables.forEach((t) => {
       t.style.pageBreakInside = 'auto';
       (t.style as any).breakInside = 'auto';
+      t.style.width = '100%';
+      t.style.maxWidth = 'none';
       const thead = t.querySelector('thead');
       if (thead) {
         thead.style.display = 'table-header-group';
+      }
+      const firstRow = t.querySelector('tr');
+      const columnCount = firstRow ? firstRow.querySelectorAll('th, td').length : 0;
+      const isWideTable = columnCount >= 6;
+      if (isWideTable) {
+        t.style.tableLayout = 'fixed';
       }
       t.querySelectorAll('tr').forEach((tr) => {
         tr.style.pageBreakInside = 'avoid';
         (tr.style as any).breakInside = 'avoid';
       });
       t.querySelectorAll('th, td').forEach((cell) => {
-        (cell as HTMLElement).style.pageBreakInside = 'avoid';
-        ((cell as HTMLElement).style as any).breakInside = 'avoid';
+        const el = cell as HTMLElement;
+        el.style.pageBreakInside = 'avoid';
+        (el.style as any).breakInside = 'avoid';
+        el.style.wordBreak = 'break-word';
+        el.style.overflowWrap = 'anywhere';
+        if (isWideTable) {
+          el.style.padding = '4px 6px';
+          el.style.fontSize = '0.9em';
+        }
       });
     });
   } catch {

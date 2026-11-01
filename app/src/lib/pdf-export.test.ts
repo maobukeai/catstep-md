@@ -177,4 +177,86 @@ test('pdf-export: dynamic timeout calculation scales with document length to pre
   const longTimeout = Math.max(60_000, longPages * 4_000);
   assert.ok(longTimeout >= 260_000, '65-page doc gets >= 260s timeout guard');
 });
+test('pdf-export: PDF_CSS hides interactive table scrollbars and fits table layout', () => {
+  assert.ok(PDF_CSS.includes('.pdf-page .md-table-scrollbar'), 'Must target md-table-scrollbar');
+  assert.ok(PDF_CSS.includes('display: none !important;'), 'Must hide scrollbar strip');
+  assert.ok(PDF_CSS.includes('.pdf-page .md-table-scroll'), 'Must target md-table-scroll');
+  assert.ok(PDF_CSS.includes('overflow: visible !important;'), 'Scroll container must not clip table in export');
+  assert.ok(PDF_CSS.includes('word-break: break-word;'), 'Cells must wrap long words');
+  assert.ok(PDF_CSS.includes('overflow-wrap: anywhere;'), 'Cells must wrap anywhere');
+});
 
+test('pdf-export: prepareExportDom normalizes wide tables and hides scrollbars', () => {
+  interface MockNode {
+    tagName: string;
+    className: string;
+    parentElement: MockNode | null;
+    children: MockNode[];
+    style: Record<string, string>;
+    closest(selector: string): MockNode | null;
+    querySelector(selector: string): MockNode | null;
+    querySelectorAll(selector: string): MockNode[];
+  }
+
+  function createNode(tag: string, className = '', parent: MockNode | null = null): MockNode {
+    const node: MockNode = {
+      tagName: tag.toUpperCase(),
+      className,
+      parentElement: parent,
+      children: [],
+      style: {},
+      closest() { return null; },
+      querySelector(selector: string) {
+        return this.querySelectorAll(selector)[0] || null;
+      },
+      querySelectorAll(selector: string) {
+        const matches: MockNode[] = [];
+        function walk(n: MockNode) {
+          for (const child of n.children) {
+            if (selector.startsWith('.')) {
+              if (child.className.split(' ').includes(selector.slice(1))) matches.push(child);
+            } else if (selector.includes(',')) {
+              const tags = selector.split(',').map(s => s.trim().toUpperCase());
+              if (tags.includes(child.tagName)) matches.push(child);
+            } else if (child.tagName === selector.toUpperCase()) {
+              matches.push(child);
+            }
+            walk(child);
+          }
+        }
+        walk(this);
+        return matches;
+      },
+    };
+    if (parent) parent.children.push(node);
+    return node;
+  }
+
+  const root = createNode('div');
+  const scrollbar = createNode('div', 'md-table-scrollbar', root);
+  const scroller = createNode('div', 'md-table-scroll', root);
+  const table = createNode('table', '', scroller);
+  const thead = createNode('thead', '', table);
+  const headerRow = createNode('tr', '', thead);
+  for (let i = 0; i < 8; i++) {
+    createNode('th', '', headerRow);
+  }
+  const tbody = createNode('tbody', '', table);
+  const bodyRow = createNode('tr', '', tbody);
+  for (let i = 0; i < 8; i++) {
+    createNode('td', '', bodyRow);
+  }
+
+  prepareExportDom(root as unknown as HTMLElement);
+
+  assert.equal(scrollbar.style.display, 'none');
+  assert.equal(scroller.style.overflow, 'visible');
+  assert.equal(scroller.style.width, '100%');
+  assert.equal(table.style.tableLayout, 'fixed');
+
+  headerRow.children.forEach((th) => {
+    assert.equal(th.style.wordBreak, 'break-word');
+    assert.equal(th.style.overflowWrap, 'anywhere');
+    assert.equal(th.style.padding, '4px 6px');
+  });
+});
